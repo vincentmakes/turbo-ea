@@ -5,11 +5,24 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.211.0] - 2026-11-23
+
+### Added
+
+- Track Initiative budgets, Cost Items and actual invoicing in a nested view with printable totals.
+- Configure fields, formulas and Provider inheritance for Initiative financial records.
+- View budget and actual spend as overlapping bars and follow planned and actual dates on Initiative cards and the internal Portfolio.
+
+### Changed
+
+- Rename the PPM module to Project Master List (PML) while keeping existing links working.
+
 ## [2.210.0] - 2026-11-22
 
 ### Added
 
 - Configure lifecycle stages by card type, assign the current stage on a card, and filter by stage in Inventory and saved views.
+- An extension page can open a card in the side panel directly on the field, section or relation group to fill, as the data-quality score already does on the card page (UI SDK 1.37).
 
 ## [2.209.0] - 2026-11-22
 
@@ -17,12 +30,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Import annual card costs from Excel in the Cost Report using a catalogue-based template, row-by-row preview and an import results report.
 - Record Cost Report template downloads in the security and admin log.
+- A change an extension makes for a signed-in person can be recorded under that person's name, so the card history shows who applied it. Changes an extension makes on its own keep showing System.
 
 ### Changed
 
 - Scope the Cost Report to Applications, IT Components or both. Card badges appear in all views, and fullscreen keeps the drill-down breadcrumb visible and supports the Table view.
 
+### Security
+
+- Rolling back a change set that has no author, such as one an extension made, now needs the audit-log permission, as reading it already did.
+
 ## [2.208.1] - 2026-11-22
+
+### Fixed
+
+- Going back from the EA Delivery tab to the Portfolio tab on the PPM page left the page link pointing at EA Delivery, so a reload or a shared link opened the wrong tab.
 
 ### Security
 
@@ -34,10 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - In decision and SoAW sections, insert pictures, links, code and editable tables. Attach diagrams to decisions.
 - MCP can update tags and discover or call operations from installed and licensed extensions.
+- A **Filters** section on the PPM portfolio narrows the board by related cards (with their sub-cards), tags and the initiatives' own fields. It starts folded and keeps active filters in the page link and in print and export headers.
+- The PPM portfolio remembers its search, grouping, subtype, hierarchy and filters between visits and offers a Reset button.
 
 ### Changed
 
 - The Inventory query bar can collapse, and each grid filter section has its own clear action.
+- The PPM portfolio's tiles follow the visible rows, including on public portfolio portals with a default subtype.
 
 ### Fixed
 

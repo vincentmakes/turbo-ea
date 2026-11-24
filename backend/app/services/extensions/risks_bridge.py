@@ -18,12 +18,15 @@ Design invariants (mirroring ``adr_bridge`` and ``data_service``):
   its own key prefix). A person's risk is never edited by a program.
 * **Provenance without a synthetic author.** Every risk it files carries
   ``source_type="extension"`` and ``source_ref="{key}:{ref}"``, ``created_by``
-  stays NULL, and the write runs in a committed ``MutationBatch(
-  tool_name="ext:{key}", origin="ext")`` with the ``request_origin``
-  contextvar set to ``"ext"``. The ``risk.added`` events fanned out to the
-  linked cards carry ``ext: {key}`` like every other bridge write, so the
-  extension's own event handler filters them by default. Honours the
-  instance-wide ``EXTENSION_WRITES_ENABLED`` kill switch.
+  stays NULL — unless the write runs inside ``ctx.on_behalf_of(user)``
+  (SDK 1.19), which makes that person the creator and the actor of the owner
+  todo and the card events, exactly as if they had filed it — and the
+  write runs in a committed ``MutationBatch(tool_name="ext:{key}",
+  origin="ext")`` with the ``request_origin`` contextvar set to ``"ext"``.
+  The ``risk.added`` events fanned out to the linked cards carry
+  ``ext: {key}`` like every other bridge write, so the extension's own
+  event handler filters them by default. Honours the instance-wide
+  ``EXTENSION_WRITES_ENABLED`` kill switch.
 * **One writer.** The row comes from ``risk_service.create_risk`` — the same
   function ``POST /risks`` calls — so the reference sequence, the owner's
   system Todo, the ``risk_assigned`` notification and the card events are
@@ -340,7 +343,7 @@ class ExtensionRisks(RisksBridge):
                 card_ids=linked,
                 source_type=SOURCE_TYPE,
                 source_ref=full_ref,
-                actor_id=None,
+                actor_id=data_service.acting_person_id(),
                 event_extra={"ext": self._key},
             )
             await db.refresh(risk)
@@ -412,12 +415,17 @@ class ExtensionRisks(RisksBridge):
                 new_links = [cid for cid in wanted if cid not in existing]
                 await risk_service.link_cards(db, risk.id, new_links)
             await risk_service.sync_owner_todo(
-                db, risk, actor_id=None, previous_owner=previous_owner
+                db, risk, actor_id=data_service.acting_person_id(), previous_owner=previous_owner
             )
             linked = await risk_service.linked_card_ids(db, risk.id)
             if new_links:
                 await risk_service.publish_risk_event(
-                    db, risk, "risk.added", new_links, actor_id=None, extra={"ext": self._key}
+                    db,
+                    risk,
+                    "risk.added",
+                    new_links,
+                    actor_id=data_service.acting_person_id(),
+                    extra={"ext": self._key},
                 )
             changes = risk_service.risk_changes(before, risk)
             await risk_service.publish_risk_event(
@@ -425,7 +433,7 @@ class ExtensionRisks(RisksBridge):
                 risk,
                 "risk.updated",
                 [cid for cid in linked if cid not in new_links],
-                actor_id=None,
+                actor_id=data_service.acting_person_id(),
                 extra={"ext": self._key, "fields": sorted(changes), "changes": changes},
             )
             await db.refresh(risk)

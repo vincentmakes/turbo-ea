@@ -105,7 +105,7 @@ describe("ModuleGate", () => {
 
   it.each([
     ["bpm", "BPM", "/admin/settings?tab=bpm"],
-    ["ppm", "PPM", "/admin/settings?tab=ppm"],
+    ["ppm", "PML", "/admin/settings?tab=ppm"],
     ["turbolens", "TurboLens", "/admin/settings?tab=turbolens"],
     ["grc", "GRC", "/admin/settings"],
     ["valuechain", "Value Chain", "/admin/settings?tab=bpm"],

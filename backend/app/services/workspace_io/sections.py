@@ -44,6 +44,7 @@ from app.models.document_image import DocumentImage
 from app.models.file_attachment import FileAttachment
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
+from app.models.ppm_invoice import PpmInvoice
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
@@ -204,8 +205,27 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("initiative_id",),
         user_fk_columns=("reporter_id",),
     ),
-    EntitySection("PpmCostLines", PpmCostLine, card_fk_columns=("initiative_id",)),
-    EntitySection("PpmBudgetLines", PpmBudgetLine, card_fk_columns=("initiative_id",)),
+    EntitySection(
+        "PpmBudgetLines",
+        PpmBudgetLine,
+        card_fk_columns=("initiative_id",),
+        rewrite=remap.rewrite_pml_row,
+        id_bearing_columns=("field_values",),
+    ),
+    EntitySection(
+        "PpmCostLines",
+        PpmCostLine,
+        card_fk_columns=("initiative_id",),
+        rewrite=remap.rewrite_pml_row,
+        id_bearing_columns=("field_values",),
+    ),
+    EntitySection(
+        "PpmInvoices",
+        PpmInvoice,
+        card_fk_columns=("initiative_id",),
+        rewrite=remap.rewrite_pml_row,
+        id_bearing_columns=("field_values",),
+    ),
     EntitySection(
         "PpmRisks", PpmRisk, card_fk_columns=("initiative_id",), user_fk_columns=("owner_id",)
     ),

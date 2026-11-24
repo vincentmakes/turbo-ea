@@ -177,7 +177,7 @@ Ud over en godkendelsesstatus og en livscyklusfase kan et diagram eller en KPI i
 
 Et Sankey-diagram tager en relationstype og grupperer **hver ende** for sig: efter korttype, undertype, godkendelsesstatus, livscyklusfase, datakvalitet, et felt for den ende af typen eller **selve kortene** — Organisation → Applikation viser, hvilke organisationer der bruger hvilke applikationer, hvor de tyve største kort i hver ende beholdes, og resten samles under *Andet*; widgetten fortæller det under diagrammet, og **Viste kategorier (højst)** hæver grænsen. Et klik på en kortknude åbner kortet.
 
-Diagrammer kan også tegne en modulrapport: risici efter niveau eller status, compliancescorer efter regulering, tidsplansstatus i PPM og BPM-modenhed står i kataloget, når modulet er aktiveret, og du har dets tilladelse. Tags kan endnu ikke bruges som dimension eller filter.
+Diagrammer kan også tegne en modulrapport: risici efter niveau eller status, compliancescorer efter regulering, tidsplansstatus i PML og BPM-modenhed står i kataloget, når modulet er aktiveret, og du har dets tilladelse. Tags kan endnu ikke bruges som dimension eller filter.
 
 Fire færdige diagrammer findes i familien **Diagrammer** i kataloget, hvert tilbudt, når din metamodel har de nødvendige dele: **Applikationer pr. organisation**, **Kalender for livscyklusafslutning**, **Forældede kort efter type** og Sankey-diagrammet **Organisation → Applikation**.
 

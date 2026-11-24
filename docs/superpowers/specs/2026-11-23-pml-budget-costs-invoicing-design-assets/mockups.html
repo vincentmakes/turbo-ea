@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project Master List · Mockup</title>
+</head>
+<body style="margin:0">
+<div id="pml-preview">
+  <style>
+    #pml-preview {
+      color-scheme: light dark;
+      --page: light-dark(#f3f6fa, #131c2c);
+      --paper: light-dark(#fff, #1a263a);
+      --well: light-dark(#edf3fa, #25354d);
+      --ink: light-dark(#15253d, #edf4ff);
+      --subtle: light-dark(#4c6078, #b1c2da);
+      --line: light-dark(#d2deed, #3d4e67);
+      --blue: light-dark(#2056a2, #98c3ff);
+      --blue-well: light-dark(#e3eeff, #293f63);
+      --teal: light-dark(#00695b, #74dfc8);
+      --teal-well: light-dark(#def4ed, #163e37);
+      font: 14px/1.5 Inter, system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--page);
+      font-variant-numeric: tabular-nums;
+    }
+    #pml-preview *, #pml-preview *::before, #pml-preview *::after { box-sizing: border-box; }
+    #pml-preview [hidden] { display: none !important; }
+    #pml-preview h1, #pml-preview h2, #pml-preview h3, #pml-preview p,
+    #pml-preview dl, #pml-preview dd, #pml-preview figure { margin: 0; }
+    #pml-preview h1 { font-size: clamp(22px, 3vw, 32px); line-height: 1.25; }
+    #pml-preview h2 { font-size: 19px; }
+    #pml-preview h3 { font-size: 16px; }
+    #pml-preview small { color: var(--subtle); font-size: 12px; }
+    #pml-preview header {
+      padding: 12px clamp(14px, 3vw, 28px);
+      background: #192c4a;
+      color: #f5f8ff;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    #pml-preview header strong { border-right: 1px solid #8394b0; padding-right: 16px; }
+    #pml-preview main { max-width: 1200px; margin: auto; padding: 22px clamp(12px, 3vw, 30px) 30px; }
+    #pml-preview nav { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+    #pml-preview button, #pml-preview input {
+      font: inherit;
+      color: inherit;
+    }
+    #pml-preview button {
+      border: 1px solid var(--line); border-radius: 6px; padding: 7px 11px; background: var(--paper);
+    }
+    #pml-preview button:hover { border-color: var(--blue); }
+    #pml-preview button.primary { background: #2258a3; color: #fff; border-color: #2258a3; }
+    #pml-preview .primary:hover { background: #17437f; }
+    #pml-preview nav button { border-color: transparent; background: transparent; }
+    #pml-preview nav button[aria-pressed="true"] { background: var(--blue-well); color: var(--blue); }
+    #pml-preview :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+    #pml-preview section.screen { padding-top: 18px; display: grid; gap: 14px; }
+    #pml-preview .heading, #pml-preview .row, #pml-preview .action-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    }
+    #pml-preview .heading { margin-bottom: 15px; }
+    #pml-preview .total { background: var(--teal-well); border-radius: 8px; padding: 9px 14px; color: var(--teal); }
+    #pml-preview .total span { margin-left: 8px; font-size: 18px; font-weight: 700; }
+    #pml-preview .sheet, #pml-preview details.budget, #pml-preview details.legacy {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+    }
+    #pml-preview .sheet { padding: clamp(12px, 2vw, 19px); display: grid; gap: 12px; min-width: 0; }
+    #pml-preview summary { padding: 13px; }
+    #pml-preview summary > .summary-body { display: inline-block; vertical-align: middle; width: calc(100% - 22px); }
+    #pml-preview summary strong { display: block; }
+    #pml-preview .figures { display: flex; flex-wrap: wrap; gap: 7px 18px; }
+    #pml-preview .figures dt { color: var(--subtle); font-size: 12px; }
+    #pml-preview .figures dd { font-size: 16px; font-weight: 650; }
+    #pml-preview .branch { display: grid; gap: 10px; padding: 0 12px 12px; }
+    #pml-preview .cost { border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 8px; }
+    #pml-preview .cost details, #pml-preview details.cost { background: var(--paper); }
+    #pml-preview .cost[open] > summary { background: var(--well); border-radius: 6px 6px 0 0; }
+    #pml-preview .cost-body { padding: 12px; display: grid; gap: 10px; }
+    #pml-preview .metadata, #pml-preview .status { display: flex; flex-wrap: wrap; gap: 7px 18px; }
+    #pml-preview .metadata dt { color: var(--subtle); font-size: 12px; }
+    #pml-preview .table-shell { overflow-x: auto; }
+    #pml-preview table { width: 100%; text-align: left; border-collapse: collapse; }
+    #pml-preview th, #pml-preview td { padding: 8px; border-bottom: 1px solid var(--line); }
+    #pml-preview th { color: var(--subtle); font-weight: 600; }
+    #pml-preview .number { text-align: right; }
+    #pml-preview .cost-body td, #pml-preview .cost-body th { white-space: nowrap; }
+    #pml-preview .muted { color: var(--subtle); }
+    #pml-preview .axis, #pml-preview .track {
+      display: grid; grid-template-columns: 68px minmax(0,1fr); gap: 8px; align-items: center;
+    }
+    #pml-preview .quarters { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); text-align: center; }
+    #pml-preview .quarters > span { color: var(--subtle); font-size: 12px; }
+    #pml-preview .track { margin-top: 7px; }
+    #pml-preview .rail {
+      position: relative; height: 18px; border-radius: 3px; background: var(--well);
+      background-image: linear-gradient(to right, transparent calc(100% - 1px), var(--line) 0);
+      background-size: calc(100% / 7) 100%;
+    }
+    #pml-preview .rail span {
+      position: absolute; inset-block: 3px; left: var(--left); width: var(--width);
+      background: var(--blue); border-radius: 3px;
+    }
+    #pml-preview .track.actual .rail span { background: var(--teal); }
+    #pml-preview .status > span { background: var(--well); border-radius: 5px; padding: 5px 8px; }
+    #pml-preview .financial-chart { display: grid; gap: 10px; }
+    #pml-preview .financial-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--subtle); }
+    #pml-preview .financial-legend span { display: inline-flex; gap: 6px; align-items: center; }
+    #pml-preview .financial-legend i { display: inline-block; width: 20px; }
+    #pml-preview .budget-mark {
+      height: 22px; border-radius: 3px;
+      background: color-mix(in srgb, var(--blue) 35%, var(--paper));
+    }
+    #pml-preview .actual-mark { height: 10px; border-radius: 2px; background: var(--blue); }
+    #pml-preview .comparison {
+      display: grid; grid-template-columns: 53px minmax(0,1fr) minmax(154px, 22%);
+      gap: 10px; align-items: center;
+    }
+    #pml-preview .comparison-bars { position: relative; height: 24px; }
+    #pml-preview .comparison-bars span {
+      position: absolute; inset-inline-start: 0; inset-block-start: 50%; transform: translateY(-50%);
+      width: var(--width);
+    }
+    #pml-preview .comparison-values { white-space: nowrap; }
+    #pml-preview .comparison-values small { display: block; }
+    #pml-preview dialog {
+      background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 12px;
+      width: min(440px, calc(100% - 32px)); padding: 20px; margin: auto;
+    }
+    #pml-preview dialog::backdrop { background: #101b33aa; }
+    #pml-preview form { display: grid; gap: 12px; }
+    #pml-preview label { display: grid; gap: 4px; }
+    #pml-preview input {
+      min-width: 0; padding: 7px 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--page);
+    }
+    @media (max-width: 500px) {
+      #pml-preview .figures { flex-basis: 100%; }
+      #pml-preview .axis, #pml-preview .track { grid-template-columns: 43px minmax(0,1fr); }
+      #pml-preview .quarters > span { font-size: 11px; }
+      #pml-preview .comparison { grid-template-columns: 46px minmax(0,1fr); gap: 2px 8px; }
+      #pml-preview .comparison-values { grid-column: 2; white-space: normal; }
+      #pml-preview .comparison-values strong { display: inline-block; margin-inline-end: 5px; }
+      #pml-preview .comparison-values small { display: inline-block; }
+    }
+  </style>
+  <header><strong>Turbo EA</strong><span>Project Master List</span></header>
+  <main>
+    <div class="heading">
+      <div><small>Initiative</small><h1>Modernizzazione piattaforma</h1></div>
+    </div>
+    <nav aria-label="Schermate PML" data-tabs>
+      <button type="button" aria-pressed="true" aria-controls="pml-budget">Budget &amp; Costs</button>
+      <button type="button" aria-pressed="false" aria-controls="pml-card">Scheda Initiative</button>
+      <button type="button" aria-pressed="false" aria-controls="pml-portfolio">Portfolio</button>
+      <button type="button" aria-pressed="false" aria-controls="pml-settings">Configurazione</button>
+    </nav>
+    <section class="screen" id="pml-budget" aria-label="Budget &amp; Costs">
+      <div class="row">
+        <h2>Planned Budget · FY 2026</h2>
+        <div class="total" aria-live="polite">Actual Invoiced · Initiative <span data-initiative-total>6.800</span></div>
+      </div>
+      <details class="budget" open>
+        <summary><span class="summary-body"><span class="row">
+          <span><strong>Platform FY26</strong><small>CapEx · Aruba Software</small></span>
+          <span class="figures">
+            <span><small>Budget</small><strong>12.000</strong></span>
+            <span><small>Total Cost Items</small><strong>10.000</strong></span>
+            <span><small>Total Invoiced</small><strong id="pml-budget-invoiced">6.500</strong></span>
+            <span><small>Remaining to Invoice</small><strong id="pml-budget-remaining">3.500</strong></span>
+          </span>
+        </span></span></summary>
+        <div class="branch">
+          <h3>Cost Items</h3>
+          <details class="cost" open>
+            <summary><span class="summary-body"><span class="row">
+              <span><strong>Renewal</strong><small>CapEx · Aruba Software / Licensing</small></span>
+              <span class="figures">
+                <span><small>Actual Cost</small><strong>8.000</strong></span>
+                <span><small>Total Invoiced</small><strong data-cost-invoiced="renewal">6.500</strong></span>
+                <span><small>Remaining to Invoice</small><strong data-cost-remaining="renewal">1.500</strong></span>
+              </span>
+            </span></span></summary>
+            <div class="cost-body">
+              <dl class="metadata">
+                <div><dt>Gestione intercompany</dt><dd>Canone</dd></div>
+                <div><dt>Origine Costi Aggregato</dt><dd>Licenze</dd></div>
+                <div><dt>OdA</dt><dd>ODA-000427</dd></div>
+              </dl>
+              <div class="action-row"><h3>Actual Invoiced</h3><button class="primary" type="button" data-add="renewal">+ Registra fattura</button></div>
+              <div class="table-shell">
+                <table aria-label="Fatture Renewal">
+                  <thead><tr><th>Data fattura</th><th>ID fattura</th><th class="number">Importo netto</th></tr></thead>
+                  <tbody data-entries="renewal"><tr><td>14/10/2026</td><td>INV-00018</td><td class="number">4.000</td></tr>
+                  <tr><td>10/11/2026</td><td>INV-00051</td><td class="number">2.500</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </details>
+          <details class="cost">
+            <summary><span class="summary-body"><span class="row">
+              <span><strong>Support</strong><small>OpEx · Aruba Software</small></span>
+              <span class="figures">
+                <span><small>Actual Cost</small><strong>2.000</strong></span>
+                <span><small>Total Invoiced</small><strong data-cost-invoiced="support">0</strong></span>
+                <span><small>Remaining to Invoice</small><strong data-cost-remaining="support">2.000</strong></span>
+              </span>
+            </span></span></summary>
+            <div class="cost-body">
+              <dl class="metadata">
+                <div><dt>Gestione intercompany</dt><dd>Plafond</dd></div>
+                <div><dt>Origine Costi Aggregato</dt><dd>Servizi Intercompany</dd></div>
+              </dl>
+              <div class="action-row"><h3>Actual Invoiced</h3><button class="primary" type="button" data-add="support">+ Registra fattura</button></div>
+              <p class="muted" id="pml-empty-support">Nessuna fattura registrata.</p>
+              <div class="table-shell" id="pml-support-table" hidden>
+                <table aria-label="Fatture Support">
+                  <thead><tr><th>Data fattura</th><th>ID fattura</th><th class="number">Importo netto</th></tr></thead>
+                  <tbody data-entries="support"></tbody>
+                </table>
+              </div>
+            </div>
+          </details>
+        </div>
+      </details>
+      <details class="legacy">
+        <summary><span class="summary-body"><span class="row"><strong>Unassigned Cost Items</strong><small>1 costo storico · 300 fatturato</small></span></span></summary>
+        <div class="cost-body">
+          <div class="row"><strong>Analisi preliminare</strong><span>Actual Cost 1.000 · Remaining to Invoice 700</span></div>
+          <div class="table-shell"><table aria-label="Fatture Analisi preliminare">
+            <thead><tr><th>Data fattura</th><th>ID fattura</th><th class="number">Importo netto</th></tr></thead>
+            <tbody><tr><td>05/04/2026</td><td>INV-00003</td><td class="number">300</td></tr></tbody>
+          </table></div>
+        </div>
+      </details>
+    </section>
+    <section class="screen" id="pml-card" aria-label="Scheda Initiative" hidden>
+      <h2>Cost &amp; Timeline</h2>
+      <div class="sheet">
+        <h3>Cost</h3>
+        <dl class="figures">
+          <div><dt>Budget</dt><dd>12.000</dd></div>
+          <div><dt>Actual Cost</dt><dd>11.000</dd></div>
+          <div><dt>Actual Invoiced</dt><dd data-initiative-total>6.800</dd></div>
+        </dl>
+        <h3>Financials</h3>
+        <figure class="financial-chart" aria-label="Actual Cost sovrapposto a Budget per categoria">
+          <figcaption class="financial-legend">
+            <span><i class="budget-mark" aria-hidden="true"></i>Budget</span>
+            <span><i class="actual-mark" aria-hidden="true"></i>Actual Cost</span>
+          </figcaption>
+          <div class="comparison">
+            <strong>Totale</strong>
+            <div class="comparison-bars" aria-hidden="true">
+              <span class="budget-mark" style="--width:100%"></span><span class="actual-mark" style="--width:91.67%"></span>
+            </div>
+            <div class="comparison-values"><strong aria-label="Actual Cost 11.000 su Budget 12.000">11.000 / 12.000 · 92%</strong><small>Scostamento +1.000</small></div>
+          </div>
+          <div class="comparison">
+            <strong>CapEx</strong>
+            <div class="comparison-bars" aria-hidden="true">
+              <span class="budget-mark" style="--width:100%"></span><span class="actual-mark" style="--width:66.67%"></span>
+            </div>
+            <div class="comparison-values"><strong aria-label="Actual Cost 8.000 su Budget 12.000">8.000 / 12.000 · 67%</strong><small>Scostamento +4.000</small></div>
+          </div>
+          <div class="comparison">
+            <strong>OpEx</strong>
+            <div class="comparison-bars" aria-hidden="true">
+              <span class="budget-mark" style="--width:0%"></span><span class="actual-mark" style="--width:25%"></span>
+            </div>
+            <div class="comparison-values"><strong aria-label="Actual Cost 3.000 su Budget 0">3.000 / 0</strong><small>Scostamento −3.000</small></div>
+          </div>
+        </figure>
+      </div>
+      <div class="sheet">
+        <h3>Timeline</h3>
+        <dl class="figures">
+          <div><dt>Start Date</dt><dd>01/04/2026</dd></div>
+          <div><dt>Actual Start</dt><dd>15/05/2026</dd></div>
+          <div><dt>End Date</dt><dd>30/09/2026</dd></div>
+          <div><dt>Actual End</dt><dd>10/11/2026</dd></div>
+        </dl>
+        <figure data-schedule aria-label="Pianificato da aprile a settembre. Effettivo da maggio a novembre."></figure>
+        <div class="status"><span>On Time · In ritardo</span><span>On Cost · In linea</span><span>On Scope · In linea</span></div>
+      </div>
+    </section>
+    <section class="screen" id="pml-portfolio" aria-label="Portfolio" hidden>
+      <h2>Portfolio</h2>
+      <div class="sheet">
+        <h3>Modernizzazione piattaforma</h3>
+        <figure data-schedule aria-label="Pianificato da aprile a settembre. Effettivo da maggio a novembre."></figure>
+        <dl class="figures">
+          <div><dt>Plan</dt><dd>01/04/2026 → 30/09/2026</dd></div>
+          <div><dt>Actual</dt><dd>15/05/2026 → 10/11/2026</dd></div>
+        </dl>
+      </div>
+    </section>
+    <section class="screen" id="pml-settings" aria-label="Configurazione" hidden>
+      <h2>Amministrazione · PML</h2>
+      <div class="sheet">
+        <h3>Budget &amp; Costs</h3>
+        <nav aria-label="Tipo di riga da configurare" data-tabs>
+          <button type="button" aria-pressed="true" aria-controls="pml-settings-budget">Planned Budget</button>
+          <button type="button" aria-pressed="false" aria-controls="pml-settings-cost">Cost Items</button>
+          <button type="button" aria-pressed="false" aria-controls="pml-settings-invoiced">Actual Invoiced</button>
+        </nav>
+        <div class="table-shell" id="pml-settings-budget"><table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Configurazione</th></tr></thead>
+          <tbody><tr><td>Origine Costi</td><td>Riferimento a card</td><td>Provider · supports → Initiative</td></tr></tbody>
+        </table></div>
+        <div class="table-shell" id="pml-settings-cost" hidden><table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Configurazione</th></tr></thead>
+          <tbody>
+            <tr><td>Origine Costi</td><td>Ereditato</td><td>Provider del budget o figlio diretto</td></tr>
+            <tr><td>Gestione intercompany</td><td>Lista</td><td>Plafond · Canone · Progetto · N.A.</td></tr>
+            <tr><td>Origine Costi Aggregato</td><td>Calcolato</td><td>Regole ordinate per tipo di spesa e Provider</td></tr>
+            <tr><td>OdA — Ordine d’acquisto</td><td>Testo</td><td>ODA-000427</td></tr>
+          </tbody>
+        </table></div>
+        <div class="table-shell" id="pml-settings-invoiced" hidden><table>
+          <thead><tr><th>Campo di esempio</th><th>Tipo</th><th>Configurazione</th></tr></thead>
+          <tbody><tr><td>Anno fattura</td><td>Calcolato</td><td>Anno della Data fattura</td></tr></tbody>
+        </table></div>
+      </div>
+      <div class="sheet">
+        <h3>Timeline</h3>
+        <dl class="figures">
+          <div><dt>Actual Start</dt><dd><code>actualStart</code></dd></div>
+          <div><dt>Actual End</dt><dd><code>ActualEnd</code></dd></div>
+        </dl>
+      </div>
+    </section>
+  </main>
+  <dialog id="pml-entry" aria-labelledby="pml-entry-title">
+    <form id="pml-entry-form">
+      <h2 id="pml-entry-title">Registra fattura</h2>
+      <div><small>Cost Item</small><br><strong id="pml-entry-parent"></strong></div>
+      <label>Data fattura<input name="date" type="date" required></label>
+      <label>ID fattura<input name="reference" type="text" required></label>
+      <label>Importo netto<input name="amount" type="number" min="0" step="any" required></label>
+      <div class="action-row"><button type="button" id="pml-cancel">Annulla</button><button class="primary" type="submit">Registra</button></div>
+    </form>
+  </dialog>
+  <template id="pml-schedule-template">
+    <div class="axis"><span></span><div class="quarters" aria-hidden="true">
+      <span>Q2 ’26</span><span>Q3 ’26</span><span>Q4 ’26</span><span>Q1 ’27</span><span>Q2 ’27</span><span>Q3 ’27</span><span>Q4 ’27</span>
+    </div></div>
+    <div class="track"><strong>Plan</strong><div class="rail"><span style="--left:0%;--width:28.57%"></span></div></div>
+    <div class="track actual"><strong>Actual</strong><div class="rail"><span style="--left:6.95%;--width:28.15%"></span></div></div>
+  </template>
+  <script>
+    (() => {
+      const root = document.getElementById("pml-preview");
+      const find = (selector) => root.querySelector(selector);
+      const each = (selector, handler) => root.querySelectorAll(selector).forEach(handler);
+      const format = new Intl.NumberFormat("it-IT", { useGrouping: "always", maximumFractionDigits: 6 });
+      const display = (selector, value) => each(selector, (node) => {
+        node.textContent = format.format(value);
+      });
+
+      each("[data-tabs]", (nav) => {
+        const buttons = nav.querySelectorAll("button[aria-controls]");
+        buttons.forEach((selected) => selected.addEventListener("click", () => {
+          buttons.forEach((button) => {
+            const active = button === selected;
+            button.setAttribute("aria-pressed", active);
+            find("#" + button.getAttribute("aria-controls")).hidden = !active;
+          });
+        }));
+      });
+      each("[data-schedule]", (figure) => {
+        figure.append(find("#pml-schedule-template").content.cloneNode(true));
+      });
+
+      const costs = {
+        renewal: { label: "Renewal", actual: 8000, invoiced: 6500 },
+        support: { label: "Support", actual: 2000, invoiced: 0 }
+      };
+      const legacyInvoiced = 300;
+      const dialog = find("#pml-entry");
+      const form = find("#pml-entry-form");
+      let costKey;
+      each("[data-add]", (button) => button.addEventListener("click", () => {
+        costKey = button.dataset.add;
+        form.reset();
+        form.elements.reference.setCustomValidity("");
+        find("#pml-entry-parent").textContent = costs[costKey].label;
+        dialog.showModal();
+      }));
+      find("#pml-cancel").addEventListener("click", () => dialog.close());
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const reference = form.elements.reference.value.trim();
+        if (!reference) {
+          form.elements.reference.setCustomValidity("Inserisci l’ID della fattura.");
+          form.elements.reference.reportValidity();
+          return;
+        }
+        const amount = form.elements.amount.valueAsNumber;
+        const date = form.elements.date.value.split("-").reverse().join("/");
+        const row = find('[data-entries="' + costKey + '"]').insertRow();
+        row.insertCell().textContent = date;
+        row.insertCell().textContent = reference;
+        const amountCell = row.insertCell();
+        amountCell.className = "number";
+        amountCell.textContent = format.format(amount);
+
+        const cost = costs[costKey];
+        cost.invoiced += amount;
+        const budgetInvoiced = costs.renewal.invoiced + costs.support.invoiced;
+        display('[data-cost-invoiced="' + costKey + '"]', cost.invoiced);
+        display('[data-cost-remaining="' + costKey + '"]', cost.actual - cost.invoiced);
+        display("#pml-budget-invoiced", budgetInvoiced);
+        display("#pml-budget-remaining", 10000 - budgetInvoiced);
+        display("[data-initiative-total]", budgetInvoiced + legacyInvoiced);
+        if (costKey === "support") {
+          find("#pml-empty-support").hidden = true;
+          find("#pml-support-table").hidden = false;
+        }
+        dialog.close();
+      });
+      form.elements.reference.addEventListener("input", () => {
+        form.elements.reference.setCustomValidity("");
+      });
+    })();
+  </script>
+</div>
+</body>
+</html>

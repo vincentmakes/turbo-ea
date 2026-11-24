@@ -106,15 +106,17 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` e `MAX` já ignoram entradas não numéricas, portanto não precisam de
 proteção.
 
-### Dados de PPM em cards de Iniciativa { #ppm-data-on-initiative-cards }
+### Dados de PML em cards de Iniciativa { #ppm-data-on-initiative-cards }
 
-A raiz `ppm` expõe às fórmulas os dados do módulo PPM: as linhas de orçamento e de custo, separadas entre capex e opex e detalhadas por exercício fiscal — um detalhe que os atributos consolidados `data.costBudget` / `data.costActual` do card não conseguem dar — e os números de execução da iniciativa: sua conclusão geral, seus pacotes de trabalho, tarefas e riscos, e o último relatório de status.
+Para fórmulas em linhas de orçamento, custo ou faturação, use os [campos financeiros PML](settings.md#pml-budget-costs). Esta página descreve os cálculos dos campos dos cartões.
+
+A raiz `ppm` expõe às fórmulas os dados do módulo PML: as linhas de orçamento e de custo, separadas entre capex e opex e detalhadas por exercício fiscal — um detalhe que os atributos consolidados `data.costBudget` / `data.costActual` do card não conseguem dar — e os números de execução da iniciativa: sua conclusão geral, seus pacotes de trabalho, tarefas e riscos, e o último relatório de status.
 
 | Variável | Descrição |
 |----------|-------------|
-| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Orçamento previsto, das linhas de orçamento do PPM |
-| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Valores previstos nas linhas de custo do PPM |
-| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Realizados nas linhas de custo do PPM |
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Orçamento previsto, das linhas de orçamento do PML |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Valores previstos nas linhas de custo do PML |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Realizados nas linhas de custo do PML |
 | `ppm.byYear` | As mesmas nove medidas por exercício fiscal, como lista `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | O exercício fiscal em que a data de hoje cai |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Linhas de custo sem data: contam nos totais, mas não pertencem a nenhum exercício |
@@ -124,7 +126,7 @@ A raiz `ppm` expõe às fórmulas os dados do módulo PPM: as linhas de orçamen
 | `ppm.wbsCount`, `ppm.milestoneCount` | Número de pacotes de trabalho e de marcos |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Contagem de tarefas, no total e por status |
 | `ppm.tasksOverdue` | Tarefas com a data de vencimento ultrapassada que não estão concluídas |
-| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | Riscos de PPM: todos, ainda abertos e a pontuação de risco mais alta |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | Riscos de PML: todos, ainda abertos e a pontuação de risco mais alta |
 | `ppm.reportCount`, `ppm.reportDate` | Quantos relatórios de status existem e a data do mais recente (`None` até que exista um) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Os indicadores de saúde do último relatório de status: `onTrack`, `atRisk` ou `offTrack` (`None` até que exista um) |
 
@@ -150,7 +152,7 @@ IF(ppm.tasksOverdue > 0, "Em risco", COALESCE(ppm.scheduleHealth, "Sem relatóri
 * `total*` é a soma de todas as linhas, não `capex + opex`. Uma linha cuja categoria não seja nenhuma das duas (de uma importação, por exemplo) ainda conta no total.
 * Um card que não é uma Iniciativa lê todas as medidas `ppm` como `0` com `byYear` vazio, então uma fórmula no tipo errado devolve zero em vez de falhar. Os campos do último relatório são lidos como `None` e não como `0` — «ainda sem relatório» e «no caminho» são fatos diferentes — então proteja-os com `COALESCE`.
 
-Editar uma linha de orçamento ou de custo do PPM, um pacote de trabalho, uma tarefa, um risco ou um relatório de status reexecuta os cálculos da iniciativa, então tudo o que deriva daí é atualizado de imediato e a alteração aparece na aba Histórico do card. Cards que leem os dados de PPM de *outro* card através de uma relação não são atualizados — veja [Quando os cálculos são executados](#when-calculations-run).
+Editar uma linha de orçamento ou de custo do PML, um pacote de trabalho, uma tarefa, um risco ou um relatório de status reexecuta os cálculos da iniciativa, então tudo o que deriva daí é atualizado de imediato e a alteração aparece na aba Histórico do card. Cards que leem os dados de PML de *outro* card através de uma relação não são atualizados — veja [Quando os cálculos são executados](#when-calculations-run).
 
 #### Mostrar o progresso de uma iniciativa em um card ou em um portal { #show-initiative-progress-on-a-card-or-a-portal }
 
@@ -162,9 +164,9 @@ O progresso de uma iniciativa vive na sua aba Visão Geral; cards e portais publ
 
 A partir daí, marcar uma tarefa como concluída, editar a conclusão de um pacote de trabalho ou excluir um deles move a barra onde quer que o card seja exibido.
 
-#### Consolidar valores de PPM ao longo da hierarquia de iniciativas { #rolling-ppm-figures-up-the-initiative-hierarchy }
+#### Consolidar valores de PML ao longo da hierarquia de iniciativas { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-O portfólio de PPM mostra em uma iniciativa pai sem linhas de orçamento ou de custo próprias o total das iniciativas abaixo dela, mas esse valor existe apenas no quadro. Para mostrar em um programa — no inventário, nos relatórios e nos portais — o orçamento de tudo o que está abaixo dele, use um único cálculo que leia o resultado das filhas:
+O portfólio de PML mostra em uma iniciativa pai sem linhas de orçamento ou de custo próprias o total das iniciativas abaixo dela, mas esse valor existe apenas no quadro. Para mostrar em um programa — no inventário, nos relatórios e nos portais — o orçamento de tudo o que está abaixo dele, use um único cálculo que leia o resultado das filhas:
 
 1. Em **Admin → Metamodelo**, adicione um campo do tipo **Custo** ao tipo Iniciativa — por exemplo `rolledUpBudget`, com o rótulo *Orçamento consolidado*.
 2. Em **Admin → Cálculos**, adicione um cálculo em Iniciativa com a fórmula `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, aponte para esse campo e ative-o.
@@ -304,7 +306,7 @@ Os cálculos de um card são reavaliados quando:
 * você executa o cálculo manualmente a partir da lista, o que o avalia para cada card do tipo
   alvo e salva os resultados;
 * uma linha de orçamento, uma linha de custo, um pacote de trabalho, uma tarefa, um risco ou um
-  relatório de status do PPM no card muda, para uma Iniciativa.
+  relatório de status do PML no card muda, para uma Iniciativa.
 * a alteração acima acontece em uma Iniciativa mais abaixo na hierarquia: todas as
   Iniciativas acima dela também são recalculadas, começando pelo pai direto, de modo que uma
   [consolidação](#rolling-ppm-figures-up-the-initiative-hierarchy) acompanha a alteração.

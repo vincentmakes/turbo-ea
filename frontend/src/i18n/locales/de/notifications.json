@@ -28,7 +28,7 @@
   "preferences.loadFailed": "Einstellungen konnten nicht geladen werden",
   "preferences.saveFailed": "Einstellungen konnten nicht gespeichert werden",
   "preferences.todoAssigned": "Aufgabe zugewiesen",
-  "preferences.taskAssigned": "PPM-Aufgabe zugewiesen",
+  "preferences.taskAssigned": "PML-Aufgabe zugewiesen",
   "preferences.surveyRequest": "Umfrageanfrage",
   "preferences.cardUpdated": "Karte aktualisiert",
   "preferences.commentAdded": "Kommentar hinzugefügt",

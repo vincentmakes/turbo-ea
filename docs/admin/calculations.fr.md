@@ -107,9 +107,11 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` et `MAX` ignorent déjà les entrées non numériques : elles n'ont pas
 besoin de protection.
 
-### Données PPM sur les fiches Initiative { #ppm-data-on-initiative-cards }
+### Données PML sur les fiches Initiative { #ppm-data-on-initiative-cards }
 
-La racine `ppm` expose au moteur de formules les données du module PPM : les lignes de budget
+Pour les formules des lignes de budget, de coût ou de facture, utilisez les [champs financiers PML](settings.md#pml-budget-costs). Cette page traite des calculs sur les fiches.
+
+La racine `ppm` expose au moteur de formules les données du module PML : les lignes de budget
 et de coût, ventilées entre capex et opex et réparties par exercice — un détail que les
 attributs `data.costBudget` / `data.costActual` consolidés sur la fiche ne peuvent pas donner —
 et les chiffres de réalisation de l'initiative : son avancement global, ses lots de travaux,
@@ -117,9 +119,9 @@ ses tâches et ses risques, et le dernier rapport de statut.
 
 | Variable | Description |
 |----------|-------------|
-| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Budget prévu, d'après les lignes de budget PPM |
-| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Montants prévus sur les lignes de coût PPM |
-| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Réalisés sur les lignes de coût PPM |
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Budget prévu, d'après les lignes de budget PML |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Montants prévus sur les lignes de coût PML |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Réalisés sur les lignes de coût PML |
 | `ppm.byYear` | Les mêmes neuf mesures par exercice, sous forme de liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | L'exercice dans lequel tombe la date du jour |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Lignes de coût sans date : comptées dans les totaux, rattachées à aucun exercice |
@@ -129,7 +131,7 @@ ses tâches et ses risques, et le dernier rapport de statut.
 | `ppm.wbsCount`, `ppm.milestoneCount` | Nombre de lots de travaux et de jalons |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Nombre de tâches, au total et par statut |
 | `ppm.tasksOverdue` | Tâches dont l'échéance est dépassée et qui ne sont pas terminées |
-| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | Risques PPM : tous, encore ouverts, et le score de risque le plus élevé |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | Risques PML : tous, encore ouverts, et le score de risque le plus élevé |
 | `ppm.reportCount`, `ppm.reportDate` | Nombre de rapports de statut, et date du plus récent (`None` tant qu'il n'y en a aucun) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Les indicateurs de santé du dernier rapport de statut : `onTrack`, `atRisk` ou `offTrack` (`None` tant qu'il n'y en a aucun) |
 
@@ -167,10 +169,10 @@ Quelques règles à connaître :
   du dernier rapport se lisent `None` et non `0` — « pas encore de rapport » et « en cours »
   sont deux faits différents — protégez-les donc avec `COALESCE`.
 
-Modifier une ligne de budget ou de coût PPM, un lot de travaux, une tâche, un risque ou un
+Modifier une ligne de budget ou de coût PML, un lot de travaux, une tâche, un risque ou un
 rapport de statut relance les calculs de l'initiative, si bien que tout ce qui en dérive est mis
 à jour immédiatement et que la modification apparaît dans l'onglet Historique de la fiche. Les
-fiches qui lisent les données PPM d'une *autre* fiche via une relation ne sont pas rafraîchies —
+fiches qui lisent les données PML d'une *autre* fiche via une relation ne sont pas rafraîchies —
 voir [Quand les calculs s'exécutent](#when-calculations-run).
 
 #### Afficher l'avancement d'une initiative sur une fiche ou un portail { #show-initiative-progress-on-a-card-or-a-portal }
@@ -188,9 +190,9 @@ un [portail web](web-portals.md) :
 Dès lors, marquer une tâche comme terminée, modifier l'achèvement d'un lot de travaux ou en
 supprimer un fait bouger la barre partout où la fiche est affichée.
 
-#### Agréger les montants PPM le long de la hiérarchie des initiatives { #rolling-ppm-figures-up-the-initiative-hierarchy }
+#### Agréger les montants PML le long de la hiérarchie des initiatives { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-Le tableau du portefeuille PPM affiche sur un parent sans ligne de budget ni de coût propre le
+Le tableau du portefeuille PML affiche sur un parent sans ligne de budget ni de coût propre le
 total des initiatives situées en dessous, mais ce montant n'existe que sur le tableau. Pour
 afficher sur un programme — dans l'inventaire, les rapports et les portails — le budget de tout
 ce qui se trouve en dessous,
@@ -342,7 +344,7 @@ Les calculs d'une fiche sont réévalués lorsque :
 * vous exécutez le calcul manuellement depuis la liste, ce qui l'évalue pour toutes les
   fiches du type cible et sauvegarde les résultats ;
 * une ligne de budget, une ligne de coût, un lot de travaux, une tâche, un risque ou un
-  rapport de statut PPM de la fiche change, pour une Initiative.
+  rapport de statut PML de la fiche change, pour une Initiative.
 * la modification ci-dessus porte sur une Initiative située plus bas dans la hiérarchie :
   toutes les Initiatives au-dessus d'elle sont recalculées aussi, en commençant par le parent
   direct, de sorte qu'une [agrégation](#rolling-ppm-figures-up-the-initiative-hierarchy) suit la modification.

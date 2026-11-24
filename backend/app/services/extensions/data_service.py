@@ -39,8 +39,8 @@ import logging
 import time
 import uuid
 from collections import deque
-from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Sequence
+from contextlib import AbstractAsyncContextManager, asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -152,6 +152,81 @@ def active_batch_id() -> uuid.UUID | None:
     update, a risk, a todo — is ONE row in the Audit Log with one Rollback."""
     active = _active_batch.get()
     return active.id if active is not None else None
+
+
+@dataclass(frozen=True)
+class ActingPerson:
+    """The signed-in person an ``on_behalf_of`` scope names (SDK 1.19).
+
+    A snapshot of two columns, not the ORM row: the bridges write in sessions
+    of their own, and a row from the request's session must never be
+    lazy-loaded from one of them.
+    """
+
+    id: uuid.UUID
+    display_name: str
+
+
+# Task-local like the batch scope: a route serving one person and a job
+# running for nobody may share the one memoized context concurrently.
+_acting_person: ContextVar[ActingPerson | None] = ContextVar("ext_acting_person", default=None)
+
+
+def acting_person() -> ActingPerson | None:
+    """The person the current task's bridge writes are made for, if any."""
+    return _acting_person.get()
+
+
+def acting_person_id() -> uuid.UUID | None:
+    """:func:`acting_person`'s id — what a bridge passes where it passed
+    ``actor_id=None`` / ``created_by=None`` before SDK 1.19."""
+    person = _acting_person.get()
+    return person.id if person is not None else None
+
+
+@contextmanager
+def on_behalf_of(user: Any) -> Iterator[None]:
+    """``ctx.on_behalf_of(user)`` (SDK 1.19): record the bridge writes made
+    inside as made for this signed-in person.
+
+    ``user`` is the object an extension route's ``get_current_user``
+    dependency returned — an active core user. Anything else (an id string, a
+    dict, a deactivated user, ``None``) is refused with
+    :class:`ExtensionDataError` before anything is set.
+
+    Inside the scope a card, relation, tag or stakeholder write, a risk, a
+    decision draft and a survey name the person as their author: the card's
+    History tab shows their name, ``updated_by`` / ``created_by`` is theirs.
+    The extension stays on the record too — events keep ``data["ext"]``,
+    origin ``"ext"`` and the ``ext:{key}`` mutation batch — so the
+    extension's own event handlers still filter its writes out. Not covered:
+    todos (a person-created todo would count as theirs to edit and lose its
+    extension origin), notifications (no actor by design) and the audit
+    batch itself (it keeps no actor; the events inside it name the person).
+
+    Synchronous on purpose — ``with ctx.on_behalf_of(user): await ...`` —
+    and backed by a ``ContextVar``: an inner scope replaces the outer one
+    until it exits, the outer person is back afterwards, and the value is
+    reset on exit even when the body raises. A task spawned inside the scope
+    inherits it (``asyncio`` copies the context at task creation). Needs no
+    manifest grant: it opens no data domain, it only names who asked.
+    """
+    token = _acting_person.set(_validated_person(user))
+    try:
+        yield
+    finally:
+        _acting_person.reset(token)
+
+
+def _validated_person(user: Any) -> ActingPerson:
+    if not isinstance(user, User):
+        raise ExtensionDataError(
+            "on_behalf_of() takes the signed-in user an extension route received from "
+            f"get_current_user, not {type(user).__name__}"
+        )
+    if not user.is_active:
+        raise ExtensionDataError(f"User {user.id} is deactivated; no write can be made for them")
+    return ActingPerson(id=user.id, display_name=user.display_name)
 
 
 def count_write_in_active_batch() -> None:
@@ -794,6 +869,13 @@ class ExtensionData:
     def _actor(self) -> WriteActor:
         info = extension_registry.get(self._key)
         display = (info.name if info else None) or self._key
+        person = _acting_person.get()
+        if person is not None:
+            # SDK 1.19 — made for a signed-in person: they are the author,
+            # and ext_key keeps the extension on the event (data["ext"]).
+            return WriteActor(
+                user_id=person.id, display_name=person.display_name, ext_key=self._key
+            )
         return WriteActor(user_id=None, display_name=display, ext_key=self._key)
 
     def _require_writes_enabled(self) -> None:
@@ -1105,7 +1187,7 @@ class ExtensionData:
                     card,
                     wanted,
                     mode=mode,  # type: ignore[arg-type]
-                    actor_id=None,
+                    actor_id=acting_person_id(),
                     event_extra={"ext": self._key},
                     dry_run=dry_run,
                 )
@@ -1157,7 +1239,7 @@ class ExtensionData:
                 row,
                 role_label=labels[role_key],
                 user_display_name=user.display_name,
-                actor_id=None,
+                actor_id=acting_person_id(),
                 extra={"ext": self._key},
             )
             await stakeholder_service.rescore_after_stakeholder_change(db, cid)
@@ -1184,7 +1266,7 @@ class ExtensionData:
                 row,
                 role_label=labels.get(role_key, role_key),
                 user_display_name=user.display_name if user else None,
-                actor_id=None,
+                actor_id=acting_person_id(),
                 extra={"ext": self._key},
             )
             await db.delete(row)

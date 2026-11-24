@@ -1,20 +1,18 @@
-# Gestión de Cartera de Proyectos (PPM)
+# Lista maestra de proyectos (PML)
 
-El módulo **PPM** proporciona una solución completa de gestión de cartera de proyectos para el seguimiento de iniciativas, presupuestos, riesgos, tareas y cronogramas. Se integra directamente con el tipo de tarjeta Iniciativa para enriquecer cada proyecto con informes de estado, seguimiento de costos y visualización Gantt.
+Abra **Lista maestra de proyectos** en la navegación principal para seguir las iniciativas, los presupuestos, los riesgos, las tareas y los plazos. El módulo reúne informes de estado, datos financieros y vistas de Gantt.
 
 !!! note
-    El módulo PPM puede ser habilitado o deshabilitado por un administrador en [Configuración](../admin/settings.md). Cuando está deshabilitado, la navegación y funciones de PPM quedan ocultas.
+    El módulo PML puede ser habilitado o deshabilitado por un administrador en [Configuración](../admin/settings.md). Cuando está deshabilitado, la navegación y funciones de PML quedan ocultas.
 
 ## Panel de Portafolio
 
-![Panel de Portafolio PPM](../assets/img/es/40_ppm_portafolio.png)
+![Panel de Portafolio PML](../assets/img/es/40_ppm_portafolio.png)
 
-El **Panel de Portafolio** es el punto de entrada principal para PPM. Proporciona:
+El **Panel de Portafolio** es el punto de entrada principal para PML. Proporciona:
 
-- **Tarjetas de KPI** — Total de iniciativas, presupuesto total, costo real total y resúmenes de estado de salud
-- **Gráficos circulares de salud** — Distribución de salud de cronograma, costo y alcance (En curso / En riesgo / Fuera de curso)
-- **Distribución de estado** — Desglose por subtipo de iniciativa y estado
-- **Vista general Gantt** — Barras de cronograma mostrando las fechas de inicio y fin de cada iniciativa, con indicadores de salud RAG
+- **Barra de KPI** — El número de iniciativas, su presupuesto total (cuando se le muestran los costes) y cuántas están En camino, En riesgo y Fuera de camino en el cronograma. Las cifras siguen a la cartera: la búsqueda, el subtipo elegido y la sección **Filtros** las limitan a las iniciativas que está consultando
+- La cartera interna muestra **Plan** y **Real** en la misma escala trimestral. Si hay una sola fecha, se muestra un marcador. Las fechas exactas se ven según los permisos. La cartera pública muestra el plan.
 
 ### Agrupación y filtrado
 
@@ -27,7 +25,17 @@ Use la barra de herramientas para:
 - **Mostrar jerarquía** para anidar las iniciativas de cada grupo bajo su iniciativa padre (ver más abajo)
 - **Subagrupar por subtipo** para dividir cada grupo por subtipo (ver más abajo)
 
-Estos filtros se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual. La jerarquía, su profundidad de visualización y la subagrupación también se conservan en la URL.
+Estos ajustes se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual, y un enlace que comparta abre la misma cartera. La cartera también recuerda en su navegador la búsqueda, la agrupación, el subtipo, los ajustes de jerarquía y los filtros, y los restaura cuando vuelve — desde el menú PML o con la flecha de retroceso después de abrir una iniciativa. Un enlace que lleva sus propios ajustes se abre con ellos, y estos pasan a ser los recordados. El icono **Restablecer valores predeterminados** de la barra de título devuelve la cartera a sus valores predeterminados.
+
+#### La sección Filtros
+
+Debajo de la barra de herramientas hay una sección **Filtros**, plegada la primera vez que abre la cartera para que siga a la vista y, después, tal como la dejó la última vez; mientras está plegada, un chip en su encabezado indica cuántos filtros están activos. Despliéguela para acotar la cartera con los mismos filtros que los informes:
+
+- **Tarjetas relacionadas** — conserva las iniciativas vinculadas a las tarjetas que elija, por ejemplo una Organización o una Aplicación. **Incluir subtarjetas** conserva también las iniciativas vinculadas a las tarjetas situadas bajo una tarjeta elegida en su jerarquía
+- **Etiquetas** — conserva las iniciativas que llevan las etiquetas que elija
+- **Campos** — conserva las iniciativas cuyos propios campos (los atributos del tipo Iniciativa) coinciden con los valores que elija
+
+Los filtros activos se conservan en la URL y se recuerdan junto con el resto de la cartera, de modo que un enlace que comparta abre la misma cartera, y aparecen en la línea de parámetros de una impresión o exportación. **Limpiar todo** vacía la sección Filtros y deja el resto de la barra de herramientas como está.
 
 #### Mostrar la jerarquía de iniciativas
 
@@ -35,7 +43,7 @@ Cuando algunas iniciativas de la cartera tienen una iniciativa padre que tambié
 
 La agrupación sigue siendo la principal: la jerarquía se anida **dentro de cada grupo**, de modo que una iniciativa cuyo padre pertenece a otro grupo aparece como fila de primer nivel de su propio grupo. Los filtros se aplican primero y el árbol muestra lo que queda: cuando la búsqueda o el filtro de subtipo dejan fuera a un padre, sus hijas suben al primer nivel en lugar de conservarse el padre como contexto.
 
-![Cartera PPM con la jerarquía visible](../assets/img/es/101_ppm_portafolio_jerarquia.png)
+![Cartera PML con la jerarquía visible](../assets/img/es/101_ppm_portafolio_jerarquia.png)
 
 #### Subagrupar por subtipo
 
@@ -51,17 +59,19 @@ La línea final del grupo sustituye a la fila de totales: lleva el nombre del su
 
 Cada iniciativa muestra sus propias cifras siempre que las tenga: las barras de CapEx y OpEx de un padre cubren las líneas de presupuesto y de coste registradas en el padre, y su barra de Gantt sus propias fechas de inicio y fin. Un padre **sin líneas de presupuesto propias** muestra en su lugar el presupuesto de las iniciativas que tiene por debajo, y un padre **sin líneas de coste propias** su gasto real; en ambos casos la barra se dibuja **de contorno** con cifras en cursiva, y su información sobre herramientas indica qué mitad procede de abajo. Un padre **sin fecha de inicio ni de fin** abarca desde el inicio más temprano hasta el fin más tardío de lo que tiene por debajo, dibujado como una barra **discontinua** con trimestres en cursiva. Una información sobre herramientas indica en cada caso cuántas iniciativas abarca. Las tres reglas son independientes —un programa que tiene el presupuesto mientras sus proyectos registran el gasto muestra su propio presupuesto frente al gasto real de estos, y un programa puede tener sus propias fechas y aun así mostrar los costes de sus proyectos— y basta con registrar una línea de presupuesto, una línea de coste o una fecha en el padre para que esa parte vuelva a sus propias cifras. Solo cuentan las iniciativas que usted puede ver y, en un portal, las que el portal publica. Los totales de grupo y la barra de KPI siguen sumando únicamente las líneas registradas, de modo que cada cifra se cuenta una sola vez.
 
-Las cifras derivadas solo existen en el tablero de PPM y en las pestañas **Resumen** y **Presupuesto y costes** de la propia iniciativa. Para llevar un total acumulado al inventario, a los informes o a un portal, defina un campo calculado que sume el presupuesto propio de cada nivel a los totales de sus hijas; consulte [Acumular cifras de PPM a lo largo de la jerarquía de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Un cambio de PPM en una hija vuelve a ejecutar los cálculos de todas las iniciativas superiores, de modo que el total del padre se actualiza de inmediato.
+Las cifras derivadas solo existen en el tablero de PML y en las pestañas **Resumen** y **Presupuesto y costes** de la propia iniciativa. Para llevar un total acumulado al inventario, a los informes o a un portal, defina un campo calculado que sume el presupuesto propio de cada nivel a los totales de sus hijas; consulte [Acumular cifras de PML a lo largo de la jerarquía de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Un cambio de PML en una hija vuelve a ejecutar los cálculos de todas las iniciativas superiores, de modo que el total del padre se actualiza de inmediato.
 
 ### Impresión y exportación
 
 La cartera ofrece las mismas acciones en la barra de título que los informes:
 
-- **Imprimir / Guardar como PDF** — el icono de impresora imprime la cartera tal como se ve en pantalla. La barra de pestañas, la barra de filtros y las ventanas emergentes al pasar el ratón se ocultan, la agrupación, el subtipo y la búsqueda activos se imprimen como una línea compacta de parámetros, y la cuadrícula de cronología deja de recortarse para que todas las columnas quepan en la página. Cuando la jerarquía o la subagrupación están activadas, la línea de parámetros también lo indica, con la profundidad de visualización.
+- **Imprimir / Guardar como PDF** — el icono de impresora imprime la cartera tal como se ve en pantalla. La barra de pestañas, la barra de filtros y las ventanas emergentes al pasar el ratón se ocultan, la agrupación, el subtipo y la búsqueda activos, así como los filtros de la sección Filtros, se imprimen como una línea compacta de parámetros, y la cuadrícula de cronología deja de recortarse para que todas las columnas quepan en la página. Cuando la jerarquía o la subagrupación están activadas, la línea de parámetros también lo indica, con la profundidad de visualización.
 - **Exportar a PowerPoint (.pptx)** — desde el menú **⋮**. La primera diapositiva incluye el título, la marca de tiempo de generación y los filtros activos junto con la cartera con calidad de presentación; las carteras largas continúan en más diapositivas, cortadas solo entre iniciativas, nunca a través de una fila, un encabezado de grupo o una línea de totales.
 - **Exportar a Excel (.xlsx)** — también desde el menú **⋮**. Una fila por iniciativa con su grupo, subtipo, jefe de proyecto, fechas de inicio y fin, los tres indicadores de salud, CapEx/OpEx planificado frente a real y la fecha del último informe de estado. Las filas siguen el orden de la pantalla; mientras se muestra la jerarquía, una columna **Padre** indica la iniciativa padre de cada iniciativa. Tres columnas, **Origen del presupuesto**, **Origen de los costes** y **Origen de las fechas**, indican si el presupuesto, el gasto real y las fechas de una fila son los suyos propios o el total de las iniciativas que tiene por debajo. Cuando el tablero está agrupado por un subtipo de iniciativa, la iniciativa que agrupa es la **primera fila de su grupo**, con las cifras que muestra su línea final.
 
 ## Vista de detalle de iniciativa
+
+**Inicio real** y **Fin real** son campos incorporados de la tarjeta de iniciativa. Sus valores se pueden modificar o borrar. Quien administra el metamodelo puede cambiar el nombre y la posición de los campos. Las definiciones están protegidas contra la eliminación.
 
 Haga clic en cualquier iniciativa para abrir su página de detalle con siete pestañas:
 
@@ -97,16 +107,18 @@ Los informes de estado mensuales rastrean la salud del proyecto a lo largo del t
 
 ![Pestaña de presupuesto y costos](../assets/img/es/43_ppm_presupuesto_costes.png)
 
-Seguimiento de datos financieros con dos tipos de partidas:
+**Presupuesto planificado** muestra las líneas por ejercicio fiscal y categoría (CapEx u OpEx). Despliegue una línea para ver sus **Partidas de coste** y una partida para ver la **Facturación real**. El ejercicio empieza en el mes indicado en [Configuración](../admin/settings.md#inicio-del-año-fiscal).
 
-- **Líneas de presupuesto** — Presupuesto planificado por año fiscal y categoría (CapEx / OpEx), con una descripción opcional. Un mismo año fiscal y categoría pueden tener tantas líneas como necesite —una por licencia, socio de implantación o lote de hardware— y la descripción las distingue; los totales las suman todas. Las líneas de presupuesto se agrupan según el **mes de inicio del año fiscal** configurado en [Configuración](../admin/settings.md#inicio-del-año-fiscal). Por ejemplo, si el año fiscal comienza en abril, una línea de presupuesto de junio de 2026 pertenece al AF 2026–2027
-- **Líneas de costo** — Gastos reales con fecha, descripción y categoría
+Introduzca los importes de presupuesto, costes y facturas sin IVA. La facturación real sirve para registrar facturas ya emitidas.
 
-Ambas tablas se agrupan por año fiscal. Cada año tiene una fila de encabezado con sus subtotales de CapEx, OpEx y total, y el número de líneas que contiene; la flecha del encabezado muestra u oculta las líneas de ese año. Al abrir la pestaña, solo el año fiscal en curso aparece desplegado (o el último año con líneas, si el actual no tiene ninguna). Los importes figuran en columnas **CapEx** y **OpEx** separadas, y una fila **Total, todos los años fiscales** bajo cada tabla suma todos los años. El botón **+** del encabezado de un año de presupuesto añade una línea de presupuesto con ese año fiscal ya rellenado. Las líneas de costo se agrupan por el año fiscal de su fecha y se ordenan por fecha dentro de él; las que no tienen fecha se reúnen al final en el grupo **Sin fecha** y cuentan en los totales de costos como cualquier otra línea.
+- Añada una partida desde su línea presupuestaria. Las partidas antiguas se pueden asignar desde **Costes sin presupuesto**. Puede mover una partida entre líneas de la misma iniciativa.
+- Registre la fecha, la referencia y el importe de la factura. Si una factura cubre varias partidas, anote la parte correspondiente en cada una. Puede mover el registro a otra partida de la misma iniciativa.
+- La partida muestra el coste real, el importe facturado y el pendiente. El pendiente es el coste real menos lo facturado y puede ser negativo. El presupuesto suma las partidas asociadas y muestra subtotales por ejercicio y categoría. El total facturado de la iniciativa incluye las facturas de partidas sin presupuesto.
+- El presupuesto, el coste real y los gráficos se basan en los importes de presupuesto y costes registrados. Registrar o mover una factura solo cambia las cifras de facturación.
 
-Cuando la iniciativa **no tiene líneas de presupuesto propias**, la tabla de presupuesto muestra, en lugar de su estado vacío, el presupuesto de las iniciativas que tiene por debajo: un rótulo indica de cuántas iniciativas procede, una fila de solo lectura por año fiscal da el CapEx, el OpEx y el total en cursiva, y la fila **Total, todos los años fiscales** los suma. La tabla de costes hace lo mismo con su gasto real cuando la iniciativa **no tiene líneas de coste propias**, con una fila **Sin fecha** para sus líneas de coste sin fecha. La barra de resumen marca esas cifras en cursiva, con una información sobre herramientas. Cada tabla decide por sí misma, nada se guarda ni se suma a las cifras propias de la iniciativa, y solo cuentan las iniciativas que usted puede ver. Registrar una primera línea con **Añadir línea de presupuesto** o **Agregar elemento de costo** devuelve esa tabla a las líneas propias de la iniciativa; los gráficos de gasto muestran siempre las líneas propias de la iniciativa.
+Las partidas heredan el proveedor configurado en el presupuesto y pueden seleccionar un proveedor hijo directo permitido. Consulte [Configurar presupuesto y costes](../admin/settings.md#pml-budget-costs) para añadir campos y cálculos.
 
-Los totales de presupuesto y costos se acumulan automáticamente en los atributos `costBudget` y `costActual` de la tarjeta de Iniciativa.
+Si una iniciativa no tiene líneas de presupuesto o partidas propias, la cifra correspondiente puede proceder de iniciativas descendientes visibles. Presupuesto y costes se determinan por separado. Las filas derivadas muestran un guion para costes vinculados y facturación. Los totales actualizan `costBudget` y `costActual` en la tarjeta de iniciativa. Si hay partidas PML, esos campos son de solo lectura.
 
 #### Gasto a lo largo del tiempo
 
@@ -216,7 +228,7 @@ Las columnas se reconocen por su encabezado en su idioma o en inglés. Una colum
 
 ### Pestaña de tareas
 
-![Tablero de tareas PPM](../assets/img/es/45_ppm_tablero_tareas.png)
+![Tablero de tareas PML](../assets/img/es/45_ppm_tablero_tareas.png)
 
 El gestor de tareas admite vistas de **tablero Kanban** y **lista** con cuatro columnas de estado:
 
@@ -231,7 +243,7 @@ Los filtros de visualización (modo de vista, filtro WBS, alternancia de agrupac
 
 ### Pestaña Gantt
 
-![Diagrama de Gantt PPM](../assets/img/es/46_ppm_gantt.png)
+![Diagrama de Gantt PML](../assets/img/es/46_ppm_gantt.png)
 
 El diagrama de Gantt visualiza el cronograma del proyecto con:
 
@@ -254,17 +266,21 @@ Interactúa con el diagrama de Gantt:
 
 La última pestaña muestra la vista completa de detalle de la tarjeta, incluyendo todas las secciones estándar.
 
+En **Costes y cronograma**, las barras superpuestas comparan presupuesto y coste real para Total, CapEx y OpEx. El total facturado de la iniciativa aparece por separado según los permisos. El cronograma presenta fechas planificadas y reales visibles, y los últimos indicadores de plazo, coste y alcance.
+
 ### Informe de la iniciativa
 
-![Informe de la iniciativa de PPM](../assets/img/es/103_ppm_informe_iniciativa.png)
+![Informe de la iniciativa de PML](../assets/img/es/103_ppm_informe_iniciativa.png)
+
+La impresión presenta las fechas visibles, planificadas y reales, la jerarquía desplegada y los subtotales por ejercicio. El total facturado de la iniciativa se muestra según los permisos.
 
 El botón **Informe** en la cabecera de la iniciativa, junto al chip del subtipo (un icono en un teléfono), abre el **Informe de la iniciativa**: una página de solo lectura que reúne lo que muestran las pestañas, maquetada como los demás informes, con el nombre de la iniciativa como título y una flecha para volver a la iniciativa. Los chips de **Secciones** de la barra de herramientas muestran u ocultan cada sección; la primera vez se muestran todas, y su elección se recuerda en su navegador:
 
 | Sección | Qué muestra |
 |---------|-------------|
-| **Resumen** | Mosaicos de **Presupuesto total**, **Real total**, **Variación** y **Finalización**; el **Resumen de salud** con las tres valoraciones del último informe de estado, en color y en palabras; las barras de **Finanzas** para Total, CapEx y OpEx; el recuadro **Línea de tiempo** con las fechas de inicio y fin, el subtipo y el estado de la iniciativa; y la descripción. Las cifras tomadas de las iniciativas subordinadas van marcadas, con una nota que las explica |
+| **Resumen** | Mosaicos de **Presupuesto total**, **Real total**, **Variación** y **Finalización**; el **Resumen de salud** con las tres valoraciones del último informe de estado, en color y en palabras; las barras de **Finanzas** para Total, CapEx y OpEx; el recuadro **Línea de tiempo** con las fechas planificadas y reales visibles, el subtipo y el estado de la iniciativa; y la descripción. Las cifras tomadas de las iniciativas subordinadas van marcadas, con una nota que las explica |
 | **Informes de estado** | El último informe completo, con sus valoraciones, y después los informes anteriores en una tabla con la fecha, el autor y las valoraciones de salud |
-| **Presupuesto y costes** | Mosaicos del presupuesto total, el real y la variación, y del CapEx y OpEx gastados frente a su presupuesto; los gráficos de **Gasto a lo largo del tiempo** para el ejercicio fiscal indicado en su chip y para el proyecto completo; después, las tablas de **Presupuesto planificado** y **Partidas de coste** con todos los ejercicios fiscales desplegados |
+| **Presupuesto y costes** | Mosaicos del presupuesto total, el real y la variación, y del CapEx y OpEx gastados frente a su presupuesto; los gráficos de **Gasto a lo largo del tiempo** para el ejercicio fiscal indicado en su chip y para el proyecto completo; Jerarquía desplegada **Presupuesto planificado → Partidas de coste → Facturación real**, subtotales por ejercicio y total facturado de la iniciativa |
 | **Gestión de riesgos** | Mosaicos de **Total de riesgos**, **Abierto** y **Riesgos altos**; el **Mapa de calor de riesgos** de probabilidad frente a impacto, con cada celda coloreada por franja de puntuación y mostrando cuántos riesgos contiene, junto a un recuento **Por estado**; después, cada riesgo con su puntuación (y probabilidad × impacto), su estado, su responsable, su descripción completa y su mitigación completa, con la puntuación más alta primero |
 | **Tareas y cronograma** | Una tabla de paquetes de trabajo, cada uno con sus tareas debajo, y a continuación las tareas sin paquete de trabajo, junto a una línea de tiempo en escala trimestral: una barra para cada paquete de trabajo, rellena según su avance, una barra para cada tarea en el color de su estado, un rombo para un hito (como en el diagrama de Gantt), un punto para un elemento con una sola fecha y una línea para hoy cuando cae dentro del intervalo. Cada fila muestra además su progreso o estado y su prioridad, y una leyenda explica las marcas |
 
@@ -285,14 +301,16 @@ La WBS proporciona una descomposición jerárquica del alcance del proyecto:
 
 ## Integración con los detalles de la ficha
 
-Cuando PPM está activado, las fichas de **Iniciativa** muestran una pestaña **PPM** como última pestaña en la [vista de detalle de la ficha](card-details.md). Al hacer clic en esta pestaña, se navega directamente a la vista detallada PPM de la iniciativa (pestaña Resumen). Esto proporciona un punto de acceso rápido desde cualquier ficha de Iniciativa a su página de proyecto PPM completa.
+Cuando PML está activado, las fichas de **Iniciativa** muestran una pestaña **PML** como última pestaña en la [vista de detalle de la ficha](card-details.md). Al hacer clic en esta pestaña, se navega directamente a la vista detallada PML de la iniciativa (pestaña Resumen). Esto proporciona un punto de acceso rápido desde cualquier ficha de Iniciativa a su página de proyecto PML completa.
 
-A la inversa, la pestaña **Detalles de la ficha** dentro de la vista detallada PPM de la iniciativa muestra las secciones estándar de la ficha sin la pestaña PPM, evitando la navegación circular.
+A la inversa, la pestaña **Detalles de la ficha** dentro de la vista detallada PML de la iniciativa muestra las secciones estándar de la ficha sin la pestaña PML, evitando la navegación circular.
 
 ## Permisos
 
 | Permiso | Descripción |
 |---------|-------------|
-| `ppm.view` | Ver el panel de PPM, diagrama de Gantt e informes de iniciativas, y leer las tarjetas de iniciativa. Concedido a todos los roles por defecto |
+| `ppm.view` | Ver el panel de PML, diagrama de Gantt e informes de iniciativas, y leer las tarjetas de iniciativa. Concedido a todos los roles por defecto |
 | `ppm.manage` | Crear y gestionar informes de estado, tareas, costos, riesgos y elementos WBS. Concedido a los roles Admin, BPM Admin y Miembro |
-| `reports.ppm_dashboard` | Ver el panel del portafolio PPM. Concedido a todos los roles por defecto |
+| `reports.ppm_dashboard` | Ver el panel del portafolio PML. Concedido a todos los roles por defecto |
+
+El presupuesto y las partidas siguen los permisos de PML y la visibilidad de la iniciativa. Las facturas, su total y el indicador de costes del cronograma requieren además acceso a los costes de la iniciativa. Registrar o mover facturas también requiere permiso de gestión PML.

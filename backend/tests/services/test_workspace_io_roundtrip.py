@@ -509,7 +509,7 @@ async def test_export_excludes_secrets(db):
         },
         email_settings={"smtp_host": "mail", "smtp_password": encrypt_value("MAILPW")},
     )
-    db.add(row)
+    await db.merge(row)
     await db.flush()
 
     raw = await build_bundle(db)

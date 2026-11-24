@@ -65,12 +65,12 @@ Kør derefter `docker compose up -d` (hvis du allerede er startet, se "Nulstil o
 
 | Variabel | Standard | Beskrivelse |
 |----------|----------|-------------|
-| `SEED_DEMO` | `false` | Indlæs hele NexaTech Industries-datasættet, inklusive BPM- og PPM-data |
+| `SEED_DEMO` | `false` | Indlæs hele NexaTech Industries-datasættet, inklusive BPM- og PML-data |
 | `SEED_BPM` | `false` | Indlæs kun BPM-demoprocesser (delmængde af `SEED_DEMO`) |
-| `SEED_PPM` | `false` | Indlæs kun PPM-projektdata (delmængde af `SEED_DEMO`) |
+| `SEED_PPM` | `false` | Indlæs kun PML-projektdata (delmængde af `SEED_DEMO`) |
 | `RESET_DB` | `false` | Slet alle tabeller og genopret fra bunden ved opstart |
 
-`SEED_DEMO=true` inkluderer allerede BPM- og PPM-data — du behøver ikke angive delmængde-flagene separat.
+`SEED_DEMO=true` inkluderer allerede BPM- og PML-data — du behøver ikke angive delmængde-flagene separat.
 
 !!! note "Demodata indlæses kun én gang"
     Hver seeder kører **én gang pr. installation** og registrerer det. Sletter du
@@ -94,11 +94,11 @@ Når demodata indlæses, oprettes en standardadministratorkonto:
 
 ### Hvad demoen indeholder
 
-Cirka 150 kort på tværs af alle fire arkitekturlag, plus relationer, tags, kommentarer, opgaver, BPM-diagrammer, PPM-data, EA Decision Records og et Statement of Architecture Work:
+Cirka 150 kort på tværs af alle fire arkitekturlag, plus relationer, tags, kommentarer, opgaver, BPM-diagrammer, PML-data, EA Decision Records og et Statement of Architecture Work:
 
 - **Core EA** — Organisationer, ~20 forretningskompetencer, forretningskontekster, ~15 applikationer, ~20 it-komponenter, grænseflader, dataobjekter, platforme, mål, 6 initiativer, 5 taggrupper, 60+ relationer.
 - **BPM** — ~30 forretningsprocesser i et 4-niveaus hierarki med BPMN 2.0-diagrammer, element-til-kort-kæder og procesvurderinger.
-- **PPM** — Statusrapporter, Work Breakdown Structures, ~60 opgaver, budget- og omkostningslinjer og et risikoregister på tværs af de 6 demo-initiativer.
+- **PML** — Statusrapporter, Work Breakdown Structures, ~60 opgaver, budget- og omkostningslinjer og et risikoregister på tværs af de 6 demo-initiativer.
 - **EA Delivery** — Architecture Decision Records og Statements of Architecture Work.
 
 ### Nulstil og re-seed

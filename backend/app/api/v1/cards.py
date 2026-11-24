@@ -130,6 +130,7 @@ from app.services.card_write_service import (
     _validate_url_attributes,
     _walk_ancestor_chain,  # noqa: F401
     emit_hierarchy_cascade_events,
+    validate_timeline_attributes,
 )
 from app.services.cost_event_redaction import add_cost_summaries, redact_cost_events
 from app.services.cost_field_filter import (
@@ -968,6 +969,12 @@ async def bulk_create_cards(
     async def _bulk_assign_reference(card: Card, row) -> None:
         await allocator.assign(db, card, await _bulk_type(row.type))
 
+    timeline_mapping = None
+    if any(row.type == "Initiative" for row in rows):
+        from app.services.ppm_timeline import load_timeline_mapping
+
+        timeline_mapping = await load_timeline_mapping(db)
+
     for row_idx in order:
         r = rows_by_index[row_idx]
         # Per-row savepoint so a row that fails at flush time (e.g. a database
@@ -979,6 +986,9 @@ async def bulk_create_cards(
         try:
             row_attributes = field_gate.checked_attributes(
                 {}, r.attributes or {}, locked_by_type.get(r.type) or {}
+            )
+            row_attributes = await validate_timeline_attributes(
+                db, r.type, row_attributes, mapping=timeline_mapping
             )
             await _validate_url_attributes(db, r.type, r.attributes or {})
             await _validate_percentage_attributes(db, r.type, r.attributes or {})
@@ -2044,6 +2054,11 @@ async def bulk_update(
     # mutate-then-`db.rollback()` shape discarded the *caller's* entire
     # transaction, and a savepoint rollback still left expired ORM objects
     # behind for the next statement to trip over.
+    timeline_mapping = None
+    if "attributes" in updates and any(card.type == "Initiative" for card in sheets):
+        from app.services.ppm_timeline import load_timeline_mapping
+
+        timeline_mapping = await load_timeline_mapping(db)
     diffs: list[dict] = []
     for card in sheets:
         before: dict = {}
@@ -2061,6 +2076,13 @@ async def bulk_update(
                     value = field_gate.checked_attributes(
                         card.attributes, value, locked, maintained_by_type.get(card.type, ())
                     )
+                value = await validate_timeline_attributes(
+                    db,
+                    card.type,
+                    value or {},
+                    dict(card.attributes or {}),
+                    mapping=timeline_mapping,
+                )
                 # Guard: never clear a required field — checked against the
                 # post-redaction final state, per card (also on dry-run, so an
                 # MCP preview surfaces the violation before any commit).

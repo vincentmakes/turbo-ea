@@ -32,7 +32,8 @@ consulte [Administración → Tienda de extensiones](../admin/extensions.md).
 
 | Extensión | Qué hace | Licencia |
 |-----------|----------|----------|
-| [DORA Register of Information](dora-roi.md) | Mantiene el registro de información del art. 28 de DORA sobre sus tarjetas existentes y exporta el paquete oficial de presentación xBRL-CSV | Comercial |
+| [DORA Register of Information](dora-roi.md) | Mantiene el registro de información del art. 28 de DORA sobre sus tarjetas existentes, lo comprueba frente a las plantillas de la ABE y a las reglas de la ABE que pueden ejecutarse sin conexión, y exporta un paquete de informe xBRL-CSV construido conforme a la taxonomía del marco 4.0 de la ABE | Comercial |
+| [EU AI Act Register](eu-ai-act.md) | Registra cuáles de sus sistemas son sistemas de IA y el nivel de riesgo de cada uno con un asistente de clasificación que cita los artículos, hace el seguimiento de las obligaciones resultantes y de sus plazos escalonados sobre sus tarjetas existentes, y congela el registro en instantáneas con exportaciones a Excel, Annex IV y FRIA | Comercial |
 
 ## Lo que todas las extensiones tienen en común
 

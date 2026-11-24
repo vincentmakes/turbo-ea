@@ -27,7 +27,8 @@ through core's own notification pipeline, SDK 1.9.
 * **Provenance.** ``data`` carries ``ext: {key}`` so the bell entry, the SSE
   event and any extension channel can tell who sent it. No actor — nobody
   did it in person, and the actor-equals-recipient suppression must not
-  swallow a message a rule sends to the person who caused it.
+  swallow a message a rule sends to the person who caused it. For that
+  reason ``ctx.on_behalf_of`` (SDK 1.19) does not apply here.
 """
 
 from __future__ import annotations

@@ -121,6 +121,8 @@ vi.mock("@/hooks/useMetamodel", () => ({
         label: "Initiative",
         translations: {},
         subtypes: [{ key: "project", label: "Project", translations: {} }],
+        // A real card type always carries its schema; the Filters section reads it.
+        fields_schema: [],
       },
     ],
     relationTypes: [],
@@ -171,6 +173,8 @@ async function openExportMenu() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The board remembers its state in the browser, and jsdom shares one storage.
+  localStorage.clear();
   ganttRows = GANTT;
 });
 

@@ -14,7 +14,7 @@
 | **Nachrichtenfluss** | Eine zwischen zwei Pools einer BPMN-Kollaboration ausgetauschte Nachricht. Wird unter der Elementtabelle eines veröffentlichten Prozessflusses aufgelistet und kann dort mit der Schnittstellen-Karte verknüpft werden, die sie überträgt |
 | **Pool** | Ein Teilnehmer einer BPMN-Kollaboration — ein Kunde, eine Abteilung, ein Partnersystem — dargestellt als Container mit dem eigenen Prozess dieser Partei |
 | **BPM-Zeilenreihenfolge** | Die Anzeigereihenfolge der Prozesstypzeilen (Kern, Unterstützung, Management) im BPM-Prozessnavigator, konfigurierbar durch Ziehen von Zeilen |
-| **Geschäftsjahr** | Der 12-monatige Zeitraum für Budgetierung und Finanzberichterstattung. Konfigurierbar über Admin > Einstellungen — der Startmonat (Januar bis Dezember) bestimmt, wie PPM-Budgetzeilen gruppiert werden |
+| **Geschäftsjahr** | Der 12-monatige Zeitraum für Budgetierung und Finanzberichterstattung. Konfigurierbar über Admin > Einstellungen — der Startmonat (Januar bis Dezember) bestimmt, wie PML-Budgetzeilen gruppiert werden |
 | **Geschäftsfähigkeit** | Was eine Organisation tun kann, unabhängig davon, wie sie es tut |
 | **Berechnung** | Eine vom Administrator definierte Formel, die automatisch einen Feldwert berechnet, wenn eine Karte gespeichert wird |
 | **Karte** | Die grundlegende Informationseinheit in Turbo EA, die jede Architekturkomponente repräsentiert |
@@ -26,7 +26,9 @@
 | **Lizenzkennzahl** | Das, worin die Lizenzen einer Anwendung oder IT-Komponente gezählt werden (standardmäßig Benutzer und Installationen), aus dem Katalog unter Admin > Metamodell > Lizenztypen. Mengen verschiedener Kennzahlen werden nie addiert |
 | **Lizenztyp** | Eine Lizenzart (zum Beispiel Admin oder Prod), die zu genau einer Lizenzkennzahl gehört, aus dem Katalog unter Admin > Metamodell > Lizenztypen. Eine Karte erfasst lizenzierte und tatsächliche Mengen je Paar Kennzahl: Typ und Geschäftsjahr |
 | **Auslastung** | Tatsächliche Lizenzmenge geteilt durch lizenzierte Menge, in Prozent. Unter 80 % ist ein Lizenztyp konform, ab 80 % nahe am Limit, über 100 % überlizenziert |
-| **Kostenposition** | Ein Budget- oder Ist-Kosteneintrag (CapEx/OpEx) in einer PPM-Initiative zur Verfolgung finanzieller Ausgaben |
+| **Geplantes Budget** | Budgetzeile einer Initiative mit Geschäftsjahr und Kategorie. Sie kann mehrere Kostenpositionen enthalten. |
+| **Kostenpositionen** | Geplante oder tatsächliche Ausgabe unter einer Budgetzeile, getrennt vom Kostenbereich auf Inventarkarten. |
+| **Fakturierter Ist-Betrag** | Erfassung einer ausgestellten Rechnung mit Datum, Belegreferenz und Nettobetrag zu einer Kostenposition. |
 | **Datenqualität** | Ein Vollständigkeitswert von 0–100%, basierend auf ausgefüllten Feldern und deren konfigurierten Gewichtungen |
 | **Dateianhang** | Eine binäre Datei (Dokumente, Tabellen, Präsentationen, OpenDocument- und ältere Office-Dateien, Bilder, Archive, Outlook- und E-Mail-Nachrichten, CSV, Markdown, JSON und XML – bis zu 20 MB), die direkt über den Ressourcen-Tab auf eine Karte hochgeladen wird |
 | **Diagramm** | Ein visuelles Architekturdiagramm, erstellt mit dem eingebetteten DrawIO-Editor |
@@ -59,14 +61,14 @@
 | **OData-Feed** | Ein JSON-Datenfeed, der über gespeicherte Inventaransichten (Lesezeichen) für externe Tools wie Power BI oder Excel verfügbar ist |
 | **Ollama** | Ein Open-Source-Werkzeug zum lokalen Ausführen von LLMs auf eigener Hardware |
 | **Portfolio** | Eine Sammlung von Anwendungen oder Technologien, die als Gruppe verwaltet werden |
-| **PPM** | Projektportfoliomanagement — die Disziplin der Verwaltung eines Portfolios von Projekten und Initiativen mit Budgets, Risiken, Aufgaben und Statusberichten |
+| **Projektstammliste (PML)** | Modul für Initiativkarten, Budgets, Kosten, Termine, Risiken, Aufgaben und Statusberichte. |
 | **Referenznummer** | Eine automatisch generierte fortlaufende Kennung für ADRs (z.B. ADR-001, ADR-002), die ein eindeutiges, lesbares Label bietet |
 | **Wiederkehrendes Todo** | Ein Karten-Todo, das nach einem Zeitplan wiederkehrt (alle N Tage/Wochen/Monate/Jahre). Beim Abschließen entsteht das nächste Vorkommen; weit entfernte Vorkommen bleiben «geplant», bis sich ein Vorlaufzeitfenster öffnet, dann erscheinen sie auf der Aufgabenseite und benachrichtigen den Zuständigen |
 | **Beziehung** | Eine Verbindung zwischen zwei Karten, die beschreibt, wie sie zusammenhängen (z.B. «nutzt», «hängt ab von», «läuft auf») |
 | **Beziehungsmatrix** | Die Tabelle der ArchiMate-Spezifikation, die festlegt, welche Beziehungen zwischen zwei Elementtypen erlaubt sind. Der Editor lässt nur Beziehungen zu, die die Matrix erlaubt |
 | **Ressourcen-Tab** | Ein Tab auf der Kartendetailseite, der Architekturentscheidungen, Dateianhänge und Dokumentenlinks an einem Ort zusammenfasst |
 | **Revision (ADR)** | Eine neue Version eines unterzeichneten ADR, die Inhalt und Kartenverknüpfungen der vorherigen Version übernimmt, mit einer erhöhten Revisionsnummer |
-| **RAG-Status** | Rot-Gelb-Grün-Gesundheitsindikator in PPM-Statusberichten für Zeitplan, Kosten und Umfang |
+| **RAG-Status** | Rot-Gelb-Grün-Gesundheitsindikator in PML-Statusberichten für Zeitplan, Kosten und Umfang |
 | **Risikobewertung** | Ein automatisch berechneter Wert (Wahrscheinlichkeit x Auswirkung), der die Schwere eines Projektrisikos quantifiziert |
 | **Gespeicherter Bericht** | Eine gespeicherte Berichtskonfiguration mit Filtern, Gruppierung, Einfärbung und Visualisierungseinstellungen, die erneut geladen werden kann |
 | **Abschnitt** | Ein gruppierbarer Bereich der Kartendetailseite, der verwandte Felder enthält, konfigurierbar pro Kartentyp |
@@ -83,7 +85,7 @@
 | **Initial- vs. Rest-Risiko** | Zwei Bewertungen, die für jedes Risiko im Risikoregister erfasst werden. `Initial` ist Wahrscheinlichkeit × Auswirkung ohne Minderung; `Rest` ist Wahrscheinlichkeit × Auswirkung nach Minderung, editierbar sobald ein Minderungsplan existiert. Beide leiten über die 4×4-Matrix ein Level ab |
 | **Risiko-Referenz** | Eine monoton steigende, menschlich lesbare Kennung (`R-000123`), die beim Anlegen eines Risikos vergeben wird. Sie bleibt auf Schaltflächen überführter Befunde sichtbar (**Risiko R-000123 öffnen**) und in der Beschreibung des verknüpften Todos des Eigentümers |
 | **TOGAF** | The Open Group Architecture Framework — eine weit verbreitete EA-Methodik. Die SoAW-Funktion von Turbo EA orientiert sich an TOGAF |
-| **Statusbericht** | Ein monatlicher PPM-Bericht, der die Projektgesundheit über RAG-Indikatoren für Zeitplan, Kosten und Umfang verfolgt |
+| **Statusbericht** | Ein monatlicher PML-Bericht, der die Projektgesundheit über RAG-Indikatoren für Zeitplan, Kosten und Umfang verfolgt |
 | **Wertschöpfungskette** | Die schreibgeschützte Seite unter Org&Process, die Prozesskategorien in Management-, Kern- und Unterstützungsbänder gruppiert und die Kernwertströme als Haus zwischen Kundenanforderung und Kundenzufriedenheit zeichnet. Siehe [Wertschöpfungskette und Wertstromkarten](../guide/value-chain.md) |
 | **Value Gate** | Eine Ziel-Karte des Untertyps *Value Gate*: ein Kontrollpunkt, den ein Wertstrom passieren muss. Value Gates werden als Pillen im obersten Band der Wertstromkarte gezeichnet |
 | **Wertstrom** | Eine Geschäftskontext-Karte des Untertyps *Wertstrom*: eine durchgängige Abfolge von Stufen, die einem Kunden Wert liefert. Die Stufen sind seine untergeordneten Wertströme, geordnet durch die Beziehung *folgt auf*. Die Wertstromkarte zeichnet einen Wertstrom mit den Value Gates, Prozessen und Fähigkeiten dahinter |
@@ -95,7 +97,7 @@
 | **KI-Verdikt** | Die Bestätigung oder Ablehnung der vom LLM erkannten KI-Eigenschaft einer Karte durch den Nutzer (`hasAiFeatures = true / false`). Bleibt über Re-Scans hinweg bestehen, damit LLM-Drift den Geltungsbereich des EU AI Act nicht stillschweigend verändern kann |
 | **GRC** | Governance, Risk und Compliance — der gebündelte Arbeitsbereich unter `/grc` mit drei Tabs (Governance, Risk, Compliance), die EA-Prinzipien, ADRs, das Risikoregister und den Security & Compliance-Scanner zusammenführen |
 | **Phase G** | TOGAF-ADM-Phase „Implementation Governance". Quelle des Vokabulars und Lebenszyklus des Risikoregisters |
-| **Risikoregister** | Landschaftsweites Register architektonischer Risiken, ausgerichtet an TOGAF Phase G. Liegt unter `/grc?tab=risk`. Unterscheidet sich von den initiativ-bezogenen Risiken in PPM |
+| **Risikoregister** | Landschaftsweites Register architektonischer Risiken, ausgerichtet an TOGAF Phase G. Liegt unter `/grc?tab=risk`. Unterscheidet sich von den initiativ-bezogenen Risiken in PML |
 | **Risiko-Eigentümer** | Die für ein Risiko verantwortliche Person. Die Zuweisung erstellt automatisch ein System-Todo auf der Todo-Seite des Eigentümers und löst eine Benachrichtigung `risk_assigned` aus |
 | **Mitigationsaufgabe** | Ein eigentümerbasiertes Arbeitselement, das einem Risiko angehängt ist und konkrete Mitigations-Aktivität erfasst. Kann einmalig oder wiederkehrend sein (täglich / wöchentlich / monatlich / jährlich). Wiederkehrende Aufgaben rollen kalenderrichtig vorwärts beim Abschluss |
 | **Mitigationsaufgaben-Zyklus** | Eine geplante Instanz einer Mitigationsaufgabe. Durchläuft `scheduled` → `open` → `done` / `skipped`. Hält einen Snapshot des Zuständigen beim Öffnen und des Eigentümers beim Abschluss fest, sodass Audit-Antworten Eigentümerrotation überleben |

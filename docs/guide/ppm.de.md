@@ -1,20 +1,18 @@
-# Projektportfoliomanagement (PPM)
+# Projektstammliste (PML)
 
-Das **PPM**-Modul bietet eine vollständige Lösung für das Projektportfoliomanagement zur Verfolgung von Initiativen, Budgets, Risiken, Aufgaben und Zeitplänen. Es integriert sich direkt mit dem Kartentyp Initiative, um jedes Projekt mit Statusberichten, Kostenverfolgung und Gantt-Visualisierung anzureichern.
+Öffnen Sie die **Projektstammliste** in der Hauptnavigation, um Initiativen, Budgets, Risiken, Aufgaben und Termine zu verfolgen. Das Modul bündelt Statusberichte, Finanzdaten und Gantt-Ansichten.
 
 !!! note
-    Das PPM-Modul kann von einem Administrator in den [Einstellungen](../admin/settings.md) aktiviert oder deaktiviert werden. Wenn deaktiviert, sind PPM-Navigation und -Funktionen ausgeblendet.
+    Das PML-Modul kann von einem Administrator in den [Einstellungen](../admin/settings.md) aktiviert oder deaktiviert werden. Wenn deaktiviert, sind PML-Navigation und -Funktionen ausgeblendet.
 
 ## Portfolio-Dashboard
 
-![PPM Portfolio-Dashboard](../assets/img/de/40_ppm_portfolio.png)
+![PML Portfolio-Dashboard](../assets/img/de/40_ppm_portfolio.png)
 
-Das **Portfolio-Dashboard** ist der Haupteinstiegspunkt für PPM. Es bietet:
+Das **Portfolio-Dashboard** ist der Haupteinstiegspunkt für PML. Es bietet:
 
-- **KPI-Karten** — Gesamtzahl der Initiativen, Gesamtbudget, tatsächliche Gesamtkosten und Zusammenfassungen des Gesundheitsstatus
-- **Gesundheits-Kreisdiagramme** — Verteilung von Zeitplan-, Kosten- und Umfangsgesundheit (Auf Kurs / Gefährdet / Abweichend)
-- **Statusverteilung** — Aufschlüsselung nach Initiativ-Subtyp und Status
-- **Gantt-Übersicht** — Zeitbalken mit Start- und Enddaten jeder Initiative und RAG-Gesundheitsindikatoren
+- **KPI-Leiste** — Die Anzahl der Initiativen, ihr Gesamtbudget (sofern Ihnen Kosten angezeigt werden) und wie viele beim Zeitplan Im Plan, Gefährdet oder Nicht im Plan sind. Die Werte folgen dem Portfolio: Die Suche, die Subtyp-Auswahl und der Abschnitt **Filter** grenzen sie auf die Initiativen ein, die Sie gerade betrachten
+- Im internen Portfolio liegen **Plan** und **Ist** auf derselben Quartalsskala. Ein einzelnes Datum erscheint als Markierung. Berechtigte Personen sehen die genauen Termine. Das öffentliche Portfolio zeigt den Plan.
 
 ### Gruppierung und Filterung
 
@@ -27,7 +25,17 @@ Verwenden Sie die Symbolleiste, um:
 - **Hierarchie anzeigen** – die Initiativen jeder Gruppe unter ihrer übergeordneten Initiative einrücken (siehe unten)
 - **Nach Untertyp untergliedern** – jede Gruppe nach Untertyp aufteilen (siehe unten)
 
-Diese Filter bleiben in der URL erhalten, sodass eine Seitenaktualisierung Ihre aktuelle Ansicht beibehält. Auch die Hierarchie, ihre Anzeigetiefe und die Untergliederung bleiben in der URL erhalten.
+Diese Einstellungen bleiben in der URL erhalten, sodass eine Seitenaktualisierung Ihre aktuelle Ansicht beibehält und ein geteilter Link dasselbe Portfolio öffnet. Das Portfolio merkt sich außerdem seine Suche, Gruppierung, den Subtyp, die Hierarchie-Einstellungen und die Filter in Ihrem Browser und stellt sie wieder her, wenn Sie zurückkehren – über das PML-Menü oder mit dem Zurück-Pfeil, nachdem Sie eine Initiative geöffnet haben. Ein Link mit eigenen Einstellungen öffnet sich mit diesen, und sie werden zu den gemerkten Einstellungen. Das Symbol **Auf Standard zurücksetzen** in der Titelleiste setzt das Portfolio auf seine Standardwerte zurück.
+
+#### Der Abschnitt Filter
+
+Unter der Symbolleiste befindet sich der Abschnitt **Filter**, beim ersten Öffnen des Portfolios eingeklappt, damit das Portfolio im Blick bleibt, und danach so, wie Sie ihn zuletzt verlassen haben; solange er eingeklappt ist, zeigt ein Chip in seiner Kopfzeile, wie viele Filter aktiv sind. Klappen Sie ihn auf, um das Portfolio mit denselben Filtern wie in den Berichten einzugrenzen:
+
+- **Verknüpfte Karten** — behält die Initiativen, die mit den ausgewählten Karten verknüpft sind, zum Beispiel mit einer Organisation oder einer Anwendung. **Unterkarten einbeziehen** behält auch die Initiativen, die mit den Karten unterhalb einer ausgewählten Karte in deren Hierarchie verknüpft sind
+- **Tags** — behält die Initiativen, die die ausgewählten Tags tragen
+- **Felder** — behält die Initiativen, deren eigene Felder (die Attribute des Kartentyps Initiative) den ausgewählten Werten entsprechen
+
+Aktive Filter bleiben in der URL erhalten und werden mit dem Rest des Portfolios gemerkt, sodass ein geteilter Link dasselbe Portfolio öffnet, und sie werden in der Parameterzeile eines Ausdrucks oder Exports aufgeführt. **Alle löschen** leert den Abschnitt Filter und lässt den Rest der Symbolleiste unverändert.
 
 #### Die Initiativhierarchie anzeigen
 
@@ -35,7 +43,7 @@ Wenn einige Initiativen im Portfolio eine übergeordnete Initiative haben, die e
 
 Die Gruppierung bleibt vorrangig: Die Hierarchie wird **innerhalb jeder Gruppe** aufgebaut, sodass eine Initiative, deren übergeordnete Initiative zu einer anderen Gruppe gehört, in ihrer eigenen Gruppe als Zeile der obersten Ebene erscheint. Die Filter wirken zuerst, und der Baum zeigt, was übrig bleibt: Schließen die Suche oder der Untertypfilter eine übergeordnete Initiative aus, rücken ihre untergeordneten Initiativen auf die oberste Ebene, statt dass die übergeordnete als Kontext erhalten bleibt.
 
-![PPM-Portfolio mit angezeigter Hierarchie](../assets/img/de/101_ppm_portfolio_hierarchie.png)
+![PML-Portfolio mit angezeigter Hierarchie](../assets/img/de/101_ppm_portfolio_hierarchie.png)
 
 #### Nach Untertyp untergliedern
 
@@ -51,23 +59,25 @@ Die Schlusszeile der Gruppe ersetzt die Summenzeile: Sie trägt den Namen des Un
 
 Jede Initiative zeigt ihre eigenen Werte, sobald sie welche hat: Die CapEx- und OpEx-Balken einer übergeordneten Initiative umfassen die auf ihr selbst erfassten Budget- und Kostenzeilen, ihr Gantt-Balken ihr eigenes Start- und Enddatum. Eine übergeordnete Initiative **ohne eigene Budgetzeilen** zeigt stattdessen das Budget der Initiativen darunter, eine **ohne eigene Kostenzeilen** deren Ist-Kosten; in beiden Fällen wird der Balken **umrandet** mit kursiven Werten gezeichnet, und sein Tooltip nennt, welche Hälfte von darunter stammt. Eine ohne **Start- und ohne Enddatum** erstreckt sich vom frühesten Start bis zum spätesten Ende darunter, als **gestrichelter** Balken mit kursiven Quartalen. Ein Tooltip nennt jeweils, wie viele Initiativen erfasst sind. Die drei Regeln gelten unabhängig voneinander – ein Programm, das das Budget hält, während seine Projekte die Ausgaben erfassen, zeigt sein eigenes Budget gegen deren Ist-Kosten, und ein Programm kann eigene Termine haben und trotzdem die Kosten seiner Projekte zeigen –, und schon eine Budgetzeile, eine Kostenzeile oder ein Datum auf der übergeordneten Initiative schaltet diesen Teil auf ihre eigenen Werte zurück. Es zählen nur die Initiativen, die Sie sehen dürfen, und auf einem Portal nur die, die das Portal veröffentlicht. Die Gruppensummen und die KPI-Leiste addieren weiterhin nur erfasste Zeilen, sodass jeder Wert genau einmal zählt.
 
-Die abgeleiteten Werte gibt es nur auf dem PPM-Board und auf den Reitern **Übersicht** und **Budget & Kosten** der Initiative selbst. Um eine aufsummierte Summe ins Inventar, in Berichte oder in ein Portal zu bringen, legen Sie ein berechnetes Feld an, das das eigene Budget jeder Ebene zu den Summen ihrer untergeordneten Initiativen addiert – siehe [PPM-Werte entlang der Initiativhierarchie aufsummieren](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Eine PPM-Änderung an einer untergeordneten Initiative führt die Berechnungen aller darüberliegenden Initiativen erneut aus, sodass sich die Summe der übergeordneten sofort aktualisiert.
+Die abgeleiteten Werte gibt es nur auf dem PML-Board und auf den Reitern **Übersicht** und **Budget & Kosten** der Initiative selbst. Um eine aufsummierte Summe ins Inventar, in Berichte oder in ein Portal zu bringen, legen Sie ein berechnetes Feld an, das das eigene Budget jeder Ebene zu den Summen ihrer untergeordneten Initiativen addiert – siehe [PML-Werte entlang der Initiativhierarchie aufsummieren](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Eine PML-Änderung an einer untergeordneten Initiative führt die Berechnungen aller darüberliegenden Initiativen erneut aus, sodass sich die Summe der übergeordneten sofort aktualisiert.
 
 ### Drucken und Exportieren
 
 Das Portfolio bietet dieselben Aktionen in der Titelleiste wie die Berichte:
 
-- **Drucken / Als PDF speichern** — Das Druckersymbol druckt das Portfolio so, wie es auf dem Bildschirm aussieht. Die Registerkartenleiste, die Filterleiste und Hover-Popovers werden ausgeblendet, die aktive Gruppierung, der Subtyp und die Suche erscheinen als kompakte Parameterzeile, und das Zeitplanraster wird nicht mehr beschnitten, sodass alle Spalten auf die Seite passen. Sind die Hierarchie oder die Untergliederung eingeschaltet, nennt die Parameterzeile auch diese, mit der Anzeigetiefe.
+- **Drucken / Als PDF speichern** — Das Druckersymbol druckt das Portfolio so, wie es auf dem Bildschirm aussieht. Die Registerkartenleiste, die Filterleiste und Hover-Popovers werden ausgeblendet, die aktive Gruppierung, der Subtyp, die Suche und die Filter des Abschnitts Filter erscheinen als kompakte Parameterzeile, und das Zeitplanraster wird nicht mehr beschnitten, sodass alle Spalten auf die Seite passen. Sind die Hierarchie oder die Untergliederung eingeschaltet, nennt die Parameterzeile auch diese, mit der Anzeigetiefe.
 - **Export nach PowerPoint (.pptx)** — über das **⋮**-Menü. Die erste Folie enthält Titel, Erstellungszeitstempel und die aktiven Filter zusammen mit dem Portfolio in Präsentationsqualität; lange Portfolios werden auf weiteren Folien fortgesetzt und nur zwischen Initiativen getrennt — nie mitten in einer Zeile, einer Gruppenüberschrift oder einer Summenzeile.
 - **Export nach Excel (.xlsx)** — ebenfalls über das **⋮**-Menü. Eine Zeile je Initiative mit Gruppe, Subtyp, Projektleitung, Start- und Enddatum, den drei Gesundheitsbewertungen, CapEx/OpEx geplant und tatsächlich sowie dem Datum des letzten Statusberichts. Die Zeilen folgen der Reihenfolge auf dem Bildschirm; solange die Hierarchie angezeigt wird, nennt eine Spalte **Übergeordnet** die übergeordnete Initiative jeder Initiative. Drei Spalten, **Budget aus**, **Kosten aus** und **Termine aus**, geben an, ob Budget, Ist-Kosten und Termine einer Zeile ihre eigenen sind oder die Summe der Initiativen darunter. Ist das Board nach einem Untertyp der Initiative gruppiert, ist die gruppierende Initiative die **erste Zeile ihrer Gruppe**, mit den Werten, die ihre Schlusszeile zeigt.
 
 ## Initiativ-Detailansicht
 
+**Tatsächlicher Beginn** und **Tatsächliches Ende** sind eingebaute Felder der Initiativkarte. Ihre Werte können geändert oder geleert werden. Administratoren können Beschriftungen und Positionen im Metamodell ändern. Die Felddefinitionen sind vor dem Löschen geschützt.
+
 Klicken Sie auf eine Initiative, um deren Detailseite mit sieben Tabs zu öffnen:
 
 ### Übersicht-Tab
 
-![PPM Initiativ-Übersicht](../assets/img/de/41_ppm_uebersicht.png)
+![PML Initiativ-Übersicht](../assets/img/de/41_ppm_uebersicht.png)
 
 Die Übersicht zeigt eine Zusammenfassung der Gesundheit und Finanzen der Initiative:
 
@@ -79,7 +89,7 @@ Die Übersicht zeigt eine Zusammenfassung der Gesundheit und Finanzen der Initia
 
 ### Statusberichte-Tab
 
-![PPM Statusberichte](../assets/img/de/42_ppm_statusberichte.png)
+![PML Statusberichte](../assets/img/de/42_ppm_statusberichte.png)
 
 Monatliche Statusberichte verfolgen die Projektgesundheit über die Zeit. Jeder Bericht enthält:
 
@@ -95,18 +105,20 @@ Monatliche Statusberichte verfolgen die Projektgesundheit über die Zeit. Jeder 
 
 ### Budget & Kosten-Tab
 
-![PPM Budget und Kosten](../assets/img/de/43_ppm_budget_kosten.png)
+![PML Budget und Kosten](../assets/img/de/43_ppm_budget_kosten.png)
 
-Finanzdaten verfolgen mit zwei Arten von Positionen:
+Das **Geplante Budget** zeigt Budgetzeilen nach Geschäftsjahr und Kategorie (CapEx oder OpEx). Klappen Sie eine Budgetzeile für ihre **Kostenpositionen** aus und eine Position für ihre Rechnungen unter **Fakturierter Ist-Betrag**. Das Geschäftsjahr beginnt nach den [Einstellungen](../admin/settings.md#beginn-des-geschäftsjahres).
 
-- **Budgetpositionen** — Geplantes Budget nach Geschäftsjahr und Kategorie (CapEx / OpEx), mit optionaler Beschreibung. Ein Geschäftsjahr und eine Kategorie können beliebig viele Positionen enthalten — etwa eine je Lizenz, Implementierungspartner oder Hardware-Lieferung —, die Beschreibung unterscheidet sie; die Summen rechnen alle zusammen. Budgetzeilen werden nach dem **Geschäftsjahresbeginn** gruppiert, der in den [Einstellungen](../admin/settings.md#beginn-des-geschäftsjahres) konfiguriert ist. Wenn das Geschäftsjahr beispielsweise im April beginnt, gehört eine Budgetzeile vom Juni 2026 zum GJ 2026–2027
-- **Kostenpositionen** — Tatsächliche Ausgaben mit Datum, Beschreibung und Kategorie
+Erfassen Sie Budget-, Kosten- und Rechnungsbeträge ohne Umsatzsteuer. Die Rechnungsübersicht erfasst bereits ausgestellte Rechnungen.
 
-Beide Tabellen sind nach Geschäftsjahr gruppiert. Jedes Jahr hat eine Kopfzeile mit seinen Zwischensummen für CapEx, OpEx und Gesamt sowie der Anzahl seiner Zeilen; mit dem Pfeil in der Kopfzeile blenden Sie die Zeilen dieses Jahres ein oder aus. Beim Öffnen des Tabs ist nur das aktuelle Geschäftsjahr aufgeklappt (oder das letzte Jahr mit Zeilen, wenn das aktuelle keine hat). Die Beträge stehen in getrennten Spalten **CapEx** und **OpEx**, und eine Zeile **Gesamt, alle Geschäftsjahre** unter jeder Tabelle summiert alle Jahre. Mit **+** in der Kopfzeile eines Budgetjahres legen Sie eine Budgetzeile an, in der dieses Geschäftsjahr bereits eingetragen ist. Kostenpositionen werden nach dem Geschäftsjahr ihres Datums gruppiert und darin nach Datum sortiert; Kostenpositionen ohne Datum stehen am Ende in der Gruppe **Ohne Datum** und zählen wie jede andere Position zu den Kostensummen.
+- Legen Sie Kostenpositionen aus ihrer Budgetzeile an. Unter **Kosten ohne Budget** lassen sich ältere Positionen zuordnen. Kostenpositionen können zwischen Zeilen derselben Initiative verschoben werden.
+- Geben Sie Rechnungsdatum, Belegreferenz und Betrag ein. Verteilen Sie eine Rechnung über mehrere Kostenpositionen, indem Sie unter jeder Position den zugehörigen Teilbetrag erfassen. Eine Rechnung kann zu einer anderen Kostenposition derselben Initiative verschoben werden.
+- Die Kostenposition zeigt Ist-Kosten, fakturierten und noch zu fakturierenden Betrag. Der Rest sind die Ist-Kosten abzüglich des fakturierten Betrags und kann negativ sein. Das Budget summiert seine Kostenpositionen mit Zwischensummen je Geschäftsjahr und Kategorie. Die Initiative zählt auch Rechnungen auf Positionen ohne Budget.
+- Die dokumentierten Budget- und Kostenbeträge bestimmen die Budget- und Ist-Zahlen sowie die Diagramme. Das Erfassen oder Verschieben einer Rechnung ändert nur die Rechnungszahlen.
 
-Hat die Initiative **keine eigenen Budgetzeilen**, zeigt die Budgettabelle anstelle ihres leeren Zustands das Budget der Initiativen darunter: Eine Beschriftung nennt, aus wie vielen Initiativen es stammt, je Geschäftsjahr gibt eine schreibgeschützte Zeile CapEx, OpEx und Gesamt kursiv an, und die Zeile **Gesamt, alle Geschäftsjahre** addiert sie. Die Kostentabelle tut dasselbe mit deren Ist-Kosten, wenn die Initiative **keine eigenen Kostenzeilen** hat, mit einer Zeile **Ohne Datum** für deren Kostenzeilen ohne Datum. Die Übersichtsleiste kennzeichnet diese Werte kursiv, mit einem Tooltip. Jede Tabelle entscheidet für sich, nichts wird gespeichert oder zu den eigenen Werten der Initiative addiert, und es zählen nur die Initiativen, die Sie sehen dürfen. Die erste eigene Zeile über **Budgetzeile hinzufügen** oder **Kostenposition hinzufügen** schaltet diese Tabelle auf die eigenen Zeilen der Initiative zurück; die Ausgabendiagramme zeigen stets die eigenen Zeilen der Initiative.
+Kostenpositionen übernehmen den konfigurierten Anbieter aus ihrer Budgetzeile. Soweit erlaubt, kann ein direkt untergeordneter Anbieter gewählt werden. Weitere Felder und Berechnungen finden Sie in [Budget und Kosten konfigurieren](../admin/settings.md#pml-budget-costs).
 
-Budget- und Kostensummen werden automatisch in die `costBudget`- und `costActual`-Attribute der Initiativ-Karte hochgerechnet.
+Wenn eine Initiative keine eigenen Budget- oder Kostenpositionen hat, kann der jeweilige Betrag aus sichtbaren untergeordneten Initiativen kommen. Budget und Kosten werden unabhängig voneinander bestimmt. Abgeleitete Zeilen zeigen einen Strich für zugeordnete Kosten und Rechnungen. Die Summen aktualisieren `costBudget` und `costActual` auf der Karte. Wenn PML-Kostenpositionen vorliegen, sind diese Felder dort schreibgeschützt.
 
 #### Ausgaben im Zeitverlauf
 
@@ -125,7 +137,7 @@ Zwei Hinweise zum Lesen der Diagramme:
 
 ### Risikomanagement-Tab
 
-![PPM Risikomanagement](../assets/img/de/44_ppm_risikomanagement.png)
+![PML Risikomanagement](../assets/img/de/44_ppm_risikomanagement.png)
 
 Das Risikoregister verfolgt die Risiken der Initiative. Jedes Risiko hat:
 
@@ -216,7 +228,7 @@ Spalten werden anhand ihrer Überschrift in Ihrer Sprache oder auf Englisch erka
 
 ### Aufgaben-Tab
 
-![PPM Aufgaben-Board](../assets/img/de/45_ppm_aufgaben_board.png)
+![PML Aufgaben-Board](../assets/img/de/45_ppm_aufgaben_board.png)
 
 Der Aufgabenmanager unterstützt **Kanban-Board** und **Listen**-Ansichten mit vier Statusspalten:
 
@@ -231,7 +243,7 @@ Anzeigefilter (Ansichtsmodus, WBS-Filter, Gruppierungs-Umschalter) bleiben in de
 
 ### Gantt-Tab
 
-![PPM Gantt-Diagramm](../assets/img/de/46_ppm_gantt.png)
+![PML Gantt-Diagramm](../assets/img/de/46_ppm_gantt.png)
 
 Das Gantt-Diagramm visualisiert den Projektzeitplan mit:
 
@@ -254,17 +266,21 @@ Interaktion mit dem Gantt-Diagramm:
 
 Der letzte Tab zeigt die vollständige Kartendetailansicht mit allen Standardabschnitten.
 
+Unter **Kosten und Zeitplan** vergleichen überlagerte Balken Budget und Ist-Kosten für Gesamt, CapEx und OpEx. Der fakturierte Gesamtbetrag der Initiative erscheint separat gemäß Berechtigung. Die Zeitachse zeigt sichtbare Plan- und Ist-Termine und die neuesten Indikatoren zu Zeit, Kosten und Leistungsumfang.
+
 ### Initiativbericht
 
-![PPM-Initiativbericht](../assets/img/de/103_ppm_initiativbericht.png)
+![PML-Initiativbericht](../assets/img/de/103_ppm_initiativbericht.png)
+
+Die Druckansicht umfasst die sichtbaren Plan- und Ist-Termine, die ausgeklappte Hierarchie und Zwischensummen pro Geschäftsjahr. Der fakturierte Gesamtbetrag erscheint gemäß Berechtigung.
 
 Die Schaltfläche **Bericht** in der Kopfzeile der Initiative, neben dem Untertyp-Chip (auf dem Smartphone ein Symbol), öffnet den **Initiativbericht**: eine schreibgeschützte Seite, die zusammenfasst, was die Tabs zeigen, gestaltet wie die anderen Berichte, mit dem Namen der Initiative als Titel und einem Zurück-Pfeil, um zur Initiative zurückzukehren. Die Chips unter **Abschnitte** in der Werkzeugleiste blenden jeden Abschnitt ein oder aus; beim ersten Mal werden alle angezeigt, und Ihre Auswahl wird in Ihrem Browser gespeichert:
 
 | Abschnitt | Was angezeigt wird |
 |-----------|--------------------|
-| **Übersicht** | Kacheln für **Gesamtbudget**, **Ist-Kosten gesamt**, **Abweichung** und **Fertigstellung**; die **Gesundheitsübersicht** mit den drei Bewertungen des neuesten Statusberichts in Farbe und in Worten; die Balken unter **Finanzen** für Gesamt, CapEx und OpEx; der Bereich **Zeitachse** mit Start- und Enddatum, Untertyp und Initiativstatus; und die Beschreibung. Werte, die aus den untergeordneten Initiativen stammen, sind gekennzeichnet, mit einem erläuternden Hinweis |
+| **Übersicht** | Kacheln für **Gesamtbudget**, **Ist-Kosten gesamt**, **Abweichung** und **Fertigstellung**; die **Gesundheitsübersicht** mit den drei Bewertungen des neuesten Statusberichts in Farbe und in Worten; die Balken unter **Finanzen** für Gesamt, CapEx und OpEx; der Bereich **Zeitachse** mit sichtbaren Plan- und Ist-Terminen, Untertyp und Initiativstatus; und die Beschreibung. Werte, die aus den untergeordneten Initiativen stammen, sind gekennzeichnet, mit einem erläuternden Hinweis |
 | **Statusberichte** | Der neueste Bericht vollständig, mit seinen Bewertungen, dann die früheren Berichte in einer Tabelle mit Datum, Berichterstatter und Gesundheitsbewertungen |
-| **Budget & Kosten** | Kacheln für Gesamtbudget, Ist-Kosten und Abweichung sowie für die CapEx- und OpEx-Ausgaben gegenüber ihrem Budget; die Diagramme **Ausgaben im Zeitverlauf** für das in ihrem Chip genannte Geschäftsjahr und für das gesamte Projekt; dann die Tabellen **Geplantes Budget** und **Kostenpositionen** mit allen Geschäftsjahren aufgeklappt |
+| **Budget & Kosten** | Kacheln für Gesamtbudget, Ist-Kosten und Abweichung sowie für die CapEx- und OpEx-Ausgaben gegenüber ihrem Budget; die Diagramme **Ausgaben im Zeitverlauf** für das in ihrem Chip genannte Geschäftsjahr und für das gesamte Projekt; Ausgeklappte Hierarchie **Geplantes Budget → Kostenpositionen → Fakturierter Ist-Betrag** mit Zwischensummen je Geschäftsjahr und dem fakturierten Gesamtbetrag der Initiative |
 | **Risikomanagement** | Kacheln für **Risiken gesamt**, **Offen** und **Hohe Risiken**; die **Risiko-Heatmap** von Wahrscheinlichkeit gegen Auswirkung, jede Zelle nach Bewertungsstufe gefärbt und mit der Anzahl der Risiken darin, daneben eine Zählung **Nach Status**; dann jedes Risiko mit seiner Bewertung (und Wahrscheinlichkeit × Auswirkung), Status, Verantwortlichem, vollständiger Beschreibung und vollständiger Gegenmaßnahme, die höchste Bewertung zuerst |
 | **Aufgaben & Zeitplan** | Eine Tabelle der Arbeitspakete, jeweils mit ihren Aufgaben darunter, dann die Aufgaben ohne Arbeitspaket, neben einer Zeitleiste auf Quartalsskala: ein Balken für jedes Arbeitspaket, gefüllt entsprechend seiner Fertigstellung, ein Balken für jede Aufgabe in ihrer Statusfarbe, eine Raute für einen Meilenstein (wie im Gantt-Diagramm), ein Punkt für ein Element mit nur einem Datum und eine Linie für heute, wenn es im Zeitraum liegt. Jede Zeile zeigt außerdem ihren Fortschritt oder Status und ihre Priorität, und eine Legende erklärt die Markierungen |
 
@@ -285,14 +301,16 @@ Der PSP bietet eine hierarchische Zerlegung des Projektumfangs:
 
 ## Kartendetail-Integration
 
-Wenn PPM aktiviert ist, zeigen **Initiativ**-Karten einen **PPM**-Tab als letzten Tab in der [Kartendetailansicht](card-details.md). Ein Klick auf diesen Tab navigiert direkt zur PPM-Initiativ-Detailansicht (Übersicht-Tab). Dies bietet einen schnellen Einstiegspunkt von jeder Initiativ-Karte zu ihrer vollständigen PPM-Projektseite.
+Wenn PML aktiviert ist, zeigen **Initiativ**-Karten einen **PML**-Tab als letzten Tab in der [Kartendetailansicht](card-details.md). Ein Klick auf diesen Tab navigiert direkt zur PML-Initiativ-Detailansicht (Übersicht-Tab). Dies bietet einen schnellen Einstiegspunkt von jeder Initiativ-Karte zu ihrer vollständigen PML-Projektseite.
 
-Umgekehrt zeigt der **Kartendetails**-Tab innerhalb der PPM-Initiativ-Detailansicht die Standardabschnitte der Kartendetails ohne den PPM-Tab, um zirkuläre Navigation zu vermeiden.
+Umgekehrt zeigt der **Kartendetails**-Tab innerhalb der PML-Initiativ-Detailansicht die Standardabschnitte der Kartendetails ohne den PML-Tab, um zirkuläre Navigation zu vermeiden.
 
 ## Berechtigungen
 
 | Berechtigung | Beschreibung |
 |-------------|--------------|
-| `ppm.view` | PPM-Dashboard, Gantt-Diagramm und Initiativberichte anzeigen sowie Initiative-Karten lesen. Standardmäßig für alle Rollen gewährt |
+| `ppm.view` | PML-Dashboard, Gantt-Diagramm und Initiativberichte anzeigen sowie Initiative-Karten lesen. Standardmäßig für alle Rollen gewährt |
 | `ppm.manage` | Statusberichte, Aufgaben, Kosten, Risiken und WBS-Elemente erstellen und verwalten. Gewährt für Admin-, BPM-Admin- und Mitglied-Rollen |
-| `reports.ppm_dashboard` | PPM-Portfolio-Dashboard anzeigen. Standardmäßig für alle Rollen gewährt |
+| `reports.ppm_dashboard` | PML-Portfolio-Dashboard anzeigen. Standardmäßig für alle Rollen gewährt |
+
+Für Budget und Kostenpositionen gelten PML-Berechtigungen und die Sichtbarkeit der Initiative. Rechnungsdetails, Rechnungssummen und der Kostenindikator auf der Zeitachse setzen zusätzlich Zugriff auf die Kosten voraus. Zum Erfassen oder Verschieben von Rechnungen ist außerdem die PML-Verwaltungsberechtigung erforderlich.

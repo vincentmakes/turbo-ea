@@ -120,7 +120,7 @@ Una vez que su portafolio de aplicaciones esté vivo y sea confiable, estos se c
 |--------|----------------|-------------------|
 | **Registro de Riesgos** | Cuando esté listo para rastrear riesgos de arquitectura contra aplicaciones y capacidades (TOGAF Fase G). | [Registro de Riesgos](../guide/risks.md) |
 | **GRC / Cumplimiento** | Cuando necesite mapear aplicaciones y capacidades contra regulaciones (GDPR, NIS2, EU AI Act, DORA, SOC 2, ISO 27001). | [GRC](../guide/grc.md) |
-| **PPM** | Cuando las decisiones de racionalización se conviertan en proyectos con presupuestos, cronogramas e informes de estado. | [PPM](../guide/ppm.md) |
+| **PML** | Cuando las decisiones de racionalización se conviertan en proyectos con presupuestos, cronogramas e informes de estado. | [PML](../guide/ppm.md) |
 | **TurboLens AI** | Cuando tenga suficientes fichas para que la IA encuentre duplicados de proveedores, candidatos a modernización y recomendaciones de arquitectura. | [TurboLens](../guide/turbolens.md) |
 | **BPM** | Cuando esté listo para modelar los procesos que se asientan sobre sus aplicaciones. | [BPM](../guide/bpm.md) |
 | **Diagramas** | Cuando necesite diagramas de arquitectura de forma libre que se mantengan sincronizados con el inventario. | [Diagramas](../guide/diagrams.md) |

@@ -120,7 +120,7 @@ Når din applikationsportefølje er levende og troværdig, bliver disse højvær
 |--------|----------------|------------------|
 | **Risikoregister** | Når du er klar til at spore arkitekturrisici mod applikationer og kompetencer (TOGAF fase G). | [Risikoregister](../guide/risks.md) |
 | **GRC / Compliance** | Når du har brug for at mappe applikationer og kompetencer mod regulativer (GDPR, NIS2, EU AI Act, DORA, SOC 2, ISO 27001). | [GRC](../guide/grc.md) |
-| **PPM** | Når rationaliseringsbeslutningerne bliver projekter med budgetter, tidsplaner og statusrapporter. | [PPM](../guide/ppm.md) |
+| **PML** | Når rationaliseringsbeslutningerne bliver projekter med budgetter, tidsplaner og statusrapporter. | [PML](../guide/ppm.md) |
 | **TurboLens AI** | Når du har nok kort til, at AI kan finde leverandørdubletter, moderniseringskandidater og arkitekturanbefalinger. | [TurboLens](../guide/turbolens.md) |
 | **BPM** | Når du er klar til at modellere processerne, der sidder oven på dine applikationer. | [BPM](../guide/bpm.md) |
 | **Diagrammer** | Når du har brug for frie arkitekturdiagrammer, der holder sig synkroniseret med lageret. | [Diagrammer](../guide/diagrams.md) |

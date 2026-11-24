@@ -265,6 +265,8 @@ La ruta de invitación requiere el permiso **`users.invite`**, una forma delegad
 
 Un cambio que no procede de la interfaz web lleva una insignia junto al nombre de la persona: **MCP** cuando un asistente de IA lo realizó a través del [servidor MCP](../admin/mcp.md) en nombre de esa persona; **API**, **Extensión** o **Sistema** en los demás casos.
 
+Un cambio realizado por una extensión cuando alguien la usó —por ejemplo, al pulsar un botón de una página de la extensión— puede registrarse a nombre de esa persona, con la insignia **Extensión** a su lado. Los cambios que una extensión realiza por sí sola, como una sincronización programada, muestran **Sistema** como autor.
+
 Muestra el **registro completo de auditoría** de los cambios realizados en la ficha: **quién** hizo el cambio, **cuándo** se realizó y **qué** se modificó (valor anterior vs. valor nuevo). Esto permite la trazabilidad completa de todas las modificaciones a lo largo del tiempo.
 
 Un cambio en los costes de la ficha aparece como **Costes actualizados** con un resumen legible de las partidas afectadas. Los importes solo se muestran a los usuarios que pueden ver los costes de esa ficha, y un cambio de costes no se puede revertir desde el registro de auditoría.
@@ -291,9 +293,11 @@ Cuando el [módulo GRC](grc.md) está habilitado **y** la ficha tiene al menos u
 
 Para las fichas de **Proceso de Negocio**, aparece una pestaña adicional de **Flujo de Proceso** con un visor/editor de diagramas BPMN integrado. Consulte [BPM](bpm.es.md) para más detalles sobre la gestión de flujos de proceso.
 
-## Pestaña PPM (solo para fichas de Iniciativa)
+## Pestaña PML (solo para fichas de Iniciativa) { #ppm-tab-initiative-cards-only }
 
-Cuando el [módulo PPM](ppm.md) está activado, las fichas de **Iniciativa** muestran una pestaña **PPM** adicional como última pestaña. Al hacer clic en esta pestaña, se navega a la vista detallada PPM de la iniciativa, donde puede gestionar informes de estado, presupuestos, riesgos, tareas y diagramas de Gantt.
+En **Costes y cronograma**, las barras superpuestas comparan presupuesto y coste real para Total, CapEx y OpEx. El total facturado de la iniciativa aparece por separado según los permisos. El cronograma presenta fechas planificadas y reales visibles, y los últimos indicadores de plazo, coste y alcance.
+
+Cuando el [módulo PML](ppm.md) está activado, las fichas de **Iniciativa** muestran una pestaña **PML** adicional como última pestaña. Al hacer clic en esta pestaña, se navega a la vista detallada PML de la iniciativa, donde puede gestionar informes de estado, presupuestos, riesgos, tareas y diagramas de Gantt.
 
 ## Archivado
 

@@ -2,7 +2,7 @@
 
 **EA 交付**模块管理**架构项目及其工件** —— 图表、架构工作说明书（SoAW）和架构决策记录（ADR）。它提供所有正在进行的架构项目及其交付物的统一视图。
 
-当启用 PPM（典型配置）时，EA 交付**位于 PPM 模块内**：在顶部导航中打开 **PPM**，并切换到 **EA Delivery** 标签页（`/ppm?tab=ea-delivery`）。当禁用 PPM 时，**EA Delivery** 会出现在 **IT Governance** 菜单中，名称为 **EA Governance**（链接到 `/reports/ea-delivery`）；如果 GRC 已关闭，或您的角色无法打开 IT Governance，则改为显示顶级导航项 **EA 交付**。无论哪种情况，旧的 `/ea-delivery` 链接都仍以重定向方式工作，因此现有书签仍可解析。
+当启用 PML（典型配置）时，EA 交付**位于 PML 模块内**：在顶部导航中打开 **PML**，并切换到 **EA Delivery** 标签页（`/ppm?tab=ea-delivery`）。当禁用 PML 时，**EA Delivery** 会出现在 **IT Governance** 菜单中，名称为 **EA Governance**（链接到 `/reports/ea-delivery`）；如果 GRC 已关闭，或您的角色无法打开 IT Governance，则改为显示顶级导航项 **EA 交付**。无论哪种情况，旧的 `/ea-delivery` 链接都仍以重定向方式工作，因此现有书签仍可解析。
 
 ![EA 交付管理](../assets/img/zh/17_ea_delivery.png)
 

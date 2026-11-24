@@ -262,6 +262,8 @@ O caminho de convite requer a permissão **`users.invite`**, uma forma delegada 
 
 Uma alteração que não veio da interface web traz um chip ao lado do nome da pessoa: **MCP** quando um assistente de IA a fez pelo [servidor MCP](../admin/mcp.md) em nome dessa pessoa, ou **API**, **Extensão** ou **Sistema** nos demais casos.
 
+Uma alteração feita por uma extensão quando alguém a usou — por exemplo, ao clicar num botão de uma página da extensão — pode ser registada em nome dessa pessoa, com o chip **Extensão** ao lado. As alterações que uma extensão faz por si própria, como uma sincronização agendada, mostram **Sistema** como autor.
+
 Mostra a **trilha de auditoria completa** das alterações feitas no card: **quem** fez a alteração, **quando** foi feita e **o que** foi modificado (valor anterior vs. novo valor). Isso permite total rastreabilidade de todas as modificações ao longo do tempo.
 
 Uma alteração aos custos do card aparece como **Custos atualizados**, com um resumo legível dos itens afetados. Os montantes só são mostrados aos utilizadores que podem ver os custos desse card, e uma alteração de custos não pode ser revertida a partir do registo de auditoria.
@@ -288,9 +290,11 @@ Quando o [módulo GRC](grc.md) está habilitado **e** o card tem pelo menos uma 
 
 Para cards de **Processo de Negócio**, uma aba adicional de **Fluxo de Processo** aparece com um visualizador/editor de diagrama BPMN integrado. Veja [BPM](bpm.md) para detalhes sobre gerenciamento de fluxos de processo.
 
-## Aba PPM (apenas cards de Iniciativa)
+## Aba PML (apenas cards de Iniciativa) { #ppm-tab-initiative-cards-only }
 
-Quando o [módulo PPM](ppm.md) está ativado, os cards de **Iniciativa** exibem uma aba **PPM** adicional como última aba. Ao clicar nesta aba, você é direcionado à visualização detalhada PPM da iniciativa, onde pode gerenciar relatórios de status, orçamentos, riscos, tarefas e cronogramas Gantt.
+Em **Custos e cronograma**, barras sobrepostas comparam orçamento e custos reais para Total, CapEx e OpEx. A faturação total da iniciativa é apresentada separadamente conforme as permissões. O cronograma mostra datas planeadas e reais visíveis e os últimos indicadores de prazo, custo e âmbito.
+
+Quando o [módulo PML](ppm.md) está ativado, os cards de **Iniciativa** exibem uma aba **PML** adicional como última aba. Ao clicar nesta aba, você é direcionado à visualização detalhada PML da iniciativa, onde pode gerenciar relatórios de status, orçamentos, riscos, tarefas e cronogramas Gantt.
 
 ## Arquivamento
 

@@ -3,16 +3,18 @@ import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
-import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
+import Chip from "@mui/material/Chip";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
-import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import PpmInitiativeTimeline from "./PpmInitiativeTimeline";
+import { usePpmSchedule } from "./usePpmFinancials";
 import { KPI_VALUE_SX } from "./ppmStyles";
 import DerivedValue from "./DerivedValue";
 import { financialTotals } from "./derivedFinancials";
@@ -54,6 +56,7 @@ export default function PpmOverviewTab({
   const rl = useResolveLabel();
   const subtypeLabel = useCardSubtypeLabel();
   const { formatDate } = useDateFormat();
+  const schedule = usePpmSchedule(card.id);
   const attrs = card.attributes || {};
   const budgetBarColor = theme.palette.primary.main;
   const overBudgetColor = theme.palette.error.dark;
@@ -100,9 +103,6 @@ export default function PpmOverviewTab({
     return value;
   };
 
-  // Resolve subtype to translated label
-  const resolveSubtype = (subtype: string | null | undefined): string | null =>
-    subtypeLabel(card.type, subtype) || null;
 
   return (
     <Box
@@ -123,10 +123,10 @@ export default function PpmOverviewTab({
               value={latestReport.schedule_health}
               label={t("health_schedule")}
             />
-            <HealthDot
-              value={latestReport.cost_health}
+            {schedule.data?.cost_health && <HealthDot
+              value={schedule.data.cost_health}
               label={t("health_cost")}
-            />
+            />}
             <HealthDot
               value={latestReport.scope_health}
               label={t("health_scope")}
@@ -274,39 +274,8 @@ export default function PpmOverviewTab({
         <Typography variant="subtitle1" fontWeight={600} mb={1}>
           {t("timeline")}
         </Typography>
-        <Box display="flex" gap={{ xs: 2, sm: 3 }} mb={2} flexWrap="wrap">
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              {t("startDate")}
-            </Typography>
-            <Typography variant="body2">
-              {attrs.startDate ? formatDate(attrs.startDate as string) : "\u2014"}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              {t("endDate")}
-            </Typography>
-            <Typography variant="body2">
-              {attrs.endDate ? formatDate(attrs.endDate as string) : "\u2014"}
-            </Typography>
-          </Box>
-          {card.subtype && (
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="caption" color="text.secondary">
-                {t("subtype")}
-              </Typography>
-              <Box mt={0.5}>
-                <Chip
-                  label={resolveSubtype(card.subtype)}
-                  size="small"
-                  variant="outlined"
-                  sx={{ maxWidth: "100%" }}
-                />
-              </Box>
-            </Box>
-          )}
-        </Box>
+        <PpmInitiativeTimeline schedule={schedule.data} name={card.name} />
+        {card.subtype && <Box mt={2}><Typography variant="caption" color="text.secondary">{t("subtype")}</Typography><Box mt={0.5}><Chip label={subtypeLabel(card.type, card.subtype)} size="small" variant="outlined" /></Box></Box>}
         <Box>
           <Typography variant="caption" color="text.secondary">
             {t("initiativeStatus")}

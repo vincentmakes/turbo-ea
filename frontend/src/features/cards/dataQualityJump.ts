@@ -82,37 +82,54 @@ export function relationGroupAnchor(rtKey: string, side: RelationSideName): stri
   return `card-relation-${rtKey}-${side}`;
 }
 
-type CardJumpTarget = Extract<DataQualityJumpTarget, { tab: "card" }>;
+export type CardJumpTarget = Extract<DataQualityJumpTarget, { tab: "card" }>;
 
 function onCard(anchor: string): CardJumpTarget {
   return { tab: "card", anchor, sectionAnchor: anchor };
 }
 
+/** A built-in section of the Card tab, with nothing in it to single out. */
+export function sectionJumpTarget(key: BuiltInSectionKey): CardJumpTarget {
+  return onCard(sectionAnchor(key));
+}
+
+/** A field, in the section that renders it: its attribute section, or the
+ * Description section for a field of the `__description` section. */
+export function fieldJumpTarget(
+  fieldKey: string,
+  section: string | null | undefined,
+): CardJumpTarget {
+  const anchor =
+    section === "__description" ? sectionAnchor("description") : customSectionAnchor(section ?? "");
+  return { ...onCard(anchor), fieldKey };
+}
+
+/** A relation group, falling back to the Relations section; `source` by default. */
+export function relationJumpTarget(
+  type: string,
+  side: RelationSideName | null | undefined,
+): CardJumpTarget {
+  const end = side ?? "source";
+  return {
+    tab: "card",
+    anchor: relationGroupAnchor(type, end),
+    sectionAnchor: sectionAnchor("relations"),
+    relation: { type, side: end },
+  };
+}
+
 export function jumpTargetFor(f: DataQualityFactor): DataQualityJumpTarget {
   switch (f.kind) {
-    case "field": {
-      // Fields of the `__description` section render inside the Description section.
-      const anchor =
-        f.section === "__description"
-          ? sectionAnchor("description")
-          : customSectionAnchor(f.section ?? "");
-      return { ...onCard(anchor), fieldKey: f.key };
-    }
+    case "field":
+      return fieldJumpTarget(f.key, f.section);
     case "description":
-      return onCard(sectionAnchor("description"));
+      return sectionJumpTarget("description");
     case "lifecycle":
-      return onCard(sectionAnchor("lifecycle"));
+      return sectionJumpTarget("lifecycle");
     case "tag_group":
-      return { ...onCard(sectionAnchor("tags")), tagGroupId: f.key };
-    case "relation": {
-      const side = f.side ?? "source";
-      return {
-        tab: "card",
-        anchor: relationGroupAnchor(f.key, side),
-        sectionAnchor: sectionAnchor("relations"),
-        relation: { type: f.key, side },
-      };
-    }
+      return { ...sectionJumpTarget("tags"), tagGroupId: f.key };
+    case "relation":
+      return relationJumpTarget(f.key, f.side);
     case "stakeholders":
       return { tab: "stakeholders" };
   }

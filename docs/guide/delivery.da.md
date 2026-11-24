@@ -2,7 +2,7 @@
 
 **EA Delivery**-modulet håndterer **arkitekturinitiativer og deres artefakter** — diagrammer, Statements of Architecture Work (SoAW) og Architecture Decision Records (ADR). Det giver et samlet overblik over alle igangværende arkitekturprojekter og deres leverancer.
 
-Når PPM er aktiveret — den typiske konfiguration — lever EA Delivery **inde i PPM-modulet**: åbn **PPM** i topnavigationen, og skift til fanen **EA Delivery** (`/ppm?tab=ea-delivery`). Når PPM er deaktiveret, vises **EA Delivery** i menuen **IT Governance** under navnet **EA Governance** (linker til `/reports/ea-delivery`); hvis GRC er slået fra, eller din rolle ikke kan åbne IT Governance, vises det i stedet som et topniveau-element **EA-levering**. Den ældre URL `/ea-delivery` virker fortsat som en omdirigering uanset, så eksisterende bogmærker stadig fungerer.
+Når PML er aktiveret — den typiske konfiguration — lever EA Delivery **inde i PML-modulet**: åbn **PML** i topnavigationen, og skift til fanen **EA Delivery** (`/ppm?tab=ea-delivery`). Når PML er deaktiveret, vises **EA Delivery** i menuen **IT Governance** under navnet **EA Governance** (linker til `/reports/ea-delivery`); hvis GRC er slået fra, eller din rolle ikke kan åbne IT Governance, vises det i stedet som et topniveau-element **EA-levering**. Den ældre URL `/ea-delivery` virker fortsat som en omdirigering uanset, så eksisterende bogmærker stadig fungerer.
 
 ![EA Delivery-styring](../assets/img/da/17_ea_delivery.png)
 

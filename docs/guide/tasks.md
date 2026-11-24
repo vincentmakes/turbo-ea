@@ -12,7 +12,7 @@ Todos are tasks assigned to you or created by you. They can be linked to specifi
 
 **Origin chips** — Every todo carries an origin: where it came from. When your list mixes tasks from more than one origin, filter chips appear above it — click a chip to show only todos of that origin (click several to combine them); each chip shows a live count. Origins are:
 
-- **Project task** — Synced from a PPM initiative's task board
+- **Project task** — Synced from a PML initiative's task board
 - **Risk** — Risk-owner assignments and recurring mitigation-task cycles from the GRC Risk Register
 - **ADR** / **SoAW** — Signature requests on architecture decisions and Statements of Architecture Work
 - **Process approval** — Process-flow revisions awaiting your review (BPM)

@@ -12,7 +12,7 @@ Opgaver er arbejdsemner tildelt dig eller oprettet af dig. De kan være knyttet 
 
 **Oprindelseschips** — Hver todo bærer en oprindelse: hvor den kom fra. Når din liste blander opgaver fra mere end én oprindelse, vises filterchips ovenover — klik på en chip for kun at vise todos med den oprindelse (klik på flere for at kombinere dem); hver chip viser et live-antal. Oprindelserne er:
 
-- **Projektopgave** — Synkroniseret fra et PPM-initiativs opgavetavle
+- **Projektopgave** — Synkroniseret fra et PML-initiativs opgavetavle
 - **Risiko** — Tildelinger som risikoejer og tilbagevendende afbødningscyklusser fra GRC-risikoregisteret
 - **ADR** / **SoAW** — Underskriftsanmodninger på arkitekturbeslutninger og Statements of Architecture Work
 - **Procesgodkendelse** — Procesflow-revisioner, der afventer din gennemgang (BPM)

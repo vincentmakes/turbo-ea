@@ -28,7 +28,7 @@
   "preferences.loadFailed": "Error al cargar las preferencias",
   "preferences.saveFailed": "Error al guardar las preferencias",
   "preferences.todoAssigned": "Tarea asignada",
-  "preferences.taskAssigned": "Tarea PPM asignada",
+  "preferences.taskAssigned": "Tarea PML asignada",
   "preferences.surveyRequest": "Solicitud de encuesta",
   "preferences.cardUpdated": "Ficha actualizada",
   "preferences.commentAdded": "Comentario agregado",

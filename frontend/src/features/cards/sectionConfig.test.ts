@@ -7,6 +7,8 @@ import {
   customSectionsOf,
   hiddenFieldKeys,
   isSectionCollapsedByDefault,
+  initiativeSummaryAnchors,
+  initiativeSummaryGroups,
   makeSectionConfigReader,
   sectionDefaultExpanded,
 } from "./sectionConfig";
@@ -483,5 +485,26 @@ describe("buildSectionOrder — End of Life in a stored order", () => {
       "eol",
       "relations",
     ]);
+  });
+});
+
+describe("Initiative summary layout", () => {
+  const section: SectionDef = {
+    section: "Cost & Timeline",
+    fields: [
+      { key: "startDate", type: "date", label: "Start Date" },
+      { key: "ActualEnd", type: "date", label: "Aruba Actual End", group: "Delivery" },
+      { key: "costActual", type: "cost", label: "Actual Cost" },
+    ],
+  };
+
+  it("retains administrator groups and picks a visible alternative date", () => {
+    const grouped = initiativeSummaryGroups(section, "Cost", "Timeline");
+    expect(grouped.fields.map((field) => field.group)).toEqual(["Timeline", "Delivery", "Cost"]);
+    expect(initiativeSummaryAnchors([section], new Set(["startDate"]))).toEqual({
+      financial: undefined,
+      schedule: "ActualEnd",
+    });
+    expect(initiativeSummaryAnchors([], new Set()).schedule).toBeUndefined();
   });
 });

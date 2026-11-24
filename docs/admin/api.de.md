@@ -111,7 +111,7 @@ Die Live-Referenz oben ist die vollständige Quelle der Wahrheit; die folgende T
 | `/metamodel` | Kartentypen, Felder, Sektionen, Subtypen, Beziehungstypen |
 | `/reports` | Dashboard-KPIs, Portfolio, Matrix, Lifecycle, Abhängigkeiten, Kosten, Datenqualität |
 | `/bpm` | Geschäftsprozessmanagement – Diagramme, Elemente, Flow-Versionen, Bewertungen |
-| `/ppm` | Projektportfoliomanagement – Initiativen, Statusberichte, PSP, Aufgaben, Kosten, Risiken |
+| `/ppm` | Projektstammliste — Initiativen, Statusberichte, WBS, Aufgaben, Kosten und Risiken |
 | `/turbolens` | KI-gestützte Analyse (Anbieter, Duplikate, Sicherheit, Architektur-KI) |
 | `/risks` | EA-Risikoregister (TOGAF-Phase G) |
 | `/diagrams` | DrawIO-Diagramme |

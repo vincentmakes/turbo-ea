@@ -12,7 +12,7 @@ I todo sono attività assegnate a voi o da voi create. Possono essere collegati 
 
 **Chip di origine** — Ogni todo porta un'origine: da dove proviene. Quando la lista mescola todo di più origini, sopra di essa compaiono chip di filtro — cliccate su un chip per mostrare solo i todo di quell'origine (cliccate su più chip per combinarli); ogni chip mostra un conteggio in tempo reale. Le origini sono:
 
-- **Attività di progetto** — Sincronizzata dalla board delle attività di un'iniziativa PPM
+- **Attività di progetto** — Sincronizzata dalla board delle attività di un'iniziativa PML
 - **Rischio** — Assegnazioni come responsabile del rischio e cicli ricorrenti di attività di mitigazione dal Registro dei rischi GRC
 - **ADR** / **SoAW** — Richieste di firma su decisioni di architettura e Statements of Architecture Work
 - **Approvazione processo** — Revisioni dei flussi di processo in attesa della vostra verifica (BPM)

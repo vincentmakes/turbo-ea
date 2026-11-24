@@ -6,7 +6,7 @@ La sezione **Admin** è disponibile per gli utenti con il ruolo **Admin**. Forni
 
 | Pagina | Descrizione |
 |--------|-------------|
-| [Impostazioni generali](settings.md) | Aspetto (logo, favicon, valuta), lingue abilitate, anno fiscale, email (SMTP) e attivazione moduli (BPM, PPM, GRC) |
+| [Impostazioni generali](settings.md) | Aspetto (logo, favicon, valuta), lingue abilitate, anno fiscale, email (SMTP) e attivazione moduli (BPM, PML, GRC) |
 | [Metamodello](metamodel.md) | Tipi di card, campi, sezioni, sottotipi, tipi di relazione, calcoli, tag, principi EA e il grafo del metamodello |
 | [Calcoli](calculations.md) | Formule definite dall'amministratore che calcolano automaticamente i valori dei campi al salvataggio delle card |
 | [Tag](tags.md) | Gruppi di tag e tag per la categorizzazione flessibile delle card |

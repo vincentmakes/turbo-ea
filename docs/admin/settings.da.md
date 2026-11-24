@@ -4,7 +4,7 @@ Siden **Indstillinger** under **Admin → Indstillinger** (`/admin/settings`) er
 
 | Faneblad | URL | Hvad det styrer | Fuld vejledning |
 |-----|-----|------------------|------------|
-| **Generelt** | `/admin/settings?tab=general` | Udseende (logo, favicon, valuta, datoformat, aktiverede sprog, regnskabsår), e-mail-afsendelse, **modulkontakter** (BPM, PPM, GRC, ArchiMate, TurboLens, Sponsor button, TurboRPG-tilstand) | Denne side |
+| **Generelt** | `/admin/settings?tab=general` | Udseende (logo, favicon, valuta, datoformat, aktiverede sprog, regnskabsår), e-mail-afsendelse, **modulkontakter** (BPM, PML, GRC, ArchiMate, TurboLens, Sponsor button, TurboRPG-tilstand) | Denne side |
 | **Autentificering** | `/admin/settings?tab=authentication` | SSO-udbydere, registrering, adgangskodepolitik | [Autentificering og SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM-udbyder, model, websøgningsbackend, AI-forslagskontakter pr. korttype | [AI-funktioner](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Massetilknytning af produkter til endoflife.date-poster | [End-of-Life (EOL)](eol.md) |
@@ -14,8 +14,9 @@ Siden **Indstillinger** under **Admin → Indstillinger** (`/admin/settings`) er
 | **Migrering** | `/admin/settings?tab=migration` | Import fra andre EA-platforme og fuld overførsel af arbejdsområde mellem Turbo EA-instanser | [Platformsmigrering](migration.md) |
 | **Revisionslog** | `/admin/settings?tab=audit-log` | **Ændringer**: ændringsregisteret — hvem der ændrede hvad, og om det kom fra webgrænsefladen, API'et, et AI-værktøj eller en udvidelse. **Sikkerhed og administration**: logins, mislykkede forsøg, spærringer og andre sikkerhedshændelser | [Revisionslog](audit-log.md) |
 | **Ressourcer** | `/admin/settings?tab=resources` | Alle filer og links, der er vedhæftet et kort, med lagerstatistik og masseoprydning | [Ressourcer](resources.md) |
+| **PML** | `/admin/settings?tab=pml` | Økonomifelter, beregninger, leverandørarv og datofelter for initiativer | [Project Master List (PML)](#ppm-module) |
 
-Resten af denne side dækker fanebladet **Generelt**.
+Afsnittene nedenfor dækker generelle indstillinger og PML-konfiguration.
 
 ![Generelle indstillinger](../assets/img/da/28_admin_settings_general.png)
 
@@ -45,7 +46,7 @@ Vælg den valuta, der bruges til omkostningsfelter på tværs af platformen. Det
 
 ### Datoformat
 
-Vælg, hvordan datoer vises i hele applikationen. Det valgte format gælder for kortets livscyklusdatoer, lagergittret, ADR- og SoAW-underskrevne datoer, Risikoregisteret, PPM-rapporter og -opgaver, BPM-procesflowversioner, kommentarer, historik, dashboardets aktivitetsfeed, notifikationer og admin-sider. Fem formater tilbydes med live forhåndsvisning, mens du vælger:
+Vælg, hvordan datoer vises i hele applikationen. Det valgte format gælder for kortets livscyklusdatoer, lagergittret, ADR- og SoAW-underskrevne datoer, Risikoregisteret, PML-rapporter og -opgaver, BPM-procesflowversioner, kommentarer, historik, dashboardets aktivitetsfeed, notifikationer og admin-sider. Fem formater tilbydes med live forhåndsvisning, mens du vælger:
 
 - `MM/DD/YYYY` — Amerikansk stil (f.eks. `04/29/2026`)
 - `DD/MM/YYYY` — Europæisk stil (f.eks. `29/04/2026`)
@@ -63,9 +64,9 @@ Slå til, hvilke sprog der er tilgængelige for brugere i deres sprogvælger. Al
 
 Mindst ét sprog skal forblive aktiveret til enhver tid.
 
-### Regnskabsårets start
+### Regnskabsårets start { #fiscal-year-start }
 
-Vælg den måned, der starter din organisations regnskabsår (januar til december). Denne indstilling påvirker, hvordan **budgetlinjer** i PPM-modulet grupperes efter regnskabsår. For eksempel, hvis regnskabsåret starter i april, tilhører en budgetlinje dateret juni 2026 regnskabsåret 2026-2027. Den afgør også, hvilket regnskabsår [Omkostningsrapporten](../guide/reports.md) viser.
+Vælg den måned, der starter din organisations regnskabsår (januar til december). Denne indstilling påvirker, hvordan **budgetlinjer** i PML-modulet grupperes efter regnskabsår. For eksempel, hvis regnskabsåret starter i april, tilhører en budgetlinje dateret juni 2026 regnskabsåret 2026-2027. Den afgør også, hvilket regnskabsår [Omkostningsrapporten](../guide/reports.md) viser.
 
 Standarden er **januar** (kalenderår = regnskabsår).
 
@@ -168,14 +169,41 @@ Slået fra som standard. Når den er slået til, kan den, der indsender en revis
 
 Lad den være slået fra i et lille team, hvor den samme person udarbejder og godkender. At slå den til ændrer ikke, hvad der registreres: indsendelse, godkendelse, afvisning og tilbagetrækning havner i kortets fane **Historik** under alle omstændigheder.
 
-## PPM-modul
+## Project Master List (PML) { #ppm-module }
 
-Slå **Project Portfolio Management**-modulet til eller fra. Når det er deaktiveret:
+Brug **Project Master List (PML)** på fanen **Generelt** til at styre modulet. Når det slås fra, skjules navigationspunktet, PML-fanen på initiativkortet samt kortets økonomi- og tidslinjeoversigter. Kortets Metamodel-felter følger fortsat deres eksisterende tilladelser. Se [vejledningen til Project Master List](../guide/ppm.md).
 
-- **PPM**-navigationselementet skjules for alle brugere
-- Initiativ-kort forbliver i databasen, men PPM-specifikke funktioner (statusrapporter, budget- og omkostningssporing, risikoregister, opgavetavle, Gantt-diagram) er ikke tilgængelige
+### Konfigurér budget og omkostninger { #pml-budget-costs }
 
-Når det er aktiveret, får Initiativ-kort en **PPM**-fane i deres detaljevisning, og PPM-porteføljedashboardet bliver tilgængeligt i hovednavigationen. Se [Project Portfolio Management](../guide/ppm.md) for den fulde funktionsvejledning.
+Vælg **Planlagt budget**, **Omkostningsposter** eller **Faktisk faktureret** under **Admin → Indstillinger → PML → Budget og omkostninger**. Tilføj et felt med en stabil nøgle, visningsnavn og type. Brug **Vis som kolonne** til hierarkiet og udskriften. Flyt felterne for at ændre rækkefølgen, eller deaktivér et felt for at bevare dets lagrede data. Gem konfigurationen for hver sektion særskilt.
+
+For et beregnet felt vælger du resultattype, inputaliaser og kilder. Vælg en formel eller ordnede regler. Den første regel, der passer, giver resultatet. Standardresultatet bruges, når ingen regel passer. Betingelser kan kombineres med AND, OR og NOT. Indtast eksempelværdier og vælg **Forhåndsvisning**, inden du gemmer. Her beregnes felter på økonomirækker. [Metamodelberegninger](calculations.md) gælder kortfelter.
+
+En kortreference begrænser valget til en korttype. Vælg en kompatibel relation for at knytte referencekortet til initiativet. Vælg leverandørfeltet på budgettet under **Omkostningsposter**, og tillad eventuelt direkte underleverandører. Fakturaregistreringer har egne felter; leverandøren hører til budgettet og omkostningsposterne.
+
+#### Eksempel på Aruba-konfiguration
+
+| Sektion | Feltnavn og eksempelnøgle | Opsætning |
+|---|---|---|
+| Planlagt budget | **Origine Costi** (`origineCosti`) | Kortreference til typen Provider. Vælg den eksisterende understøtter-relation, og brug budgetfeltet som leverandørkilde på omkostningsposter. Tillad direkte underleverandører efter behov. |
+| Omkostningsposter | **Gestione intercompany** (`gestioneIntercompany`) | Enkeltvalg med **Plafond**, **Canone**, **Progetto** og **N.A.**. |
+| Omkostningsposter | **OdA — Ordine d’acquisto** (`ordineAcquisto`) | Tekst, f.eks. `ODA-000427`. |
+| Omkostningsposter | **Origine Costi Aggregato** (`origineCostiAggregato`) | Beregnet tekstfelt med den effektive leverandør og eventuelt budgetleverandøren og indkøbstypen som input. |
+
+Et valgfrit enkeltvalgsfelt **Tipo di spesa** kan skelne **Licenze** fra **Servizi esterni** hos samme leverandør. Tilføj reglerne i denne rækkefølge.
+
+1. Et licensindkøb giver **Licenze**.
+2. En ekstern ydelse eller en leverandør klassificeret som ekstern giver **Servizi Esterni**.
+3. **Aruba Spa**, **Aruba PEC** eller **Actalis** giver **Servizi interni**.
+4. **Aruba Software**, **Aruba System**, **Aruba Cybersecurity**, **Aruba Marketing**, **Aruba Service Desk**, **Aruba Enterprise** eller **Aruba DC&Infra** giver **Servizi Intercompany**.
+
+Vælg de konkrete leverandørkort i sammenligningerne. Brug eventuelt budgetleverandøren, hvis en underleverandør mangler klassificering, og lad standardresultatet være tomt, hvis data mangler. Et budget kan f.eks. bruge **Aruba Software**, mens en omkostningspost vælger **Aruba Software / Licensing** og registrerer `Canone` og `ODA-000427`. Felter og regler er eksempler på lokal konfiguration.
+
+### Konfigurér tidslinjen { #pml-timeline }
+
+Vælg felter for faktisk start og slut under **Admin → Indstillinger → PML → Tidslinje**. Standardnøglerne er `actualStart` og `actualEnd`. Du kan vælge to forskellige redigerbare datofelter. Start- og slutdatoen bruges fortsat til planen. Der skelnes mellem store og små bogstaver i nøglerne. En administrator med Metamodel-adgang kan oprette et manglende standardfelt på siden.
+
+Kortet, den interne portefølje og initiativrapporten følger felternes synlighed. Den offentlige portefølje viser **Plan**. Datotilknytningen og økonomifelterne kan overføres med en [arbejdsområdepakke](workspace-transfer.md).
 
 ## GRC-modul
 

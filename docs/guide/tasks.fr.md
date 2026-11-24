@@ -12,7 +12,7 @@ Les tâches sont des éléments qui vous sont assignés ou que vous avez créés
 
 **Puces d'origine** -- Chaque tâche porte une origine : d'où elle provient. Lorsque votre liste mélange des tâches de plusieurs origines, des puces de filtrage apparaissent au-dessus -- cliquez sur une puce pour n'afficher que les tâches de cette origine (cliquez sur plusieurs puces pour les combiner) ; chaque puce affiche un compteur en direct. Les origines sont :
 
-- **Tâche projet** -- Synchronisée depuis le tableau des tâches d'une initiative PPM
+- **Tâche projet** -- Synchronisée depuis le tableau des tâches d'une initiative PML
 - **Risque** -- Affectations en tant que responsable de risque et cycles récurrents de tâches d'atténuation du registre des risques GRC
 - **ADR** / **SoAW** -- Demandes de signature sur des décisions d'architecture et des Statements of Architecture Work
 - **Approbation de processus** -- Révisions de flux de processus en attente de votre relecture (BPM)

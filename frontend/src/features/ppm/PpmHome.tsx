@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
@@ -53,17 +53,15 @@ export default function PpmHome() {
     [canOpenDelivery],
   );
   const paramTab = searchParams.get("tab") as TabKey | null;
-  // A link to a tab this role is not offered opens Portfolio.
-  const resolvedTab: TabKey = paramTab && tabKeys.includes(paramTab) ? paramTab : "portfolio";
-  const [tab, setTab] = useState<TabKey>(resolvedTab);
-
-  useEffect(() => {
-    if (resolvedTab !== tab) setTab(resolvedTab);
-  }, [resolvedTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The link is the only record of the tab: a link to a tab this role is not
+  // offered (or to none) opens Portfolio. Not local state on purpose — the
+  // board writes its own parameters into the link as it mounts, starting from
+  // the parameters of the render it mounted in, so it must mount only once the
+  // link already shows the tab switch, or its write puts the old tab back.
+  const tab: TabKey = paramTab && tabKeys.includes(paramTab) ? paramTab : "portfolio";
 
   const handleChange = (_: React.SyntheticEvent, val: string) => {
     const next = val as TabKey;
-    setTab(next);
     const params = new URLSearchParams(searchParams);
     if (next === "portfolio") {
       params.delete("tab");

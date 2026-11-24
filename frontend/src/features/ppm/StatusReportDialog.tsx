@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -16,6 +16,8 @@ import { DateField } from "@/components/DateField";
 import { api } from "@/api/client";
 import { todayIsoDate } from "@/lib/dates";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { RAG_COLORS } from "@/theme/tokens";
 import type { PpmStatusReport, PpmHealthValue } from "@/types";
 
@@ -90,6 +92,12 @@ export default function StatusReportDialog({
   const { t } = useTranslation("ppm");
   const fullScreen = useFullScreenDialog();
   const isEdit = !!report;
+  const user = useOptionalAuthUser();
+  const { loadCardPermissions, canOnCard } = usePermissions(user);
+  useEffect(() => {
+    if (!isEdit) void loadCardPermissions(initiativeId);
+  }, [initiativeId, isEdit, loadCardPermissions]);
+  const canShowCost = isEdit ? report.cost_health !== null : canOnCard(initiativeId, "can_view_costs");
 
   const [reportDate, setReportDate] = useState(
     report?.report_date || todayIsoDate(),
@@ -97,8 +105,8 @@ export default function StatusReportDialog({
   const [scheduleHealth, setScheduleHealth] = useState<PpmHealthValue>(
     (report?.schedule_health as PpmHealthValue) || "onTrack",
   );
-  const [costHealth, setCostHealth] = useState<PpmHealthValue>(
-    (report?.cost_health as PpmHealthValue) || "onTrack",
+  const [costHealth, setCostHealth] = useState<PpmHealthValue | null>(
+    report ? report.cost_health as PpmHealthValue | null : "onTrack",
   );
   const [scopeHealth, setScopeHealth] = useState<PpmHealthValue>(
     (report?.scope_health as PpmHealthValue) || "onTrack",
@@ -117,7 +125,7 @@ export default function StatusReportDialog({
       const payload = {
         report_date: reportDate,
         schedule_health: scheduleHealth,
-        cost_health: costHealth,
+        ...(!canShowCost || costHealth === null ? {} : { cost_health: costHealth }),
         scope_health: scopeHealth,
         summary: summary || null,
         accomplishments: accomplishments || null,
@@ -172,11 +180,13 @@ export default function StatusReportDialog({
               value={scheduleHealth}
               onChange={setScheduleHealth}
             />
-            <HealthToggle
-              label={t("health_cost")}
-              value={costHealth}
-              onChange={setCostHealth}
-            />
+            {canShowCost && costHealth !== null && (
+              <HealthToggle
+                label={t("health_cost")}
+                value={costHealth}
+                onChange={setCostHealth}
+              />
+            )}
             <HealthToggle
               label={t("health_scope")}
               value={scopeHealth}

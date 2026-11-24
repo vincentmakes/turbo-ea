@@ -2,7 +2,7 @@
 
 Vous avez installé Turbo EA. L'écran de connexion fonctionne, les données de démonstration se chargent, chaque entrée de menu vous montre quelque chose — et vous voilà devant un inventaire vide en vous demandant par où commencer concrètement. Ce guide est fait pour vous.
 
-Il s'agit d'un parcours séquencé et orienté, couvrant la **première initiative EA concrète** que la plupart des organisations mènent sur Turbo EA : maîtriser un inventaire applicatif et l'utiliser pour répondre à de vraies questions de portefeuille. Il ignore délibérément les modules plus avancés (Registre des risques, Conformité, PPM, TurboLens AI) — ceux-ci deviennent utiles une fois que votre inventaire est vivant, pas avant.
+Il s'agit d'un parcours séquencé et orienté, couvrant la **première initiative EA concrète** que la plupart des organisations mènent sur Turbo EA : maîtriser un inventaire applicatif et l'utiliser pour répondre à de vraies questions de portefeuille. Il ignore délibérément les modules plus avancés (Registre des risques, Conformité, PML, TurboLens AI) — ceux-ci deviennent utiles une fois que votre inventaire est vivant, pas avant.
 
 ## À qui s'adresse ce guide
 
@@ -47,7 +47,7 @@ Ce guide couvre la phase **crawl** et le début de **walk**. À la fin, vous dis
 Ce sont des modules puissants, mais ils supposent que vous disposez déjà d'un inventaire peuplé. Ne les ouvrez pas encore :
 
 - **Registre des risques** et **analyse de Conformité** — utiles une fois que vous avez des applications et des capacités auxquelles rattacher des risques.
-- **PPM** (Gestion du portefeuille de projets) — utile une fois que vous disposez d'un pipeline de projets à suivre.
+- **PML** (Gestion du portefeuille de projets) — utile une fois que vous disposez d'un pipeline de projets à suivre.
 - **TurboLens AI** (analyse des fournisseurs, détection de doublons, assistant Architect) — utile une fois que vous avez suffisamment de fiches pour que l'IA puisse y trouver des motifs.
 
 Vous trouverez un court pointeur « et ensuite » vers chacun d'eux sur la [dernière page](your-first-analysis.md) de ce guide.

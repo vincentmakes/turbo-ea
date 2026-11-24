@@ -1,20 +1,18 @@
-# Gestion de Portefeuille de Projets (PPM)
+# Liste principale des projets (PML)
 
-Le module **PPM** fournit une solution complète de gestion de portefeuille de projets pour le suivi des initiatives, budgets, risques, tâches et calendriers. Il s'intègre directement avec le type de fiche Initiative pour enrichir chaque projet avec des rapports de statut, un suivi des coûts et une visualisation Gantt.
+Ouvrez la **Liste principale des projets** dans le menu principal pour suivre les fiches Initiative, les budgets, les risques, les tâches et les échéances. Le module réunit les rapports de statut, le suivi financier et les vues Gantt.
 
 !!! note
-    Le module PPM peut être activé ou désactivé par un administrateur dans les [Paramètres](../admin/settings.md). Lorsqu'il est désactivé, la navigation et les fonctionnalités PPM sont masquées.
+    Le module PML peut être activé ou désactivé par un administrateur dans les [Paramètres](../admin/settings.md). Lorsqu'il est désactivé, la navigation et les fonctionnalités PML sont masquées.
 
 ## Tableau de Bord du Portefeuille
 
-![Tableau de bord du portefeuille PPM](../assets/img/fr/40_ppm_portefeuille.png)
+![Tableau de bord du portefeuille PML](../assets/img/fr/40_ppm_portefeuille.png)
 
-Le **Tableau de Bord du Portefeuille** est le point d'entrée principal pour PPM. Il fournit :
+Le **Tableau de Bord du Portefeuille** est le point d'entrée principal pour PML. Il fournit :
 
-- **Cartes KPI** — Total des initiatives, budget total, coût réel total et résumés de l'état de santé
-- **Graphiques circulaires de santé** — Distribution de la santé du calendrier, des coûts et du périmètre (En cours / À risque / Hors piste)
-- **Distribution des statuts** — Répartition par sous-type d'initiative et statut
-- **Aperçu Gantt** — Barres de chronologie montrant les dates de début et de fin de chaque initiative, avec des indicateurs de santé RAG
+- **Barre KPI** — Le nombre d'initiatives, leur budget total (lorsque les coûts vous sont affichés) et combien sont En bonne voie, À risque et Hors piste pour le calendrier. Les chiffres suivent le portefeuille : la recherche, le choix du sous-type et la section **Filtres** les restreignent aux initiatives que vous consultez
+- Le portefeuille interne affiche le **Prévisionnel** et le **Réel** sur la même échelle trimestrielle. Une date unique apparaît comme un repère. Les dates exactes sont affichées selon les droits. Le portefeuille public présente le prévisionnel.
 
 ### Regroupement et filtrage
 
@@ -27,7 +25,17 @@ Utilisez la barre d'outils pour :
 - **Afficher la hiérarchie** pour imbriquer les initiatives de chaque groupe sous leur initiative parente (voir ci-dessous)
 - **Sous-grouper par sous-type** pour scinder chaque groupe par sous-type (voir ci-dessous)
 
-Ces filtres sont conservés dans l'URL, donc l'actualisation de la page conserve votre vue actuelle. La hiérarchie, sa profondeur d’affichage et le sous-groupement sont eux aussi conservés dans l'URL.
+Ces réglages sont conservés dans l'URL : l'actualisation de la page conserve donc votre vue actuelle, et un lien que vous partagez ouvre le même portefeuille. Le portefeuille mémorise aussi sa recherche, son regroupement, son sous-type, ses réglages de hiérarchie et ses filtres dans votre navigateur, et les restaure lorsque vous revenez — depuis le menu PML, ou avec la flèche de retour après avoir ouvert une initiative. Un lien qui porte ses propres réglages s'ouvre avec ceux-ci, et ils deviennent les réglages mémorisés. L'icône **Réinitialiser les paramètres par défaut** dans la barre de titre ramène le portefeuille à ses valeurs par défaut.
+
+#### La section Filtres
+
+Sous la barre d'outils se trouve une section **Filtres**, repliée la première fois que vous ouvrez le portefeuille pour qu'il reste visible, puis dans l'état où vous l'avez laissée ; tant qu'elle est repliée, une puce dans son en-tête indique combien de filtres sont actifs. Dépliez-la pour restreindre le portefeuille, avec les mêmes filtres que les rapports :
+
+- **Fiches liées** — conserve les initiatives liées aux fiches que vous choisissez, par exemple une Organisation ou une Application. **Inclure les sous-fiches** conserve aussi les initiatives liées aux fiches situées sous une fiche choisie dans sa hiérarchie
+- **Étiquettes** — conserve les initiatives portant les étiquettes que vous choisissez
+- **Champs** — conserve les initiatives dont les propres champs (les attributs du type Initiative) correspondent aux valeurs que vous choisissez
+
+Les filtres actifs sont conservés dans l'URL et mémorisés avec le reste du portefeuille : un lien que vous partagez ouvre donc le même portefeuille, et ils sont listés dans la ligne de paramètres d'une impression ou d'un export. **Tout effacer** vide la section Filtres et laisse le reste de la barre d'outils tel quel.
 
 #### Afficher la hiérarchie des initiatives
 
@@ -35,7 +43,7 @@ Lorsque certaines initiatives du portefeuille ont une initiative parente elle-m�
 
 Le regroupement reste prioritaire : la hiérarchie s'imbrique **à l'intérieur de chaque groupe**, si bien qu'une initiative dont le parent appartient à un autre groupe apparaît comme ligne de premier niveau de son propre groupe. Les filtres s'appliquent d'abord et l'arborescence montre ce qui reste : lorsque la recherche ou le filtre de sous-type exclut un parent, ses enfants remontent au premier niveau, au lieu que le parent soit conservé comme contexte.
 
-![Portefeuille PPM avec la hiérarchie affichée](../assets/img/fr/101_ppm_portefeuille_hierarchie.png)
+![Portefeuille PML avec la hiérarchie affichée](../assets/img/fr/101_ppm_portefeuille_hierarchie.png)
 
 #### Sous-grouper par sous-type
 
@@ -51,23 +59,25 @@ La ligne de bas de groupe remplace la ligne de totaux : libellée du nom du sous
 
 Chaque initiative affiche ses propres montants dès qu'elle en a : les barres CapEx et OpEx d'un parent couvrent les lignes de budget et de coût saisies sur le parent, et sa barre de Gantt ses propres dates de début et de fin. Un parent **sans ligne de budget propre** affiche à la place le budget des initiatives situées en dessous, et un parent **sans ligne de coût propre** leur réel ; dans les deux cas, la barre est dessinée **en contour** avec des montants en italique, et son infobulle indique quelle moitié vient d'en dessous. Un parent **sans date de début ni de fin** couvre la période allant du début le plus précoce à la fin la plus tardive des initiatives situées en dessous, sous forme de barre **en pointillés** aux trimestres en italique. Une infobulle indique chaque fois combien d'initiatives sont couvertes. Les trois règles sont indépendantes — un programme qui porte le budget pendant que ses projets saisissent les dépenses affiche son propre budget face à leur réel, et un programme peut porter ses propres dates et afficher malgré tout les coûts de ses projets — et il suffit d'une ligne de budget, d'une ligne de coût ou d'une date sur le parent pour que cette partie revienne à ses propres montants. Seules comptent les initiatives que vous pouvez voir et, sur un portail, celles que le portail publie. Les totaux de groupe et la barre d'indicateurs continuent d'additionner les seules lignes saisies, de sorte que chaque montant n'est compté qu'une fois.
 
-Les montants dérivés n'existent que sur le tableau PPM et sur les onglets **Vue d'ensemble** et **Budget et coûts** de l'initiative elle-même. Pour reporter un total agrégé dans l'inventaire, les rapports ou un portail, définissez un champ calculé qui ajoute le budget propre de chaque niveau aux totaux de ses enfants — voir [Agréger les montants PPM le long de la hiérarchie des initiatives](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Une modification PPM sur un enfant relance les calculs de toutes les initiatives situées au-dessus de lui, de sorte que le total du parent évolue immédiatement.
+Les montants dérivés n'existent que sur le tableau PML et sur les onglets **Vue d'ensemble** et **Budget et coûts** de l'initiative elle-même. Pour reporter un total agrégé dans l'inventaire, les rapports ou un portail, définissez un champ calculé qui ajoute le budget propre de chaque niveau aux totaux de ses enfants — voir [Agréger les montants PML le long de la hiérarchie des initiatives](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Une modification PML sur un enfant relance les calculs de toutes les initiatives situées au-dessus de lui, de sorte que le total du parent évolue immédiatement.
 
 ### Impression et export
 
 Le portefeuille propose les mêmes actions de barre de titre que les rapports :
 
-- **Imprimer / Enregistrer en PDF** — l'icône d'imprimante imprime le portefeuille tel qu'il apparaît à l'écran. La barre d'onglets, la barre de filtres et les fenêtres contextuelles de survol sont masquées, le regroupement, le sous-type et la recherche actifs sont imprimés sous forme de ligne de paramètres compacte, et la grille chronologique n'est plus rognée : toutes les colonnes tiennent dans la page. Lorsque la hiérarchie ou le sous-groupement est activé, la ligne de paramètres l'indique également, avec la profondeur d’affichage.
+- **Imprimer / Enregistrer en PDF** — l'icône d'imprimante imprime le portefeuille tel qu'il apparaît à l'écran. La barre d'onglets, la barre de filtres et les fenêtres contextuelles de survol sont masquées, le regroupement, le sous-type et la recherche actifs ainsi que les filtres de la section Filtres sont imprimés sous forme de ligne de paramètres compacte, et la grille chronologique n'est plus rognée : toutes les colonnes tiennent dans la page. Lorsque la hiérarchie ou le sous-groupement est activé, la ligne de paramètres l'indique également, avec la profondeur d’affichage.
 - **Exporter vers PowerPoint (.pptx)** — depuis le menu **⋮**. La première diapositive porte le titre, l'horodatage de génération et les filtres actifs, accompagnés du portefeuille en qualité de présentation ; les portefeuilles longs se poursuivent sur d'autres diapositives, découpées uniquement entre initiatives — jamais au milieu d'une ligne, d'un en-tête de groupe ou d'une ligne de totaux.
 - **Exporter vers Excel (.xlsx)** — également depuis le menu **⋮**. Une ligne par initiative avec son groupe, son sous-type, son chef de projet, ses dates de début et de fin, les trois indicateurs de santé, le CapEx / OpEx prévu et réel, et la date du dernier rapport d'avancement. Les lignes suivent l'ordre affiché à l'écran ; lorsque la hiérarchie est affichée, une colonne **Parent** indique l'initiative parente de chaque initiative. Trois colonnes, **Origine du budget**, **Origine des coûts** et **Origine des dates**, indiquent si le budget, le réel et les dates d'une ligne sont les siens ou le total des initiatives situées en dessous. Lorsque le tableau est regroupé par un sous-type d'initiative, l'initiative de regroupement est la **première ligne de son groupe**, avec les montants qu'affiche sa ligne de bas de groupe.
 
 ## Vue Détaillée de l'Initiative
 
+Le **Début réel** et la **Fin réelle** sont des champs intégrés à la fiche Initiative. Vous pouvez modifier ou effacer leur valeur. Les administrateurs peuvent modifier leur libellé et leur emplacement dans le métamodèle. Les définitions sont protégées contre la suppression.
+
 Cliquez sur n'importe quelle initiative pour ouvrir sa page de détail avec sept onglets :
 
 ### Onglet Vue d'Ensemble
 
-![Vue d'ensemble de l'initiative PPM](../assets/img/fr/41_ppm_vue_ensemble.png)
+![Vue d'ensemble de l'initiative PML](../assets/img/fr/41_ppm_vue_ensemble.png)
 
 La vue d'ensemble montre un résumé de la santé et des finances de l'initiative :
 
@@ -79,7 +89,7 @@ La vue d'ensemble montre un résumé de la santé et des finances de l'initiativ
 
 ### Onglet Rapports de Statut
 
-![Rapports de statut PPM](../assets/img/fr/42_ppm_rapports_statut.png)
+![Rapports de statut PML](../assets/img/fr/42_ppm_rapports_statut.png)
 
 Les rapports de statut mensuels suivent la santé du projet au fil du temps. Chaque rapport comprend :
 
@@ -95,18 +105,20 @@ Les rapports de statut mensuels suivent la santé du projet au fil du temps. Cha
 
 ### Onglet Budget et Coûts
 
-![Budget et coûts PPM](../assets/img/fr/43_ppm_budget_couts.png)
+![Budget et coûts PML](../assets/img/fr/43_ppm_budget_couts.png)
 
-Suivi des données financières avec deux types de lignes :
+Le **Budget prévisionnel** présente les lignes par exercice et par catégorie (CapEx ou OpEx). Développez une ligne pour voir ses **Postes de coût**, puis un poste pour consulter le **Facturé réel**. Le début de l'exercice est défini dans les [paramètres](../admin/settings.md#début-de-lexercice-fiscal).
 
-- **Lignes de budget** — Budget planifié par année fiscale et catégorie (CapEx / OpEx), avec une description facultative. Une même année fiscale et une même catégorie peuvent compter autant de lignes que nécessaire — une par licence, partenaire d'intégration ou lot de matériel — et la description permet de les distinguer ; les totaux les additionnent toutes. Les lignes budgétaires sont regroupées selon le **mois de début de l'exercice fiscal** configuré dans les [Paramètres](../admin/settings.md#début-de-lexercice-fiscal). Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027
-- **Lignes de coût** — Dépenses réelles avec date, description et catégorie
+Saisissez les montants du budget, des coûts et des factures hors TVA. Le facturé réel sert à enregistrer les factures déjà émises.
 
-Les deux tableaux sont regroupés par exercice. Chaque exercice a une ligne d'en-tête avec ses sous-totaux CapEx, OpEx et total ainsi que le nombre de lignes qu'il contient ; la flèche de l'en-tête affiche ou masque les lignes de cet exercice. À l'ouverture de l'onglet, seul l'exercice en cours est déplié (ou le dernier exercice qui a des lignes, si l'exercice en cours n'en a aucune). Les montants figurent dans des colonnes **CapEx** et **OpEx** distinctes, et une ligne **Total, tous les exercices** sous chaque tableau additionne tous les exercices. Le bouton **+** de l'en-tête d'un exercice budgétaire ajoute une ligne de budget avec cet exercice déjà renseigné. Les lignes de coût sont regroupées selon l'exercice de leur date et triées par date au sein de celui-ci ; celles sans date sont réunies à la fin dans le groupe **Sans date** et comptent dans les totaux des coûts comme toute autre ligne.
+- Ajoutez un poste depuis sa ligne budgétaire. Les anciens postes sont disponibles sous **Coûts sans budget** et peuvent être affectés à une ligne. Déplacez les postes entre les lignes d'une même initiative.
+- Indiquez la date, la référence et le montant de la facture. Si une facture couvre plusieurs postes, enregistrez la part correspondante sous chacun. Une facture peut être déplacée vers un autre poste de la même initiative.
+- Un poste affiche le coût réel, le montant facturé et le reste à facturer. Le reste correspond au coût réel moins le facturé et peut être négatif. Le budget additionne les postes rattachés, avec des sous-totaux par exercice et catégorie. Le total facturé de l'initiative comprend les factures des postes sans budget.
+- Le budget, les coûts réels et les graphiques utilisent les montants du budget et des postes de coût. Enregistrer ou déplacer une facture ne change que les montants facturés.
 
-Lorsque l'initiative n'a **aucune ligne de budget propre**, le tableau du budget affiche, à la place de son état vide, le budget des initiatives situées en dessous : une légende indique de combien d'initiatives il provient, une ligne en lecture seule par exercice donne le CapEx, l'OpEx et le total en italique, et la ligne **Total, tous les exercices** les additionne. Le tableau des coûts fait de même avec leur réel lorsque l'initiative n'a **aucune ligne de coût propre**, avec une ligne **Sans date** pour leurs lignes de coût sans date. La barre de synthèse signale ces montants en italique, avec une infobulle. Chaque tableau décide pour lui-même, rien n'est enregistré ni ajouté aux montants propres de l'initiative, et seules comptent les initiatives que vous pouvez voir. La saisie d'une première ligne avec **Ajouter une ligne budgétaire** ou **Ajouter un poste de coût** fait revenir ce tableau aux lignes propres de l'initiative ; les graphiques de dépense affichent toujours les lignes propres de l'initiative.
+Si un fournisseur est configuré sur la ligne budgétaire, les postes en héritent et peuvent choisir un fournisseur enfant direct autorisé. Consultez la [configuration des budgets et coûts](../admin/settings.md#pml-budget-costs) pour les champs supplémentaires et calculés.
 
-Les totaux de budget et de coûts sont automatiquement agrégés dans les attributs `costBudget` et `costActual` de la fiche Initiative.
+Si l'initiative n'a pas de budget ou de coûts propres, la valeur correspondante peut venir d'initiatives descendantes visibles. Les deux côtés sont indépendants. Les lignes dérivées affichent un tiret pour les coûts liés et la facturation. Les totaux actualisent automatiquement `costBudget` et `costActual` sur la fiche. En présence de postes de coût PML, ces champs sont en lecture seule.
 
 #### Dépenses dans le temps
 
@@ -125,7 +137,7 @@ Deux points à garder à l'esprit :
 
 ### Onglet Gestion des Risques
 
-![Gestion des risques PPM](../assets/img/fr/44_ppm_gestion_risques.png)
+![Gestion des risques PML](../assets/img/fr/44_ppm_gestion_risques.png)
 
 Le registre des risques suit les risques de l'initiative. Chaque risque comporte :
 
@@ -216,7 +228,7 @@ Les colonnes sont reconnues par leur en-tête dans votre langue ou en anglais. U
 
 ### Onglet Tâches
 
-![Tableau de tâches PPM](../assets/img/fr/45_ppm_tableau_taches.png)
+![Tableau de tâches PML](../assets/img/fr/45_ppm_tableau_taches.png)
 
 Le gestionnaire de tâches prend en charge les vues **tableau Kanban** et **liste** avec quatre colonnes de statut :
 
@@ -231,7 +243,7 @@ Les filtres d'affichage (mode de vue, filtre WBS, bascule de regroupement) sont 
 
 ### Onglet Gantt
 
-![Diagramme de Gantt PPM](../assets/img/fr/46_ppm_gantt.png)
+![Diagramme de Gantt PML](../assets/img/fr/46_ppm_gantt.png)
 
 Le diagramme de Gantt visualise le calendrier du projet avec :
 
@@ -254,17 +266,21 @@ Interagir avec le diagramme de Gantt :
 
 Le dernier onglet affiche la vue complète des détails de la fiche, y compris toutes les sections standard.
 
+Dans **Coûts et calendrier**, les barres superposées comparent budget et coûts réels pour le total, le CapEx et l'OpEx. Le facturé total de l'initiative est affiché séparément selon les droits. La chronologie présente les dates prévisionnelles et réelles visibles ainsi que les indicateurs de délai, de coût et de périmètre.
+
 ### Rapport d'initiative
 
-![Rapport d'initiative PPM](../assets/img/fr/103_ppm_rapport_initiative.png)
+![Rapport d'initiative PML](../assets/img/fr/103_ppm_rapport_initiative.png)
+
+L'impression contient les dates prévisionnelles et réelles visibles, la hiérarchie déployée et les sous-totaux par exercice. Le facturé total de l'initiative est affiché selon les droits.
 
 Le bouton **Rapport** dans l'en-tête de l'initiative, à côté de la puce du sous-type (une icône sur un téléphone), ouvre le **Rapport d'initiative** : une page en lecture seule qui rassemble ce que montrent les onglets, mise en page comme les autres rapports, avec le nom de l'initiative pour titre et une flèche de retour pour revenir à l'initiative. Les puces **Sections** de la barre d'outils affichent ou masquent chaque section ; toutes sont affichées la première fois, et votre choix est mémorisé dans votre navigateur :
 
 | Section | Ce qui est affiché |
 |---------|--------------------|
-| **Vue d'ensemble** | Des tuiles pour **Budget total**, **Réel total**, **Écart** et **Achèvement** ; le **Résumé de santé** avec les trois indicateurs du dernier rapport de statut, en couleur et en toutes lettres ; les barres **Finances** pour le total, CapEx et OpEx ; l'encadré **Chronologie** avec les dates de début et de fin, le sous-type et le statut d'initiative ; et la description. Les montants issus des initiatives sous-jacentes sont signalés, avec une note qui les explique |
+| **Vue d'ensemble** | Des tuiles pour **Budget total**, **Réel total**, **Écart** et **Achèvement** ; le **Résumé de santé** avec les trois indicateurs du dernier rapport de statut, en couleur et en toutes lettres ; les barres **Finances** pour le total, CapEx et OpEx ; l'encadré **Chronologie** avec les dates prévisionnelles et réelles visibles, le sous-type et le statut d'initiative ; et la description. Les montants issus des initiatives sous-jacentes sont signalés, avec une note qui les explique |
 | **Rapports de statut** | Le dernier rapport en entier, avec ses indicateurs, puis les rapports précédents dans un tableau avec la date, l'auteur et les indicateurs de santé |
-| **Budget et coûts** | Des tuiles pour le budget total, le réel et l'écart, et pour les CapEx et OpEx dépensées par rapport à leur budget ; les graphiques **Dépenses dans le temps** pour l'exercice fiscal indiqué dans leur puce et pour le projet entier ; puis les tableaux **Budget prévu** et **Postes de coûts**, avec chaque exercice fiscal déplié |
+| **Budget et coûts** | Des tuiles pour le budget total, le réel et l'écart, et pour les CapEx et OpEx dépensées par rapport à leur budget ; les graphiques **Dépenses dans le temps** pour l'exercice fiscal indiqué dans leur puce et pour le projet entier ; Hiérarchie développée **Budget prévisionnel → Postes de coût → Facturé réel**, sous-totaux par exercice et total facturé pour l'initiative |
 | **Gestion des risques** | Des tuiles pour **Total des risques**, **Ouvert** et **Risques élevés** ; la **Carte thermique des risques** croisant probabilité et impact, chaque cellule colorée selon la tranche de score et indiquant combien de risques elle contient, à côté d'un décompte **Par statut** ; puis chaque risque avec son score (et probabilité × impact), son statut, son responsable, sa description complète et son atténuation complète, le score le plus élevé en premier |
 | **Tâches et planning** | Un tableau des lots de travail, chacun avec ses tâches en dessous, puis les tâches sans lot de travail, à côté d'une frise chronologique sur une échelle trimestrielle : une barre pour chaque lot de travail, remplie selon son achèvement, une barre pour chaque tâche dans la couleur de son statut, un losange pour un jalon (comme sur le diagramme de Gantt), un point pour un élément n'ayant qu'une seule date, et une ligne pour aujourd'hui lorsqu'il se trouve dans la période. Chaque ligne indique aussi son avancement ou son statut et sa priorité, et une légende explique les repères |
 
@@ -285,14 +301,16 @@ La WBS fournit une décomposition hiérarchique du périmètre du projet :
 
 ## Intégration avec les détails de la fiche
 
-Lorsque le PPM est activé, les fiches **Initiative** affichent un onglet **PPM** en dernière position dans la [vue détaillée de la fiche](card-details.md). Cliquer sur cet onglet ouvre directement la vue détaillée PPM de l'initiative (onglet Aperçu). Cela offre un point d'accès rapide depuis n'importe quelle fiche Initiative vers sa page de projet PPM complète.
+Lorsque le PML est activé, les fiches **Initiative** affichent un onglet **PML** en dernière position dans la [vue détaillée de la fiche](card-details.md). Cliquer sur cet onglet ouvre directement la vue détaillée PML de l'initiative (onglet Aperçu). Cela offre un point d'accès rapide depuis n'importe quelle fiche Initiative vers sa page de projet PML complète.
 
-Inversement, l'onglet **Détails de la fiche** dans la vue détaillée PPM de l'initiative affiche les sections standard sans l'onglet PPM, évitant ainsi une navigation circulaire.
+Inversement, l'onglet **Détails de la fiche** dans la vue détaillée PML de l'initiative affiche les sections standard sans l'onglet PML, évitant ainsi une navigation circulaire.
 
 ## Permissions
 
 | Permission | Description |
 |-----------|-------------|
-| `ppm.view` | Voir le tableau de bord PPM, le diagramme de Gantt et les rapports d'initiatives, et lire les fiches d'initiative. Accordé à tous les rôles par défaut |
+| `ppm.view` | Voir le tableau de bord PML, le diagramme de Gantt et les rapports d'initiatives, et lire les fiches d'initiative. Accordé à tous les rôles par défaut |
 | `ppm.manage` | Créer et gérer les rapports de statut, tâches, coûts, risques et éléments WBS. Accordé aux rôles Admin, Admin BPM et Membre |
-| `reports.ppm_dashboard` | Voir le tableau de bord du portefeuille PPM. Accordé à tous les rôles par défaut |
+| `reports.ppm_dashboard` | Voir le tableau de bord du portefeuille PML. Accordé à tous les rôles par défaut |
+
+Le budget et les postes de coût suivent les droits PML et la visibilité de l'initiative. Le détail et le total des factures, ainsi que l'indicateur de coût du calendrier, exigent aussi le droit de voir les coûts de l'initiative. L'enregistrement et le déplacement des factures exigent en plus le droit de gestion PML.

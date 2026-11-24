@@ -159,7 +159,10 @@ class TestRollupEndpoint:
     async def test_hidden_descendant_breaks_the_chain(self, client, db, env):
         member = env["member"]
         await create_stakeholder_role_def(
-            db, card_type_key="Initiative", key="responsible", permissions={"card.view": True}
+            db,
+            card_type_key="Initiative",
+            key="responsible",
+            permissions={"card.view": True, "card.view_costs": True},
         )
         from app.models.stakeholder import Stakeholder
 
@@ -314,7 +317,10 @@ class TestRollupPerSide:
     async def test_archived_and_hidden_descendants_stay_out_of_by_year(self, client, db, env):
         member = env["member"]
         await create_stakeholder_role_def(
-            db, card_type_key="Initiative", key="responsible", permissions={"card.view": True}
+            db,
+            card_type_key="Initiative",
+            key="responsible",
+            permissions={"card.view": True, "card.view_costs": True},
         )
         from app.models.stakeholder import Stakeholder
 

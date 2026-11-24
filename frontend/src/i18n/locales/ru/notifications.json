@@ -28,7 +28,7 @@
   "preferences.loadFailed": "Не удалось загрузить настройки",
   "preferences.saveFailed": "Не удалось сохранить настройки",
   "preferences.todoAssigned": "Назначена задача",
-  "preferences.taskAssigned": "PPM-задача назначена",
+  "preferences.taskAssigned": "Назначена задача PML",
   "preferences.surveyRequest": "Запрос на опрос",
   "preferences.cardUpdated": "Карточка обновлена",
   "preferences.commentAdded": "Добавлен комментарий",

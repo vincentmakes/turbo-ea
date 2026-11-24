@@ -99,15 +99,17 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 
 `SUM`、`AVG`、`MIN` 和 `MAX` 本身就会跳过非数值项，因此无需额外保护。
 
-### Initiative 卡片上的 PPM 数据 { #ppm-data-on-initiative-cards }
+### Initiative 卡片上的 PML 数据 { #ppm-data-on-initiative-cards }
 
-`ppm` 根将 PPM 模块的数据开放给公式：预算行与成本行，按 capex 与 opex 拆分并按财年细分 —— 这是卡片上汇总后的 `data.costBudget` / `data.costActual` 属性无法提供的细节 —— 以及举措的交付数据：整体完成率、工作包、任务与风险，以及最新的状态报告。
+如需计算预算、成本或开票行上的字段，请使用[PML 财务字段设置](settings.md#pml-budget-costs)。本页介绍卡片级计算。
+
+`ppm` 根将 PML 模块的数据开放给公式：预算行与成本行，按 capex 与 opex 拆分并按财年细分 —— 这是卡片上汇总后的 `data.costBudget` / `data.costActual` 属性无法提供的细节 —— 以及举措的交付数据：整体完成率、工作包、任务与风险，以及最新的状态报告。
 
 | 变量 | 描述 |
 |----------|-------------|
-| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | 计划预算，来自 PPM 预算行 |
-| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | PPM 成本行上的计划金额 |
-| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | PPM 成本行上的实际金额 |
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | 计划预算，来自 PML 预算行 |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | PML 成本行上的计划金额 |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | PML 成本行上的实际金额 |
 | `ppm.byYear` | 按财年划分的同样九项指标，形式为列表 `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | 今天所属的财年 |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | 没有日期的成本行：计入合计，但不属于任何财年 |
@@ -117,7 +119,7 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 | `ppm.wbsCount`, `ppm.milestoneCount` | 工作包数量与里程碑数量 |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | 任务数量：总数及按状态统计 |
 | `ppm.tasksOverdue` | 已过截止日期但尚未完成的任务 |
-| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PPM 风险：全部、仍未关闭的，以及最高风险评分 |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PML 风险：全部、仍未关闭的，以及最高风险评分 |
 | `ppm.reportCount`, `ppm.reportDate` | 状态报告的数量，以及最新一份的日期（尚无报告时为 `None`） |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | 最新状态报告的健康标记：`onTrack`、`atRisk` 或 `offTrack`（尚无报告时为 `None`） |
 
@@ -143,7 +145,7 @@ IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
 * `total*` 是所有行的合计，而非 `capex + opex`。类别不属于两者之一的行（例如来自导入）仍计入合计。
 * 非举措类型的卡片读取所有 `ppm` 指标均为 `0`，且 `byYear` 为空，因此在错误类型上的公式返回零而不是报错。最新报告的字段读取为 `None` 而非 `0` ——「尚无报告」与「进度正常」是两回事 —— 因此请用 `COALESCE` 加以保护。
 
-编辑 PPM 预算行或成本行、工作包、任务、风险或状态报告都会重新运行该举措的计算，因此由此派生的一切会立即更新，且该变更会出现在卡片的**历史**选项卡中。通过关系读取*另一张*卡片 PPM 数据的卡片则不会刷新 —— 参见[计算何时运行](#when-calculations-run)。
+编辑 PML 预算行或成本行、工作包、任务、风险或状态报告都会重新运行该举措的计算，因此由此派生的一切会立即更新，且该变更会出现在卡片的**历史**选项卡中。通过关系读取*另一张*卡片 PML 数据的卡片则不会刷新 —— 参见[计算何时运行](#when-calculations-run)。
 
 #### 在卡片或门户上显示举措进度 { #show-initiative-progress-on-a-card-or-a-portal }
 
@@ -155,9 +157,9 @@ IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
 
 此后，将任务标记为已完成、编辑工作包的完成率或删除其中一项，都会在卡片显示的任何位置移动这条进度条。
 
-#### 沿举措层级汇总 PPM 数值 { #rolling-ppm-figures-up-the-initiative-hierarchy }
+#### 沿举措层级汇总 PML 数值 { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-PPM 投资组合看板会为没有自己预算行或成本行的上级显示其下举措的合计，但该数值只存在于看板上。要在项目群上（包括清单、报表和门户中）显示其下所有内容的预算，只需使用一项读取其下级结果的计算：
+PML 投资组合看板会为没有自己预算行或成本行的上级显示其下举措的合计，但该数值只存在于看板上。要在项目群上（包括清单、报表和门户中）显示其下所有内容的预算，只需使用一项读取其下级结果的计算：
 
 1. 在**管理 → 元模型**中，为 Initiative 类型添加一个**成本**类型的字段 —— 例如 `rolledUpBudget`，标签为*汇总预算*。
 2. 在**管理 → 计算**中，为 Initiative 添加一项计算，公式为 `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`，目标为该字段，并启用它。
@@ -286,7 +288,7 @@ IF(data.businessCriticality == "missionCritical", data.riskScore * 2, data.riskS
 * 卡片被重新指定父级，此时其整个子树都会重新计算；
 * 您从列表中手动运行该计算，此时它会对目标类型的每张卡片求值并保存结果。
 
-* 对于举措，卡片上的 PPM 预算行、成本行、工作包、任务、风险或状态报告发生变化。
+* 对于举措，卡片上的 PML 预算行、成本行、工作包、任务、风险或状态报告发生变化。
 * 上述变更发生在层级中位置更低的举措上：其上方的每个举措也会从直接上级开始依次重新计算，因此[汇总值](#rolling-ppm-figures-up-the-initiative-hierarchy)会随变更更新。
 
 手动运行会从最深的层级开始对层级类型的卡片求值，先下级后上级，因此读取下级计算值的公式只需运行一次即可得出最终结果。

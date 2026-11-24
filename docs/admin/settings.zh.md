@@ -4,7 +4,7 @@
 
 | 标签页 | URL | 控制内容 | 完整指南 |
 |--------|-----|----------|----------|
-| **常规** | `/admin/settings?tab=general` | 外观（Logo、favicon、货币、日期格式、已启用语言、财年）、电子邮件发送、**模块开关**（BPM、PPM、GRC、ArchiMate、TurboLens、赞助按钮、TurboRPG 模式） | 本页 |
+| **常规** | `/admin/settings?tab=general` | 外观（Logo、favicon、货币、日期格式、已启用语言、财年）、电子邮件发送、**模块开关**（BPM、PML、GRC、ArchiMate、TurboLens、赞助按钮、TurboRPG 模式） | 本页 |
 | **认证** | `/admin/settings?tab=authentication` | SSO 提供商、注册、密码策略 | [认证与 SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM 提供商、模型、网络搜索后端、按卡片类型的 AI 建议开关 | [AI 功能](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | 将产品批量链接到 endoflife.date 条目 | [生命周期结束 (EOL)](eol.md) |
@@ -14,8 +14,9 @@
 | **迁移** | `/admin/settings?tab=migration` | 从其他 EA 平台导入，以及在 Turbo EA 实例之间完整传输工作区 | [平台迁移](migration.md) |
 | **审计日志** | `/admin/settings?tab=audit-log` | **变更**：变更批次台账——谁改了什么，以及变更来自 Web 界面、API、AI 工具还是扩展。**安全与管理**：登录、失败的尝试、账户锁定及其他安全事件 | [审计日志](audit-log.md) |
 | **资源** | `/admin/settings?tab=resources` | 附加到卡片的所有文件和链接，含存储统计与批量清理 | [资源](resources.md) |
+| **PML** | `/admin/settings?tab=pml` | 财务字段、计算、提供方继承和举措日期映射 | [项目总表 (PML)](#ppm-module) |
 
-本页的其余部分介绍 **常规** 标签页。
+以下章节介绍常规设置和 PML 配置。
 
 ![通用设置](../assets/img/zh/28_admin_settings_general.png)
 
@@ -45,7 +46,7 @@
 
 ### 日期格式
 
-选择整个应用程序中日期的显示方式。所选格式适用于卡片生命周期日期、清单网格、ADR 和 SoAW 签署日期、风险登记册、PPM 报告与任务、BPM 流程版本、评论、历史记录、仪表盘活动流、通知以及管理页面。提供五种格式并实时预览：
+选择整个应用程序中日期的显示方式。所选格式适用于卡片生命周期日期、清单网格、ADR 和 SoAW 签署日期、风险登记册、PML 报告与任务、BPM 流程版本、评论、历史记录、仪表盘活动流、通知以及管理页面。提供五种格式并实时预览：
 
 - `MM/DD/YYYY` — 美式（例如 `04/29/2026`）
 - `DD/MM/YYYY` — 欧式（例如 `29/04/2026`）
@@ -65,7 +66,7 @@
 
 ### 财年起始月份
 
-选择您组织财年开始的月份（一月到十二月）。此设置影响 PPM 模块中**预算行**按财年分组的方式。例如，如果财年从四月开始，2026 年六月的预算行属于 2026–2027 财年。 它还决定[成本报告](../guide/reports.md)显示哪个财年。
+选择您组织财年开始的月份（一月到十二月）。此设置影响 PML 模块中**预算行**按财年分组的方式。例如，如果财年从四月开始，2026 年六月的预算行属于 2026–2027 财年。 它还决定[成本报告](../guide/reports.md)显示哪个财年。
 
 默认值为**一月**（日历年 = 财年）。
 
@@ -168,14 +169,41 @@ Turbo EA 会发送邀请邮件、调查通知、密码重置以及其他系统�
 
 若团队规模很小、由同一人起草并签署，可保持关闭。启用与否不会改变记录内容：提交、审批、驳回和撤回都会写入卡片的**历史**选项卡。
 
-## PPM 模块
+## 项目总表 (PML) { #ppm-module }
 
-开启或关闭**项目组合管理**（PPM）模块。禁用后：
+在**常规**选项卡中使用**项目总表 (PML)** 开关控制模块。禁用后，导航入口、举措卡片上的 PML 选项卡以及卡片财务和时间线摘要会隐藏。元模型字段仍遵循原有权限。详见[项目总表指南](../guide/ppm.md)。
 
-- **PPM** 导航项对所有用户隐藏
-- 倡议卡片保留在数据库中，但 PPM 特定功能（状态报告、预算和成本跟踪、风险登记、任务板、甘特图）不可访问
+### 配置预算与成本 { #pml-budget-costs }
 
-启用后，倡议卡片在其详情视图中获得 **PPM** 标签页，PPM 项目组合仪表盘在主导航中可用。请参阅[项目组合管理](../guide/ppm.md)获取完整功能指南。
+打开**管理 → 设置 → PML → 预算与成本**，选择**计划预算**、**成本项**或**实际开票**。添加字段时指定稳定键、显示名称和类型。勾选**显示为列**可在层级和打印件中展示字段；可以调整顺序，或停用字段并保留已记录的值。分别保存每个部分的设置。
+
+配置计算字段时，先选择结果类型，再添加输入别名和来源。选择公式或有序规则。第一个匹配的规则决定结果，无匹配时使用回退结果。比较条件可用 AND、OR 和 NOT 组合。保存前输入样本值并选择**预览**。这里计算财务行字段，卡片字段使用[元模型计算](calculations.md)。
+
+卡片引用可限制卡片类型。选择兼容的关系可以把所引用的卡片关联到举措。在成本项设置中选择预算上的提供方字段，并可允许选择其直接下级。开票记录有自己的字段，提供方配置属于预算和成本项。
+
+#### Aruba 配置示例
+
+| 部分 | 标签和示例键 | 设置 |
+|---|---|---|
+| 计划预算 | **Origine Costi** (`origineCosti`) | 引用 Provider 类型的卡片。选择现有的支持关系，再在成本项中把该预算字段设为提供方来源；按需允许选择直接下级。 |
+| 成本项 | **Gestione intercompany** (`gestioneIntercompany`) | 单选列表，选项为 **Plafond**、**Canone**、**Progetto** 和 **N.A.**。 |
+| 成本项 | **OdA — Ordine d’acquisto** (`ordineAcquisto`) | 文本，例如 `ODA-000427`。 |
+| 成本项 | **Origine Costi Aggregato** (`origineCostiAggregato`) | 计算文本字段。输入可包括实际提供方、预算提供方和采购类型。 |
+
+可选的单选字段 **Tipo di spesa** 能区分同一提供方的 **Licenze** 和 **Servizi esterni**。按以下顺序添加规则。
+
+1. 许可证采购返回 **Licenze**。
+2. 外部服务或分类为外部服务的提供方对应 **Servizi Esterni**。
+3. **Aruba Spa**、**Aruba PEC** 或 **Actalis** 对应 **Servizi interni**。
+4. **Aruba Software**、**Aruba System**、**Aruba Cybersecurity**、**Aruba Marketing**、**Aruba Service Desk**、**Aruba Enterprise** 或 **Aruba DC&Infra** 对应 **Servizi Intercompany**。
+
+构建比较条件时选择真实的提供方卡片。下级未分类时可以检查预算提供方，信息不足时可留空回退结果。例如预算选择 **Aruba Software**，成本项选择 **Aruba Software / Licensing**，并记录 `Canone` 和 `ODA-000427`。这些字段键和规则是实例配置示例。
+
+### 配置时间线 { #pml-timeline }
+
+打开**管理 → 设置 → PML → 时间线**，映射举措的实际开始和实际结束字段。默认键是 `actualStart` 和 `actualEnd`。也可以选择两个不同且可编辑的日期字段。开始日期和结束日期仍用于计划。键区分大小写。管理员有元模型编辑权限时，可以在此创建缺失的默认字段。
+
+卡片、内部组合和举措报告遵循字段可见性。公共组合显示**计划**轨道。可通过[工作区数据包](workspace-transfer.md)传输日期映射和财务字段配置。
 
 ## GRC 模块
 

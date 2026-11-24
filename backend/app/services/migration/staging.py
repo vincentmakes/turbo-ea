@@ -257,6 +257,8 @@ async def stage_cards(
         if mt.is_custom and mt.name not in source.type_mapping
     }
 
+    timeline_mapping = None
+    initiative_locked = None
     for entity in snapshot.entities:
         # Skip archived entities by default — admin opts in via include_archived.
         if (entity.status or "").upper() == "ARCHIVED" and not include_archived:
@@ -293,9 +295,9 @@ async def stage_cards(
             db, migration.source_type, entity.source_id, payload["name"], target_type
         )
 
+        diff: dict[str, Any] | None = None
         if existing is None:
             action = "create"
-            diff = None
             target_id = None
         else:
             action = "update"
@@ -303,6 +305,31 @@ async def stage_cards(
             target_id = existing.id
             if not diff:
                 action = "skip"
+        if target_type == "Initiative":
+            from app.services.extensions import field_gate
+            from app.services.migration.apply import _remap_attributes
+            from app.services.ppm_timeline import (
+                TimelineValidationError,
+                load_timeline_mapping,
+                validate_actual_date_pair,
+            )
+
+            attributes = payload.get("attributes") or {}
+            type_mapping = (migration.field_mappings or {}).get(entity.type) or {}
+            if type_mapping:
+                attributes, _ = _remap_attributes(attributes, type_mapping)
+            previous = dict(existing.attributes or {}) if existing else {}
+            merged = {**previous, **attributes}
+            if timeline_mapping is None:
+                timeline_mapping = await load_timeline_mapping(db)
+            if initiative_locked is None:
+                initiative_locked = await field_gate.locked_fields_for_type(db, target_type)
+            merged, _ = field_gate.apply_field_lock(previous, merged, initiative_locked)
+            try:
+                validate_actual_date_pair(timeline_mapping, merged)
+            except TimelineValidationError as exc:
+                action = "conflict"
+                diff = {"reason": str(exc)}
         stats[action] += 1
 
         db.add(

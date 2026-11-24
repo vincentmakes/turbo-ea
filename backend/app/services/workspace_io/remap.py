@@ -30,6 +30,7 @@ the rules are unit-tested directly and reachable by mutation testing.
 
 from __future__ import annotations
 
+import copy
 import html
 import re
 import uuid
@@ -173,6 +174,94 @@ class RemapContext:
     card_types: dict[str, str] = field(default_factory=dict)
     relation_details: dict[str, tuple[str, str, str]] = field(default_factory=dict)
     source_er_ends: dict[str, tuple[str, str]] = field(default_factory=dict)
+    pml_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    pml_rejected_sections: set[str] = field(default_factory=set)
+    pml_rejected_ids: set[str] = field(default_factory=set)
+    pml_historical_card_ids: set[str] = field(default_factory=set)
+
+
+def pml_card_id(value: Any, ctx: RemapContext, tally: RewriteTally) -> Any:
+    if value is None or value == "":
+        return value
+    source = canonical_uuid(value)
+    if source is None:
+        raise ValueError("unresolved PML card reference")
+    target = ctx.ids.lookup(CARDS, source)
+    if target is None and source in ctx.live_card_ids:
+        target = source
+    if target is None and source in ctx.pml_historical_card_ids:
+        # Reserved version-8 UUIDs preserve identity when an imported historical
+        # reference is exported again. The namespace applies only to references
+        # explicitly marked historical in the bundle.
+        prefix = "504d4c48"
+        identifier = uuid.UUID(source)
+        if identifier.version == 8 and identifier.hex.startswith(prefix):
+            target = source
+        else:
+            digest = uuid.uuid5(uuid.NAMESPACE_URL, f"turboea:historical-provider:{source}")
+            target = str(uuid.UUID(hex=prefix + digest.hex[8:12] + "8" + digest.hex[13:]))
+    if target is None:
+        raise ValueError("unresolved PML card reference")
+    if target != source:
+        tally.bump(REMAPPED)
+    return target
+
+
+def rewrite_pml_field_configuration(
+    config: dict[str, Any], ctx: RemapContext
+) -> tuple[dict[str, Any], RewriteTally]:
+    """Translate only card-reference defaults and rule constants, never labels or text."""
+    result = copy.deepcopy(config)
+    tally = RewriteTally()
+    fields = result.get("fields") or []
+    card_keys = {
+        item["key"]
+        for item in fields
+        if item.get("kind") == "card_reference" and isinstance(item.get("key"), str)
+    }
+    card_keys.update(("provider.effective", "provider.budget"))
+
+    def rewrite_condition(condition: Any, aliases: set[str]) -> None:
+        if not isinstance(condition, dict):
+            return
+        if condition.get("input") in aliases and "value" in condition:
+            condition["value"] = pml_card_id(condition["value"], ctx, tally)
+        for child in condition.get("conditions") or []:
+            rewrite_condition(child, aliases)
+        rewrite_condition(condition.get("condition"), aliases)
+
+    for item in fields:
+        if item.get("kind") == "card_reference" and "default" in item:
+            item["default"] = pml_card_id(item["default"], ctx, tally)
+        calculation = item.get("calculation")
+        if not isinstance(calculation, dict):
+            continue
+        aliases = {
+            alias
+            for alias, source in (calculation.get("inputs") or {}).items()
+            if source in card_keys
+        }
+        for rule in calculation.get("rules") or []:
+            if isinstance(rule, dict):
+                rewrite_condition(rule.get("when"), aliases)
+    return result, tally
+
+
+def rewrite_pml_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
+    """Rewrite only configured card-valued financial fields."""
+    tally = RewriteTally()
+    section = kwargs.pop("_pml_section", None)
+    config = ctx.pml_configs.get(section, {})
+    values = kwargs.get("field_values")
+    if not isinstance(values, dict):
+        return tally
+    updated = dict(values)
+    for definition in config.get("fields") or []:
+        key = definition.get("key")
+        if definition.get("kind") == "card_reference" and key in updated:
+            updated[key] = pml_card_id(updated[key], ctx, tally)
+    kwargs["field_values"] = updated
+    return tally
 
 
 RowRewriter = Callable[[dict[str, Any], RemapContext], RewriteTally]

@@ -22,7 +22,10 @@ Design invariants:
 * **Full audit provenance.** Each write runs in its own short session with
   the ``request_origin`` contextvar set to ``"ext"`` and an explicit
   ``MutationBatch(tool_name="ext:{key}", origin="ext", actor_user_id=None)``,
-  so the admin audit log shows exactly which extension changed what; the
+  so the admin audit log shows exactly which extension changed what. Not
+  covered by ``ctx.on_behalf_of`` (SDK 1.19): ``created_by`` is what makes a
+  todo "extension"-origin and what gives a person creator rights on it, so a
+  todo write stays unattributed inside that scope too; the
   shared ``todo_service`` stamps ``data["ext"]`` onto every emitted
   ``todo.*`` event as well.
 * **Shared side effects.** All writes delegate to

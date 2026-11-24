@@ -111,7 +111,7 @@ The live reference above is the full source of truth; the table below is a quick
 | `/metamodel` | Card types, fields, sections, subtypes, relation types |
 | `/reports` | Dashboard KPIs, portfolio, matrix, lifecycle, dependencies, cost, data quality |
 | `/bpm` | Business Process Management — diagrams, elements, flow versions, assessments |
-| `/ppm` | Project Portfolio Management — initiatives, status reports, WBS, tasks, costs, risks |
+| `/ppm` | Project Master List — initiatives, status reports, WBS, tasks, costs, risks |
 | `/turbolens` | AI-powered analysis (vendors, duplicates, security, architecture AI) |
 | `/risks` | EA Risk Register (TOGAF Phase G) |
 | `/diagrams` | DrawIO diagrams |

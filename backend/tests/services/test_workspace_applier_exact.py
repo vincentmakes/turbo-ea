@@ -1241,3 +1241,24 @@ async def test_a_new_type_takes_the_same_stamp_rule(db, import_env):
     assert ct.subtypes == [SUB, unstamped(FORGED_SUB)]
     again = await import_types(db, import_env, [row], dry_run=False)
     assert counts(again) == (0, 0, 1, 0, 0)
+
+
+@pytest.mark.parametrize("incoming", [[], [{"key": "actualStart", "type": "text"}]])
+async def test_workspace_card_type_import_preserves_builtin_actual_dates(db, incoming):
+    current_fields = [
+        {"key": "actualStart", "type": "date", "label": "Actual Start", "built_in": True},
+        {"key": "actualEnd", "type": "date", "label": "Actual End", "built_in": True},
+    ]
+    ct = await create_card_type(
+        db,
+        key="Initiative",
+        label="Initiative",
+        built_in=True,
+        fields_schema=[{"section": "Cost & Timeline", "fields": current_fields}],
+    )
+    incoming_schema = [{"section": "Custom", "fields": incoming}]
+    rows = [{"key": "Initiative", "fields_schema": json.dumps(incoming_schema)}]
+    await applier._apply_card_types(db, bundle(schema.SHEET_CARD_TYPES, rows), section(), False)
+    fields = [field for sec in ct.fields_schema for field in sec["fields"]]
+    for original in current_fields:
+        assert [field for field in fields if field["key"] == original["key"]] == [original]

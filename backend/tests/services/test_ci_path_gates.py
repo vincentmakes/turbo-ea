@@ -71,6 +71,12 @@ def test_file_change_enables_its_check(changed_file, job):
         guard = "always() && (needs.changes.result != 'success' || "
         assert condition.startswith(guard) and condition.endswith(")")
         condition = condition[len(guard) : -1]
+    if job == "backend-test-unit":
+        cached = re.fullmatch(
+            r"\((.+)\) && needs\.changes\.outputs\.done_backend_unit != 'true'", condition
+        )
+        assert cached, "Backend Unit Tests should run for matching paths without a cached verdict"
+        condition = cached.group(1)
 
     # Handle the current OR-of-boolean-comparisons syntax and fail closed if it changes.
     patterns = []

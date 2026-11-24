@@ -275,9 +275,9 @@ function FieldCard({
             </Tooltip>
           )}
           {onEdit && <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }}><MaterialSymbol icon="edit" size={16} /></IconButton>}
-          {onDelete && (field.ext_protected ? (
-            <Tooltip title={t("cardLayout.extensionOwned")}>
-              <span><IconButton size="small" disabled aria-label={t("cardLayout.extensionOwned")} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton></span>
+          {onDelete && (field.ext_protected || field.built_in ? (
+            <Tooltip title={t(field.ext_protected ? "cardLayout.extensionOwned" : "cardLayout.builtInField")}>
+              <span><IconButton size="small" disabled aria-label={t(field.ext_protected ? "cardLayout.extensionOwned" : "cardLayout.builtInField")} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton></span>
             </Tooltip>
           ) : <IconButton size="small" onClick={onDelete} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton>)}
         </Box>
@@ -1167,15 +1167,17 @@ function DescriptionFieldsPanel({
  *  extension left behind stays deletable. */
 export function sectionDeleteBlock(
   section: SectionDef | null | undefined,
-): "owned" | "holds" | null {
+): "owned" | "holds" | "builtIn" | null {
   if (!section) return null;
   if (section.ext_protected) return "owned";
+  if ((section.fields || []).some((field) => field.built_in)) return "builtIn";
   return (section.fields || []).some((f) => !!f.ext_protected) ? "holds" : null;
 }
 
 const DELETE_BLOCK_KEYS = {
   owned: "cardLayout.extensionOwned",
   holds: "cardLayout.extensionFieldInside",
+  builtIn: "cardLayout.builtInFieldInside",
 } as const;
 
 function SortableSectionItem({

@@ -786,6 +786,30 @@ def validate_dataobject_subtype(type_key: str, subtype: str | None, row: CardTyp
         raise HTTPException(422, "DataObject subtype must be a declared option")
 
 
+async def validate_timeline_attributes(
+    db: AsyncSession, type_key: str, attributes: dict, previous: dict | None = None, *, mapping=None
+) -> dict:
+    if type_key != "Initiative":
+        return attributes
+    from app.services.ppm_timeline import (
+        TimelineValidationError,
+        load_timeline_mapping,
+        validate_actual_date_pair,
+    )
+
+    if mapping is None:
+        mapping = await load_timeline_mapping(db)
+    candidate = dict(attributes)
+    for key in (mapping.actual_start_key, mapping.actual_end_key):
+        if key and key not in candidate and previous and key in previous:
+            candidate[key] = previous[key]
+    try:
+        validate_actual_date_pair(mapping, candidate)
+    except TimelineValidationError as exc:
+        raise HTTPException(422, detail=str(exc)) from exc
+    return candidate
+
+
 async def create_card(
     db: AsyncSession,
     actor: WriteActor,
@@ -818,6 +842,7 @@ async def create_card(
     # Guard: a field an inactive or unlicensed extension contributed is
     # read-only — a new card may not fill it in (403 extension_fields_locked).
     attributes = await field_gate.enforce_field_lock(db, type_key, {}, attributes)
+    attributes = await validate_timeline_attributes(db, type_key, attributes or {})
     await _validate_url_attributes(db, type_key, attributes or {})
     await _validate_percentage_attributes(db, type_key, attributes or {})
     await _validate_boolean_attributes(db, type_key, attributes or {})
@@ -962,6 +987,11 @@ async def update_card(
     if "attributes" in updates:
         updates["attributes"] = await field_gate.enforce_field_lock(
             db, card.type, card.attributes, updates["attributes"], carry_maintained=True
+        )
+
+    if "attributes" in updates:
+        updates["attributes"] = await validate_timeline_attributes(
+            db, card.type, updates["attributes"] or {}, dict(card.attributes or {})
         )
 
     # Guard: never clear a required field. Validates the post-merge final state
@@ -1357,6 +1387,7 @@ async def _emit_relation_events(
     actor_id: uuid.UUID | None,
     extra: dict | None = None,
     ext_key: str | None = None,
+    deferred_messages: list[dict] | None = None,
 ) -> None:
     """Fan out a relation mutation event to both endpoints.
 
@@ -1407,6 +1438,7 @@ async def _emit_relation_events(
         db=db,
         card_id=rel.source_id,
         user_id=actor_id,
+        deferred_messages=deferred_messages,
     )
     await event_bus.publish(
         event_type,
@@ -1422,6 +1454,7 @@ async def _emit_relation_events(
         db=db,
         card_id=rel.target_id,
         user_id=actor_id,
+        deferred_messages=deferred_messages,
     )
 
 
@@ -1614,6 +1647,7 @@ async def upsert_relation(
     dry_run: bool = False,
     create_only: bool = False,
     preserve_attribute_keys: frozenset[str] = frozenset(),
+    deferred_messages: list[dict] | None = None,
 ) -> tuple[Relation, bool, list[str]]:
     """Idempotent single-relation upsert on ``(type, source, target)`` —
     the ``POST /relations`` semantics (#905): reuse an existing row and merge
@@ -1682,6 +1716,7 @@ async def upsert_relation(
                 target_card=target_card,
                 actor_id=actor.user_id,
                 ext_key=actor.ext_key,
+                deferred_messages=deferred_messages,
             )
         elif changed:
             await _emit_relation_events(
@@ -1693,6 +1728,7 @@ async def upsert_relation(
                 actor_id=actor.user_id,
                 extra={"fields": changed},
                 ext_key=actor.ext_key,
+                deferred_messages=deferred_messages,
             )
 
     return rel, reused, changed

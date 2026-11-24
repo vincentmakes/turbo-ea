@@ -23,14 +23,16 @@
 | **Datakvalitet** | En 0–100 % fuldstændighedsscore baseret på udfyldte felter og deres konfigurerede vægte |
 | **Diagram** | Et visuelt arkitekturdiagram oprettet med den indlejrede DrawIO-editor |
 | **Filvedhæftning** | En binær fil (dokumenter, regneark, præsentationer, OpenDocument- og ældre Office-filer, billeder, arkiver, Outlook- og e-mailbeskeder, CSV, Markdown, JSON og XML — op til 20 MB) uploadet direkte til et kort via fanen Ressourcer |
-| **Regnskabsår** | 12-månedersperioden, der bruges til budgettering og økonomisk rapportering. Kan konfigureres via Admin > Indstillinger — startmåneden (januar til december) bestemmer, hvordan PPM-budgetlinjer grupperes |
+| **Regnskabsår** | 12-månedersperioden, der bruges til budgettering og økonomisk rapportering. Kan konfigureres via Admin > Indstillinger — startmåneden (januar til december) bestemmer, hvordan PML-budgetlinjer grupperes |
 | **DrawIO** | Det indlejrede open source-diagramværktøj, der bruges til visuelle arkitekturdiagrammer |
 | **Omkostningspost** | Én linje af en applikations eller IT-komponents årlige omkostninger (for eksempel hosting), hentet fra kataloget under Admin > Metamodel > Omkostningsposter. Et korts TCO er summen af dets poster for regnskabsåret |
 | **TCO (samlede ejeromkostninger)** | De samlede årlige omkostninger for en applikation eller IT-komponent i et regnskabsår, altid udledt af dens omkostningsposter og aldrig indtastet i hånden |
 | **Licensmåling** | Det, en applikations eller IT-komponents licenser tælles i (som standard Brugere og Installationer), fra kataloget under Admin > Metamodel > Licenstyper. Antal fra forskellige målinger lægges aldrig sammen |
 | **Licenstype** | En slags licens (for eksempel Admin eller Prod), der hører til netop én licensmåling, fra kataloget under Admin > Metamodel > Licenstyper. Et kort registrerer licenserede og faktiske antal for hvert par Måling: Type og regnskabsår |
 | **Udnyttelse** | Faktisk licensantal divideret med licenseret antal, i procent. Under 80 % er en licenstype kompatibel, fra 80 % er den tæt på grænsen, over 100 % er den overlicenseret |
-| **Omkostningslinje** | En budget- eller faktisk omkostningspost (CapEx/OpEx) i et PPM-initiativ, brugt til at spore økonomiske udgifter |
+| **Planlagt budget** | En budgetlinje i et initiativ med regnskabsår og kategori. Den kan indeholde flere omkostningsposter. |
+| **Omkostningspost** | En planlagt eller faktisk udgift under en budgetlinje, adskilt fra omkostningssektionen på inventarkort. |
+| **Faktisk faktureret** | Registrering af en udstedt faktura med dato, reference og beløb uden moms for én omkostningspost. |
 | **Enterprise Architecture (EA)** | Disciplinen, der organiserer og dokumenterer en organisations forretnings- og teknologistruktur |
 | **EOL (End of Life)** | Datoen, hvor et teknologiprodukt mister leverandørsupport. Spores via integration med endoflife.date |
 | **Udvekslingsformat (Exchange format)** | Open Groups XML-format til at flytte en ArchiMate-model mellem værktøjer (version 3.1). Turbo EA gemmer hvert ArchiMate-diagram i det og kan importere og eksportere det som en `.xml`-fil |
@@ -59,14 +61,14 @@
 | **OData-feed** | En JSON-datafeed tilgængelig på gemte lagervisninger (bogmærker) til forbrug af eksterne værktøjer som Power BI eller Excel |
 | **Ollama** | Et open source-værktøj til at køre LLM'er lokalt på din egen hardware |
 | **Portefølje** | En samling af applikationer eller teknologier, der administreres som en gruppe |
-| **PPM** | Project Portfolio Management — disciplinen at administrere en portefølje af projekter og initiativer med budgetter, risici, opgaver og statusrapportering |
+| **Project Master List (PML)** | Modul til initiativkort, budgetter, omkostninger, tidslinjer, risici, opgaver og statusrapportering. |
 | **Referencenummer** | En automatisk genereret sekventiel identifikator for ADR'er (f.eks. ADR-001, ADR-002), der giver en unik, menneskeligt læsbar etiket |
 | **Tilbagevendende opgave** | En kortopgave, der gentages efter en tidsplan (hver N dage/uger/måneder/år). Når den fuldføres, oprettes den næste forekomst; fjerne forekomster forbliver «planlagt», indtil et varslingsvindue åbner, hvorefter de vises på Opgaver-siden og giver den ansvarlige besked |
 | **Relation** | En forbindelse mellem to kort, der beskriver, hvordan de er relaterede (f.eks. "bruger", "afhænger af", "kører på") |
 | **Relationsmatrix** | Tabellen i ArchiMate-specifikationen, der angiver, hvilke relationer der er tilladt mellem to elementtyper. Editoren lader dig kun tegne en relation, som matrixen tillader |
 | **Fanen Ressourcer** | En kortdetaljefane, der konsoliderer Architecture Decision Records, filvedhæftninger og dokumentlinks ét sted |
-| **RAG-status** | Rød-Gul-Grøn sundhedsindikator brugt i PPM-statusrapporter for tidsplan, omkostninger og omfang (mappet til Off Track, At Risk, On Track) |
-| **Risikoscore** | En automatisk beregnet værdi (sandsynlighed x indvirkning), der kvantificerer alvoren af en projektrisiko i PPM-risikoregistret |
+| **RAG-status** | Rød-Gul-Grøn sundhedsindikator brugt i PML-statusrapporter for tidsplan, omkostninger og omfang (mappet til Off Track, At Risk, On Track) |
+| **Risikoscore** | En automatisk beregnet værdi (sandsynlighed x indvirkning), der kvantificerer alvoren af en projektrisiko i PML-risikoregistret |
 | **Gemt rapport** | En persisteret rapportkonfiguration med filtre, gruppering, farvelægning og visualiseringsindstillinger, der kan genindlæses |
 | **Revision (ADR)** | En ny version af en signeret ADR, der arver indholdet og kortkæderne fra den forrige version med et inkrementeret revisionsnummer |
 | **Sektion** | Et grupperbart område af kortdetaljesiden, der indeholder relaterede felter, kan konfigureres pr. korttype |
@@ -83,19 +85,19 @@
 | **Initial vs. residuel risiko** | To vurderinger fanget på hver risiko i Risk Register. `Initial` er den umitigerede sandsynlighed × indvirkning; `Residuel` er sandsynlighed × indvirkning efter mitigation, redigerbar når en mitigeringsplan eksisterer. Begge afleder et niveau via 4×4-matricen |
 | **Risikoreference** | En monotonisk menneskeligt læsbar identifikator (`R-000123`) tildelt ved risikooprettelse. Den forbliver synlig i forfremmet-fund-knapper (**Åbn risiko R-000123**) og i ejerens linkede opgavebeskrivelse |
 | **TOGAF** | The Open Group Architecture Framework — en bredt anvendt EA-metodologi. Turbo EA's SoAW-funktion er tilpasset TOGAF |
-| **Statusrapport** | En månedlig PPM-rapport, der sporer projekttilstand via RAG-indikatorer for tidsplan, omkostninger og omfang sammen med opnåede resultater og næste trin |
+| **Statusrapport** | En månedlig PML-rapport, der sporer projekttilstand via RAG-indikatorer for tidsplan, omkostninger og omfang sammen med opnåede resultater og næste trin |
 | **Værdikæde** | Den skrivebeskyttede side under Org&Process, der grupperer proceskategorier i bånd for ledelse, kerne og støtte og tegner kerneværdistrømmene som et hus mellem kundens behov og kundens tilfredshed. Se [Værdikæde og værdistrømskort](../guide/value-chain.md) |
 | **Værdigate** | Et Mål-kort af undertypen *Værdiport*: et kontrolpunkt, som en værdistrøm skal passere. Værdigates tegnes som piller i det øverste bånd af værdistrømskortet |
 | **Værdistrøm** | Et Forretningskontekst-kort af undertypen *Værdistrøm*: en gennemgående række af etaper, der leverer værdi til en kunde. Etaperne er dens underordnede værdistrømme, ordnet af relationen *efterfølger*. Værdistrømskortet tegner én værdistrøm med de værdigates, processer og kompetencer, der ligger bag |
 | **Synsvinkel (Viewpoint)** | I ArchiMate et foruddefineret udvalg af element- og relationstyper, der passer til én målgruppe eller ét hensyn (for eksempel Application Cooperation). Editoren tilbyder ikke filtrering efter synsvinkel i denne version |
 | **Webportal** | En offentlig, skrivebeskyttet visning af udvalgte kort tilgængelig uden godkendelse via en unik URL |
-| **Work Breakdown Structure (WBS)** | En hierarkisk nedbrydning af projektomfang i arbejdspakker, hver med start-/slutdatoer og fuldførelsessporing. Bruges i PPM Gantt-diagrammet |
+| **Work Breakdown Structure (WBS)** | En hierarkisk nedbrydning af projektomfang i arbejdspakker, hver med start-/slutdatoer og fuldførelsessporing. Bruges i PML Gantt-diagrammet |
 | **Arbejdspakke** | En logisk gruppering af opgaver inden for en Gantt-tidslinje, der har sin egen startdato, slutdato og fuldførelsesprocent |
 | **AI-forslag** | En automatisk genereret kortbeskrivelse produceret ved at kombinere websøgeresultater med en Large Language Model (LLM) |
 | **AI-verdict** | En brugers bekræftelse eller afvisning af LLM'ens AI-bærende klassifikation for et kort (`hasAiFeatures = true / false`). Persisterer på tværs af nye scanninger, så LLM-drift ikke stille kan ændre EU AI Act-omfanget |
 | **GRC** | Governance, Risk and Compliance — det samlede arbejdsområde på `/grc` med tre faner (Governance, Risk, Compliance), der konsoliderer EA-principper, ADR'er, Risk Register og Security & Compliance-scanneren |
 | **Phase G** | TOGAF ADM "Implementation Governance"-fasen. Kilden til Risk Registrets ordforråd og livscyklus |
-| **Risk Register** | Landskabsniveau-register over arkitekturrisici tilpasset TOGAF Phase G. Bor på `/grc?tab=risk`. Adskilt fra de initiativomfangede risici fanget i PPM |
+| **Risk Register** | Landskabsniveau-register over arkitekturrisici tilpasset TOGAF Phase G. Bor på `/grc?tab=risk`. Adskilt fra de initiativomfangede risici fanget i PML |
 | **Risikoejer** | Den bruger, der er ansvarlig for en risiko. Tildeling opretter automatisk en systemopgave på ejerens Opgaver-side og udløser en `risk_assigned`-notifikation |
 | **Mitigeringsopgave** | Et ejet arbejdselement vedhæftet en risiko, der fanger konkret mitigeringsaktivitet. Kan være engangsbaseret eller tilbagevendende (dagligt / ugentligt / månedligt / årligt). Tilbagevendende opgaver ruller fremad kalenderkorrekt ved fuldførelse |
 | **Mitigeringsopgaveforekomst** | En planlagt instans af en mitigeringsopgave. Bevæger sig gennem `scheduled` → `open` → `done` / `skipped`. Tager snapshots af modtageren ved åbning og ejer-ved-fuldførelse ved lukning, så audit-svar overlever ejerrotation |

@@ -177,7 +177,7 @@ Outre un statut d’approbation et une phase du cycle de vie, un graphique ou un
 
 Un diagramme de Sankey prend un type de relation et regroupe **chaque extrémité** séparément : par type de fiche, sous-type, statut d’approbation, phase du cycle de vie, qualité des données, un champ du type de cette extrémité, ou les **fiches elles-mêmes** — Organisation → Application montre quelles organisations utilisent quelles applications, les vingt plus grandes fiches de chaque extrémité étant conservées et le reste regroupé sous *Autres* ; le widget l’indique alors sous le graphique, et **Catégories affichées (au maximum)** relève la limite. Cliquer sur un nœud de fiche ouvre la fiche.
 
-Les graphiques peuvent aussi représenter un rapport de module : risques par niveau ou statut, scores de conformité par réglementation, état du calendrier PPM et maturité BPM figurent au catalogue lorsque le module est activé et que vous en détenez la permission. Les tags ne peuvent pas encore servir de dimension ni de filtre.
+Les graphiques peuvent aussi représenter un rapport de module : risques par niveau ou statut, scores de conformité par réglementation, état du calendrier PML et maturité BPM figurent au catalogue lorsque le module est activé et que vous en détenez la permission. Les tags ne peuvent pas encore servir de dimension ni de filtre.
 
 Quatre graphiques prêts à l’emploi figurent dans la famille **Graphiques** du catalogue, chacun proposé lorsque votre métamodèle contient les éléments nécessaires : **Applications par organisation**, **Calendrier de fin de vie**, **Fiches obsolètes par type** et le diagramme de Sankey **Organisation → Application**.
 

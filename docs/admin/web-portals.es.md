@@ -19,12 +19,14 @@ Cada portal publica una de tres vistas, elegida con **Tipo de portal**:
 | Tipo | Lo que ven los visitantes |
 |------|---------------------------|
 | **Lista de tarjetas** | Una cuadrícula de tarjetas con búsqueda y filtros: el portal clásico, configurado con las propiedades de más abajo. |
-| **Tablero de cartera PPM** | El [tablero de cartera PPM](../guide/ppm.md) de solo lectura: cronograma, indicadores de estado y presupuesto frente a real de cada iniciativa activa. |
+| **Tablero de cartera PML** | El [tablero de cartera PML](../guide/ppm.md) de solo lectura: cronograma, indicadores de estado y presupuesto frente a real de cada iniciativa activa. |
 | **Navegador de procesos** | La [Casa de Procesos](../guide/bpm.md) de solo lectura: su jerarquía de procesos de negocio y el flujo BPMN publicado de cada proceso. |
 
-### Portales de cartera PPM
+### Portales de cartera PML { #ppm-portfolio-portals }
 
-Elegir **Tablero de cartera PPM** convierte el portal en una vista directiva de su
+La cartera pública muestra el plan. Un portal de listado de tarjetas existente sigue la visibilidad configurada de sus campos de fecha.
+
+Elegir **Tablero de cartera PML** convierte el portal en una vista directiva de su
 cartera de proyectos, accesible mediante un enlace público **sin cuenta, sin licencia
 y sin inicio de sesión**. Pensado para el caso habitual en el que la dirección quiere
 visibilidad de la cartera pero no va a mantener otras credenciales.
@@ -55,7 +57,7 @@ El tablero también se abre con una agrupación y un subtipo que usted elige:
 | **Se abre agrupado por** | Organización | Qué agrupación muestra el tablero primero |
 | **Se abre mostrando el subtipo** | Todos | Qué subtipo se selecciona primero |
 
-**Se abre agrupado por** también admite un subtipo de iniciativa, con lo que el tablero se abre con un grupo por cada iniciativa de ese subtipo (consulte [Gestión de cartera de proyectos](../guide/ppm.md)). No se ofrece un subtipo que el propio filtro de subtipos del portal excluye: el portal no publicaría ninguna de esas iniciativas y todas las filas acabarían en «Sin grupo».
+**Se abre agrupado por** también admite un subtipo de iniciativa, con lo que el tablero se abre con un grupo por cada iniciativa de ese subtipo (consulte [Lista maestra de proyectos](../guide/ppm.md)). No se ofrece un subtipo que el propio filtro de subtipos del portal excluye: el portal no publicaría ninguna de esas iniciativas y todas las filas acabarían en «Sin grupo».
 
 Ambos son solo un punto de partida: el visitante puede cambiar cualquiera de los
 dos y nada se recuerda, así que volver a abrir el portal regresa a lo que usted
@@ -69,7 +71,7 @@ iniciativas se publican.
     riesgos, tareas e historial de informes quedan detrás del inicio de sesión.
 
 Un portal de cartera puede protegerse con SSO como cualquier otro portal. Desactivar el
-módulo PPM en **Admin > Configuración** deja inaccesibles de inmediato todos los portales
+módulo PML en **Admin > Configuración** deja inaccesibles de inmediato todos los portales
 de cartera, sin necesidad de despublicarlos uno a uno.
 
 ### Portales de navegador de procesos
@@ -168,7 +170,7 @@ Cada control ofrece además **(vacío)**, para las tarjetas sin valor, sin relac
 !!! note
     Un portal creado antes de la versión 2.178.0 conserva sus filtros de subtipos y etiquetas tal como estaban hasta que lo vuelva a guardar. A partir de entonces, las etiquetas elegidas de dos grupos distintos deben estar ambas en una tarjeta, como en el informe de portafolio.
 
-Los portales de portafolio PPM y de navegador de procesos conservan sus propios selectores de **Subtipos** y **Etiquetas**.
+Los portales de portafolio PML y de navegador de procesos conservan sus propios selectores de **Subtipos** y **Etiquetas**.
 
 ## Configuración de Visibilidad
 

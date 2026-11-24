@@ -111,7 +111,7 @@ Live-referencen ovenfor er den fulde kilde til sandhed; tabellen nedenfor er et 
 | `/metamodel` | Korttyper, felter, sektioner, undertyper, relationstyper |
 | `/reports` | Dashboard-KPI'er, portefølje, matrix, livscyklus, afhængigheder, omkostninger, datakvalitet |
 | `/bpm` | Business Process Management — diagrammer, elementer, flowversioner, vurderinger |
-| `/ppm` | Project Portfolio Management — initiativer, statusrapporter, WBS, opgaver, omkostninger, risici |
+| `/ppm` | Project Master List — initiativer, statusrapporter, WBS, opgaver, omkostninger og risici |
 | `/turbolens` | AI-drevet analyse (leverandører, dubletter, sikkerhed, arkitektur-AI) |
 | `/risks` | EA Risikoregister (TOGAF Phase G) |
 | `/diagrams` | DrawIO-diagrammer |

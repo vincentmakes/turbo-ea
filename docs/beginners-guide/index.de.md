@@ -2,7 +2,7 @@
 
 Sie haben Turbo EA also installiert. Der Login-Bildschirm funktioniert, die Demodaten werden geladen, jeder Menüpunkt zeigt Ihnen etwas — und nun starren Sie auf ein leeres Inventar und fragen sich, wo Sie eigentlich anfangen sollen. Dieser Leitfaden ist für Sie.
 
-Es handelt sich um eine sequenzierte, fundierte Anleitung für die **erste konkrete EA-Initiative**, die die meisten Organisationen mit Turbo EA durchführen: ein Anwendungsinventar in den Griff zu bekommen und es zu nutzen, um echte Portfolio-Fragen zu beantworten. Die fortgeschritteneren Module (Risk Register, Compliance, PPM, TurboLens AI) werden bewusst ausgeklammert — diese werden erst nützlich, wenn Ihr Inventar lebendig ist, vorher nicht.
+Es handelt sich um eine sequenzierte, fundierte Anleitung für die **erste konkrete EA-Initiative**, die die meisten Organisationen mit Turbo EA durchführen: ein Anwendungsinventar in den Griff zu bekommen und es zu nutzen, um echte Portfolio-Fragen zu beantworten. Die fortgeschritteneren Module (Risk Register, Compliance, PML, TurboLens AI) werden bewusst ausgeklammert — diese werden erst nützlich, wenn Ihr Inventar lebendig ist, vorher nicht.
 
 ## Für wen dieser Leitfaden gedacht ist
 
@@ -47,7 +47,7 @@ Dieser Leitfaden deckt **Crawl** und den Beginn von **Walk** ab. Am Ende werden 
 Dies sind leistungsstarke Module, aber sie setzen voraus, dass Sie bereits ein gefülltes Inventar haben. Öffnen Sie sie noch nicht:
 
 - **Risk Register** und **Compliance-Scanning** — nützlich, sobald Sie Anwendungen und Capabilities haben, an die Sie Risiken anhängen können.
-- **PPM** (Project Portfolio Management) — nützlich, sobald Sie eine Projektpipeline haben, die das Tracking wert ist.
+- **PML** (Projektstammliste) — nützlich, sobald Sie eine Projektpipeline haben, die das Tracking wert ist.
 - **TurboLens AI** (Vendor-Analyse, Duplikaterkennung, Architect-Assistent) — nützlich, sobald Sie genug Karten haben, damit die KI Muster finden kann.
 
 Auf der [letzten Seite](your-first-analysis.md) dieses Leitfadens finden Sie für jedes davon einen kurzen Hinweis „Wie geht es weiter".

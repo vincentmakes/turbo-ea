@@ -3,7 +3,7 @@
 | Termine | Definizione |
 |---------|------------|
 | **ADR (Architecture Decision Record)** | Un documento formale che registra una decisione architetturale importante, includendo contesto, motivazioni, conseguenze e alternative considerate. Gli ADR supportano un flusso di firma e una catena di revisioni |
-| **Anno fiscale** | Il periodo di 12 mesi utilizzato per il budget e la rendicontazione finanziaria. Configurabile tramite Admin > Impostazioni — il mese di inizio (da gennaio a dicembre) determina come vengono raggruppate le linee di budget PPM |
+| **Anno fiscale** | Il periodo di 12 mesi utilizzato per il budget e la rendicontazione finanziaria. Configurabile tramite Admin > Impostazioni — il mese di inizio (da gennaio a dicembre) determina come vengono raggruppate le linee di budget PML |
 | **Stato di approvazione** | Lo stato di revisione di una card: Draft, Approved, Broken o Rejected. Le card approvate cambiano in Broken quando vengono modificate |
 | **ArchiMate** | Il linguaggio di modellazione dell'Open Group per l'architettura aziendale (versione 3). Turbo EA disegna i diagrammi ArchiMate in una sandbox per amministratori e li salva come file Exchange. Vedi [Diagrammi ArchiMate](../guide/archimate.md) |
 | **Segnalibro / Vista salvata** | Una configurazione salvata di filtri, colonne e ordinamento nell'Inventario che può essere ricaricata con un clic |
@@ -25,7 +25,9 @@
 | **Metrica di licenza** | Ciò in cui sono contate le licenze di un'Applicazione o di un Componente IT (per impostazione predefinita Utenti e Installazioni), dal catalogo in Admin > Metamodello > Tipi di licenza. Le quantità di metriche diverse non vengono mai sommate |
 | **Tipo di licenza** | Un genere di licenza (per esempio Admin o Prod) che appartiene a una sola Metrica di licenza, dal catalogo in Admin > Metamodello > Tipi di licenza. Una card registra quantità in licenza ed effettive per ogni coppia Metrica: Tipo e anno fiscale |
 | **Utilizzo** | Quantità effettiva di licenze divisa per la quantità in licenza, in percentuale. Sotto l'80 % un tipo di licenza è conforme, dall'80 % è vicino al limite, oltre il 100 % è sovralicenziato |
-| **Voce di costo** | Una voce di budget o costo effettivo (CapEx/OpEx) in un'iniziativa PPM, utilizzata per monitorare le spese finanziarie |
+| **Budget pianificato** | Riga di budget dell'iniziativa con esercizio e categoria. Può contenere più voci di costo. |
+| **Voci di costo** | Spesa pianificata o effettiva sotto una riga di budget, distinta dalla sezione costi delle schede di inventario. |
+| **Fatturato effettivo** | Registrazione di una fattura con data, riferimento e importo senza IVA sotto una singola voce di costo. |
 | **Qualità dei dati** | Un punteggio di completezza 0-100% basato sui campi compilati e sui loro pesi configurati |
 | **Diagramma** | Un diagramma architetturale visivo creato con l'editor DrawIO integrato |
 | **Feed OData** | Un feed di dati JSON disponibile sulle viste dell'inventario salvate (segnalibri) per il consumo da parte di strumenti esterni come Power BI o Excel |
@@ -59,14 +61,14 @@
 | **Ollama** | Uno strumento open-source per eseguire LLM localmente sul proprio hardware |
 | **Ordine righe BPM** | L'ordine di visualizzazione delle righe dei tipi di processo (Core, Supporto, Management) nel navigatore dei processi BPM, configurabile trascinando le righe |
 | **Portfolio** | Una collezione di applicazioni o tecnologie gestite come gruppo |
-| **PPM** | Gestione del Portafoglio Progetti — la disciplina di gestione di un portafoglio di progetti e iniziative con budget, rischi, attività e report di stato |
+| **Elenco principale dei progetti (PML)** | Il modulo per iniziative, budget, costi, date, rischi, attività e report. |
 | **Numero di riferimento** | Un identificatore sequenziale generato automaticamente per gli ADR (es. ADR-001, ADR-002) che fornisce un'etichetta univoca e leggibile |
 | **Todo ricorrente** | Un todo di card impostato per ripetersi secondo un calendario (ogni N giorni/settimane/mesi/anni). Completandolo viene creata la prossima occorrenza; le occorrenze lontane restano «pianificate» finché non si apre una finestra di anticipo, poi compaiono nella pagina Attività e notificano il responsabile |
 | **Relazione** | Una connessione tra due card che descrive come sono correlate (es. "utilizza", "dipende da", "funziona su") |
 | **Matrice delle relazioni** | La tabella della specifica ArchiMate che indica quali relazioni sono consentite tra due tipi di elemento. L'editor permette di disegnare solo una relazione che la matrice consente |
 | **Scheda Risorse** | Una scheda nella pagina di dettaglio della card che consolida Decisioni architetturali, file allegati e link ai documenti in un unico luogo |
 | **Revisione (ADR)** | Una nuova versione di un ADR firmato che eredita il contenuto e i collegamenti alle card dalla versione precedente, con un numero di revisione incrementato |
-| **Stato RAG** | Indicatore di salute Rosso-Ambra-Verde utilizzato nei report di stato PPM per calendario, costi e ambito |
+| **Stato RAG** | Indicatore di salute Rosso-Ambra-Verde utilizzato nei report di stato PML per calendario, costi e ambito |
 | **Punteggio di rischio** | Un valore calcolato automaticamente (probabilità x impatto) che quantifica la gravità di un rischio del progetto |
 | **Report salvato** | Una configurazione di report persistente con filtri, raggruppamento, colorazione e impostazioni di visualizzazione che può essere ricaricata |
 | **Sezione** | Un'area raggruppabile della pagina di dettaglio della card contenente campi correlati, configurabile per tipo di card |
@@ -83,7 +85,7 @@
 | **Rischio iniziale vs. residuo** | Due valutazioni catturate su ogni rischio nel Registro dei Rischi. `Iniziale` è probabilità × impatto non mitigati; `Residuo` è probabilità × impatto dopo la mitigazione, modificabile una volta esistente un piano di mitigazione. Entrambe derivano un livello tramite la matrice 4×4 |
 | **Riferimento del rischio** | Identificativo monotono e leggibile (`R-000123`) assegnato alla creazione di un rischio. Resta visibile sui pulsanti delle evidenze promosse (**Apri rischio R-000123**) e nella descrizione del Todo collegato al proprietario |
 | **TOGAF** | The Open Group Architecture Framework — una metodologia EA ampiamente utilizzata. La funzionalità SoAW di Turbo EA è allineata a TOGAF |
-| **Report di stato** | Un report PPM mensile che monitora la salute del progetto tramite indicatori RAG per calendario, costi e ambito |
+| **Report di stato** | Un report PML mensile che monitora la salute del progetto tramite indicatori RAG per calendario, costi e ambito |
 | **Catena del valore** | La pagina in sola lettura sotto Org&Process che raggruppa le categorie di processi in fasce di gestione, core e supporto e disegna i flussi di valore core come una casa tra la richiesta del cliente e la sua soddisfazione. Vedi [Catena del valore e mappe dei flussi di valore](../guide/value-chain.md) |
 | **Value Gate** | Una card Obiettivo del sottotipo *Value Gate*: un punto di controllo che un flusso di valore deve superare. I value gate sono disegnati come pillole nella fascia superiore della mappa del flusso di valore |
 | **Flusso di valore** | Una card Contesto aziendale del sottotipo *Flusso di valore*: una sequenza di fasi end-to-end che porta valore a un cliente. Le fasi sono i suoi flussi di valore figli, ordinati dalla relazione *succede a*. La mappa del flusso di valore disegna un flusso con i value gate, i processi e le capacità che ci sono dietro |
@@ -95,7 +97,7 @@
 | **Verdetto AI** | La conferma o il rifiuto da parte dell'utente della classificazione AI fornita dal LLM su una card (`hasAiFeatures = true / false`). Persiste tra le ri-scansioni in modo che la deriva del LLM non modifichi silenziosamente l'ambito dell'AI Act dell'UE |
 | **GRC** | Governance, Risk e Compliance — lo spazio di lavoro unificato a `/grc` con tre tab (Governance, Risk, Compliance) che consolida i Principi EA, gli ADR, il Registro dei rischi e lo scanner Security & Compliance |
 | **Fase G** | Fase ADM «Implementation Governance» di TOGAF. Fonte del vocabolario e del ciclo di vita del Registro dei rischi |
-| **Registro dei rischi** | Registro a livello di landscape dei rischi architetturali allineato a TOGAF Fase G. Vive a `/grc?tab=risk`. Distinto dai rischi a livello di iniziativa catturati in PPM |
+| **Registro dei rischi** | Registro a livello di landscape dei rischi architetturali allineato a TOGAF Fase G. Vive a `/grc?tab=risk`. Distinto dai rischi a livello di iniziativa catturati in PML |
 | **Proprietario del rischio** | L'utente responsabile di un rischio. L'assegnazione crea automaticamente un Todo di sistema sulla pagina Todo del proprietario e attiva una notifica `risk_assigned` |
 | **Task di mitigazione** | Elemento di lavoro con proprietario collegato a un Rischio che cattura attività concreta di mitigazione. Può essere one-shot o ricorrente (giornaliero / settimanale / mensile / annuale). I task ricorrenti avanzano calendariamente in modo corretto alla chiusura |
 | **Ciclo di task di mitigazione** | Un'istanza pianificata di un Task di mitigazione. Passa per `scheduled` → `open` → `done` / `skipped`. Cattura uno snapshot dell'assegnato all'apertura e del proprietario alla chiusura, in modo che le risposte di audit sopravvivano alla rotazione dei proprietari |

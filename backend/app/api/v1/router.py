@@ -41,7 +41,9 @@ from app.api.v1 import (
     notifications,
     ops,
     ppm,
+    ppm_field_settings,
     ppm_reports,
+    ppm_timeline_settings,
     principles_catalogue,
     process_catalogue,
     relations,
@@ -97,6 +99,8 @@ api_router.include_router(users.router)
 api_router.include_router(notifications.router)
 api_router.include_router(surveys.router)
 api_router.include_router(settings.router)
+api_router.include_router(ppm_field_settings.router, prefix="/settings")
+api_router.include_router(ppm_timeline_settings.router, prefix="/settings")
 api_router.include_router(web_portals.router)
 api_router.include_router(dashboards.router)
 api_router.include_router(bpm.router)

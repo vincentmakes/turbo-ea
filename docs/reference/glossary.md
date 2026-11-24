@@ -23,14 +23,16 @@
 | **Data Quality** | A 0–100% completeness score based on filled fields and their configured weights |
 | **Diagram** | A visual architecture diagram created with the embedded DrawIO editor |
 | **File Attachment** | A binary file (documents, spreadsheets, presentations, OpenDocument and legacy Office files, images, archives, Outlook and e-mail messages, CSV, Markdown, JSON and XML — up to 20 MB) uploaded directly to a card via the Resources tab |
-| **Fiscal Year** | The 12-month period used for budgeting and financial reporting. Configurable via Admin > Settings — the start month (January through December) determines how PPM budget lines are grouped |
+| **Fiscal Year** | The 12-month period used for budgeting and financial reporting. Configurable via Admin > Settings — the start month (January through December) determines how PML budget lines are grouped |
 | **DrawIO** | The embedded open-source diagramming tool used for visual architecture diagrams |
 | **Cost Item** | One line of an Application or IT Component's annual cost (for example hosting), taken from the catalogue in Admin > Metamodel > Cost items. A card's TCO is the sum of its items for the fiscal year |
 | **TCO (Total Cost of Ownership)** | The total annual cost of an Application or IT Component for a fiscal year, always derived from its cost items and never typed by hand |
 | **License Metric** | What an Application or IT Component's licenses are counted in (by default Users and Installations), from the catalogue in Admin > Metamodel > License types. Counts of different metrics are never added together |
 | **License Type** | A kind of license (for example Admin or Prod) that belongs to one License Metric, from the catalogue in Admin > Metamodel > License types. A card records licensed and actual counts for each Metric: Type pair and fiscal year |
 | **Utilisation** | Actual license count divided by licensed count, as a percentage. Below 80 % a license type is compliant, from 80 % approaching, above 100 % over-licensed |
-| **Cost Line** | A budget or actual cost entry (CapEx/OpEx) in a PPM initiative, used to track financial spending |
+| **Planned Budget** | A budget line in a PML initiative, classified by fiscal year and category. It can contain several Cost Items |
+| **Cost Item** | A planned or actual expenditure within a Planned Budget line. This financial row is separate from the Cost Items section on inventory cards |
+| **Actual Invoiced** | A record of an existing invoice, with date, document reference and amount excluding VAT, associated with one PML Cost Item |
 | **Enterprise Architecture (EA)** | The discipline that organizes and documents an organization's business and technology structure |
 | **EOL (End of Life)** | The date when a technology product loses vendor support. Tracked via integration with endoflife.date |
 | **Exchange format** | The Open Group's XML format for moving an ArchiMate model between tools (version 3.1). Turbo EA stores each ArchiMate diagram in it and can import and export it as an `.xml` file |
@@ -59,14 +61,14 @@
 | **OData Feed** | A JSON data feed available on saved inventory views (bookmarks) for consumption by external tools such as Power BI or Excel |
 | **Ollama** | An open-source tool for running LLMs locally on your own hardware |
 | **Portfolio** | A collection of applications or technologies managed as a group |
-| **PPM** | Project Portfolio Management — the discipline of managing a portfolio of projects and initiatives with budgets, risks, tasks, and status reporting |
+| **PML (Project Master List)** | The module for managing Initiative cards, financial tracking, schedules, risks, tasks and status reporting |
 | **Reference Number** | An auto-generated sequential identifier for ADRs (e.g., ADR-001, ADR-002) that provides a unique, human-readable label |
 | **Recurring Todo** | A card todo set to repeat on a schedule (every N days/weeks/months/years). Completing it spawns the next occurrence; far-future occurrences sit "scheduled" until a lead-time window opens, when they surface on the Tasks page and notify the assignee |
 | **Relation** | A connection between two cards that describes how they relate (e.g., "uses", "depends on", "runs on") |
 | **Relationship matrix** | The table in the ArchiMate specification that says which relationships are allowed between two element types. The editor only lets you draw a relationship the matrix allows |
 | **Resources Tab** | A card detail tab that consolidates Architecture Decision Records, file attachments, and document links in one place |
-| **RAG Status** | Red-Amber-Green health indicator used in PPM status reports for schedule, cost, and scope (mapped to Off Track, At Risk, On Track) |
-| **Risk Score** | An auto-calculated value (probability x impact) that quantifies the severity of a project risk in the PPM risk register |
+| **RAG Status** | Red-Amber-Green health indicator used in PML status reports for schedule, cost, and scope (mapped to Off Track, At Risk, On Track) |
+| **Risk Score** | An auto-calculated value (probability x impact) that quantifies the severity of a project risk in the PML risk register |
 | **Saved Report** | A persisted report configuration with filters, grouping, colouring and visualization settings that can be reloaded |
 | **Revision (ADR)** | A new version of a signed ADR that inherits the content and card links from the previous version, with an incremented revision number |
 | **Section** | A groupable area of the card detail page containing related fields, configurable per card type |
@@ -83,19 +85,19 @@
 | **Initial vs Residual Risk** | Two assessments captured on every risk in the Risk Register. `Initial` is the unmitigated probability × impact; `Residual` is the post-mitigation probability × impact, editable once a mitigation plan exists. Both derive a level via the 4×4 matrix |
 | **Risk Reference** | A monotonic human-readable identifier (`R-000123`) assigned on risk creation. It stays visible in promoted-finding buttons (**Open risk R-000123**) and in the owner's linked Todo description |
 | **TOGAF** | The Open Group Architecture Framework — a widely used EA methodology. Turbo EA's SoAW feature aligns with TOGAF |
-| **Status Report** | A monthly PPM report tracking project health via RAG indicators for schedule, cost, and scope, along with accomplishments and next steps |
+| **Status Report** | A monthly PML report tracking project health via RAG indicators for schedule, cost, and scope, along with accomplishments and next steps |
 | **Value Chain** | The read-only page under Org&Process that groups process categories into Management, Core and Support bands and draws the core value streams as a house between the customer request and the customer's satisfaction. See [Value Chain and Value Stream Maps](../guide/value-chain.md) |
 | **Value Gate** | An Objective card of the *Value gate* subtype: a checkpoint a value stream must pass. Value gates are drawn as pills in the top band of the Value Stream Map |
 | **Value Stream** | A Business Context card of the *Value stream* subtype: an end-to-end sequence of stages that delivers value to a customer. Stages are its child value streams, ordered by the *succeeds* relation. The Value Stream Map draws one value stream with the gates, processes and capabilities behind it |
 | **Viewpoint** | In ArchiMate, a predefined selection of element and relationship types that suits one audience or concern (for example Application Cooperation). The editor does not offer viewpoint filtering in this release |
 | **Web Portal** | A public, read-only view of selected cards accessible without authentication via a unique URL |
-| **Work Breakdown Structure (WBS)** | A hierarchical decomposition of project scope into work packages, each with start/end dates and completion tracking. Used in the PPM Gantt chart |
+| **Work Breakdown Structure (WBS)** | A hierarchical decomposition of project scope into work packages, each with start/end dates and completion tracking. Used in the PML Gantt chart |
 | **Work Package** | A logical grouping of tasks within a Gantt timeline that has its own start date, end date, and completion percentage |
 | **AI Suggestion** | An auto-generated card description produced by combining web search results with a Large Language Model (LLM) |
 | **AI Verdict** | A user's confirmation or rejection of the LLM's AI-bearing classification for a card (`hasAiFeatures = true / false`). Persists across re-scans so LLM drift cannot silently change the EU AI Act scope |
 | **GRC** | Governance, Risk and Compliance — the unified workspace at `/grc` with three tabs (Governance, Risk, Compliance) consolidating EA Principles, ADRs, the Risk Register and the Security & Compliance scanner |
 | **Phase G** | TOGAF ADM "Implementation Governance" phase. The source of the Risk Register's vocabulary and lifecycle |
-| **Risk Register** | Landscape-level register of architecture risks aligned to TOGAF Phase G. Lives at `/grc?tab=risk`. Distinct from the initiative-scoped risks captured inside PPM |
+| **Risk Register** | Landscape-level register of architecture risks aligned to TOGAF Phase G. Lives at `/grc?tab=risk`. Distinct from the initiative-scoped risks captured inside PML |
 | **Risk Owner** | The user accountable for a risk. Assignment auto-creates a system Todo on the owner's Todos page and fires a `risk_assigned` notification |
 | **Mitigation Task** | An owned work item attached to a Risk that captures concrete mitigation activity. Can be one-shot or recurring (daily / weekly / monthly / yearly). Recurring tasks roll forward calendar-correctly on completion |
 | **Mitigation Task Occurrence** | One scheduled instance of a Mitigation Task. Moves through `scheduled` → `open` → `done` / `skipped`. Snapshots the assignee at open and the owner-at-completion at close so audit answers survive owner rotation |

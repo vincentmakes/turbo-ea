@@ -263,6 +263,8 @@ Le chemin d'invitation nécessite la permission **`users.invite`**, une forme d�
 
 Une modification qui ne vient pas de l'interface web porte une pastille à côté du nom de la personne : **MCP** lorsqu'un assistant IA l'a effectuée via le [serveur MCP](../admin/mcp.md) au nom de cette personne, **API**, **Extension** ou **Système** dans les autres cas.
 
+Une modification effectuée par une extension lorsqu'une personne l'a utilisée — en appuyant sur un bouton d'une page d'extension, par exemple — peut être enregistrée au nom de cette personne, avec la pastille **Extension** à côté. Les modifications qu'une extension effectue d'elle-même, comme une synchronisation planifiée, affichent **Système** comme auteur.
+
 Affiche la **piste d'audit complète** des modifications apportées à la fiche : **qui** a effectué la modification, **quand** elle a été effectuée, et **ce qui** a été modifié (valeur précédente vs nouvelle valeur). Cela permet une traçabilité complète de toutes les modifications au fil du temps.
 
 Une modification des coûts de la fiche apparaît sous la forme **Coûts mis à jour**, avec un résumé lisible des postes concernés. Les montants ne sont visibles que des utilisateurs autorisés à voir les coûts de cette fiche, et une modification de coûts ne peut pas être annulée depuis le journal d'audit.
@@ -289,9 +291,11 @@ Quand le [module GRC](grc.md) est activé **et** que la fiche a au moins un cons
 
 Pour les fiches **Processus Métier**, un onglet supplémentaire **Flux de processus** apparaît avec un visualiseur/éditeur de diagramme BPMN intégré. Voir [BPM](bpm.md) pour les détails sur la gestion des flux de processus.
 
-## Onglet PPM (fiches Initiative uniquement)
+## Onglet PML (fiches Initiative uniquement) { #ppm-tab-initiative-cards-only }
 
-Lorsque le [module PPM](ppm.md) est activé, les fiches **Initiative** affichent un onglet **PPM** supplémentaire en dernière position. Cliquer sur cet onglet ouvre la vue détaillée PPM de l'initiative, où vous pouvez gérer les rapports de statut, budgets, risques, tâches et diagrammes de Gantt.
+Dans **Coûts et calendrier**, les barres superposées comparent budget et coûts réels pour le total, le CapEx et l'OpEx. Le facturé total de l'initiative est affiché séparément selon les droits. La chronologie présente les dates prévisionnelles et réelles visibles ainsi que les indicateurs de délai, de coût et de périmètre.
+
+Lorsque le [module PML](ppm.md) est activé, les fiches **Initiative** affichent un onglet **PML** supplémentaire en dernière position. Cliquer sur cet onglet ouvre la vue détaillée PML de l'initiative, où vous pouvez gérer les rapports de statut, budgets, risques, tâches et diagrammes de Gantt.
 
 ## Archivage
 

@@ -19,12 +19,14 @@ Ogni portale pubblica una di tre viste, scelta tramite **Tipo di portale**:
 | Tipo | Cosa vedono i visitatori |
 |------|--------------------------|
 | **Elenco di schede** | Una griglia di schede con ricerca e filtri: il portale classico, configurato con le proprietà indicate sotto. |
-| **Bacheca del portfolio PPM** | La [bacheca del portfolio PPM](../guide/ppm.md) in sola lettura: cronologia, indicatori di stato e budget rispetto all'effettivo per ogni iniziativa attiva. |
+| **Bacheca del portfolio PML** | La [bacheca del portfolio PML](../guide/ppm.md) in sola lettura: cronologia, indicatori di stato e budget rispetto all'effettivo per ogni iniziativa attiva. |
 | **Navigatore di processi** | La [Casa dei Processi](../guide/bpm.md) in sola lettura: la gerarchia dei processi aziendali e il flusso BPMN pubblicato di ogni processo. |
 
-### Portali di portfolio PPM
+### Portali di portfolio PML { #ppm-portfolio-portals }
 
-Scegliendo **Bacheca del portfolio PPM** il portale diventa una vista direzionale del
+Il portafoglio pubblico mostra il piano. Un portale di schede esistente rispetta le proprie impostazioni per la visibilità delle date delle iniziative.
+
+Scegliendo **Bacheca del portfolio PML** il portale diventa una vista direzionale del
 portfolio progetti, raggiungibile tramite un collegamento pubblico **senza account,
 senza licenza e senza accesso**. Pensata per il caso frequente in cui la direzione vuole
 visibilità sul portfolio ma non intende gestire altre credenziali.
@@ -55,7 +57,7 @@ La bacheca si apre inoltre con un raggruppamento e un sottotipo a vostra scelta:
 | **Si apre raggruppato per** | Organizzazione | Quale raggruppamento mostra per primo |
 | **Si apre mostrando il sottotipo** | Tutti | Quale sottotipo è selezionato per primo |
 
-**Si apre raggruppato per** accetta anche un sottotipo di iniziativa: la bacheca si apre allora con un gruppo per ogni iniziativa di quel sottotipo (vedere [Gestione del portafoglio progetti](../guide/ppm.md)). Un sottotipo escluso dal filtro per sottotipo del portale stesso non viene proposto: il portale non pubblicherebbe nessuna di quelle iniziative e ogni riga finirebbe in «Non raggruppato».
+**Si apre raggruppato per** accetta anche un sottotipo di iniziativa: la bacheca si apre allora con un gruppo per ogni iniziativa di quel sottotipo (vedere [Elenco principale dei progetti](../guide/ppm.md)). Un sottotipo escluso dal filtro per sottotipo del portale stesso non viene proposto: il portale non pubblicherebbe nessuna di quelle iniziative e ogni riga finirebbe in «Non raggruppato».
 
 Sono solo un punto di partenza: il visitatore può cambiare entrambi i controlli e
 nulla viene memorizzato, quindi riaprendo il portale si torna a quanto configurato
@@ -69,7 +71,7 @@ vengono pubblicate.
     milestone, rischi, attività e cronologia dei rapporti restano dietro l'accesso.
 
 Un portale di portfolio può essere protetto con SSO come qualsiasi altro portale.
-Disattivando il modulo PPM in **Admin > Impostazioni** tutti i portali di portfolio
+Disattivando il modulo PML in **Admin > Impostazioni** tutti i portali di portfolio
 diventano immediatamente inaccessibili, senza doverli ritirare uno a uno.
 
 ### Portali navigatore di processi
@@ -167,7 +169,7 @@ Ogni controllo offre anche **(vuoto)**, per le schede senza valore, senza relazi
 !!! note
     Un portale creato prima della versione 2.178.0 mantiene i suoi filtri per sottotipi e tag così come sono fino al successivo salvataggio. Da quel momento, i tag scelti da due gruppi di tag diversi devono essere presenti entrambi su una scheda, come nel report del portafoglio.
 
-I portali del portafoglio PPM e del navigatore dei processi mantengono i propri selettori **Sottotipi** e **Tag**.
+I portali del portafoglio PML e del navigatore dei processi mantengono i propri selettori **Sottotipi** e **Tag**.
 
 ## Configurazione della visibilità
 

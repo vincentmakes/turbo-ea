@@ -4,7 +4,7 @@ La page **Paramètres** sous **Admin → Paramètres** (`/admin/settings`) est l
 
 | Onglet | URL | Ce qu'il contrôle | Guide complet |
 |--------|-----|-------------------|---------------|
-| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), envoi d'e-mails, **bascules de modules** (BPM, PPM, GRC, ArchiMate, TurboLens, Sponsor button, Mode TurboRPG) | Cette page |
+| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), envoi d'e-mails, **bascules de modules** (BPM, PML, GRC, ArchiMate, TurboLens, Sponsor button, Mode TurboRPG) | Cette page |
 | **Authentification** | `/admin/settings?tab=authentication` | Fournisseurs SSO, inscription, politique de mot de passe | [Authentification & SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Fournisseur LLM, modèle, backend de recherche web, bascules de suggestion IA par type de fiche | [Capacités IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Liaison en masse des produits aux entrées endoflife.date | [Fin de vie (EOL)](eol.md) |
@@ -14,8 +14,9 @@ La page **Paramètres** sous **Admin → Paramètres** (`/admin/settings`) est l
 | **Migration** | `/admin/settings?tab=migration` | Imports depuis d'autres plateformes EA, et transfert complet d'espace de travail entre instances Turbo EA | [Migration de plateforme](migration.md) |
 | **Journal d'audit** | `/admin/settings?tab=audit-log` | **Modifications** : le registre des lots de mutations — qui a changé quoi, et si cela provient de l'interface web, de l'API, d'un outil IA ou d'une extension. **Sécurité et administration** : connexions, tentatives échouées, verrouillages et autres événements de sécurité | [Journal d'audit](audit-log.md) |
 | **Ressources** | `/admin/settings?tab=resources` | Tous les fichiers et liens attachés à une fiche, avec statistiques de stockage et nettoyage en masse | [Ressources](resources.md) |
+| **PML** | `/admin/settings?tab=pml` | Champs financiers, calculs, héritage du fournisseur et mise en correspondance des dates | [Liste principale des projets (PML)](#ppm-module) |
 
-Le reste de cette page couvre l'onglet **Général**.
+Les sections ci-dessous décrivent les paramètres généraux et la configuration de PML.
 
 ![Paramètres généraux](../assets/img/fr/28_admin_parametres_general.png)
 
@@ -45,7 +46,7 @@ Sélectionnez la devise utilisée pour les champs de coût dans toute la platefo
 
 ### Format de date
 
-Choisissez la manière dont les dates sont affichées dans toute l'application. Le format sélectionné s'applique aux dates de cycle de vie des fiches, à l'inventaire, aux signatures ADR et SoAW, au registre des risques, aux rapports et tâches PPM, aux versions de flux de processus BPM, aux commentaires, à l'historique, au flux d'activité du tableau de bord, aux notifications et aux pages d'administration. Cinq formats sont proposés avec un aperçu en direct :
+Choisissez la manière dont les dates sont affichées dans toute l'application. Le format sélectionné s'applique aux dates de cycle de vie des fiches, à l'inventaire, aux signatures ADR et SoAW, au registre des risques, aux rapports et tâches PML, aux versions de flux de processus BPM, aux commentaires, à l'historique, au flux d'activité du tableau de bord, aux notifications et aux pages d'administration. Cinq formats sont proposés avec un aperçu en direct :
 
 - `MM/DD/YYYY` — style US (ex. `04/29/2026`)
 - `DD/MM/YYYY` — style européen (ex. `29/04/2026`)
@@ -65,7 +66,7 @@ Au moins une langue doit rester activée en permanence.
 
 ### Début de l'exercice fiscal
 
-Sélectionnez le mois de début de l'exercice fiscal de votre organisation (janvier à décembre). Ce paramètre affecte le regroupement des **lignes budgétaires** dans le module PPM par exercice fiscal. Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027. Il détermine aussi l'exercice présenté par le [Rapport Coûts](../guide/reports.md).
+Sélectionnez le mois de début de l'exercice fiscal de votre organisation (janvier à décembre). Ce paramètre affecte le regroupement des **lignes budgétaires** dans le module PML par exercice fiscal. Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027. Il détermine aussi l'exercice présenté par le [Rapport Coûts](../guide/reports.md).
 
 La valeur par défaut est **janvier** (année civile = exercice fiscal).
 
@@ -168,14 +169,41 @@ Désactivé par défaut. Lorsque l'option est active, la personne qui soumet une
 
 Laissez-la désactivée pour une petite équipe où la même personne rédige et valide. L'activer ne change rien à ce qui est enregistré : soumission, approbation, rejet et retrait sont consignés dans l'onglet **Historique** de la fiche dans tous les cas.
 
-## Module PPM
+## Liste principale des projets (PML) { #ppm-module }
 
-Activez ou désactivez le module **Gestion de portefeuille de projets** (PPM). Lorsqu'il est désactivé :
+Dans **Général**, utilisez **Liste principale des projets (PML)** pour activer ou désactiver le module. Une fois désactivé, l'entrée du menu, l'onglet PML et les synthèses de la fiche Initiative sont masqués. Les champs du métamodèle conservent leurs droits existants. [Liste principale des projets](../guide/ppm.md).
 
-- L'élément de navigation **PPM** est masqué pour tous les utilisateurs
-- Les fiches Initiative restent dans la base de données mais les fonctionnalités spécifiques au PPM (rapports de statut, suivi budgétaire et des coûts, registre des risques, tableau de tâches, diagramme de Gantt) ne sont pas accessibles
+### Configurer le budget et les coûts { #pml-budget-costs }
 
-Lorsqu'il est activé, les fiches Initiative disposent d'un onglet **PPM** dans leur vue de détail et le tableau de bord du portefeuille PPM est disponible dans la navigation principale. Voir [Gestion de portefeuille de projets](../guide/ppm.md) pour le guide complet des fonctionnalités.
+Ouvrez **Administration → Paramètres → PML → Budget et coûts** et choisissez **Budget prévisionnel**, **Postes de coût** ou **Facturé réel**. Ajoutez un champ avec une clé stable, un libellé et un type. **Afficher en colonne** l'inclut dans la hiérarchie et à l'impression. Réorganisez ou désactivez les champs en conservant les valeurs déjà saisies. Enregistrez chaque section séparément.
+
+Pour un champ **Calculé**, choisissez le résultat et ajoutez les alias et sources des entrées. Choisissez une formule ou des règles ordonnées. La première règle applicable donne le résultat, sinon la valeur de repli est utilisée. Combinez les comparaisons avec AND, OR et NOT. Testez des exemples avec **Aperçu** avant d'enregistrer. Les [calculs du métamodèle](calculations.md) portent sur les fiches.
+
+Une référence à une fiche limite le choix à un type. Une relation compatible peut relier cette fiche à l'initiative. Dans **Postes de coût**, sélectionnez le champ fournisseur du budget et autorisez, si nécessaire, les enfants directs. Le facturé réel a ses propres champs.
+
+#### Exemple de configuration Aruba
+
+| Section | Champ et exemple de clé | Configuration |
+|---|---|---|
+| Budget prévisionnel | **Origine Costi** (`origineCosti`) | Référence à une fiche Provider. Choisissez la relation existante Prend en charge, puis sélectionnez le champ comme source des postes de coût. Autorisez les enfants directs si nécessaire. |
+| Postes de coût | **Gestione intercompany** (`gestioneIntercompany`) | Choix unique avec Plafond, Canone, Progetto et N.A. |
+| Postes de coût | **OdA — Ordine d’acquisto** (`ordineAcquisto`) | Texte, par exemple `ODA-000427`. |
+| Postes de coût | **Origine Costi Aggregato** (`origineCostiAggregato`) | Calcul donnant du texte. Utilisez le fournisseur effectif et, au besoin, le fournisseur du budget et le type d'achat. |
+
+Le champ facultatif **Tipo di spesa** distingue **Licenze** et **Servizi esterni** pour un même fournisseur. Ajoutez les règles dans cet ordre.
+
+1. Un achat de licence donne **Licenze**.
+2. Un service externe ou un fournisseur classé externe donne **Servizi Esterni**.
+3. **Aruba Spa**, **Aruba PEC** ou **Actalis** donnent **Servizi interni**.
+4. **Aruba Software**, **Aruba System**, **Aruba Cybersecurity**, **Aruba Marketing**, **Aruba Service Desk**, **Aruba Enterprise** ou **Aruba DC&Infra** donnent **Servizi Intercompany**.
+
+Comparez les fiches des fournisseurs réels. Si l'enfant n'est pas classé, vous pouvez vérifier le fournisseur du budget ou laisser la valeur de repli vide. Un poste pour **Aruba Software / Licensing**, enfant de **Aruba Software**, peut par exemple porter `Canone` et `ODA-000427`. Ces définitions sont des exemples de configuration.
+
+### Configurer le calendrier { #pml-timeline }
+
+Dans **Administration → Paramètres → PML → Calendrier**, associez les champs de début et de fin réels. Les clés par défaut sont `actualStart` et `actualEnd`. Vous pouvez choisir deux champs de date modifiables distincts. Les dates de début et de fin restent prévisionnelles. Les clés sont sensibles à la casse. Un administrateur autorisé à modifier le métamodèle peut créer un champ par défaut manquant.
+
+La fiche, le portefeuille interne et le rapport respectent la visibilité des champs. Le portefeuille public présente le prévisionnel. Les réglages se transfèrent dans un [paquet d'espace de travail](workspace-transfer.md).
 
 ## Module GRC
 

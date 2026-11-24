@@ -1,7 +1,8 @@
 import uuid
 from datetime import date as date_type
 from datetime import datetime
-from typing import Literal
+from decimal import Decimal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -40,7 +41,7 @@ class PpmStatusReportOut(BaseModel):
     reporter: ReporterOut | None = None
     report_date: date_type
     schedule_health: str
-    cost_health: str
+    cost_health: str | None
     scope_health: str
     summary: str | None
     accomplishments: str | None
@@ -49,10 +50,62 @@ class PpmStatusReportOut(BaseModel):
     updated_at: datetime
 
 
+class PpmPortfolioReportOut(BaseModel):
+    id: str
+    initiative_id: str
+    reporter_id: str | None = None
+    reporter: ReporterOut | None = None
+    report_date: date_type
+    schedule_health: str
+    cost_health: str | None = None
+    scope_health: str
+    summary: str | None
+    accomplishments: str | None
+    next_steps: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PmlInitiativeScheduleOut(BaseModel):
+    initiative_id: str
+    start_date: date_type | None = None
+    end_date: date_type | None = None
+    actual_start_date: date_type | None = None
+    actual_end_date: date_type | None = None
+    start_label: str | None = None
+    end_label: str | None = None
+    actual_start_label: str | None = None
+    actual_end_label: str | None = None
+    plan_start_date: date_type | None = None
+    plan_end_date: date_type | None = None
+    plan_derived: bool = False
+    schedule_health: str | None = None
+    cost_health: str | None = None
+    scope_health: str | None = None
+
+
 # --- Cost Lines ---
 
 
+class PmlProviderChoice(BaseModel):
+    id: uuid.UUID
+    name: str
+    type: str
+    parent_id: uuid.UUID
+    alias: str | None = None
+
+
+class PmlProviderChoicePage(BaseModel):
+    items: list[PmlProviderChoice]
+    total: int
+
+
 class PpmCostLineCreate(BaseModel):
+    provider_child_id: uuid.UUID | None = None
+    model_config = {"extra": "forbid", "allow_inf_nan": False}
+
+    field_values: dict[str, Any] = Field(default_factory=dict)
+    budget_line_id: uuid.UUID
     description: str
     category: Literal["capex", "opex"]
     planned: float = 0
@@ -61,14 +114,33 @@ class PpmCostLineCreate(BaseModel):
 
 
 class PpmCostLineUpdate(BaseModel):
+    provider_child_id: uuid.UUID | None = None
+    model_config = {"extra": "forbid", "allow_inf_nan": False}
+
+    field_values: dict[str, Any] | None = None
+    budget_line_id: uuid.UUID | None = None
     description: str | None = None
     category: Literal["capex", "opex"] | None = None
     planned: float | None = None
     actual: float | None = None
     date: date_type | None = None
 
+    @field_validator("description", "category", "planned", "actual")
+    @classmethod
+    def _required_fields_cannot_be_null(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Field cannot be null")
+        return value
+
 
 class PpmCostLineOut(BaseModel):
+    provider_child_id: uuid.UUID | None = None
+    provider: dict[str, Any] | None = None
+    provider_child_enabled: bool = False
+    reference_display: dict[str, Any] = Field(default_factory=dict)
+    field_values: dict[str, Any] = Field(default_factory=dict)
+    calculated_values: dict[str, Any] = Field(default_factory=dict)
+    budget_line_id: uuid.UUID | None = None
     id: str
     initiative_id: str
     description: str
@@ -96,6 +168,9 @@ def blank_description_to_none(value: str | None) -> str | None:
 
 
 class PpmBudgetLineCreate(BaseModel):
+    model_config = {"extra": "forbid", "allow_inf_nan": False}
+
+    field_values: dict[str, Any] = Field(default_factory=dict)
     fiscal_year: int
     category: Literal["capex", "opex"]
     description: str | None = None
@@ -108,10 +183,20 @@ class PpmBudgetLineCreate(BaseModel):
 
 
 class PpmBudgetLineUpdate(BaseModel):
+    model_config = {"extra": "forbid", "allow_inf_nan": False}
+
+    field_values: dict[str, Any] | None = None
     fiscal_year: int | None = None
     category: Literal["capex", "opex"] | None = None
     description: str | None = None
     amount: float | None = None
+
+    @field_validator("fiscal_year", "category", "amount")
+    @classmethod
+    def _required_fields_cannot_be_null(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Field cannot be null")
+        return value
 
     @field_validator("description")
     @classmethod
@@ -120,6 +205,9 @@ class PpmBudgetLineUpdate(BaseModel):
 
 
 class PpmBudgetLineOut(BaseModel):
+    reference_display: dict[str, Any] = Field(default_factory=dict)
+    field_values: dict[str, Any] = Field(default_factory=dict)
+    calculated_values: dict[str, Any] = Field(default_factory=dict)
     id: str
     initiative_id: str
     fiscal_year: int
@@ -128,6 +216,128 @@ class PpmBudgetLineOut(BaseModel):
     amount: float
     created_at: datetime
     updated_at: datetime
+
+
+class PpmInvoiceCreate(BaseModel):
+    field_values: dict[str, Any] = Field(default_factory=dict)
+    model_config = {"extra": "forbid", "allow_inf_nan": False}
+
+    cost_item_id: uuid.UUID
+    invoice_date: date_type
+    invoice_id: str = Field(min_length=1)
+    amount: Decimal = Field(ge=0)
+
+    @field_validator("invoice_id")
+    @classmethod
+    def _strip_reference(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Invoice ID is required")
+        return value
+
+
+class PpmInvoiceUpdate(BaseModel):
+    field_values: dict[str, Any] | None = None
+    model_config = {"extra": "forbid", "allow_inf_nan": False}
+
+    cost_item_id: uuid.UUID | None = None
+    invoice_date: date_type | None = None
+    invoice_id: str | None = None
+    amount: Decimal | None = Field(default=None, ge=0)
+
+    @field_validator("invoice_id")
+    @classmethod
+    def _strip_reference(cls, value: str | None) -> str | None:
+        if value is not None:
+            value = value.strip()
+            if not value:
+                raise ValueError("Invoice ID is required")
+        return value
+
+
+class PpmInvoiceOut(BaseModel):
+    reference_display: dict[str, Any] = Field(default_factory=dict)
+    field_values: dict[str, Any] = Field(default_factory=dict)
+    calculated_values: dict[str, Any] = Field(default_factory=dict)
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    initiative_id: uuid.UUID
+    cost_item_id: uuid.UUID
+    invoice_date: date_type
+    invoice_id: str
+    amount: Decimal
+
+
+class PpmFinancialCostOut(BaseModel):
+    provider_child_id: uuid.UUID | None = None
+    provider: dict[str, Any] | None = None
+    provider_child_enabled: bool = False
+    reference_display: dict[str, Any] = Field(default_factory=dict)
+    field_values: dict[str, Any] = Field(default_factory=dict)
+    calculated_values: dict[str, Any] = Field(default_factory=dict)
+    id: str
+    budget_line_id: str | None
+    description: str
+    category: str
+    planned: str
+    actual: str
+    date: date_type | None
+    total_invoiced: str | None = None
+    remaining_to_invoice: str | None = None
+
+
+class PpmFinancialBudgetOut(BaseModel):
+    provider: dict[str, Any] | None = None
+    provider_child_enabled: bool = False
+    reference_display: dict[str, Any] = Field(default_factory=dict)
+    field_values: dict[str, Any] = Field(default_factory=dict)
+    calculated_values: dict[str, Any] = Field(default_factory=dict)
+    id: str
+    fiscal_year: int
+    category: str
+    description: str | None
+    amount: str
+    total_cost_items: str
+    total_invoiced: str | None = None
+    remaining_to_invoice: str | None = None
+
+
+class PpmFinancialTotalsOut(BaseModel):
+    amount: str
+    total_cost_items: str
+    total_invoiced: str | None = None
+    remaining_to_invoice: str | None = None
+
+
+class PpmFinancialSubtotalOut(PpmFinancialTotalsOut):
+    fiscal_year: int
+    category: str
+
+
+class PpmFinancialComparisonSide(BaseModel):
+    capex: str
+    opex: str
+    total: str
+    derived: bool
+
+
+class PpmFinancialComparison(BaseModel):
+    budget: PpmFinancialComparisonSide
+    actual: PpmFinancialComparisonSide
+
+
+class PpmFinancialsOut(BaseModel):
+    field_definitions: dict[str, Any] = Field(default_factory=dict)
+    initiative_id: str
+    budget_lines: list[PpmFinancialBudgetOut]
+    budget_subtotals: list[PpmFinancialSubtotalOut]
+    budget_totals: PpmFinancialTotalsOut
+    cost_items: list[PpmFinancialCostOut]
+    invoice_access: bool
+    invoices: list[PpmInvoiceOut] | None = None
+    actual_invoiced: str | None = None
+    card_comparison: PpmFinancialComparison | None = None
 
 
 # --- Risks ---
@@ -398,8 +608,8 @@ class PpmGanttItem(BaseModel):
     subtype: str | None
     status: str | None
     parent_id: str | None
-    start_date: str | None
-    end_date: str | None
+    start_date: str | None = None
+    end_date: str | None = None
     cost_budget: float | None
     cost_actual: float | None
     capex_planned: float = 0
@@ -411,7 +621,9 @@ class PpmGanttItem(BaseModel):
     # Under a ``subtype:<key>`` grouping, True on the initiative that names its
     # group (the board shows it as the group header, never as a row).
     group_anchor: bool = False
-    latest_report: PpmStatusReportOut | None = None
+    actual_start_date: date_type | None = None
+    actual_end_date: date_type | None = None
+    latest_report: PpmPortfolioReportOut | None = None
     latest_report_id: str | None = None
     stakeholders: list[PpmGanttStakeholder] = []
     rollup: PpmRollup | None = None

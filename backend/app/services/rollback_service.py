@@ -595,9 +595,6 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
         if k == "attributes":
             restored_attrs = dict(v or {})
             continue
-        if k == "parent_id" and v:
-            v = uuid.UUID(v)
-        setattr(card, k, v)
     if legacy_attrs:
         # Survey applies before 2.163.0 recorded one ``attr_<key>`` change per
         # attribute instead of the whole ``attributes`` dict, and ``setattr``
@@ -610,15 +607,35 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
             else:
                 restored_attrs[key] = old
     if restored_attrs is None:
+        for key, value in (op.get("fields") or {}).items():
+            if key == "parent_id" and value:
+                value = uuid.UUID(value)
+            setattr(card, key, value)
         return _ok(op)
     # A field an inactive or unlicensed extension contributed is read-only:
     # the rollback keeps its current value and reports it, restoring the rest.
     # The snapshot is the whole column, so a locked key missing from it did
     # not exist then — one the batch added is reported, not called restored.
     locked = await field_gate.locked_fields_for_type(db, card.type)
-    card.attributes, skipped = field_gate.apply_snapshot_lock(
-        card.attributes, restored_attrs, locked
-    )
+    candidate, skipped = field_gate.apply_snapshot_lock(card.attributes, restored_attrs, locked)
+    if card.type == "Initiative":
+        from app.services.ppm_timeline import (
+            TimelineValidationError,
+            load_timeline_mapping,
+            validate_actual_date_pair,
+        )
+
+        try:
+            validate_actual_date_pair(await load_timeline_mapping(db), candidate)
+        except TimelineValidationError:
+            return _skip(op, "invalid_actual_dates")
+    for key, value in (op.get("fields") or {}).items():
+        if key == "attributes" or key.startswith(_LEGACY_ATTR_PREFIX):
+            continue
+        if key == "parent_id" and value:
+            value = uuid.UUID(value)
+        setattr(card, key, value)
+    card.attributes = candidate
     if skipped:
         return {**_ok(op), "locked_fields": skipped}
     return _ok(op)

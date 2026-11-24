@@ -65,12 +65,12 @@ Poi `docker compose up -d` (se avete già avviato, consultate «Reimpostare e ri
 
 | Variabile | Predefinito | Descrizione |
 |-----------|-------------|-------------|
-| `SEED_DEMO` | `false` | Carica il dataset completo NexaTech Industries, inclusi dati BPM e PPM |
+| `SEED_DEMO` | `false` | Carica il dataset completo NexaTech Industries, inclusi dati BPM e PML |
 | `SEED_BPM` | `false` | Carica solo i processi BPM dimostrativi (sottoinsieme di `SEED_DEMO`) |
-| `SEED_PPM` | `false` | Carica solo i dati di progetto PPM (sottoinsieme di `SEED_DEMO`) |
+| `SEED_PPM` | `false` | Carica solo i dati di progetto PML (sottoinsieme di `SEED_DEMO`) |
 | `RESET_DB` | `false` | Elimina tutte le tabelle e le ricrea da zero all'avvio |
 
-`SEED_DEMO=true` include già dati BPM e PPM — non è necessario impostare i flag di sottoinsieme separatamente.
+`SEED_DEMO=true` include già dati BPM e PML — non è necessario impostare i flag di sottoinsieme separatamente.
 
 !!! note "I dati dimostrativi vengono caricati una sola volta"
     Ogni seeder viene eseguito **una volta per installazione** e lo registra.
@@ -94,11 +94,11 @@ Quando i dati dimostrativi sono caricati, viene creato un account amministratore
 
 ### Cosa include la demo
 
-Circa 150 cards distribuite sui quattro livelli di architettura, oltre a relazioni, etichette, commenti, attività, diagrammi BPM, dati PPM, ADR e uno Statement of Architecture Work:
+Circa 150 cards distribuite sui quattro livelli di architettura, oltre a relazioni, etichette, commenti, attività, diagrammi BPM, dati PML, ADR e uno Statement of Architecture Work:
 
 - **Core EA** — Organizzazioni, ~20 Capacità Aziendali, Contesti Aziendali, ~15 Applicazioni, ~20 Componenti IT, Interfacce, Oggetti Dati, Piattaforme, Obiettivi, 6 Iniziative, 5 gruppi di etichette, 60+ relazioni.
 - **BPM** — ~30 processi aziendali in una gerarchia a 4 livelli con diagrammi BPMN 2.0, collegamenti elemento-card e valutazioni di processo.
-- **PPM** — Report di stato, Work Breakdown Structures, ~60 attività, voci di budget e costo, e un registro dei rischi sulle 6 Iniziative dimostrative.
+- **PML** — Report di stato, Work Breakdown Structures, ~60 attività, voci di budget e costo, e un registro dei rischi sulle 6 Iniziative dimostrative.
 - **EA Delivery** — Architecture Decision Records e Statements of Architecture Work.
 
 ### Reimpostare e ri-seminare

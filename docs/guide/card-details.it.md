@@ -263,6 +263,8 @@ Il percorso di invito richiede il permesso **`users.invite`**, una forma delegat
 
 Una modifica che non proviene dall'interfaccia web riporta un chip accanto al nome della persona: **MCP** quando un assistente IA l'ha effettuata tramite il [server MCP](../admin/mcp.md) per conto di quella persona, altrimenti **API**, **Estensione** o **Sistema**.
 
+Una modifica effettuata da un'estensione quando qualcuno la usava — ad esempio premendo un pulsante in una pagina dell'estensione — può essere registrata a nome di quella persona, con il chip **Estensione** accanto. Le modifiche che un'estensione effettua da sola, come una sincronizzazione pianificata, mostrano **Sistema** come autore.
+
 Mostra il **registro di audit completo** delle modifiche apportate alla card: **chi** ha effettuato la modifica, **quando** è stata fatta e **cosa** è stato modificato (valore precedente vs. nuovo valore). Questo consente la completa tracciabilità di tutte le modifiche nel tempo.
 
 Una modifica ai costi della card compare come **Costi aggiornati** con un riepilogo leggibile delgli elementi coinvolte. Gli importi sono mostrati solo agli utenti che possono vedere i costi di quella card, e una modifica ai costi non può essere annullata dal registro di audit.
@@ -289,9 +291,11 @@ Quando il [modulo GRC](grc.md) è abilitato **e** la card ha almeno una rilevazi
 
 Per le card **Business Process**, appare una scheda aggiuntiva **Flusso di processo** con un visualizzatore/editor di diagrammi BPMN integrato. Vedi [BPM](bpm.md) per i dettagli sulla gestione dei flussi di processo.
 
-## Scheda PPM (solo card Iniziativa)
+## Scheda PML (solo card Iniziativa) { #ppm-tab-initiative-cards-only }
 
-Quando il [modulo PPM](ppm.md) è attivato, le card **Iniziativa** mostrano una scheda **PPM** aggiuntiva come ultima scheda. Cliccando su questa scheda si accede alla vista dettagliata PPM dell'iniziativa, dove è possibile gestire report di stato, budget, rischi, attività e diagrammi di Gantt.
+In **Costi e tempistica**, i grafici sovrapposti confrontano budget e costo effettivo per totale, CapEx e OpEx. Il totale del fatturato dell'iniziativa è visibile separatamente secondo i permessi. La timeline presenta le date pianificate ed effettive visibili e gli indicatori di tempo, costo e ambito.
+
+Quando il [modulo PML](ppm.md) è attivato, le card **Iniziativa** mostrano una scheda **PML** aggiuntiva come ultima scheda. Cliccando su questa scheda si accede alla vista dettagliata PML dell'iniziativa, dove è possibile gestire report di stato, budget, rischi, attività e diagrammi di Gantt.
 
 ## Archiviazione
 

@@ -58,6 +58,14 @@ const build = (groups: PairGroup[], over: Record<string, unknown> = {}): any =>
   pairBarsOption(groups, opts(over));
 
 describe("pairBarsOption", () => {
+  it("uses formatted decimal text on the bars and in the tooltip", () => {
+    const group = { ...users, pairs: [{ ...users.pairs[0], display: "€30.11 / €100.13", licensedDisplay: "€100.13", actualDisplay: "€30.11" }] };
+    const o = build([group]);
+    expect(o.series[0].data[0].label.formatter()).toBe("€30.11 / €100.13");
+    expect(o.tooltip.formatter({ seriesIndex: 0, dataIndex: 0 })).toContain("€100.13");
+    expect(o.tooltip.formatter({ seriesIndex: 0, dataIndex: 0 })).toContain("€30.11");
+  });
+
   it("draws two overlapped series per group, licensed wide behind and actual narrow in front", () => {
     const o = build([users]);
     expect(o.series.map((s: any) => s.name)).toEqual(["Licensed", "Actual"]);

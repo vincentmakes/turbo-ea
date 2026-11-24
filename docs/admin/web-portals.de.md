@@ -19,12 +19,14 @@ Jedes Portal veröffentlicht eine von drei Ansichten, ausgewählt über **Portal
 | Typ | Was Besucher sehen |
 |-----|--------------------|
 | **Kartenliste** | Ein durchsuch- und filterbares Raster von Karten — das klassische Portal, konfiguriert über die unten stehenden Eigenschaften. |
-| **PPM-Portfolio-Board** | Das schreibgeschützte [PPM-Portfolio-Board](../guide/ppm.md) — Zeitachse, Statusampeln und Budget-gegen-Ist für jede aktive Initiative. |
+| **PML-Portfolio-Board** | Das schreibgeschützte [PML-Portfolio-Board](../guide/ppm.md) — Zeitachse, Statusampeln und Budget-gegen-Ist für jede aktive Initiative. |
 | **Prozessnavigator** | Das schreibgeschützte [Prozesshaus](../guide/bpm.md) — Ihre Geschäftsprozesshierarchie und der veröffentlichte BPMN-Ablauf jedes Prozesses. |
 
-### PPM-Portfolio-Portale
+### PML-Portfolio-Portale { #ppm-portfolio-portals }
 
-Mit **PPM-Portfolio-Board** wird das Portal zu einer Führungsansicht Ihres
+Das öffentliche Portfolio zeigt den Plan. Ein bestehendes Kartenlistenportal richtet sich für Initiativtermine weiterhin nach seinen konfigurierten Feldsichtbarkeiten.
+
+Mit **PML-Portfolio-Board** wird das Portal zu einer Führungsansicht Ihres
 Projektportfolios, erreichbar über einen öffentlichen Link — **ohne Konto, ohne
 Lizenz und ohne Anmeldung**. Gedacht für den häufigen Fall, dass die Geschäftsleitung
 Einblick in das Portfolio möchte, aber keine weiteren Zugangsdaten pflegen will.
@@ -54,7 +56,7 @@ Das Board öffnet außerdem mit einer Gruppierung und einem Subtyp Ihrer Wahl:
 | **Öffnet gruppiert nach** | Organisation | Welche Gruppierung das Board zuerst zeigt |
 | **Öffnet mit Subtyp** | Alle | Welcher Subtyp zuerst ausgewählt ist |
 
-**Öffnet gruppiert nach** akzeptiert auch einen Untertyp der Initiative; das Board öffnet dann mit einer Gruppe je Initiative dieses Untertyps (siehe [Projektportfoliomanagement](../guide/ppm.md)). Ein Untertyp, den der eigene Untertyp-Filter des Portals ausschließt, wird nicht angeboten: Das Portal würde keine dieser Initiativen veröffentlichen, sodass jede Zeile unter „Nicht gruppiert“ landen würde.
+**Öffnet gruppiert nach** akzeptiert auch einen Untertyp der Initiative; das Board öffnet dann mit einer Gruppe je Initiative dieses Untertyps (siehe [Projektstammliste](../guide/ppm.md)). Ein Untertyp, den der eigene Untertyp-Filter des Portals ausschließt, wird nicht angeboten: Das Portal würde keine dieser Initiativen veröffentlichen, sodass jede Zeile unter „Nicht gruppiert“ landen würde.
 
 Beides ist nur ein Ausgangspunkt — Besucher können beide Bedienelemente ändern,
 und nichts wird gespeichert; ein erneuter Aufruf kehrt zu Ihrer Konfiguration
@@ -68,7 +70,7 @@ welche Initiativen überhaupt veröffentlicht werden.
     die Berichtshistorie bleiben hinter der Anmeldung.
 
 Ein Portfolio-Portal kann wie jedes andere Portal per SSO geschützt werden. Wird das
-PPM-Modul unter **Admin > Einstellungen** deaktiviert, sind alle Portfolio-Portale
+PML-Modul unter **Admin > Einstellungen** deaktiviert, sind alle Portfolio-Portale
 sofort nicht mehr erreichbar; Sie müssen sie nicht einzeln zurückziehen.
 
 ### Prozessnavigator-Portale
@@ -167,7 +169,7 @@ Jedes Steuerelement bietet zusätzlich **(leer)** für Karten ohne Wert, ohne Be
 !!! note
     Ein Portal, das vor Version 2.178.0 erstellt wurde, behält seine Subtyp- und Tag-Filter unverändert, bis Sie es das nächste Mal speichern. Danach müssen Tags aus zwei verschiedenen Tag-Gruppen beide an einer Karte vorhanden sein, wie im Portfolio-Bericht.
 
-PPM-Portfolio- und Prozessnavigator-Portale behalten ihre eigenen Auswahlfelder für **Subtypen** und **Tags**.
+PML-Portfolio- und Prozessnavigator-Portale behalten ihre eigenen Auswahlfelder für **Subtypen** und **Tags**.
 
 ## Sichtbarkeit konfigurieren
 

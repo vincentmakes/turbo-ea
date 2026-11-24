@@ -111,7 +111,7 @@ Il riferimento in tempo reale qui sopra è la fonte completa di verità; la tabe
 | `/metamodel` | Tipi di card, campi, sezioni, sottotipi, tipi di relazione |
 | `/reports` | KPI della dashboard, portafoglio, matrice, ciclo di vita, dipendenze, costo, qualità dei dati |
 | `/bpm` | Gestione dei processi aziendali: diagrammi, elementi, versioni di flusso, valutazioni |
-| `/ppm` | Gestione del portafoglio progetti: iniziative, status report, WBS, attività, costi, rischi |
+| `/ppm` | Elenco principale dei progetti — iniziative, report di stato, WBS, attività, costi e rischi |
 | `/turbolens` | Analisi guidata da IA (fornitori, duplicati, sicurezza, IA di architettura) |
 | `/risks` | Registro dei rischi EA (Fase G di TOGAF) |
 | `/diagrams` | Diagrammi DrawIO |

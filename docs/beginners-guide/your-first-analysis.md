@@ -120,7 +120,7 @@ Once your application portfolio is alive and trusted, these become high-value ne
 |--------|----------------|------------------|
 | **Risk Register** | When you're ready to track architecture risks against applications and capabilities (TOGAF Phase G). | [Risk Register](../guide/risks.md) |
 | **GRC / Compliance** | When you need to map applications and capabilities against regulations (GDPR, NIS2, EU AI Act, DORA, SOC 2, ISO 27001). | [GRC](../guide/grc.md) |
-| **PPM** | When the rationalisation decisions become projects with budgets, schedules, and status reports. | [PPM](../guide/ppm.md) |
+| **PML** | When the rationalisation decisions become projects with budgets, schedules, and status reports. | [PML](../guide/ppm.md) |
 | **TurboLens AI** | When you have enough cards for AI to find vendor duplicates, modernisation candidates, and architecture recommendations. | [TurboLens](../guide/turbolens.md) |
 | **BPM** | When you're ready to model the processes that sit on top of your applications. | [BPM](../guide/bpm.md) |
 | **Diagrams** | When you need free-form architecture diagrams that stay in sync with the inventory. | [Diagrams](../guide/diagrams.md) |

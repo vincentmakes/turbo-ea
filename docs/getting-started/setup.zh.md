@@ -65,12 +65,12 @@ SEED_DEMO=true
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `SEED_DEMO` | `false` | 加载完整的 NexaTech Industries 数据集，包括 BPM 和 PPM 数据 |
+| `SEED_DEMO` | `false` | 加载完整的 NexaTech Industries 数据集，包括 BPM 和 PML 数据 |
 | `SEED_BPM` | `false` | 仅加载 BPM 演示流程（`SEED_DEMO` 的子集） |
-| `SEED_PPM` | `false` | 仅加载 PPM 项目数据（`SEED_DEMO` 的子集） |
+| `SEED_PPM` | `false` | 仅加载 PML 项目数据（`SEED_DEMO` 的子集） |
 | `RESET_DB` | `false` | 启动时删除所有表并重新创建 |
 
-`SEED_DEMO=true` 已经包含 BPM 和 PPM 数据 — 您不需要单独设置子集标志。
+`SEED_DEMO=true` 已经包含 BPM 和 PML 数据 — 您不需要单独设置子集标志。
 
 !!! note "演示数据只加载一次"
     每个加载器**每次安装只运行一次**并记录该状态。删除演示内容（示例图表、演示问卷）
@@ -92,11 +92,11 @@ SEED_DEMO=true
 
 ### 演示数据包含的内容
 
-约 150 张 cards 跨越所有四个架构层，外加关系、标签、评论、待办事项、BPM 图、PPM 数据、ADR 以及一份 Statement of Architecture Work：
+约 150 张 cards 跨越所有四个架构层，外加关系、标签、评论、待办事项、BPM 图、PML 数据、ADR 以及一份 Statement of Architecture Work：
 
 - **核心 EA** — 组织、约 20 个业务能力、业务上下文、约 15 个应用、约 20 个 IT 组件、接口、数据对象、平台、目标、6 个倡议、5 个标签组、60+ 关系。
 - **BPM** — 约 30 个业务流程，组织在 4 级层次结构中，包含 BPMN 2.0 图、元素到 card 的链接以及流程评估。
-- **PPM** — 状态报告、Work Breakdown Structures、约 60 个任务、预算和成本明细，以及 6 个演示倡议的风险登记册。
+- **PML** — 状态报告、Work Breakdown Structures、约 60 个任务、预算和成本明细，以及 6 个演示倡议的风险登记册。
 - **EA Delivery** — Architecture Decision Records 和 Statements of Architecture Work。
 
 ### 重置并重新填充

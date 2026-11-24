@@ -111,7 +111,7 @@ La référence en direct ci-dessus est la source complète de vérité ; le tabl
 | `/metamodel` | Types de fiches, champs, sections, sous-types, types de relation |
 | `/reports` | KPI du tableau de bord, portefeuille, matrice, cycle de vie, dépendances, coût, qualité des données |
 | `/bpm` | Gestion des processus métier — diagrammes, éléments, versions de flux, évaluations |
-| `/ppm` | Gestion de portefeuille de projets — initiatives, rapports d'état, OTP, tâches, coûts, risques |
+| `/ppm` | Liste principale des projets — initiatives, rapports de statut, WBS, tâches, coûts et risques |
 | `/turbolens` | Analyse pilotée par IA (fournisseurs, doublons, sécurité, IA d'architecture) |
 | `/risks` | Registre des risques EA (TOGAF Phase G) |
 | `/diagrams` | Diagrammes DrawIO |

@@ -19,12 +19,14 @@ Each portal publishes one of three things, chosen with **Portal type**:
 | Type | What visitors see |
 |------|-------------------|
 | **Card list** | A searchable, filterable grid of cards — the classic portal, configured with the properties below. |
-| **PPM portfolio board** | The read-only [PPM portfolio board](../guide/ppm.md) — timeline, health indicators and budget-versus-actual for every active initiative. |
+| **PML portfolio board** | The read-only [PML portfolio board](../guide/ppm.md) — timeline, health indicators and budget-versus-actual for every active initiative. |
 | **Process navigator** | The read-only [Process House](../guide/bpm.md) — your business process hierarchy, and each process's published BPMN flow. |
 
-### PPM portfolio portals
+### PML portfolio portals { #ppm-portfolio-portals }
 
-Selecting **PPM portfolio board** turns the portal into an executive view of your
+The portfolio portal publishes planning dates. An existing card-list portal continues to follow its configured field visibility for Initiative dates.
+
+Selecting **PML portfolio board** turns the portal into an executive view of your
 project portfolio, available on a public link with **no account, no licence and no
 login**. It exists for the common case where leadership wants portfolio visibility
 but will not maintain another set of credentials.
@@ -33,8 +35,8 @@ The board is always scoped to **Initiative** cards, so the card-type picker is
 locked. The **subtypes** and **tags** filters still apply, which is how you publish
 a single programme rather than the whole portfolio.
 
-Visitors get the same board your team uses inside Turbo EA: the quarterly
-timeline, the schedule/cost/scope indicators, the CapEx and OpEx bars, grouping by
+Visitors get the quarterly **Plan** track, the schedule/cost/scope indicators,
+the CapEx and OpEx bars where enabled, grouping by
 any related card type, and the status-report overview that appears when you hover
 the **Last Report** date. Clicking an initiative leads into Turbo EA behind the
 normal sign-in — after signing in you land on the initiative you clicked.
@@ -54,7 +56,7 @@ The board also opens on a grouping and subtype of your choosing:
 | **Opens grouped by** | Organization | Which grouping the board shows first |
 | **Opens showing subtype** | All | Which subtype is selected first |
 
-**Opens grouped by** also accepts an Initiative subtype, which opens the board with one group per initiative of that subtype (see [Project Portfolio Management](../guide/ppm.md)). A subtype that the portal's own subtype filter excludes is not offered: the portal would publish none of those initiatives, so every row would land under Ungrouped.
+**Opens grouped by** also accepts an Initiative subtype, which opens the board with one group per initiative of that subtype (see [Project Master List](../guide/ppm.md)). A subtype that the portal's own subtype filter excludes is not offered: the portal would publish none of those initiatives, so every row would land under Ungrouped.
 
 Both are only a starting point — a visitor can change either control, and nothing
 is remembered, so reopening the portal returns to what you configured here. This
@@ -67,7 +69,7 @@ are published at all.
     detail page — work packages, milestones, risks, tasks and report history all
     stay behind the login.
 
-A portfolio portal can be SSO-gated like any other portal. Turning the PPM module
+A portfolio portal can be SSO-gated like any other portal. Turning the PML module
 off in **Admin > Settings** takes every portfolio portal dark immediately; you do
 not have to unpublish them one by one.
 
@@ -125,7 +127,7 @@ do not have to unpublish them one by one.
 |-------|-------------|
 | **Name** | Display name for the portal |
 | **Slug** | URL-friendly identifier (auto-generated from name, editable). The portal will be accessible at `/portal/{slug}` |
-| **Portal Type** | Card list, or the read-only PPM portfolio board (see [Portal Type](#portal-type)) |
+| **Portal Type** | Card list, or the read-only PML portfolio board (see [Portal Type](#portal-type)) |
 | **Card Type** | Which card type to display (locked to Initiative for a portfolio portal) |
 | **Subtypes** | Optionally restrict to specific subtypes |
 | **Who can view this portal** | Access mode — **Anyone with the link** or **Sign in with SSO** (see [Access Protection](#access-protection)) |
@@ -149,7 +151,7 @@ Every control also offers **(empty)**, for cards with no value, no relation or n
 !!! note
     A portal created before version 2.178.0 keeps its subtype and tag filters exactly as they were until you next save it. After that, tags picked from two different tag groups must both be on a card, as in the portfolio report.
 
-The PPM portfolio and process navigator portals keep their own **Subtypes** and **Tags** pickers.
+The PML portfolio and process navigator portals keep their own **Subtypes** and **Tags** pickers.
 
 ## Configuring Visibility
 

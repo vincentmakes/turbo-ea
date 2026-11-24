@@ -4,7 +4,7 @@ Die **Einstellungen**-Seite unter **Admin → Einstellungen** (`/admin/settings`
 
 | Reiter | URL | Was er steuert | Vollständige Anleitung |
 |--------|-----|----------------|------------------------|
-| **Allgemein** | `/admin/settings?tab=general` | Erscheinungsbild (Logo, Favicon, Währung, Datumsformat, aktivierte Sprachen, Geschäftsjahr), E-Mail-Versand, **Modul-Schalter** (BPM, PPM, GRC, ArchiMate, TurboLens, Sponsor button, TurboRPG-Modus) | Diese Seite |
+| **Allgemein** | `/admin/settings?tab=general` | Erscheinungsbild (Logo, Favicon, Währung, Datumsformat, aktivierte Sprachen, Geschäftsjahr), E-Mail-Versand, **Modul-Schalter** (BPM, PML, GRC, ArchiMate, TurboLens, Sponsor button, TurboRPG-Modus) | Diese Seite |
 | **Authentifizierung** | `/admin/settings?tab=authentication` | SSO-Provider, Registrierung, Passwortrichtlinie | [Authentifizierung & SSO](sso.md) |
 | **KI** | `/admin/settings?tab=ai` | LLM-Provider, Modell, Websuch-Backend, Pro-Kartentyp-KI-Suggestionsschalter | [KI-Funktionen](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Massen-Verknüpfung von Produkten zu endoflife.date-Einträgen | [End-of-Life (EOL)](eol.md) |
@@ -14,8 +14,9 @@ Die **Einstellungen**-Seite unter **Admin → Einstellungen** (`/admin/settings`
 | **Migration** | `/admin/settings?tab=migration` | Importe aus anderen EA-Plattformen sowie vollständiger Workspace-Transfer zwischen Turbo-EA-Instanzen | [Plattform-Migration](migration.md) |
 | **Audit-Log** | `/admin/settings?tab=audit-log` | **Änderungen**: das Änderungsprotokoll — wer was geändert hat und ob es aus der Weboberfläche, der API, einem KI-Werkzeug oder einer Erweiterung stammt. **Sicherheit & Administration**: Anmeldungen, Fehlversuche, Sperrungen und weitere Sicherheitsereignisse | [Audit-Log](audit-log.md) |
 | **Ressourcen** | `/admin/settings?tab=resources` | Alle an Karten angehängten Dateien und Links, mit Speicherstatistiken und Massenbereinigung | [Ressourcen](resources.md) |
+| **PML** | `/admin/settings?tab=pml` | Finanzfelder, Berechnungen, Anbietervererbung und Zuordnung von Initiativterminen | [Projektstammliste (PML)](#ppm-module) |
 
-Der Rest dieser Seite behandelt den **Allgemein**-Reiter.
+Die folgenden Abschnitte beschreiben allgemeine Einstellungen und die PML-Konfiguration.
 
 ![Allgemeine Einstellungen](../assets/img/de/28_admin_einstellungen_allgemein.png)
 
@@ -45,7 +46,7 @@ Wählen Sie die Währung, die für Kostenfelder in der gesamten Plattform verwen
 
 ### Datumsformat
 
-Wählen Sie, wie Datumsangaben in der gesamten Anwendung dargestellt werden. Das gewählte Format gilt für Lebenszyklus-Daten von Karten, das Inventar-Grid, signierte ADR- und SoAW-Dokumente, das Risikoregister, PPM-Berichte und -Aufgaben, BPM-Prozessflussversionen, Kommentare, Verlauf, den Aktivitätsstrom des Dashboards, Benachrichtigungen und Admin-Seiten. Fünf Formate stehen mit Live-Vorschau zur Auswahl:
+Wählen Sie, wie Datumsangaben in der gesamten Anwendung dargestellt werden. Das gewählte Format gilt für Lebenszyklus-Daten von Karten, das Inventar-Grid, signierte ADR- und SoAW-Dokumente, das Risikoregister, PML-Berichte und -Aufgaben, BPM-Prozessflussversionen, Kommentare, Verlauf, den Aktivitätsstrom des Dashboards, Benachrichtigungen und Admin-Seiten. Fünf Formate stehen mit Live-Vorschau zur Auswahl:
 
 - `MM/DD/YYYY` — US-Stil (z. B. `04/29/2026`)
 - `DD/MM/YYYY` — Europäischer Stil (z. B. `29/04/2026`)
@@ -65,7 +66,7 @@ Mindestens eine Sprache muss jederzeit aktiviert bleiben.
 
 ### Beginn des Geschäftsjahres
 
-Wählen Sie den Monat, in dem das Geschäftsjahr Ihrer Organisation beginnt (Januar bis Dezember). Diese Einstellung beeinflusst, wie **Budgetzeilen** im PPM-Modul nach Geschäftsjahr gruppiert werden. Wenn das Geschäftsjahr beispielsweise im April beginnt, gehört eine Budgetzeile vom Juni 2026 zum GJ 2026–2027. Sie bestimmt außerdem, welches Geschäftsjahr der [Kostenbericht](../guide/reports.md) zeigt.
+Wählen Sie den Monat, in dem das Geschäftsjahr Ihrer Organisation beginnt (Januar bis Dezember). Diese Einstellung beeinflusst, wie **Budgetzeilen** im PML-Modul nach Geschäftsjahr gruppiert werden. Wenn das Geschäftsjahr beispielsweise im April beginnt, gehört eine Budgetzeile vom Juni 2026 zum GJ 2026–2027. Sie bestimmt außerdem, welches Geschäftsjahr der [Kostenbericht](../guide/reports.md) zeigt.
 
 Der Standardwert ist **Januar** (Kalenderjahr = Geschäftsjahr).
 
@@ -168,14 +169,41 @@ Standardmäßig deaktiviert. Ist die Option aktiv, darf die Person, die eine Rev
 
 Für kleine Teams, in denen dieselbe Person erstellt und freigibt, bleibt die Option aus. Das Aktivieren ändert nichts an dem, was aufgezeichnet wird: Einreichung, Freigabe, Ablehnung und Zurückziehen landen in jedem Fall im Reiter **Verlauf** der Karte.
 
-## PPM-Modul
+## Projektstammliste (PML) { #ppm-module }
 
-Schalten Sie das **Projektportfoliomanagement**-Modul (PPM) ein oder aus. Wenn deaktiviert:
+Nutzen Sie **Projektstammliste (PML)** unter **Allgemein**, um das Modul zu aktivieren oder zu deaktivieren. Beim Deaktivieren werden der Menüeintrag, der PML-Reiter und die Finanz- und Terminübersichten auf der Initiativkarte ausgeblendet. Für Metamodellfelder gelten weiterhin ihre Berechtigungen. [Projektstammliste](../guide/ppm.md).
 
-- Der **PPM**-Navigationspunkt wird für alle Benutzer ausgeblendet
-- Initiativen-Karten verbleiben in der Datenbank, aber PPM-spezifische Funktionen (Statusberichte, Budget- und Kostenverfolgung, Risikoregister, Aufgabentafel, Gantt-Diagramm) sind nicht zugänglich
+### Budget und Kosten konfigurieren { #pml-budget-costs }
 
-Wenn aktiviert, erhalten Initiativen-Karten einen **PPM**-Tab in ihrer Detailansicht und das PPM-Portfolio-Dashboard wird in der Hauptnavigation verfügbar. Siehe [Projektportfoliomanagement](../guide/ppm.md) für die vollständige Funktionsübersicht.
+Öffnen Sie **Administration → Einstellungen → PML → Budget und Kosten**. Wählen Sie **Geplantes Budget**, **Kostenpositionen** oder **Fakturierter Ist-Betrag**. Legen Sie ein Feld mit stabilem Schlüssel, Beschriftung und Typ an. **Als Spalte anzeigen** nimmt das Feld in Hierarchie und Druck auf. Ordnen Sie Felder um oder deaktivieren Sie sie unter Beibehaltung alter Werte. Speichern Sie jeden Abschnitt separat.
+
+Wählen Sie bei einem **berechneten Feld** den Ergebnistyp, Eingabealiasnamen und Quellen. Verwenden Sie eine Formel oder geordnete Regeln. Die erste passende Regel gilt; ohne Treffer gilt der Ersatzwert. Vergleiche können Sie mit AND, OR und NOT kombinieren. Prüfen Sie Beispielwerte mit der **Vorschau**. [Metamodellberechnungen](calculations.md) gelten für Kartenfelder.
+
+Ein Kartenverweis beschränkt die Auswahl auf einen Kartentyp. Eine kompatible Beziehung kann die ausgewählte Karte mit der Initiative verbinden. Unter Kostenpositionen wählen Sie das Anbieterfeld des Budgets und erlauben bei Bedarf direkt untergeordnete Anbieter. Rechnungen haben eigene Felder.
+
+#### Konfigurationsbeispiel für Aruba
+
+| Abschnitt | Feld und Beispielschlüssel | Konfiguration |
+|---|---|---|
+| Geplantes Budget | **Origine Costi** (`origineCosti`) | Kartenverweis auf Provider. Wählen Sie die vorhandene Beziehung Unterstützt. Legen Sie das Budgetfeld als Quelle für Kostenpositionen fest und erlauben Sie bei Bedarf direkte Unteranbieter. |
+| Kostenpositionen | **Gestione intercompany** (`gestioneIntercompany`) | Einfachauswahl mit Plafond, Canone, Progetto und N.A. |
+| Kostenpositionen | **OdA — Ordine d’acquisto** (`ordineAcquisto`) | Text, zum Beispiel `ODA-000427`. |
+| Kostenpositionen | **Origine Costi Aggregato** (`origineCostiAggregato`) | Berechneter Text mit effektivem Anbieter und optional dem Budgetanbieter und der Beschaffungsart als Eingaben. |
+
+Ein optionales Auswahlfeld **Tipo di spesa** kann **Licenze** und **Servizi esterni** beim selben Anbieter unterscheiden. Legen Sie die Regeln in dieser Reihenfolge an.
+
+1. Ein Lizenzkauf ergibt **Licenze**.
+2. Eine externe Leistung oder ein als extern klassifizierter Anbieter ergibt **Servizi Esterni**.
+3. **Aruba Spa**, **Aruba PEC** oder **Actalis** ergeben **Servizi interni**.
+4. **Aruba Software**, **Aruba System**, **Aruba Cybersecurity**, **Aruba Marketing**, **Aruba Service Desk**, **Aruba Enterprise** oder **Aruba DC&Infra** ergeben **Servizi Intercompany**.
+
+Wählen Sie für Vergleiche die tatsächlichen Anbieterkarten. Fehlt die Klassifizierung eines Unteranbieters, können Sie den Budgetanbieter prüfen und den Ersatzwert bei unzureichenden Daten leer lassen. Eine Kostenposition für **Aruba Software / Licensing** unter **Aruba Software** kann `Canone` und `ODA-000427` enthalten. Die Definitionen sind Beispiele für eine Instanz.
+
+### Zeitachse konfigurieren { #pml-timeline }
+
+Ordnen Sie unter **Administration → Einstellungen → PML → Zeitachse** die Felder für Ist-Beginn und Ist-Ende zu. Die Standardschlüssel lauten `actualStart` und `actualEnd`. Sie können zwei unterschiedliche bearbeitbare Datumsfelder auswählen. Beginn und Ende bleiben Plantermine. Die Groß- und Kleinschreibung der Schlüssel ist relevant. Mit Metamodell-Bearbeitungsrecht können Sie ein fehlendes Standardfeld anlegen.
+
+Karte, internes Portfolio und Berichte berücksichtigen die Sichtbarkeit der Felder. Das öffentliche Portfolio zeigt den Plan. Finanzfelder und Terminzuordnung lassen sich mit einem [Arbeitsbereichspaket](workspace-transfer.md) übertragen.
 
 ## GRC-Modul
 

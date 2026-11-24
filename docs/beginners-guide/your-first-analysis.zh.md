@@ -120,7 +120,7 @@ Application 上的内置 **TIME 模型**字段（`timeModel`，四个选项：`t
 |--------|----------------|------------------|
 | **风险登记册** | 当您准备好针对应用和能力跟踪架构风险时（TOGAF 阶段 G）。 | [风险登记册](../guide/risks.md) |
 | **GRC / 合规** | 当您需要把应用和能力对照法规（GDPR、NIS2、欧盟 AI 法案、DORA、SOC 2、ISO 27001）进行映射时。 | [GRC](../guide/grc.md) |
-| **PPM** | 当合理化决策转化为带预算、进度和状态报告的项目时。 | [PPM](../guide/ppm.md) |
+| **PML** | 当合理化决策转化为带预算、进度和状态报告的项目时。 | [PML](../guide/ppm.md) |
 | **TurboLens AI** | 当卡片数量足以让 AI 找到厂商重复、现代化候选与架构推荐时。 | [TurboLens](../guide/turbolens.md) |
 | **BPM** | 当您准备好对位于应用之上的流程进行建模时。 | [BPM](../guide/bpm.md) |
 | **图表** | 当您需要与资产清单保持同步的自由形式架构图时。 | [图表](../guide/diagrams.md) |

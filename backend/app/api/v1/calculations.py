@@ -26,6 +26,7 @@ from app.services.calculation_engine import (
 from app.services.calculation_lint import lint_formula
 from app.services.card_costs import COST_ITEM_TYPES, DERIVED_KEY
 from app.services.permission_service import PermissionService
+from app.services.ppm_timeline import reject_mapped_calculation_target
 
 router = APIRouter(prefix="/calculations", tags=["calculations"])
 
@@ -245,6 +246,7 @@ async def create_calculation(
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
     _reject_derived_target(body.target_type_key, body.target_field_key)
+    await reject_mapped_calculation_target(db, body.target_type_key, body.target_field_key)
 
     # Reject a formula that reads a field the target type does not have. This
     # is the check that would have caught #886's first formula outright, and it
@@ -297,10 +299,10 @@ async def update_calculation(
         raise HTTPException(404, "Calculation not found")
 
     updates = body.model_dump(exclude_unset=True)
-    _reject_derived_target(
-        updates.get("target_type_key", calc.target_type_key),
-        updates.get("target_field_key", calc.target_field_key),
-    )
+    target_type = updates.get("target_type_key", calc.target_type_key)
+    target_field = updates.get("target_field_key", calc.target_field_key)
+    _reject_derived_target(target_type, target_field)
+    await reject_mapped_calculation_target(db, target_type, target_field)
 
     # Track whether formula or target actually changed (not just resent)
     formula_changed = "formula" in updates and updates["formula"] != calc.formula

@@ -12,7 +12,7 @@ Tarefas são itens atribuídos a você ou criados por você. Elas podem estar vi
 
 **Chips de origem** — Cada tarefa carrega uma origem: de onde ela veio. Quando sua lista mistura tarefas de mais de uma origem, chips de filtro aparecem acima dela — clique em um chip para mostrar apenas as tarefas daquela origem (clique em vários para combiná-los); cada chip exibe uma contagem em tempo real. As origens são:
 
-- **Tarefa de projeto** — Sincronizada do quadro de tarefas de uma iniciativa PPM
+- **Tarefa de projeto** — Sincronizada do quadro de tarefas de uma iniciativa PML
 - **Risco** — Atribuições como responsável por risco e ciclos recorrentes de tarefas de mitigação do Registro de Riscos do GRC
 - **ADR** / **SoAW** — Solicitações de assinatura em decisões de arquitetura e Statements of Architecture Work
 - **Aprovação de processo** — Revisões de fluxo de processo aguardando sua análise (BPM)

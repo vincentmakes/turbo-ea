@@ -264,6 +264,8 @@ Shows the **complete audit trail** of changes made to the card: **who** made the
 
 A change that did not come from the web interface carries a chip beside the person's name: **MCP** when an AI assistant made it through the [MCP server](../admin/mcp.md) on that person's behalf, **API**, **Extension** or **System** otherwise.
 
+A change an extension made when someone used it — pressing a button on an extension page, for example — can be recorded under that person's name, with the **Extension** chip beside it. Changes an extension makes on its own, such as a scheduled sync, show **System** as the author.
+
 A change to the card's costs appears as **Costs updated** with a readable summary of the items touched. Amounts are shown only to users who can see costs on that card, and a cost change cannot be rolled back from the audit log.
 
 Everything that moves the card's **Modified** date appears here — an edit by hand, a spreadsheet import, a platform migration or ServiceNow sync, a tag change, a bulk edit, or a hierarchy move that pulled this card along. System housekeeping changes neither: recalculating data-quality scores, re-running calculated fields, and backfilling hierarchy levels or card IDs leave both the history and the **Modified** date alone.
@@ -288,9 +290,9 @@ When the [GRC module](grc.md) is enabled **and** the card has at least one linke
 
 For **Business Process** cards, an additional **Process Flow** tab appears with an embedded BPMN diagram viewer/editor. See [BPM](bpm.md) for details on process flow management.
 
-## PPM Tab (Initiative cards only)
+## PML Tab (Initiative cards only) { #ppm-tab-initiative-cards-only }
 
-When the [PPM module](ppm.md) is enabled, **Initiative** cards display an additional **PPM** tab as the last tab. Clicking this tab navigates to the PPM Initiative Detail View where you can manage status reports, budgets, risks, tasks, and Gantt timelines.
+When the [PML module](ppm.md) is enabled, **Initiative** cards display an additional **PML** tab as the last tab. Clicking this tab navigates to the PML Initiative Detail View where you can manage status reports, budgets, risks, tasks, and Gantt timelines.
 
 ## Archiving
 

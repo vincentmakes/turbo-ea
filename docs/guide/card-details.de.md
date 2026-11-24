@@ -265,6 +265,8 @@ Der Einladungspfad erfordert die **`users.invite`**-Berechtigung, eine delegiert
 
 Eine Änderung, die nicht aus der Weboberfläche stammt, trägt neben dem Namen der Person einen Chip: **MCP**, wenn ein KI-Assistent sie im Auftrag dieser Person über den [MCP-Server](../admin/mcp.md) vorgenommen hat, sonst **API**, **Erweiterung** oder **System**.
 
+Eine Änderung, die eine Erweiterung vorgenommen hat, als jemand sie benutzte – etwa durch einen Klick auf eine Schaltfläche auf einer Erweiterungsseite –, kann unter dem Namen dieser Person erfasst werden, mit dem Chip **Erweiterung** daneben. Änderungen, die eine Erweiterung selbstständig vornimmt, etwa ein geplanter Sync, zeigen **System** als Autor.
+
 Zeigt die **vollständige Historie** der an der Karte vorgenommenen Änderungen: **Wer** hat die Änderung vorgenommen, **wann** wurde sie durchgeführt und **was** wurde geändert (vorheriger Wert vs. neuer Wert). Dies ermöglicht die vollständige Nachverfolgbarkeit aller Änderungen über die Zeit.
 
 Eine Änderung an den Kosten der Karte erscheint als **Kosten aktualisiert** mit einer lesbaren Zusammenfassung der betroffenen Elemente. Beträge sehen nur Benutzer, die die Kosten dieser Karte einsehen dürfen, und eine Kostenänderung kann nicht über das Audit-Protokoll zurückgesetzt werden.
@@ -291,9 +293,11 @@ Wenn das [GRC-Modul](grc.md) aktiviert ist **und** die Karte mindestens einen ve
 
 Für **Geschäftsprozess**-Karten erscheint ein zusätzlicher **Prozessfluss**-Tab mit einem eingebetteten BPMN-Diagramm-Betrachter/-Editor. Siehe [BPM](bpm.md) für Details zum Prozessflussmanagement.
 
-## PPM-Tab (nur für Initiativ-Karten)
+## PML-Tab (nur für Initiativ-Karten) { #ppm-tab-initiative-cards-only }
 
-Wenn das [PPM-Modul](ppm.md) aktiviert ist, zeigen **Initiativ**-Karten einen zusätzlichen **PPM**-Tab als letzten Tab an. Ein Klick auf diesen Tab navigiert zur PPM-Initiativ-Detailansicht, in der Sie Statusberichte, Budgets, Risiken, Aufgaben und Gantt-Zeitpläne verwalten können.
+Unter **Kosten und Zeitplan** vergleichen überlagerte Balken Budget und Ist-Kosten für Gesamt, CapEx und OpEx. Der fakturierte Gesamtbetrag der Initiative erscheint separat gemäß Berechtigung. Die Zeitachse zeigt sichtbare Plan- und Ist-Termine und die neuesten Indikatoren zu Zeit, Kosten und Leistungsumfang.
+
+Wenn das [PML-Modul](ppm.md) aktiviert ist, zeigen **Initiativ**-Karten einen zusätzlichen **PML**-Tab als letzten Tab an. Ein Klick auf diesen Tab navigiert zur PML-Initiativ-Detailansicht, in der Sie Statusberichte, Budgets, Risiken, Aufgaben und Gantt-Zeitpläne verwalten können.
 
 ## Archivierung
 

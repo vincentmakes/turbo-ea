@@ -6,7 +6,7 @@ A seção **Admin** está disponível para usuários com o papel **Admin**. Ela 
 
 | Página | Descrição |
 |--------|-----------|
-| [Configurações Gerais](settings.md) | Aparência (logo, favicon, moeda), idiomas habilitados, ano fiscal, e-mail (SMTP) e alternâncias de módulos (BPM, PPM, GRC) |
+| [Configurações Gerais](settings.md) | Aparência (logo, favicon, moeda), idiomas habilitados, ano fiscal, e-mail (SMTP) e alternâncias de módulos (BPM, PML, GRC) |
 | [Metamodelo](metamodel.md) | Tipos de cards, campos, seções, subtipos, tipos de relação, cálculos, tags, princípios EA e o grafo do metamodelo |
 | [Cálculos](calculations.md) | Fórmulas definidas pelo administrador que calculam automaticamente valores de campos ao salvar cards |
 | [Tags](tags.md) | Grupos de tags e tags para categorização flexível de cards |

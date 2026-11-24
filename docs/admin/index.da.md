@@ -6,7 +6,7 @@
 
 | Side | Beskrivelse |
 |------|-------------|
-| [Generelle indstillinger](settings.md) | Udseende (logo, favicon, valuta), aktiverede sprog, regnskabsår, e-mail (SMTP) og modulskifter (BPM, PPM, GRC) |
+| [Generelle indstillinger](settings.md) | Udseende (logo, favicon, valuta), aktiverede sprog, regnskabsår, e-mail (SMTP) og modulskifter (BPM, PML, GRC) |
 | [Metamodel](metamodel.md) | Korttyper, felter, sektioner, undertyper, relationstyper, beregninger, tags, EA-principper og metamodel-grafen |
 | [Beregninger](calculations.md) | Administratordefinerede formler, der automatisk beregner feltværdier, når kort gemmes |
 | [Tags](tags.md) | Taggrupper og tags til fleksibel kategorisering af kort |

@@ -1045,3 +1045,40 @@ class TestApply:
             "Relation endpoint missing — set 'to_type' in preview"
         )
         assert by_id["Ghost:x"].error_message == "target card type 'Ghost' not found"
+
+
+async def test_timeline_mapping_rejects_invalid_import_at_preview_and_apply(db, env):
+    from app.models.app_settings import AppSettings
+    from app.services.migration.apply import _apply_single_card
+
+    await create_card_type(db, key="Initiative")
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={
+                "pml.timeline": {"actual_start_key": "actualStart", "actual_end_key": "ActualEnd"}
+            },
+        )
+    )
+    snap = empty_snapshot()
+    snap.entities.append(
+        SourceEntity(
+            "init-1",
+            "Initiative",
+            "Invalid Initiative",
+            custom_fields={"sourceStart": "2026-06-01", "sourceEnd": "2026-05-01"},
+        )
+    )
+    migration = await _migration(
+        db,
+        env,
+        field_mappings={"Initiative": {"sourceStart": "actualStart", "sourceEnd": "ActualEnd"}},
+    )
+    source = source_for(snap, type_mapping={"Initiative": "Initiative"})
+    stats = await stage_cards(db, migration, source, snap)
+    assert stats["conflict"] == 1
+    (row,) = await staged_rows(db, migration, "card")
+    assert row.action == "conflict"
+    row.action = "create"
+    with pytest.raises(ValueError, match="(?i)(date|start|end)"):
+        await _apply_single_card(db, row, env["admin"], migration.field_mappings)

@@ -3,8 +3,8 @@
 Every EU financial entity must maintain a **Register of Information** on all its
 ICT third-party arrangements and file it annually through its supervisor — 15
 interlocking templates, submitted as a machine-readable xBRL-CSV package against
-the EBA's reporting framework. In the ESAs' dry run, 93.5% of submissions had at
-least one data error, and 86% of those were missing mandatory information.
+the EBA's reporting framework. In the ESAs' 2024 dry run, only 6.5% of registers
+passed every data-quality check.
 
 The data the register needs is exactly what your EA repository already holds.
 **DORA Register of Information** turns Turbo EA into your register.
@@ -40,11 +40,11 @@ the register is assembled live from the cards whenever you validate or export.
 | | |
 |---|---|
 | **Licence** | Commercial — a signed entitlement is required |
-| **Minimum Turbo EA version** | 2.94.0 |
+| **Minimum Turbo EA version** | 2.182.0 |
 | **Permissions** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Data access grants** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Backend restart needed** | Yes — it ships backend code |
-| **Where it appears** | **DORA Register** in the main navigation · **Reports → DORA Register** · **DORA Register** / **DORA Function** sections on cards · six survey templates |
+| **Where it appears** | **DORA Register** under the **GRC** menu (a top-level entry when the GRC menu is not available to you) · **Reports → DORA Register - Dashboard** · **DORA Register** / **DORA Function** sections on cards · six survey templates |
 
 ## What it adds to your metamodel
 
@@ -54,9 +54,14 @@ the register is assembled live from the cards whenever you validate or export.
   It is **hierarchical**: overarching arrangements are parents and subsequent or
   associated arrangements are their children. Carries annual expense and currency.
 - **ICT Service** — one per service delivered under an arrangement, carrying both
-  the service row (type, dates, notice periods, governing law, data location,
+  the service row (type, dates, notice periods, governing law, locations,
   reliance) and its **Assessment** (substitutability, exit plan, reintegration,
-  impact of discontinuation, alternative providers).
+  impact of discontinuation, alternative providers). Its three location fields —
+  **Country of provision of the services**, **Location of the data at rest** and
+  **Location of data management** (where the data is processed) — each offer
+  **Not applicable**. A service with no location of data processing recorded
+  blocks finalizing a snapshot: choose the country, or **Not applicable** if the
+  service involves no data processing.
 
 **One new subtype** — **Branch** on Organization.
 
@@ -65,8 +70,8 @@ the register is assembled live from the cards whenever you validate or export.
 | Card type | Section | Contains |
 |---|---|---|
 | **Organization** | DORA Register | In DORA register scope, LEI, Country, Type of entity, Hierarchy in group, Competent authority, Total assets, Reporting currency, Branch code |
-| **Provider** | DORA Register | LEI, Identifier type, EUID, Person type, Country of headquarters, Intra-group provider, annual expense, ultimate parent |
-| **Business Capability** / **Business Process** | DORA Function | DORA register function, Function identifier, Licenced activity, Criticality assessment, Reasons for criticality, RTO, RPO, Impact of discontinuing |
+| **Provider** | DORA Register | LEI, Identifier type, EUID, Other identification code, Person type, Country of headquarters, Intra-group provider, annual expense, ultimate parent |
+| **Business Capability** / **Business Process** | DORA Function | DORA register function, Function identifier, Licenced activity, Criticality or importance assessment, Reasons for criticality, Date of the last assessment, RTO, RPO, Impact of discontinuing |
 
 Every section also carries a read-only **DORA score (%)** — a completeness bar
 showing how much of the register data that card still owes.
@@ -128,24 +133,29 @@ automatically. The ITS fill-in conventions (`9999-12-31` for open-ended dates,
 
 ## The workbench
 
-**DORA Register** in the main navigation has five tabs. The same dashboard is
-also available as a saveable report under **Reports → DORA Register**.
+**DORA Register** under the **GRC** menu has five tabs. The same dashboard is
+also available as a saveable report under **Reports → DORA Register - Dashboard**.
 
 ### Dashboard
 
 Six tiles — **Register completeness**, **Blocking findings**, **Warnings**,
 **Critical functions**, **Providers**, **Arrangements** — over a **Validate now**
-button. Below them, a panel of counts links straight into the inventory for each
-register object, and the **Template completeness** table shows rows and findings
+button, and a line stating how many of the EBA's active rules ran, with a
+**Rules not run** link (see [Validation](#validation)). Below them, a panel of
+counts links straight into the inventory for each register object, and the **Template completeness** table shows rows and findings
 per template.
 
 ![The template completeness table](../assets/img/en/74_ext_dora_template_completeness.png)
 
-Clicking a findings count opens the **Validation findings** drawer, grouped by
-register row, each finding classified as **Missing**, **Invalid value**,
-**Duplicate row**, **Broken reference**, **Unknown column** or **EBA rule**, and
-marked **Blocking** or **Warning**. Every finding has an **Open card** button that
-takes you to exactly the field that needs fixing.
+Clicking a findings count opens **Validation findings**: one row per finding,
+with its severity (**Blocking** or **Warning**), template, register row, card,
+rule, column and message, and filters on severity, template, card type and rule.
+The rule is one of **Missing**, **Missing key value**, **Invalid value**,
+**Invalid LEI**, **Duplicate row**, **Broken reference**, **Unknown column** or
+**EBA rule**. Clicking a finding, or its **Open card** action, opens the card
+that needs fixing in a side panel; a finding about the filing settings offers
+**Open settings** instead. The **Rules not run** button opens the list described
+under [Validation](#validation).
 
 ### Register
 
@@ -170,25 +180,39 @@ moves through three states:
 1. **Draft** — press **Validate** to check it. Findings are listed with severity,
    template, row, column and message.
 2. **Validated** — press **Finalize**. This is refused while any **blocking**
-   finding remains, and while no reporting entity with a LEI is set.
+   finding remains, and while no reporting entity with a LEI is set. Blocking
+   findings include a service with no location of data processing, any other
+   key field left empty where it applies, and a provider LEI that fails its
+   ISO 17442 format or checksum (**Invalid LEI**).
 3. **Final** — the snapshot is immutable, its package hash is pinned for audit,
-   and it can no longer be deleted or re-validated.
+   it keeps the findings and rule coverage it was checked with, and it can no
+   longer be deleted or re-validated.
 
 Two downloads are available at any point:
 
-- **xBRL-CSV package** — the official EBA framework 4.0 DORA report package as a
-  `.zip`, containing the report metadata, filing indicators, parameters and one
-  CSV per template. It is byte-reproducible, and a re-download of a final
-  snapshot is checked against its pinned hash.
+- **xBRL-CSV package** — a DORA report package built to the EBA framework 4.0
+  taxonomy (DORA module 1.1.0) as a `.zip`, containing the report metadata,
+  filing indicators, parameters and one CSV per template. Its file name carries
+  the reporting entity's ISO country code. A provider that has both an LEI and an
+  EUID is reported with both: the LEI as its identification code and the EUID as
+  its additional identification code. The package is byte-reproducible, and a
+  re-download of a final snapshot is checked against its pinned hash.
 - **Excel workbook** — a review workbook with a cover sheet, one sheet per
-  template using the official column labels and codes, and a members sheet, for
+  template using the EBA's column labels and codes, and a members sheet, for
   circulating the register internally before filing.
+
+Before each release that changes the export, the package built from the demo
+register is validated with Arelle, the open-source XBRL processor, against the
+EBA's published framework 4.0 taxonomy, including the taxonomy's own validation
+assertions. That covers the package's structure, not the EBA's reception checks
+or its registry lookups: whether your supervisor's portal accepts the file is a
+separate test you make.
 
 ### Settings
 
 **Filing** — the **Filing scope** (**Consolidated (.CON)** or **Individual
 (.IND)**), **Reporting currency**, **Taxonomy version**, and the **Reporting
-entity** whose LEI and country drive the submission package.
+entity** whose LEI and country drive the report package.
 
 **Definitions (B_99.01)** — optional free-text definitions for the closed-list
 terms your register uses, filed as template B_99.01.
@@ -221,18 +245,32 @@ again.
 ## Validation
 
 Validation runs in four layers: **structure** (data types, LEI checksums, dates,
-numbers, plus the mandatory-field flags as blocking), **members** (closed-list
-values against the official domains), **keys** (primary-key completeness and
-uniqueness, and cross-template references), and the **EBA rule inventory** at its
-published severities.
+numbers, plus mandatory and key fields as blocking when empty), **members**
+(closed-list values against the taxonomy's code lists), **keys** (primary-key
+completeness and uniqueness, and cross-template references), and the **EBA
+validation rules that can run offline**, at their published severities. Rules the
+EBA has withdrawn are not run.
+
+A provider EUID is checked for the EUID format: the country code and the
+register's identifier, a dot, then the registration number. A value without the
+dot, or an LEI entered as an EUID, is reported as a warning. One local check is
+stricter than the EBA: a provider identification code declared as an LEI that
+fails the ISO 17442 format or checksum is a blocking **Invalid LEI** finding,
+where the EBA's own rule is a warning. An invalid LEI of a provider's ultimate parent stays a
+warning.
 
 !!! warning "Coverage is partial — and reported honestly"
-    Turbo EA executes the rules it can evaluate offline. Rules that need the
-    ESAs' own expression engine, or live GLEIF/BRIS registry lookups, cannot run
-    on your instance. Rather than silently skipping them, the dashboard states
-    how many of the EBA rules were executed and how many were not. Treat a clean
-    validation as a strong pre-check, not as a guarantee of supervisory
-    acceptance.
+    Turbo EA runs the EBA rules it can evaluate offline, and the dashboard states
+    how many of the EBA's active rules ran. **Rules not run**, opened from that
+    statement or from the validation findings, lists every other rule with its
+    template, the EBA's own text and the reason it does not run here: an **EBA
+    expression** beyond the offline checks, which the supervisor's systems
+    evaluate on the file you submit, or a **Package check** the EBA applies to
+    the submitted report package rather than to the register. It also names the
+    LEI, EUID and country rules that run here only as offline checks of checksum,
+    format and code list, where the EBA looks the codes up in GLEIF and the
+    business registers (BRIS). Treat a clean validation as a strong pre-check,
+    not as a guarantee of supervisory acceptance.
 
 ## Permissions
 
@@ -240,7 +278,7 @@ published severities.
 |---|---|
 | `ext.dora-roi.view` | View the register, dashboards and validation results |
 | `ext.dora-roi.manage` | Edit register data and decide graph suggestions |
-| `ext.dora-roi.submit` | Freeze reference-date snapshots and download submission packages |
+| `ext.dora-roi.submit` | Freeze reference-date snapshots and download report packages |
 | `ext.dora-roi.admin` | Configure filing settings and load or remove demo data |
 
 Editing the register data itself also uses your normal card-edit rights, since
@@ -263,8 +301,9 @@ not licensed, or the backend has not been restarted since installing it.
   stored services and functions in the extension's own tables; those rows are not
   migrated. Re-enter them as ICT Service and function cards (or reload the demo
   data) and re-run **Find suggestions**.
-- Taxonomy content is generated from the published EBA framework, so adopting a
-  new framework release is a data update plus a **Taxonomy version** switch.
+- Templates, code lists and rules ship as versioned data generated from the
+  published EBA framework, so a new framework release arrives as an extension
+  update plus a **Taxonomy version** switch.
 - The **DORA score** on a card is a triage signal, not a compliance verdict. The
   dashboard's findings are the authoritative gap list.
 - Supervisor-specific Excel template variants are not produced; the xBRL-CSV

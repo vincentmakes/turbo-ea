@@ -12,7 +12,7 @@ Las tareas son actividades asignadas a usted o creadas por usted. Pueden estar v
 
 **Chips de origen** — Cada tarea lleva un origen: de dónde proviene. Cuando su lista mezcla tareas de más de un origen, aparecen chips de filtrado encima — haga clic en un chip para mostrar solo las tareas de ese origen (haga clic en varios para combinarlos); cada chip muestra un contador en vivo. Los orígenes son:
 
-- **Tarea de proyecto** — Sincronizada desde el tablero de tareas de una iniciativa PPM
+- **Tarea de proyecto** — Sincronizada desde el tablero de tareas de una iniciativa PML
 - **Riesgo** — Asignaciones como propietario de riesgo y ciclos recurrentes de tareas de mitigación del Registro de Riesgos de GRC
 - **ADR** / **SoAW** — Solicitudes de firma sobre decisiones de arquitectura y Statements of Architecture Work
 - **Aprobación de proceso** — Revisiones de flujos de proceso en espera de su revisión (BPM)

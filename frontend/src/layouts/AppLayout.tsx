@@ -597,6 +597,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     fontWeight: active ? 700 : 500,
     fontSize: isCondensed ? "0.75rem" : "0.85rem",
     minWidth: 0,
+    flexShrink: 0,
     px: isCondensed ? 0.75 : 1.5,
     whiteSpace: "nowrap" as const,
     borderRadius: 1,

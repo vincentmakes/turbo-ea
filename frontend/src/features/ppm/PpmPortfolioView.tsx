@@ -58,6 +58,7 @@ import type { PrintParam } from "@/features/reports/ReportShell";
 import type { ReportExportData } from "@/features/reports/reportExport";
 import type {
   PpmPortfolioItem,
+  PpmPrivatePortfolioItem,
   PpmPortfolioDashboard,
   PpmPortfolioGroupOption,
   PpmPortfolioReport,
@@ -75,6 +76,7 @@ import {
 import {
   ALL_LEVELS,
   barModel,
+  dateRangeBar,
   buildPortfolioExport,
   buildPrintParams,
   costBarModel,
@@ -88,6 +90,7 @@ import {
   hasAnyCost,
   hasHierarchy,
   healthLabelKey,
+  matchesBoard,
   maxTreeDepth,
   money,
   nowPct,
@@ -97,6 +100,7 @@ import {
   projectManager,
   ragColor,
   rowFigures,
+  shownDashboard,
   subtypeGroupBy,
   subtypeKeys,
   subtypeName,
@@ -327,6 +331,9 @@ const PLAN_CELL_SX = { px: 0.5, textAlign: "center" };
 /** No extra styling (the mobile card's quarter span). */
 const NO_SX = {};
 
+/** No extra print params (the portal board, which has no Filters section). */
+const NO_PRINT_PARAMS: PrintParam[] = [];
+
 const gridCols =
   "minmax(180px,1.5fr) 120px 90px 1fr 32px 32px 32px 120px 120px 64px";
 const GRID_MIN_WIDTH = 1100;
@@ -342,6 +349,7 @@ export interface PpmPortfolioShellParts {
 }
 
 export interface PpmPortfolioViewProps {
+  showActualDates?: boolean;
   items: PpmPortfolioItem[];
   dashboard: PpmPortfolioDashboard | null;
   /** Card types the board can group by, as metamodel entities. */
@@ -373,10 +381,36 @@ export interface PpmPortfolioViewProps {
   shell?: (parts: PpmPortfolioShellParts) => ReactNode;
   /** Render the page heading on the bare path. Off inside a portal. */
   showTitle?: boolean;
+  /**
+   * The authenticated page's Filters section, rendered as the toolbar's last
+   * row. A portal passes none.
+   */
+  filterSection?: ReactNode;
+  /**
+   * The initiatives the Filters section keeps; null (the default) narrows
+   * nothing. Applied with the search and subtype, so the group-anchor rule holds.
+   */
+  matchIds?: ReadonlySet<string> | null;
+  /** The Filters section's lines for the print header, after the board's own. */
+  extraPrintParams?: PrintParam[];
+  /**
+   * The Filters section's selection as `?filters=`; "" drops the param.
+   * Written by the board's one URL-sync effect — a second `setSearchParams`
+   * in the same tick would clobber this one.
+   */
+  filtersParam?: string;
+  /**
+   * Told the board's own link parameters (`filterSearchParams` over an empty
+   * link) whenever the board's state changes, so a container can remember
+   * them. Derived from state, never read back from the link: a bare link
+   * (the PPM menu entry while on the board) leaves the state as it was.
+   */
+  onBoardStateChange?: (params: string) => void;
 }
 
 export default function PpmPortfolioView({
   items,
+  showActualDates = false,
   dashboard,
   groupOptions,
   subtypeDefs,
@@ -387,6 +421,11 @@ export default function PpmPortfolioView({
   onOpen,
   shell,
   showTitle = true,
+  filterSection,
+  matchIds = null,
+  extraPrintParams = NO_PRINT_PARAMS,
+  filtersParam = "",
+  onBoardStateChange,
 }: PpmPortfolioViewProps) {
   const { t, i18n } = useTranslation("ppm");
   const { formatDate } = useDateFormat();
@@ -431,20 +470,19 @@ export default function PpmPortfolioView({
 
   // Sync filters to URL
   useEffect(() => {
-    setSearchParams(
-      (prev) =>
-        filterSearchParams(prev, {
-          groupBy,
-          search,
-          subtype: subtypeFilter,
-          initialGroupBy,
-          initialSubtype,
-          hierarchy,
-          depth,
-          bySubtype,
-        }),
-      { replace: true },
-    );
+    const state = {
+      groupBy,
+      search,
+      subtype: subtypeFilter,
+      initialGroupBy,
+      initialSubtype,
+      hierarchy,
+      depth,
+      bySubtype,
+      filters: filtersParam,
+    };
+    setSearchParams((prev) => filterSearchParams(prev, state), { replace: true });
+    onBoardStateChange?.(filterSearchParams(new URLSearchParams(), state).toString());
   }, [
     groupBy,
     search,
@@ -454,7 +492,9 @@ export default function PpmPortfolioView({
     hierarchy,
     depth,
     bySubtype,
+    filtersParam,
     setSearchParams,
+    onBoardStateChange,
   ]);
 
   // ── Report hover popover state ──
@@ -518,9 +558,23 @@ export default function PpmPortfolioView({
   const subtypes = useMemo(() => subtypeKeys(items), [items]);
 
   const filtered = useMemo(
-    () => filterItems(items, search, subtypeFilter),
-    [items, search, subtypeFilter],
+    () => filterItems(items, search, subtypeFilter, matchIds),
+    [items, search, subtypeFilter, matchIds],
   );
+
+  // The KPI tiles follow what the board shows. Narrowed, they count the rows
+  // themselves — an anchor kept only as its group's header is not one of them.
+  // Unnarrowed, the server's figures stand as they are.
+  const shown = useMemo(() => {
+    if (!dashboard) return null;
+    const narrowed = search !== "" || subtypeFilter !== "" || matchIds !== null;
+    return shownDashboard(
+      dashboard,
+      narrowed
+        ? filtered.filter((i) => !i.group_anchor || matchesBoard(i, search, subtypeFilter, matchIds))
+        : null,
+    );
+  }, [dashboard, filtered, search, subtypeFilter, matchIds]);
 
   const groups = useMemo(() => groupItems(filtered, t("noGroup")), [filtered, t]);
 
@@ -551,13 +605,15 @@ export default function PpmPortfolioView({
   );
 
   const printParams: PrintParam[] = useMemo(
-    () =>
-      buildPrintParams(
+    () => [
+      ...buildPrintParams(
         { groupTypeLabel: groupLabel, subtype: subtypeFilter, search, layout },
         t,
         resolveSubtype,
       ),
-    [t, groupLabel, subtypeFilter, search, layout, resolveSubtype],
+      ...extraPrintParams,
+    ],
+    [t, groupLabel, subtypeFilter, search, layout, resolveSubtype, extraPrintParams],
   );
 
   const buildExportData = useCallback(
@@ -600,26 +656,55 @@ export default function PpmPortfolioView({
     return f.derivedDates ? <Tooltip title={derivedDatesTip(f)}>{text}</Tooltip> : text;
   };
 
+  const actualText = (item: PpmPortfolioItem) => {
+    if (!showActualDates) return null;
+    const { actual_start_date: start, actual_end_date: end } = item as PpmPrivatePortfolioItem;
+    if (!start && !end) return null;
+    return t("actualDates", { start: start ? formatDate(start) : "—", end: end ? formatDate(end) : "—" });
+  };
+
+  const renderActual = (item: PpmPortfolioItem) => {
+    const label = actualText(item);
+    if (!label) return null;
+    const { actual_start_date: start, actual_end_date: end } = item as PpmPrivatePortfolioItem;
+    const bar = dateRangeBar(start, end, timeline);
+    return (
+      <Box aria-label={label} role="img" sx={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        {bar && <Box data-actual-track sx={{
+          position: "absolute", left: bar.left + "%",
+          width: bar.width ? bar.width + "%" : 8,
+          height: 7, bottom: "16%", bgcolor: theme.palette.secondary.main,
+          borderRadius: bar.width ? bar.borderRadius : "50%",
+          transform: bar.width ? undefined : "translateX(-50%)",
+        }} />}
+      </Box>
+    );
+  };
+  const renderActualText = (item: PpmPortfolioItem) => {
+    const label = actualText(item);
+    return label ? <Typography variant="caption" color="text.secondary">{label}</Typography> : null;
+  };
+
   // ── Desktop: Gantt timeline bar ──
   // An anchored group's bottom line passes `clickable: false`: it is no row to open.
   const renderBar = (item: PpmPortfolioItem, f: RowFigures, clickable = true) => {
     const open = clickable ? onOpen : undefined;
     const bar = barModel(item, timeline);
     if (!bar) return null;
-    const range = `${f.startDate} \u2192 ${f.endDate}`;
+    const rangeLabel = `${f.startDate} \u2192 ${f.endDate}`;
     return (
-      <Tooltip title={bar.derived ? `${range} \u00b7 ${derivedDatesTip(f)}` : range}>
+      <Tooltip title={bar.derived ? `${rangeLabel} \u00b7 ${derivedDatesTip(f)}` : rangeLabel}>
         <Box
           data-derived={bar.derived ? "dates" : undefined}
           sx={{
             position: "absolute",
             left: `${bar.left}%`,
-            width: `${bar.width}%`,
+            width: bar.width ? `${bar.width}%` : 8,
             height: 16,
-            borderRadius: bar.borderRadius,
+            borderRadius: bar.width ? bar.borderRadius : "50%",
             ...(bar.derived ? dashedOutline(bar.color) : { bgcolor: bar.color }),
             opacity: 0.9,
-            top: "50%",
+            top: showActualDates && actualText(item) ? "28%" : "50%",
             transform: "translateY(-50%)",
             ...(open ? { cursor: "pointer", "&:hover": { opacity: 1 } } : {}),
           }}
@@ -630,13 +715,13 @@ export default function PpmPortfolioView({
   };
 
   // ── RAG dot helper ──
-  const ragDot = (value: string | undefined, size = 16) => (
+  const ragDot = (value: string | null | undefined, size = 16) => (
     <Box
       sx={{
         width: size,
         height: size,
         borderRadius: "50%",
-        bgcolor: ragColor(value),
+        bgcolor: ragColor(value ?? undefined),
         border: value ? undefined : `1px solid ${theme.palette.divider}`,
         flexShrink: 0,
       }}
@@ -729,12 +814,13 @@ export default function PpmPortfolioView({
         </Typography>
 
         {/* Plan column */}
-        {renderPlan(f, plan, PLAN_CELL_SX)}
+        <Box>{renderPlan(f, plan, PLAN_CELL_SX)}{renderActualText(item)}</Box>
 
         {/* Timeline bar */}
         <Box sx={{ position: "relative", height: "100%", mx: 0.5 }}>
           {nowLine}
           {renderBar(item, f)}
+          {renderActual(item)}
         </Box>
 
         {/* RAG dots */}
@@ -847,8 +933,16 @@ export default function PpmPortfolioView({
           <Typography variant="caption" color="text.secondary" noWrap>
             {pm?.display_name || "\u2014"}
           </Typography>
-          {renderPlan(f, plan, NO_SX)}
+          <Box>{renderPlan(f, plan, NO_SX)}{renderActualText(item)}</Box>
         </Box>
+
+        {showActualDates && (f.startDate || f.endDate || actualText(item)) && (
+          <Box sx={{ position: "relative", height: 32, mt: 1 }}>
+            {nowLine}
+            {renderBar(item, f)}
+            {renderActual(item)}
+          </Box>
+        )}
 
         {/* Row 3: RAG dots + Report date */}
         <Box
@@ -1004,10 +1098,11 @@ export default function PpmPortfolioView({
           {groupLabel}
         </Typography>
         <Box />
-        {renderPlan(f, plan, PLAN_CELL_SX)}
+        <Box>{renderPlan(f, plan, PLAN_CELL_SX)}{renderActualText(anchor)}</Box>
         <Box sx={{ position: "relative", height: "100%", mx: 0.5 }}>
           {nowLine}
           {renderBar(anchor, f, false)}
+          {renderActual(anchor)}
         </Box>
         <Box />
         <Box />
@@ -1056,8 +1151,15 @@ export default function PpmPortfolioView({
           <Typography variant="caption" fontWeight={600} color="text.secondary">
             {groupLabel}
           </Typography>
-          {renderPlan(f, plan, NO_SX)}
+          <Box>{renderPlan(f, plan, NO_SX)}{renderActualText(anchor)}</Box>
         </Box>
+        {showActualDates && (f.startDate || f.endDate || actualText(anchor)) && (
+          <Box sx={{ position: "relative", height: 32, mt: 1 }}>
+            {nowLine}
+            {renderBar(anchor, f, false)}
+            {renderActual(anchor)}
+          </Box>
+        )}
         {hasAnyCost(anchor) && (
           <Box display="flex" gap={2} mt={0.75}>
             <Box flex={1}>
@@ -1222,6 +1324,7 @@ export default function PpmPortfolioView({
           />
         </span>
       </Tooltip>
+      {filterSection}
     </>
   );
 
@@ -1234,7 +1337,7 @@ export default function PpmPortfolioView({
       ) : (
         <Box className="ppm-portfolio">
         {/* KPI Bar */}
-        {dashboard && (
+        {shown && (
           <Paper
             sx={{
               display: "flex",
@@ -1252,25 +1355,25 @@ export default function PpmPortfolioView({
                 {t("totalInitiatives")}
               </Typography>
               <Typography variant="h6" fontWeight={700}>
-                {dashboard.total_initiatives}
+                {shown.total_initiatives}
               </Typography>
             </Box>
-            {dashboard.total_budget != null && (
+            {shown.total_budget != null && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
                   {t("totalBudget")}
                 </Typography>
                 <Typography variant="h6" fontWeight={700}>
-                  {fmtShort(dashboard.total_budget)}
+                  {fmtShort(shown.total_budget)}
                 </Typography>
               </Box>
             )}
             <Box display="flex" gap={2} alignItems="center">
               {(
                 [
-                  ["onTrack", dashboard.health_schedule.onTrack],
-                  ["atRisk", dashboard.health_schedule.atRisk],
-                  ["offTrack", dashboard.health_schedule.offTrack],
+                  ["onTrack", shown.health_schedule.onTrack],
+                  ["atRisk", shown.health_schedule.atRisk],
+                  ["offTrack", shown.health_schedule.offTrack],
                 ] as const
               ).map(([key, count]) => (
                 <Box key={key} display="flex" alignItems="center" gap={0.5}>

@@ -32,12 +32,12 @@
 | **清单** | 可搜索、可筛选的所有 card 列表（涵盖所有类型）。批量编辑、Excel/CSV 导入导出，以及可共享的已保存视图 |
 | **报告** | 预置可视化：投资组合、能力地图、生命周期、依赖关系、成本、矩阵、数据质量和生命周期结束 |
 | **BPM** | 业务流程管理 —— 使用 BPMN 2.0 编辑器对业务流程建模，将图表元素链接到 card，并评估成熟度、风险与自动化程度 |
-| **PPM** | 项目组合管理 —— 将 Initiative card 作为完整项目管理：状态报告、Work Breakdown Structures、看板与甘特图、预算、成本，以及每个倡议的风险登记册 |
+| **PML** | 项目总表 —— 将 Initiative card 作为完整项目管理：状态报告、Work Breakdown Structures、看板与甘特图、预算、成本，以及每个倡议的风险登记册 |
 | **TurboLens** | AI 驱动的 EA 智能 —— 供应商分析、重复检测、现代化评估、5 步 Architecture AI 向导，以及合规扫描（EU AI Act / GDPR / NIS2 / DORA / SOC 2 / ISO 27001） |
 | **EA Delivery** | 与 TOGAF 对齐的交付层 —— Statements of Architecture Work、Architecture Decision Records 以及 EA 全景级别的风险登记册 |
 | **SoAW** | 架构工作说明书 —— TOGAF 中正式界定架构项目范围的文档 |
 | **ADR** | 架构决策记录 —— 捕获决策的背景、备选方案与后果，含状态工作流和 card 链接 |
-| **风险登记册** | EA 全景级别的 TOGAF 阶段 G 风险登记册，独立于 PPM 的倡议级风险。指派负责人会自动创建一项待办事项 |
+| **风险登记册** | EA 全景级别的 TOGAF 阶段 G 风险登记册，独立于 PML 的倡议级风险。指派负责人会自动创建一项待办事项 |
 | **网页门户** | 基于 slug 的公开只读视图，展示 EA 全景的一部分 —— 无需登录即可分享 |
 | **MCP 服务器** | 通过 Model Context Protocol 提供的只读 AI 工具访问 —— 可从 Claude Desktop、Cursor、GitHub Copilot 等 MCP 客户端查询 EA 数据 |
 | **RBAC** | 基于角色的访问控制 —— 应用级角色加上每张 card 的干系人角色，包含 50 多项细粒度权限 |

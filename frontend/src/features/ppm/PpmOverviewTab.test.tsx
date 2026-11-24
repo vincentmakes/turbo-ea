@@ -70,6 +70,7 @@ beforeEach(() => {
   mockApi.reset();
   hookState.reset();
   mockApi.on("get", "/ppm/initiatives/i1/completion", { completion: 40, wbs_count: 3 });
+  mockApi.on("get", "/ppm/initiatives/i1/schedule", { initiative_id: "i1", start_date: null, end_date: null, plan_derived: false });
 });
 
 describe("PpmOverviewTab — description", () => {
@@ -214,18 +215,19 @@ describe("PpmOverviewTab — completion", () => {
 describe("PpmOverviewTab — timeline", () => {
   it("shows the start and end dates in the workspace date format", async () => {
     hookState.dateFormat = "DD/MM/YYYY";
+    mockApi.on("get", "/ppm/initiatives/i1/schedule", { initiative_id: "i1", start_date: "2026-03-01", end_date: "2026-11-30", plan_start_date: "2026-03-01", plan_end_date: "2026-11-30", actual_start_date: "2026-04-12", actual_start_label: "Aruba Actual Start", plan_derived: false });
     renderTab({
       ...CARD,
       attributes: { startDate: "2026-03-01", endDate: "2026-11-30" },
     } as unknown as Card);
-    await screen.findByText("40%");
+    await screen.findByText("Aruba Actual Start");
     expect(screen.getByText("Start Date").nextElementSibling).toHaveTextContent("01/03/2026");
     expect(screen.getByText("End Date").nextElementSibling).toHaveTextContent("30/11/2026");
   });
 
   it("shows a dash for a date that is not set", async () => {
     renderTab();
-    await screen.findByText("40%");
+    await screen.findByText("Start Date");
     expect(screen.getByText("Start Date").nextElementSibling).toHaveTextContent("—");
     expect(screen.getByText("End Date").nextElementSibling).toHaveTextContent("—");
   });
@@ -252,11 +254,20 @@ describe("PpmOverviewTab — health summary", () => {
   /** The dot drawn before a health dimension's label. */
   const dotOf = (label: string) => screen.getByText(label).previousElementSibling as HTMLElement;
 
+  it("hides the cost health when the protected schedule omits it", async () => {
+    render(<PpmOverviewTab card={CARD} latestReport={report({})} costLines={[]} budgetLines={[]} rollup={null} />);
+    await screen.findByText("Start Date");
+    const summary = screen.getByText("Health Summary").parentElement!;
+    expect(within(summary).queryByText("Cost")).not.toBeInTheDocument();
+    expect(within(summary).getByText("Schedule")).toBeInTheDocument();
+  });
+
   it("paints each dimension's dot in the theme's RAG colour", async () => {
+    mockApi.on("get", "/ppm/initiatives/i1/schedule", { initiative_id: "i1", start_date: null, end_date: null, cost_health: "atRisk", plan_derived: false });
     render(
       <PpmOverviewTab card={CARD} latestReport={report({})} costLines={[]} budgetLines={[]} rollup={null} />,
     );
-    await screen.findByText("40%");
+    await screen.findByText("Cost");
     expect(dotOf("Schedule")).toHaveStyle({ backgroundColor: RAG_COLORS.green });
     expect(dotOf("Cost")).toHaveStyle({ backgroundColor: RAG_COLORS.amber });
     expect(dotOf("Scope")).toHaveStyle({ backgroundColor: RAG_COLORS.red });

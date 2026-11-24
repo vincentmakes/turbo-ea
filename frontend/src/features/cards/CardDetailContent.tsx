@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import MuiCard from "@mui/material/Card";
@@ -21,6 +21,7 @@ import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
 import { useCardTabActivity } from "@/hooks/useCardTabActivity";
 import { api } from "@/api/client";
+import { usePpmFinancials, usePpmSchedule } from "@/features/ppm/usePpmFinancials";
 import {
   DescriptionSection,
   LifecycleSection,
@@ -68,6 +69,8 @@ import {
   customSectionsOf,
   hiddenFieldKeys as hiddenFieldKeysOf,
   makeSectionConfigReader,
+  initiativeSummaryAnchors,
+  initiativeSummaryGroups,
   sectionDefaultExpanded,
 } from "@/features/cards/sectionConfig";
 import {
@@ -144,7 +147,7 @@ export default function CardDetailContent({
   focusTarget,
   onSaveOrigin,
 }: Props) {
-  const { t } = useTranslation("cards");
+  const { t } = useTranslation(["cards", "ppm"]);
   const navigate = useNavigate();
   const { getType } = useMetamodel();
   const { isCalculated } = useCalculatedFields();
@@ -153,6 +156,8 @@ export default function CardDetailContent({
   const { grcEnabled } = useGrcEnabled();
   const { user } = useAuthContext();
   const { can } = usePermissions(user);
+  const [scheduleRevision, setScheduleRevision] = useState(0);
+  const showInitiativeSummaries = !boScoped && card.type === "Initiative" && ppmEnabled && can("ppm.view");
 
   // Card-scoped Risks / Compliance counts. `null` = still loading → render the
   // tab optimistically so we don't flash it on for cards that DO have items.
@@ -347,6 +352,9 @@ export default function CardDetailContent({
   const secRaw = sectionCfg.raw;
   const secExpanded = sectionCfg.expanded;
   const secHidden = sectionCfg.hidden;
+  const summaryAnchors = showInitiativeSummaries
+    ? initiativeSummaryAnchors(customSections.filter((_, index) => !secHidden("custom:" + index)), hiddenFieldKeys)
+    : undefined;
 
   const sectionOrder = buildSectionOrder(sc as Record<string, unknown>, customSections.length, {
     hierarchy: !!typeConfig?.has_hierarchy,
@@ -367,6 +375,7 @@ export default function CardDetailContent({
       const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
       if (anchor) onSaveOriginRef.current?.(anchor);
       onCardUpdate(updated);
+      if (updates.attributes) setScheduleRevision((revision) => revision + 1);
     },
     [card.id, onCardUpdate],
   );
@@ -591,8 +600,18 @@ export default function CardDetailContent({
       return (
         <ErrorBoundary key={key} label={section.section}>
           <AttributeSection
-            section={section}
+            section={summaryAnchors ? initiativeSummaryGroups(section, t("ppm:summaryCost"), t("ppm:summaryTimeline")) : section}
             card={card}
+            renderAfterFields={summaryAnchors ? (keys) => (
+              <>
+                {perms.can_view_costs && summaryAnchors.financial && keys.includes(summaryAnchors.financial) && (
+                  <InitiativeFinancialSummary key={card.id} initiativeId={card.id} />
+                )}
+                {summaryAnchors.schedule && keys.includes(summaryAnchors.schedule) && (
+                  <InitiativeTimelineSummary key={card.id} card={card} revision={scheduleRevision} />
+                )}
+              </>
+            ) : undefined}
             onSave={saveFrom(customSectionAnchor(section.section))}
             onRelationChange={() => setRelRefresh((n) => n + 1)}
             canEdit={perms.can_edit}
@@ -888,4 +907,18 @@ export default function CardDetailContent({
       )}
     </>
   );
+}
+
+
+const PpmInitiativeFinancials = lazy(() => import("@/features/ppm/PpmInitiativeFinancials"));
+const PpmInitiativeTimeline = lazy(() => import("@/features/ppm/PpmInitiativeTimeline"));
+
+function InitiativeFinancialSummary({ initiativeId }: { initiativeId: string }) {
+  const { data } = usePpmFinancials(initiativeId);
+  return data ? <Suspense fallback={null}><PpmInitiativeFinancials data={data} /></Suspense> : null;
+}
+
+function InitiativeTimelineSummary({ card, revision }: { card: Card; revision: number }) {
+  const { data } = usePpmSchedule(card.id, revision);
+  return data ? <Suspense fallback={null}><PpmInitiativeTimeline schedule={data} name={card.name} showDates={false} /></Suspense> : null;
 }

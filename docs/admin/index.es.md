@@ -6,7 +6,7 @@ La sección **Admin** está disponible para usuarios con el rol **Admin**. Propo
 
 | Página | Descripción |
 |--------|-------------|
-| [Configuración General](settings.md) | Apariencia (logo, favicon, moneda), idiomas habilitados, año fiscal, correo electrónico (SMTP) e interruptores de módulos (BPM, PPM, GRC) |
+| [Configuración General](settings.md) | Apariencia (logo, favicon, moneda), idiomas habilitados, año fiscal, correo electrónico (SMTP) e interruptores de módulos (BPM, PML, GRC) |
 | [Metamodelo](metamodel.md) | Tipos de ficha, campos, secciones, subtipos, tipos de relación, cálculos, etiquetas, principios EA y el grafo del metamodelo |
 | [Cálculos](calculations.md) | Fórmulas definidas por el administrador que calculan automáticamente valores de campos al guardar fichas |
 | [Etiquetas](tags.md) | Grupos de etiquetas y etiquetas para la categorización flexible de fichas |

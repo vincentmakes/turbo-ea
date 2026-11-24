@@ -4,7 +4,7 @@ The **Settings** page at **Admin → Settings** (`/admin/settings`) is the centr
 
 | Tab | URL | What it controls | Full guide |
 |-----|-----|------------------|------------|
-| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), email delivery, **module toggles** (BPM, PPM, GRC, ArchiMate, TurboLens, Sponsor button, TurboRPG mode) | This page |
+| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), email delivery, **module toggles** (BPM, PML, GRC, ArchiMate, TurboLens, Sponsor button, TurboRPG mode) | This page |
 | **Authentication** | `/admin/settings?tab=authentication` | SSO providers, registration, password policy | [Authentication & SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM provider, model, web search backend, per-card-type AI suggestion toggles | [AI Capabilities](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Mass-linking products to endoflife.date entries | [End-of-Life (EOL)](eol.md) |
@@ -14,8 +14,9 @@ The **Settings** page at **Admin → Settings** (`/admin/settings`) is the centr
 | **Migration** | `/admin/settings?tab=migration` | Imports from other EA platforms, and full workspace transfer between Turbo EA instances | [Platform Migration](migration.md) |
 | **Audit log** | `/admin/settings?tab=audit-log` | **Changes**: the mutation-batch ledger — who changed what, and whether it came from the web UI, the API, an AI tool or an extension. **Security & admin**: sign-ins, failed attempts, lockouts and other security events | [Audit Log](audit-log.md) |
 | **Resources** | `/admin/settings?tab=resources` | Every file and link attached to a card, with storage statistics and bulk clean-up | [Resources](resources.md) |
+| **PML** | `/admin/settings?tab=pml` | Financial row fields, calculations, Provider inheritance and Initiative date mappings | [PML configuration](#ppm-module) |
 
-The rest of this page covers the **General** tab.
+The sections below cover **General** settings and PML configuration.
 
 ![General Settings](../assets/img/en/28_admin_settings_general.png)
 
@@ -45,7 +46,7 @@ Select the currency used for cost fields across the platform. This affects how c
 
 ### Date Format
 
-Choose how dates are displayed throughout the application. The selected format applies to card lifecycle dates, the inventory grid, ADR and SoAW signed dates, the Risk Register, PPM reports and tasks, BPM process flow versions, comments, history, the dashboard activity feed, notifications, and admin pages. Five formats are offered with a live preview as you choose:
+Choose how dates are displayed throughout the application. The selected format applies to card lifecycle dates, the inventory grid, ADR and SoAW signed dates, the Risk Register, PML reports and tasks, BPM process flow versions, comments, history, the dashboard activity feed, notifications, and admin pages. Five formats are offered with a live preview as you choose:
 
 - `MM/DD/YYYY` — US style (e.g. `04/29/2026`)
 - `DD/MM/YYYY` — European style (e.g. `29/04/2026`)
@@ -65,7 +66,7 @@ At least one language must remain enabled at all times.
 
 ### Fiscal Year Start
 
-Select the month that begins your organization's fiscal year (January through December). This setting affects how **budget lines** in the PPM module are grouped by fiscal year. For example, if the fiscal year starts in April, a budget line dated June 2026 belongs to FY 2026–2027. It also decides which fiscal year the [Cost Report](../guide/reports.md#cost-report) shows.
+Select the month that begins your organization's fiscal year (January through December). This setting affects how **budget lines** in the PML module are grouped by fiscal year. For example, if the fiscal year starts in April, a budget line dated June 2026 belongs to FY 2026–2027. It also decides which fiscal year the [Cost Report](../guide/reports.md#cost-report) shows.
 
 The default is **January** (calendar year = fiscal year).
 
@@ -168,14 +169,41 @@ Off by default. When enabled, the person who submits a process flow revision can
 
 Leave it off for a small team where the same person drafts and signs off. Turning it on does not change what is recorded: every submission, approval, rejection and withdrawal is written to the card's **History** tab either way.
 
-## PPM Module
+## Project Master List (PML) { #ppm-module }
 
-Toggle the **Project Portfolio Management** module on or off. When disabled:
+Use **Project Master List (PML)** on the **General** tab to control access to the module. When disabled, the navigation entry, the PML tab on Initiative cards and the module's embedded financial and timeline summaries are hidden. Initiative cards and their Metamodel fields stay available according to their existing permissions. See the [Project Master List guide](../guide/ppm.md).
 
-- The **PPM** navigation item is hidden from all users
-- Initiative cards remain in the database but PPM-specific features (status reports, budget & cost tracking, risk register, task board, Gantt chart) are not accessible
+### Configure Budget & Costs { #pml-budget-costs }
 
-When enabled, Initiative cards gain a **PPM** tab in their detail view and the PPM portfolio dashboard becomes available in the main navigation. See [Project Portfolio Management](../guide/ppm.md) for the full feature guide.
+In **Admin → Settings → PML → Budget & Costs**, choose **Planned Budget**, **Cost Items** or **Actual Invoiced**. Each has its own field definitions and display order. Select **Add field**, enter a stable field key and a display label, then choose the type. Use **Show as column** to include the field in the hierarchy and print, and use the move controls to change its order. Deactivate a field to stop using it while keeping recorded values. Save each section with **Save settings**.
+
+For a calculated field, select **Calculated**, set the result type and add the input aliases and their source fields. Choose **Formula** for an expression or **Ordered rules** for conditions evaluated from top to bottom. The first matching rule supplies the result and **Fallback result** is used when no rule matches. Conditions can combine comparisons with AND, OR and NOT. Enter sample values and select **Preview** before saving. These settings calculate fields on financial rows. [Metamodel Calculations](calculations.md) calculates fields on cards.
+
+A **Card reference** selects a card of the configured type. You can select a compatible relation to link the referenced card to the Initiative. On **Cost Items**, choose a **Provider field on Planned Budget** to inherit the Provider and optionally enable **Allow direct child Providers on Cost Items**. Use **Actual Invoiced** for its own text, list, date, reference or calculated fields. The Provider belongs to the budget and its Cost Items.
+
+#### Example configuration for Aruba
+
+| Section | Field label and example key | Setup |
+|---------|-----------------------------|-------|
+| Planned Budget | **Origine Costi** (`origineCosti`) | **Card reference** to **Provider**. Choose the existing **Supports** relation to link Providers to the Initiative. On **Cost Items**, select this budget field as the Provider source and enable direct children when needed. |
+| Cost Items | **Gestione intercompany** (`gestioneIntercompany`) | **Single select** with **Plafond**, **Canone**, **Progetto** and **N.A.** |
+| Cost Items | **OdA — Ordine d’acquisto** (`ordineAcquisto`) | **Text**, for example `ODA-000427`. |
+| Cost Items | **Origine Costi Aggregato** (`origineCostiAggregato`) | **Calculated**, result type **Text**. Add inputs for the effective Provider and, optionally, the budget Provider and the purchase type. |
+
+For **Origine Costi Aggregato**, an optional **Tipo di spesa** single select can distinguish **Licenze** and **Servizi esterni** even when two Cost Items use the same Provider. Add rules in this order.
+
+1. A licence purchase yields **Licenze**.
+2. An external service or a Provider configured as an external service source yields **Servizi Esterni**.
+3. **Aruba Spa**, **Aruba PEC** or **Actalis** yields **Servizi interni**.
+4. **Aruba Software**, **Aruba System**, **Aruba Cybersecurity**, **Aruba Marketing**, **Aruba Service Desk**, **Aruba Enterprise** or **Aruba DC&Infra** yields **Servizi Intercompany**.
+
+Choose the actual Provider cards when building comparisons. You can add rules that check the budget Provider when the effective child has no classification. Leave the fallback empty until there is enough information to classify the row. For example, a budget can use **Aruba Software** and a Cost Item can select its direct child **Aruba Software / Licensing** and record `Canone` and `ODA-000427`. These field keys, labels, choices and rules are example instance configuration.
+
+### Configure Timeline { #pml-timeline }
+
+Open **Admin → Settings → PML → Timeline** to select the Initiative fields displayed as **Actual Start** and **Actual End**. The built-in defaults are `actualStart` and `actualEnd`. You can map two distinct, editable date fields instead. **Start Date** and **End Date** remain the planned dates. A field key is case-sensitive, so a custom field keeps its saved key. When a built-in field is missing, an administrator with Metamodel edit permission can create it from this screen.
+
+The card, internal Portfolio and Initiative Report respect field visibility. The public Portfolio displays the **Plan** track. The mapping and financial field configuration can travel in a [workspace bundle](workspace-transfer.md).
 
 ## GRC Module
 

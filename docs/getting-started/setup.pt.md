@@ -65,12 +65,12 @@ Em seguida `docker compose up -d` (se já iniciou, consulte «Redefinir e re-sem
 
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
-| `SEED_DEMO` | `false` | Carrega o conjunto completo NexaTech Industries, incluindo dados BPM e PPM |
+| `SEED_DEMO` | `false` | Carrega o conjunto completo NexaTech Industries, incluindo dados BPM e PML |
 | `SEED_BPM` | `false` | Carrega apenas processos BPM de demonstração (subconjunto de `SEED_DEMO`) |
-| `SEED_PPM` | `false` | Carrega apenas dados de projetos PPM (subconjunto de `SEED_DEMO`) |
+| `SEED_PPM` | `false` | Carrega apenas dados de projetos PML (subconjunto de `SEED_DEMO`) |
 | `RESET_DB` | `false` | Elimina todas as tabelas e as recria a partir do zero ao iniciar |
 
-`SEED_DEMO=true` já inclui dados BPM e PPM — não é necessário definir os flags de subconjunto separadamente.
+`SEED_DEMO=true` já inclui dados BPM e PML — não é necessário definir os flags de subconjunto separadamente.
 
 !!! note "Os dados de demonstração são carregados uma única vez"
     Cada seeder é executado **uma vez por instalação** e regista isso. Eliminar
@@ -94,11 +94,11 @@ Quando os dados de demonstração são carregados, uma conta de administrador pa
 
 ### O que a demo inclui
 
-Cerca de 150 cards distribuídos pelas quatro camadas de arquitetura, além de relações, etiquetas, comentários, tarefas, diagramas BPM, dados PPM, ADR e um Statement of Architecture Work:
+Cerca de 150 cards distribuídos pelas quatro camadas de arquitetura, além de relações, etiquetas, comentários, tarefas, diagramas BPM, dados PML, ADR e um Statement of Architecture Work:
 
 - **Núcleo EA** — Organizações, ~20 Capacidades de Negócio, Contextos de Negócio, ~15 Aplicações, ~20 Componentes de TI, Interfaces, Objetos de Dados, Plataformas, Objetivos, 6 Iniciativas, 5 grupos de etiquetas, 60+ relações.
 - **BPM** — ~30 processos de negócio em uma hierarquia de 4 níveis com diagramas BPMN 2.0, vínculos elemento-card e avaliações de processo.
-- **PPM** — Relatórios de status, Work Breakdown Structures, ~60 tarefas, linhas de orçamento e custo, e um registro de riscos sobre as 6 Iniciativas de demonstração.
+- **PML** — Relatórios de status, Work Breakdown Structures, ~60 tarefas, linhas de orçamento e custo, e um registro de riscos sobre as 6 Iniciativas de demonstração.
 - **EA Delivery** — Architecture Decision Records e Statements of Architecture Work.
 
 ### Redefinir e re-semear

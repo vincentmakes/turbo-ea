@@ -4,17 +4,19 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
+from app.api.v1.ppm_field_settings import _protected_fields, load_section, lock_field_settings
 from app.models.card import Card
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
+from app.models.ppm_invoice import PpmInvoice
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
@@ -23,6 +25,8 @@ from app.models.ppm_wbs import PpmWbs
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.ppm import (
+    PmlInitiativeScheduleOut,
+    PmlProviderChoicePage,
     PpmBudgetLineCreate,
     PpmBudgetLineOut,
     PpmBudgetLineUpdate,
@@ -31,7 +35,11 @@ from app.schemas.ppm import (
     PpmCostLineUpdate,
     PpmDependencyCreate,
     PpmDependencyOut,
+    PpmFinancialsOut,
     PpmGanttMove,
+    PpmInvoiceCreate,
+    PpmInvoiceOut,
+    PpmInvoiceUpdate,
     PpmRiskCreate,
     PpmRiskOut,
     PpmRiskUpdate,
@@ -50,7 +58,13 @@ from app.schemas.ppm import (
     PpmWbsUpdate,
     ReporterOut,
 )
-from app.services import notification_service
+from app.services import (
+    notification_service,
+    ppm_field_relations,
+    ppm_field_values,
+    ppm_financials,
+    ppm_providers,
+)
 from app.services.calculation_ppm import root_wbs_completion_map
 from app.services.card_read_scope import CardReadScope, is_card_readable
 from app.services.card_write_service import recalculate_and_rescore
@@ -62,7 +76,7 @@ from app.services.ppm_gantt_move import (
     assert_no_wbs_cycle,
     next_sort_order,
 )
-from app.services.ppm_portfolio_service import build_initiative_rollup
+from app.services.ppm_portfolio_service import build_initiative_rollup, build_initiative_schedule
 
 router = APIRouter(prefix="/ppm", tags=["ppm"])
 
@@ -103,9 +117,13 @@ async def _ensure_initiative_readable(
 
 
 async def _sync_initiative_costs(
-    db: AsyncSession, initiative_id: str, actor_id: uuid.UUID | None = None
+    db: AsyncSession,
+    initiative_id: str,
+    actor_id: uuid.UUID | None = None,
+    deferred_messages: list[dict] | None = None,
 ) -> None:
     """Roll up PPM budget/cost line totals into the Initiative card attributes."""
+    await db.flush()
     result = await db.execute(
         select(Card).where(Card.id == initiative_id, Card.type == "Initiative")
     )
@@ -142,12 +160,13 @@ async def _sync_initiative_costs(
     # saved by hand. The exclusions inside keep a calculation from writing back
     # over the two fields PPM owns — without them the rollup and the formula
     # would overwrite each other on alternate edits. They are computed here,
-    # after the caller's commit, so deleting the last budget line correctly
+    # before the caller commits, so deleting the last budget line correctly
     # releases `costBudget` back to calculations.
     await recalculate_and_rescore(db, card)
-    await _publish_initiative_rollup(db, card, old_attrs, "ppm_cost_rollup", actor_id)
-    await _refresh_ancestors(db, card, actor_id)
-    await db.commit()
+    await _publish_initiative_rollup(
+        db, card, old_attrs, "ppm_cost_rollup", actor_id, deferred_messages
+    )
+    await _refresh_ancestors(db, card, actor_id, deferred_messages)
 
 
 async def _publish_initiative_rollup(
@@ -156,6 +175,7 @@ async def _publish_initiative_rollup(
     old_attrs: dict,
     source: str,
     actor_id: uuid.UUID | None,
+    deferred_messages: list[dict] | None = None,
 ) -> None:
     """Record a PPM-driven attribute change on the card's History tab.
 
@@ -176,6 +196,7 @@ async def _publish_initiative_rollup(
         db=db,
         card_id=card.id,
         user_id=actor_id,
+        deferred_messages=deferred_messages,
     )
 
 
@@ -204,7 +225,12 @@ async def _refresh_initiative_derived(
     await db.commit()
 
 
-async def _refresh_ancestors(db: AsyncSession, card: Card, actor_id: uuid.UUID | None) -> None:
+async def _refresh_ancestors(
+    db: AsyncSession,
+    card: Card,
+    actor_id: uuid.UUID | None,
+    deferred_messages: list[dict] | None = None,
+) -> None:
     """Re-run the calculations of every Initiative above ``card``, nearest first.
 
     A roll-up formula reads its children's values, so a parent must be
@@ -218,10 +244,14 @@ async def _refresh_ancestors(db: AsyncSession, card: Card, actor_id: uuid.UUID |
         await db.flush()
         old_attrs = dict(ancestor.attributes or {})
         await recalculate_and_rescore(db, ancestor)
-        await _publish_initiative_rollup(db, ancestor, old_attrs, "ppm_rollup", actor_id)
+        await _publish_initiative_rollup(
+            db, ancestor, old_attrs, "ppm_rollup", actor_id, deferred_messages
+        )
 
 
-def _report_to_out(report: PpmStatusReport, reporter: ReporterOut | None) -> PpmStatusReportOut:
+def _report_to_out(
+    report: PpmStatusReport, reporter: ReporterOut | None, *, can_view_costs: bool
+) -> PpmStatusReportOut:
     return PpmStatusReportOut(
         id=str(report.id),
         initiative_id=str(report.initiative_id),
@@ -229,7 +259,7 @@ def _report_to_out(report: PpmStatusReport, reporter: ReporterOut | None) -> Ppm
         reporter=reporter,
         report_date=report.report_date,
         schedule_health=report.schedule_health,
-        cost_health=report.cost_health,
+        cost_health=report.cost_health if can_view_costs else None,
         scope_health=report.scope_health,
         summary=report.summary,
         accomplishments=report.accomplishments,
@@ -266,10 +296,11 @@ async def list_reports(
         .order_by(PpmStatusReport.report_date.desc())
     )
     reports = result.scalars().all()
+    can_view_costs = await PermissionService.can_view_costs(db, user, uuid.UUID(initiative_id))
     out = []
     for r in reports:
         reporter = await _get_reporter(db, r.reporter_id)
-        out.append(_report_to_out(r, reporter))
+        out.append(_report_to_out(r, reporter, can_view_costs=can_view_costs))
     return out
 
 
@@ -281,14 +312,15 @@ async def create_report(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id, user)
+    card = await _get_initiative_or_404(db, initiative_id, user)
+    can_view_costs = await PermissionService.can_view_costs(db, user, card.id)
     report = PpmStatusReport(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
         reporter_id=user.id,
         report_date=body.report_date,
         schedule_health=body.schedule_health,
-        cost_health=body.cost_health,
+        cost_health=body.cost_health if can_view_costs else "onTrack",
         scope_health=body.scope_health,
         summary=body.summary,
         accomplishments=body.accomplishments,
@@ -299,7 +331,7 @@ async def create_report(
     await _refresh_initiative_derived(db, initiative_id, user.id)
     await db.refresh(report)
     reporter = ReporterOut(id=str(user.id), display_name=user.display_name or user.email)
-    return _report_to_out(report, reporter)
+    return _report_to_out(report, reporter, can_view_costs=can_view_costs)
 
 
 @router.patch("/reports/{report_id}", response_model=PpmStatusReportOut)
@@ -315,13 +347,17 @@ async def update_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     await _ensure_initiative_readable(db, user, report.initiative_id)
-    for key, val in body.model_dump(exclude_unset=True).items():
+    can_view_costs = await PermissionService.can_view_costs(db, user, report.initiative_id)
+    changes = body.model_dump(exclude_unset=True)
+    if not can_view_costs:
+        changes.pop("cost_health", None)
+    for key, val in changes.items():
         setattr(report, key, val)
     await db.commit()
     await _refresh_initiative_derived(db, report.initiative_id, user.id)
     await db.refresh(report)
     reporter = await _get_reporter(db, report.reporter_id)
-    return _report_to_out(report, reporter)
+    return _report_to_out(report, reporter, can_view_costs=can_view_costs)
 
 
 @router.delete("/reports/{report_id}", status_code=204)
@@ -342,13 +378,123 @@ async def delete_report(
     await _refresh_initiative_derived(db, initiative_id, user.id)
 
 
+def _financial_standard(row) -> dict:
+    keys = (
+        "fiscal_year",
+        "category",
+        "description",
+        "amount",
+        "planned",
+        "actual",
+        "date",
+        "invoice_date",
+        "invoice_id",
+    )
+    result = {}
+    for key in keys:
+        value = getattr(row, key, None)
+        if isinstance(value, date):
+            value = value.isoformat()
+        result[key] = value
+    return result
+
+
+async def _invoice_out(db: AsyncSession, user: User, row: PpmInvoice) -> PpmInvoiceOut:
+    config = await load_section(db, "invoice")
+    visible, calculated, references = await ppm_field_values.project_values(
+        db, user, config, row.field_values or {}, _financial_standard(row)
+    )
+    return PpmInvoiceOut.model_validate(row).model_copy(
+        update={
+            "field_values": visible,
+            "calculated_values": calculated,
+            "reference_display": references,
+        }
+    )
+
+
 # ── Cost Lines ─────────────────────────────────────────────────────
 
 
-def _cost_line_out(cl: PpmCostLine) -> PpmCostLineOut:
+async def _provider_projection(db, user, config, costs, budgets=None):
+    if budgets is None:
+        budget_ids = {row.budget_line_id for row in costs if row.budget_line_id is not None}
+        budgets = list(
+            (await db.scalars(select(PpmBudgetLine).where(PpmBudgetLine.id.in_(budget_ids)))).all()
+        )
+    return await ppm_providers.project_providers(db, user, config, budgets, costs)
+
+
+def _provider_lock_ids(budget, config, child_id):
+    if budget is None or config.provider_source is None or child_id is None:
+        return ()
+    parent = (budget.field_values or {}).get(config.provider_source.budget_field_key)
+    return tuple(value for value in (uuid.UUID(str(parent)) if parent else None, child_id) if value)
+
+
+async def _validate_cost_provider(db, user, budget, child_id, config, *, moved_cost=None):
+    try:
+        await ppm_providers.validate_provider_child(db, user, budget, child_id, config)
+    except HTTPException as exc:
+        if moved_cost is None:
+            raise
+        detail: dict[str, str | list[str]] = {"code": "provider_children_incompatible"}
+        if await PermissionService.can_view_costs(db, user, moved_cost.initiative_id):
+            detail["cost_ids"] = [str(moved_cost.id)]
+        raise HTTPException(409, detail=detail) from exc
+
+
+async def _cost_relation_inputs(db, config, old_values, new_values, old_child, new_child):
+    values_before = dict(old_values)
+    values_after = dict(new_values)
+    if config.provider_source is None or old_child == new_child:
+        return config, values_before, values_after
+    budget_config = await load_section(db, "budget")
+    source = next(
+        (
+            field
+            for field in budget_config.fields
+            if field.key == config.provider_source.budget_field_key
+        ),
+        None,
+    )
+    if source is None or not source.relation_type:
+        return config, values_before, values_after
+    synthetic = source.model_copy(update={"key": "provider.child"})
+    relation_config = config.model_copy(update={"fields": [*config.fields, synthetic]})
+    values_before[synthetic.key] = str(old_child) if old_child else None
+    values_after[synthetic.key] = str(new_child) if new_child else None
+    return relation_config, values_before, values_after
+
+
+async def _cost_line_out(db: AsyncSession, user: User, cl: PpmCostLine) -> PpmCostLineOut:
+    config = await load_section(db, "cost_item")
+    providers = await _provider_projection(db, user, config, [cl])
+    provider = providers[cl.id]
+    standard = {
+        **_financial_standard(cl),
+        "provider.effective": provider["effective_provider_context"],
+        "provider.budget": provider["budget_provider_context"],
+    }
+    visible, calculated, references = await ppm_field_values.project_values(
+        db, user, config, cl.field_values or {}, standard
+    )
+    return _cost_line_out_projected(cl, visible, calculated, references, provider)
+
+
+def _cost_line_out_projected(
+    cl: PpmCostLine, visible: dict, calculated: dict, references: dict, provider: dict
+) -> PpmCostLineOut:
     return PpmCostLineOut(
+        provider=provider["provider"],
+        provider_child_id=provider["provider_child_id"],
+        provider_child_enabled=provider["provider_child_enabled"],
+        field_values=visible,
+        calculated_values=calculated,
+        reference_display=references,
         id=str(cl.id),
         initiative_id=str(cl.initiative_id),
+        budget_line_id=cl.budget_line_id,
         description=cl.description,
         category=cl.category,
         planned=cl.planned,
@@ -372,7 +518,29 @@ async def list_cost_lines(
         .where(PpmCostLine.initiative_id == initiative_id)
         .order_by(PpmCostLine.created_at)
     )
-    return [_cost_line_out(cl) for cl in result.scalars().all()]
+    rows = list(result.scalars().all())
+    config = await load_section(db, "cost_item")
+    providers = await _provider_projection(db, user, config, rows)
+    values = await ppm_field_values.project_many(
+        db,
+        user,
+        config,
+        [
+            (
+                row.field_values or {},
+                {
+                    **_financial_standard(row),
+                    "provider.effective": providers[row.id]["effective_provider_context"],
+                    "provider.budget": providers[row.id]["budget_provider_context"],
+                },
+            )
+            for row in rows
+        ],
+    )
+    return [
+        _cost_line_out_projected(row, *projection, providers[row.id])
+        for row, projection in zip(rows, values, strict=True)
+    ]
 
 
 @router.post("/initiatives/{initiative_id}/costs", response_model=PpmCostLineOut)
@@ -383,8 +551,51 @@ async def create_cost_line(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id, user)
+    await lock_field_settings(db)
+    card = await _get_initiative_or_404(db, initiative_id, user)
+    config = await load_section(db, "cost_item")
+    field_values = await ppm_field_values.validate_values(
+        db, user, config, body.field_values, {}, creating=True
+    )
+    budget = await db.get(PpmBudgetLine, body.budget_line_id)
+    if budget is None or budget.initiative_id != card.id:
+        raise HTTPException(404, "Budget line not found")
+    if body.provider_child_id is not None:
+        await ppm_providers.validate_provider_child(
+            db, user, budget, body.provider_child_id, config
+        )
+    locked_provider_ids = _provider_lock_ids(budget, config, body.provider_child_id)
+    relation_config, before, after = await _cost_relation_inputs(
+        db, config, {}, field_values, None, body.provider_child_id
+    )
+    candidates = await ppm_field_relations.prepare_configured_card_relations(
+        db,
+        user,
+        card,
+        relation_config,
+        before,
+        after,
+        extra_lock_card_ids=locked_provider_ids,
+    )
+    if not candidates and not locked_provider_ids:
+        await ppm_financials.lock_initiative(db, card.id)
+    budget = await db.scalar(
+        select(PpmBudgetLine)
+        .where(PpmBudgetLine.id == body.budget_line_id)
+        .execution_options(populate_existing=True)
+    )
+    if budget is None or budget.initiative_id != card.id:
+        raise HTTPException(404, "Budget line not found")
+    if body.provider_child_id is not None:
+        if _provider_lock_ids(budget, config, body.provider_child_id) != locked_provider_ids:
+            raise HTTPException(409, "Budget Provider changed; retry")
+        await ppm_providers.validate_provider_child(
+            db, user, budget, body.provider_child_id, config
+        )
     cl = PpmCostLine(
+        provider_child_id=body.provider_child_id,
+        field_values=field_values,
+        budget_line_id=body.budget_line_id,
         id=uuid.uuid4(),
         initiative_id=initiative_id,
         description=body.description,
@@ -394,10 +605,14 @@ async def create_cost_line(
         date=body.date,
     )
     db.add(cl)
+    messages: list[dict] = []
+    await ppm_field_relations.apply_configured_card_relations(db, user, candidates, messages)
+    await _sync_initiative_costs(db, initiative_id, user.id, messages)
     await db.commit()
+    for message in messages:
+        event_bus.fanout(message)
     await db.refresh(cl)
-    await _sync_initiative_costs(db, initiative_id, user.id)
-    return _cost_line_out(cl)
+    return await _cost_line_out(db, user, cl)
 
 
 @router.patch("/costs/{cost_id}", response_model=PpmCostLineOut)
@@ -408,18 +623,108 @@ async def update_cost_line(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
+    await lock_field_settings(db)
     result = await db.execute(select(PpmCostLine).where(PpmCostLine.id == cost_id))
     cl = result.scalar_one_or_none()
     if not cl:
         raise HTTPException(status_code=404, detail="Cost line not found")
-    await _ensure_initiative_readable(db, user, cl.initiative_id)
     initiative_id = str(cl.initiative_id)
-    for key, val in body.model_dump(exclude_unset=True).items():
+    card = await _get_initiative_or_404(db, initiative_id, user)
+    config = await load_section(db, "cost_item")
+    old_values = dict(cl.field_values or {})
+    submitted = body.model_dump(exclude_unset=True).get("field_values", {})
+    if submitted is None:
+        raise HTTPException(422, "Field values cannot be null")
+    new_values = await ppm_field_values.validate_values(
+        db, user, config, submitted, old_values, creating=False
+    )
+    old_child = cl.provider_child_id
+    if old_child is not None and "provider_child_id" in body.model_fields_set:
+        providers = await _provider_projection(db, user, config, [cl])
+        if providers[cl.id]["provider_child_id"] is None:
+            raise HTTPException(403, "A referenced card is unavailable")
+    old_budget_id = cl.budget_line_id
+    target_budget_id = (
+        body.budget_line_id if "budget_line_id" in body.model_fields_set else cl.budget_line_id
+    )
+    target_child = (
+        body.provider_child_id if "provider_child_id" in body.model_fields_set else old_child
+    )
+    if target_budget_id is None and (cl.budget_line_id is not None or target_child is not None):
+        raise HTTPException(422, "Assigned cost requires a budget")
+    budget = await db.get(PpmBudgetLine, target_budget_id) if target_budget_id else None
+    if target_budget_id and (budget is None or budget.initiative_id != cl.initiative_id):
+        raise HTTPException(404, "Budget line not found")
+    validate_child = target_child is not None and (
+        "provider_child_id" in body.model_fields_set or target_budget_id != cl.budget_line_id
+    )
+    moved_cost = (
+        cl
+        if target_budget_id != old_budget_id and "provider_child_id" not in body.model_fields_set
+        else None
+    )
+    if validate_child and budget is not None and target_child is not None:
+        await _validate_cost_provider(db, user, budget, target_child, config, moved_cost=moved_cost)
+    locked_provider_ids = _provider_lock_ids(budget, config, target_child) if validate_child else ()
+    relation_config, before, after = await _cost_relation_inputs(
+        db, config, old_values, new_values, old_child, target_child
+    )
+    candidates = await ppm_field_relations.prepare_configured_card_relations(
+        db,
+        user,
+        card,
+        relation_config,
+        before,
+        after,
+        extra_lock_card_ids=locked_provider_ids,
+    )
+    if not candidates and not locked_provider_ids:
+        await ppm_financials.lock_initiative(db, cl.initiative_id)
+    cl = await db.scalar(
+        select(PpmCostLine).where(PpmCostLine.id == cl.id).execution_options(populate_existing=True)
+    )
+    if cl is None:
+        raise HTTPException(404, "Cost line not found")
+    changes = body.model_dump(exclude_unset=True)
+    if "budget_line_id" in changes:
+        budget_id = changes["budget_line_id"]
+        if budget_id is None and cl.budget_line_id is not None:
+            raise HTTPException(422, "Assigned cost requires a budget")
+        if budget_id is not None:
+            budget = await db.get(PpmBudgetLine, budget_id)
+            if budget is None or budget.initiative_id != cl.initiative_id:
+                raise HTTPException(404, "Budget line not found")
+    submitted = changes.pop("field_values", {})
+    if submitted is None:
+        raise HTTPException(422, "Field values cannot be null")
+    if (
+        (cl.field_values or {}) != old_values
+        or cl.provider_child_id != old_child
+        or cl.budget_line_id != old_budget_id
+    ):
+        raise HTTPException(409, "Financial values changed; retry")
+    if validate_child and target_child is not None:
+        budget = await db.scalar(
+            select(PpmBudgetLine)
+            .where(PpmBudgetLine.id == target_budget_id)
+            .execution_options(populate_existing=True)
+        )
+        if budget is None or budget.initiative_id != cl.initiative_id:
+            raise HTTPException(404, "Budget line not found")
+        if _provider_lock_ids(budget, config, target_child) != locked_provider_ids:
+            raise HTTPException(409, "Budget Provider changed; retry")
+        await _validate_cost_provider(db, user, budget, target_child, config, moved_cost=moved_cost)
+    cl.field_values = new_values
+    for key, val in changes.items():
         setattr(cl, key, val)
+    messages: list[dict] = []
+    await ppm_field_relations.apply_configured_card_relations(db, user, candidates, messages)
+    await _sync_initiative_costs(db, initiative_id, user.id, messages)
     await db.commit()
+    for message in messages:
+        event_bus.fanout(message)
     await db.refresh(cl)
-    await _sync_initiative_costs(db, initiative_id, user.id)
-    return _cost_line_out(cl)
+    return await _cost_line_out(db, user, cl)
 
 
 @router.delete("/costs/{cost_id}", status_code=204)
@@ -429,22 +734,52 @@ async def delete_cost_line(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
+    await PermissionService.require_permission(db, user, "ppm.view")
     result = await db.execute(select(PpmCostLine).where(PpmCostLine.id == cost_id))
     cl = result.scalar_one_or_none()
     if not cl:
         raise HTTPException(status_code=404, detail="Cost line not found")
     await _ensure_initiative_readable(db, user, cl.initiative_id)
     initiative_id = str(cl.initiative_id)
+    if not await PermissionService.can_view_costs(db, user, cl.initiative_id):
+        raise HTTPException(403, "Invoice access required")
+    await ppm_financials.lock_initiative(db, cl.initiative_id)
+    cl = await db.scalar(
+        select(PpmCostLine).where(PpmCostLine.id == cl.id).execution_options(populate_existing=True)
+    )
+    if cl is None:
+        raise HTTPException(404, "Cost line not found")
+    has_invoice = await db.scalar(
+        select(PpmInvoice.id).where(PpmInvoice.cost_item_id == cl.id).limit(1)
+    )
+    if has_invoice is not None:
+        raise HTTPException(409, "Cost line has invoices")
     await db.delete(cl)
+    messages: list[dict] = []
+    await _sync_initiative_costs(db, initiative_id, user.id, messages)
     await db.commit()
-    await _sync_initiative_costs(db, initiative_id, user.id)
+    for message in messages:
+        event_bus.fanout(message)
 
 
 # ── Budget Lines ──────────────────────────────────────────────────
 
 
-def _budget_line_out(bl: PpmBudgetLine) -> PpmBudgetLineOut:
+async def _budget_line_out(db: AsyncSession, user: User, bl: PpmBudgetLine) -> PpmBudgetLineOut:
+    config = await load_section(db, "budget")
+    visible, calculated, references = await ppm_field_values.project_values(
+        db, user, config, bl.field_values or {}, _financial_standard(bl)
+    )
+    return _budget_line_out_projected(bl, visible, calculated, references)
+
+
+def _budget_line_out_projected(
+    bl: PpmBudgetLine, visible: dict, calculated: dict, references: dict
+) -> PpmBudgetLineOut:
     return PpmBudgetLineOut(
+        field_values=visible,
+        calculated_values=calculated,
+        reference_display=references,
         id=str(bl.id),
         initiative_id=str(bl.initiative_id),
         fiscal_year=bl.fiscal_year,
@@ -479,7 +814,15 @@ async def list_budget_lines(
             PpmBudgetLine.id,
         )
     )
-    return [_budget_line_out(bl) for bl in result.scalars().all()]
+    rows = list(result.scalars().all())
+    config = await load_section(db, "budget")
+    values = await ppm_field_values.project_many(
+        db, user, config, [(row.field_values or {}, _financial_standard(row)) for row in rows]
+    )
+    return [
+        _budget_line_out_projected(row, *projection)
+        for row, projection in zip(rows, values, strict=True)
+    ]
 
 
 @router.post(
@@ -493,8 +836,33 @@ async def create_budget_line(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id, user)
+    await lock_field_settings(db)
+    card = await _get_initiative_or_404(db, initiative_id, user)
+    config = await load_section(db, "budget")
+    field_values = await ppm_field_values.validate_values(
+        db, user, config, body.field_values, {}, creating=True
+    )
+    cost_config = await load_section(db, "cost_item")
+    provider_source = cost_config.provider_source
+    provider_value = field_values.get(provider_source.budget_field_key) if provider_source else None
+    provider_id = uuid.UUID(provider_value) if provider_value else None
+    candidates = await ppm_field_relations.prepare_configured_card_relations(
+        db,
+        user,
+        card,
+        config,
+        {},
+        field_values,
+        extra_lock_card_ids=(provider_id,) if provider_id is not None else (),
+    )
+    if not candidates and provider_id is None:
+        await ppm_financials.lock_initiative(db, card.id)
+    if provider_id is not None:
+        await ppm_field_values.validate_values(
+            db, user, config, body.field_values, {}, creating=True
+        )
     bl = PpmBudgetLine(
+        field_values=field_values,
         id=uuid.uuid4(),
         initiative_id=initiative_id,
         fiscal_year=body.fiscal_year,
@@ -503,10 +871,14 @@ async def create_budget_line(
         amount=body.amount,
     )
     db.add(bl)
+    messages: list[dict] = []
+    await ppm_field_relations.apply_configured_card_relations(db, user, candidates, messages)
+    await _sync_initiative_costs(db, initiative_id, user.id, messages)
     await db.commit()
+    for message in messages:
+        event_bus.fanout(message)
     await db.refresh(bl)
-    await _sync_initiative_costs(db, initiative_id, user.id)
-    return _budget_line_out(bl)
+    return await _budget_line_out(db, user, bl)
 
 
 @router.patch("/budgets/{budget_id}", response_model=PpmBudgetLineOut)
@@ -517,18 +889,69 @@ async def update_budget_line(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
+    await lock_field_settings(db)
     result = await db.execute(select(PpmBudgetLine).where(PpmBudgetLine.id == budget_id))
     bl = result.scalar_one_or_none()
     if not bl:
         raise HTTPException(status_code=404, detail="Budget line not found")
-    await _ensure_initiative_readable(db, user, bl.initiative_id)
     initiative_id = str(bl.initiative_id)
-    for key, val in body.model_dump(exclude_unset=True).items():
+    card = await _get_initiative_or_404(db, initiative_id, user)
+    config = await load_section(db, "budget")
+    cost_config = await load_section(db, "cost_item")
+    old_values = dict(bl.field_values or {})
+    submitted = body.model_dump(exclude_unset=True).get("field_values", {})
+    if submitted is None:
+        raise HTTPException(422, "Field values cannot be null")
+    new_values = await ppm_field_values.validate_values(
+        db, user, config, submitted, old_values, creating=False
+    )
+    source = cost_config.provider_source
+    provider_value = new_values.get(source.budget_field_key) if source else None
+    new_provider = uuid.UUID(provider_value) if provider_value else None
+    provider_changed = source is not None and provider_value != old_values.get(
+        source.budget_field_key
+    )
+    locked_provider = new_provider if provider_changed else None
+    candidates = await ppm_field_relations.prepare_configured_card_relations(
+        db,
+        user,
+        card,
+        config,
+        old_values,
+        new_values,
+        extra_lock_card_ids=(locked_provider,) if locked_provider is not None else (),
+    )
+    if not candidates and locked_provider is None:
+        await ppm_financials.lock_initiative(db, bl.initiative_id)
+    bl = await db.scalar(
+        select(PpmBudgetLine)
+        .where(PpmBudgetLine.id == bl.id)
+        .execution_options(populate_existing=True)
+    )
+    if bl is None:
+        raise HTTPException(404, "Budget line not found")
+    changes = body.model_dump(exclude_unset=True)
+    submitted = changes.pop("field_values", {})
+    if submitted is None:
+        raise HTTPException(422, "Field values cannot be null")
+    if (bl.field_values or {}) != old_values:
+        raise HTTPException(409, "Financial values changed; retry")
+    if locked_provider is not None:
+        await ppm_field_values.validate_values(
+            db, user, config, submitted, old_values, creating=False
+        )
+    await ppm_providers.validate_budget_provider_change(db, user, bl, new_provider, cost_config)
+    bl.field_values = new_values
+    for key, val in changes.items():
         setattr(bl, key, val)
+    messages: list[dict] = []
+    await ppm_field_relations.apply_configured_card_relations(db, user, candidates, messages)
+    await _sync_initiative_costs(db, initiative_id, user.id, messages)
     await db.commit()
+    for message in messages:
+        event_bus.fanout(message)
     await db.refresh(bl)
-    await _sync_initiative_costs(db, initiative_id, user.id)
-    return _budget_line_out(bl)
+    return await _budget_line_out(db, user, bl)
 
 
 @router.delete("/budgets/{budget_id}", status_code=204)
@@ -544,12 +967,259 @@ async def delete_budget_line(
         raise HTTPException(status_code=404, detail="Budget line not found")
     await _ensure_initiative_readable(db, user, bl.initiative_id)
     initiative_id = str(bl.initiative_id)
+    await ppm_financials.lock_initiative(db, bl.initiative_id)
+    bl = await db.scalar(
+        select(PpmBudgetLine)
+        .where(PpmBudgetLine.id == bl.id)
+        .execution_options(populate_existing=True)
+    )
+    if bl is None:
+        raise HTTPException(404, "Budget line not found")
+    has_cost = await db.scalar(
+        select(PpmCostLine.id).where(PpmCostLine.budget_line_id == bl.id).limit(1)
+    )
+    if has_cost is not None:
+        raise HTTPException(409, "Budget has cost lines")
     await db.delete(bl)
+    messages: list[dict] = []
+    await _sync_initiative_costs(db, initiative_id, user.id, messages)
     await db.commit()
-    await _sync_initiative_costs(db, initiative_id, user.id)
+    for message in messages:
+        event_bus.fanout(message)
+
+
+@router.get(
+    "/initiatives/{initiative_id}/budgets/{budget_id}/provider-children",
+    response_model=PmlProviderChoicePage,
+)
+async def provider_children(
+    initiative_id: uuid.UUID,
+    budget_id: uuid.UUID,
+    search: str = Query("", max_length=200),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    await _get_initiative_or_404(db, str(initiative_id), user)
+    return await ppm_providers.load_provider_choices(
+        db,
+        user,
+        initiative_id,
+        budget_id,
+        await load_section(db, "cost_item"),
+        search=search,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get(
+    "/initiatives/{initiative_id}/schedule",
+    response_model=PmlInitiativeScheduleOut,
+    response_model_exclude_unset=True,
+)
+async def initiative_schedule(
+    initiative_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    card = await _get_initiative_or_404(db, str(initiative_id), user)
+    return await build_initiative_schedule(
+        db, card, user, await CardReadScope.load(db, user, include_subtype_denials=True)
+    )
 
 
 # ── Has Costs (lightweight check for frontend auto-field logic) ──
+
+
+@router.get(
+    "/initiatives/{initiative_id}/financials",
+    response_model=PpmFinancialsOut,
+    response_model_exclude_unset=True,
+)
+async def get_financials(
+    initiative_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    card = await _get_initiative_or_404(db, initiative_id, user)
+    result, source_rows = await ppm_financials.load_financials(db, card, user)
+    sections: list[tuple[Any, str]] = [
+        ("budget", "budget_lines"),
+        ("cost_item", "cost_items"),
+        ("invoice", "invoices"),
+    ]
+    definitions = {}
+    cost_config = await load_section(db, "cost_item")
+    budget_providers: dict[uuid.UUID, dict[str, Any]] = {}
+    all_providers = await ppm_providers.project_providers(
+        db,
+        user,
+        cost_config,
+        source_rows["budget"],
+        source_rows["cost_item"],
+        budget_projection=budget_providers,
+    )
+    for section, key in sections:
+        if section == "invoice" and not result["invoice_access"]:
+            continue
+        config = cost_config if section == "cost_item" else await load_section(db, section)
+        protected = await _protected_fields(db, user, config)
+        rows = result.get(key, [])
+        sources = source_rows[section]
+        source_by_id = {str(source.id): source for source in sources}
+        ordered = [source_by_id[str(item["id"])] for item in rows]
+        defaults = {
+            field.key: field.default
+            for field in config.fields
+            if field.active and field.kind == "card_reference" and field.default is not None
+        }
+        providers = all_providers if section == "cost_item" else {}
+        projections = []
+        for source in ordered:
+            standard = _financial_standard(source)
+            if section == "cost_item":
+                provider = providers[source.id]
+                standard.update(
+                    {
+                        "provider.effective": provider["effective_provider_context"],
+                        "provider.budget": provider["budget_provider_context"],
+                    }
+                )
+            projections.append((source.field_values or {}, standard))
+        projected = await ppm_field_values.project_many(
+            db, user, config, projections + [(defaults, {})], protected=protected
+        )
+        _default_values, _default_calculated, default_references = projected.pop()
+        definitions[section] = {
+            "visible_columns": config.visible_columns,
+            "fields": [
+                {
+                    "key": field.key,
+                    "label": field.label,
+                    "help": field.help,
+                    "kind": field.kind,
+                    "required": field.required,
+                    "options": [option.model_dump() for option in field.options],
+                    "card_type": field.card_type,
+                    "result_type": field.calculation.result_type if field.calculation else None,
+                    **(
+                        {"default": field.default}
+                        if field.key not in protected and field.kind != "calculated"
+                        else {}
+                    ),
+                    **(
+                        {"default_display": default_references[field.key]}
+                        if field.key in default_references
+                        else {}
+                    ),
+                }
+                for field in config.fields
+                if field.active
+            ],
+        }
+        for item, (visible, calculated, references) in zip(rows, projected, strict=True):
+            item["field_values"] = visible
+            item["calculated_values"] = calculated
+            item["reference_display"] = references
+            if section == "budget":
+                item.update(budget_providers[uuid.UUID(str(item["id"]))])
+            if section == "cost_item":
+                provider = providers[uuid.UUID(str(item["id"]))]
+                item["provider"] = provider["provider"]
+                item["provider_child_id"] = provider["provider_child_id"]
+                item["provider_child_enabled"] = provider["provider_child_enabled"]
+    result["field_definitions"] = definitions
+    return result
+
+
+@router.post("/initiatives/{initiative_id}/invoices", response_model=PpmInvoiceOut)
+async def create_invoice(
+    initiative_id: str,
+    body: PpmInvoiceCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    await lock_field_settings(db)
+    await PermissionService.require_permission(db, user, "ppm.view")
+    card = await _get_initiative_or_404(db, initiative_id, user)
+    if not await PermissionService.can_view_costs(db, user, card.id):
+        raise HTTPException(403, "Invoice access required")
+    config = await load_section(db, "invoice")
+    values = await ppm_field_values.validate_values(
+        db, user, config, body.field_values, {}, creating=True
+    )
+    candidates = await ppm_field_relations.prepare_configured_card_relations(
+        db, user, card, config, {}, values
+    )
+    body = body.model_copy(update={"field_values": values})
+    row = await ppm_financials.create_invoice(db, card.id, body)
+    messages: list[dict] = []
+    await ppm_field_relations.apply_configured_card_relations(db, user, candidates, messages)
+    await db.commit()
+    for message in messages:
+        event_bus.fanout(message)
+    await db.refresh(row)
+    return await _invoice_out(db, user, row)
+
+
+@router.patch("/invoices/{invoice_id}", response_model=PpmInvoiceOut)
+async def update_invoice(
+    invoice_id: str,
+    body: PpmInvoiceUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    await lock_field_settings(db)
+    await PermissionService.require_permission(db, user, "ppm.view")
+    row = await ppm_financials.invoice_for_user(db, user, invoice_id)
+    card = await _get_initiative_or_404(db, str(row.initiative_id), user)
+    config = await load_section(db, "invoice")
+    old_values = dict(row.field_values or {})
+    submitted = body.model_dump(exclude_unset=True).get("field_values", {})
+    if submitted is None:
+        raise HTTPException(422, "Field values cannot be null")
+    values = await ppm_field_values.validate_values(
+        db, user, config, submitted, old_values, creating=False
+    )
+    candidates = await ppm_field_relations.prepare_configured_card_relations(
+        db, user, card, config, old_values, values
+    )
+    if not candidates:
+        await ppm_financials.lock_initiative(db, row.initiative_id)
+    row = await ppm_financials.invoice_for_user(db, user, invoice_id)
+    if (row.field_values or {}) != old_values:
+        raise HTTPException(409, "Financial values changed; retry")
+    body = body.model_copy(update={"field_values": values})
+    await ppm_financials.update_invoice(db, row, body)
+    messages: list[dict] = []
+    await ppm_field_relations.apply_configured_card_relations(db, user, candidates, messages)
+    await db.commit()
+    for message in messages:
+        event_bus.fanout(message)
+    await db.refresh(row)
+    return await _invoice_out(db, user, row)
+
+
+@router.delete("/invoices/{invoice_id}", status_code=204)
+async def delete_invoice(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    await PermissionService.require_permission(db, user, "ppm.view")
+    row = await ppm_financials.invoice_for_user(db, user, invoice_id)
+    await ppm_financials.lock_initiative(db, row.initiative_id)
+    row = await ppm_financials.invoice_for_user(db, user, invoice_id)
+    await db.delete(row)
+    await db.commit()
 
 
 @router.get("/initiatives/{initiative_id}/has-costs")
@@ -593,7 +1263,7 @@ async def initiative_rollup(
     """
     await PermissionService.require_permission(db, user, "ppm.view")
     card = await _get_initiative_or_404(db, initiative_id, user)
-    return await build_initiative_rollup(db, card, await CardReadScope.load(db, user))
+    return await build_initiative_rollup(db, card, await CardReadScope.load(db, user), user=user)
 
 
 # ── Risks ──────────────────────────────────────────────────────────
