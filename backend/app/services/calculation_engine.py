@@ -528,7 +528,7 @@ class _DecimalIfEval(_LazyIfEval):
             literal = ast.get_source_segment(self.expr, node)
             if literal is None:
                 raise ValueError("Invalid decimal literal")
-            return Decimal(literal.replace("_", ""))
+            return Decimal(literal)
         return super()._eval_constant(node)
 
 

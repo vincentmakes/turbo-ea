@@ -28,6 +28,7 @@ vi.mock("@/components/EolLinkSection", () => ({ default: () => null }));
 vi.mock("@/features/bpm/ProcessFlowTab", () => ({ default: () => null }));
 vi.mock("@/features/bpm/ProcessAssessmentPanel", () => ({ default: () => null }));
 vi.mock("@/features/cards/sections/SoAWTab", () => ({ default: () => null }));
+vi.mock("@/features/cards/sections/LicensingSection", () => ({ default: () => null }));
 vi.mock("@/features/cards/sections/CostsSection", () => ({
   default: ({ cardId }: { cardId: string }) => <div data-testid="costs-section">{cardId}</div>,
 }));

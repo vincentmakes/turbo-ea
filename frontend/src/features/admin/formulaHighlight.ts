@@ -1,3 +1,5 @@
+import { FORMULA_SYNTAX_COLORS } from "@/theme/tokens";
+
 const FORMULA_FUNCTIONS = new Set([
   "IF",
   "SUM",
@@ -114,14 +116,14 @@ function highlightLine(line: string): string {
 }
 
 export const HL_STYLES = `
-  .hl-comment { color: #6a737d; font-style: italic; }
-  .hl-string { color: #b31d28; }
-  .hl-number { color: #005cc5; }
-  .hl-function { color: #6f42c1; }
-  .hl-builtin { color: #6f42c1; opacity: 0.85; }
-  .hl-keyword { color: #d73a49; }
-  .hl-constant { color: #005cc5; }
-  .hl-context { color: #22863a; }
-  .hl-property { color: #005cc5; }
-  .hl-punct { color: #6a737d; }
+  .hl-comment { color: ${FORMULA_SYNTAX_COLORS.comment}; font-style: italic; }
+  .hl-string { color: ${FORMULA_SYNTAX_COLORS.string}; }
+  .hl-number { color: ${FORMULA_SYNTAX_COLORS.number}; }
+  .hl-function { color: ${FORMULA_SYNTAX_COLORS.function}; }
+  .hl-builtin { color: ${FORMULA_SYNTAX_COLORS.function}; opacity: 0.85; }
+  .hl-keyword { color: ${FORMULA_SYNTAX_COLORS.keyword}; }
+  .hl-constant { color: ${FORMULA_SYNTAX_COLORS.number}; }
+  .hl-context { color: ${FORMULA_SYNTAX_COLORS.context}; }
+  .hl-property { color: ${FORMULA_SYNTAX_COLORS.number}; }
+  .hl-punct { color: ${FORMULA_SYNTAX_COLORS.comment}; }
 `;

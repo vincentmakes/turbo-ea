@@ -1,3 +1,4 @@
+import { FORMULA_SYNTAX_COLORS } from "@/theme/tokens";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Popper from "@mui/material/Popper";
@@ -522,8 +523,8 @@ export function FormulaEditor({
               fontSize: "0.82rem",
               lineHeight: "1.5",
               minHeight: 160,
-              color: "#24292e",
-              caretColor: "#24292e",
+              color: FORMULA_SYNTAX_COLORS.text,
+              caretColor: FORMULA_SYNTAX_COLORS.text,
             }}
           />
         </Box>

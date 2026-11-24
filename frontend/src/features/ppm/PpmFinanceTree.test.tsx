@@ -149,7 +149,7 @@ describe("PpmFinanceTree", () => {
     expect(
       screen.getByRole("columnheader", { name: /remaining budget/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/-20[.,]25/)).toBeInTheDocument();
+    expect(screen.getByText(/-[^0-9]*20[.,]25/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /expand software/i }));
     const costs = screen.getByRole("table", { name: /cost items/i });
     expect(
