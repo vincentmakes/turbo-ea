@@ -3,7 +3,7 @@ title: "An AI suggestion only asks for values the card type accepts, saves the d
 author: Claude
 date: 2026-11-23
 branch: claude/elegant-bardeen-tf71l1
-cost: { minutes: 1, tokens: 3193 }
+cost: { minutes: 12, tokens: 71597 }
 id: l-066149cd
 scope: repo
 status: active
@@ -14,6 +14,11 @@ touches:
   - frontend/src/features/cards/applyAiSuggestion.ts
   - frontend/src/components/AiSuggestPanel.tsx
   - frontend/src/features/cards/CardDetail.tsx
+  - CHANGELOG.md
+  - frontend/package-lock.json
+  - frontend/package.json
+  - backend/tests/services/test_ai_service.py
+  - frontend/src/components/AiSuggestPanel.test.tsx
 ---
 
 ## Decided
@@ -25,11 +30,15 @@ The owner asked for two things: ignore such values so the description still appl
 - If the save is still refused, the description is saved alone and a warning gives the server's reason. A save that fails entirely is shown in the panel, which stays open.
 - The description is written in the user's language: the live UI language first, then the saved one, then English. Only a language name from a fixed list of the ten locales reaches the prompt, never the text the client sent.
 - Portfolio Insights and TurboLens keep their language behaviour; the owner asked for suggestions only.
+- The Frontend Security Scan turned red on a PR that touched no dependency: an advisory for i18next (below 26.3.4) had just been listed. The scan fails any advisory of any severity in production dependencies, and its allowlist is only for advisories with no patched version, so a patched one means upgrading. The owner chose to add the upgrade to the open PR instead of a separate one.
+- Target was the newest 26.x, not 27: 26 removes only options this app does not set, while 27 changes escaping, typed interpolation and language-code handling and deserves its own change.
+- The owner asked twice in this session to let GitHub CI do the verification rather than run long suites locally ("to optimize usage"). My reading: for a small, mechanical change, push and read CI; keep local runs for what CI cannot tell.
 
 ## Tried and ruled out
 - Retrying with only the refused value removed: left out. With the choices read from the card type a refusal is rare, and it would add a third request. The owner was told and may still ask for it.
 - Detecting a card switch on the card page by comparing the route id with the card's id: the server accepts an id written in upper case or without hyphens and answers with the canonical one, so on such a link the comparison is never true and the suggestion never appears. A counter bumped whenever the route id changes is used instead.
 - Reading the language from the saved locale alone: the catalogue endpoints already take the live UI language first because the saved one can lag behind, so the same order is used.
+- Allowlisting the advisory because the app never calls the affected function: against the scan's own rule, which keeps the allowlist for unpatched advisories.
 
 ## Watch out
 - The user's language never reached the model before this change. German answers the reporter saw were the model's own choice, driven by the card name and the language of the search results, not by their language setting.
@@ -43,3 +52,9 @@ In the code:
 - frontend/src/features/cards/applyAiSuggestion.ts
 - frontend/src/components/AiSuggestPanel.tsx: `fitsField`, the `hiddenFields` prop, the nothing-to-suggest state
 - frontend/src/features/cards/CardDetail.tsx: `aiEpochRef`
+- A push while CI is running cancels that run. Jobs whose inputs already passed are skipped on the next push, so a later docs-only or test-only push does not repeat the whole pipeline.
+- When a line is edited only to pull one more value out of a hook call, its string literals start counting as changed lines for the mutation gate. Leaving the original line alone and reading the extra value on a line of its own avoided five survivors here.
+- An initial `useState("")` that an effect resets on mount cannot be told apart from a mutated one by any test: list it as equivalent rather than writing a test for it.
+
+- frontend/package.json, frontend/package-lock.json (regenerated with `npx --yes npm@11 install i18next@^26.7.2`)
+- .github/audit-ci.jsonc (the allowlist rule), the `Audit npm dependencies` step in .github/workflows/ci.yml
