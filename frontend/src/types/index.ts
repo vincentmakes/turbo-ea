@@ -2101,6 +2101,27 @@ export type PortalAccessMode = "public" | "sso";
 /** Which board a portal publishes: the card grid, the PPM portfolio, or the Process House. */
 export type PortalView = "cards" | "ppm_portfolio" | "process_navigator";
 
+/**
+ * The visitor filter settings of a card-list portal's `card_config` (#1425),
+ * in the toggle-key vocabulary: `subtype`, `tags`, `field:<key>`, `rel:<key>`.
+ * `visitor_filters` absent = the computed default (`defaultVisitorFilters`);
+ * `visitor_can_add_filters` absent = true (stored only when false).
+ */
+export interface PortalVisitorFilterConfig {
+  visitor_filters?: string[];
+  visitor_can_add_filters?: boolean;
+}
+
+/** What a visitor may filter on, as the server resolved it (`GET /web-portals/public/{slug}`). */
+export interface PortalVisitorFilters {
+  /** The filters the bar shows. */
+  shown: string[];
+  /** Every filter the cards route applies: `shown` when adding is off. */
+  allowed: string[];
+  /** Whether the visitor may add fields through "Add filter". */
+  can_add: boolean;
+}
+
 export interface WebPortal {
   id: string;
   name: string;
@@ -2109,7 +2130,7 @@ export interface WebPortal {
   card_type: string;
   filters?: Record<string, unknown>;
   display_fields?: string[];
-  card_config?: Record<string, unknown>;
+  card_config?: Record<string, unknown> & PortalVisitorFilterConfig;
   is_published: boolean;
   view?: PortalView;
   access_mode: PortalAccessMode;
@@ -2176,6 +2197,8 @@ export interface PublicPortal {
   type_info: PortalTypeInfo | null;
   relation_types: PortalRelationType[];
   tag_groups: PortalTagGroup[];
+  /** Absent from an older backend (a cached response): the viewer falls back to its old bar. */
+  visitor_filters?: PortalVisitorFilters;
 }
 
 /**

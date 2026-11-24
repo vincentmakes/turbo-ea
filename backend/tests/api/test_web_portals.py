@@ -868,3 +868,168 @@ class TestPortalAudit:
         )
         assert resp.status_code == 403
         assert await _audit_rows(db) == []
+
+
+class TestVisitorFilterConfig:
+    """``card_config.visitor_filters`` / ``visitor_can_add_filters`` (#1425)."""
+
+    @staticmethod
+    async def _create(client, admin, card_config, **extra):
+        return await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Catalog",
+                "slug": "catalog",
+                "card_type": "Application",
+                "card_config": card_config,
+                **extra,
+            },
+            headers=auth_headers(admin),
+        )
+
+    async def test_create_stores_them_normalised(self, client, db, portals_env):
+        resp = await self._create(
+            client,
+            portals_env["admin"],
+            {
+                "visitor_filters": ["tags", "field:code", "bogus", 7, "tags", "rel:owns"],
+                "visitor_can_add_filters": False,
+                "show_logo": True,
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["card_config"] == {
+            "visitor_filters": ["tags", "field:code", "rel:owns"],
+            "visitor_can_add_filters": False,
+            "show_logo": True,
+        }
+
+    async def test_adding_on_is_not_stored(self, client, db, portals_env):
+        resp = await self._create(
+            client, portals_env["admin"], {"visitor_can_add_filters": True, "show_logo": False}
+        )
+        assert resp.json()["card_config"] == {"show_logo": False}
+
+    async def test_a_non_list_is_refused(self, client, db, portals_env):
+        resp = await self._create(client, portals_env["admin"], {"visitor_filters": "tags"})
+        assert resp.status_code == 422
+        assert "visitor_filters" in resp.json()["detail"]
+        assert await _audit_rows(db) == []
+
+    async def test_a_non_boolean_switch_is_refused(self, client, db, portals_env):
+        resp = await self._create(client, portals_env["admin"], {"visitor_can_add_filters": "no"})
+        assert resp.status_code == 422
+
+    async def test_update_normalises_and_refuses(self, client, db, portals_env):
+        headers = auth_headers(portals_env["admin"])
+        pid = (await self._create(client, portals_env["admin"], None)).json()["id"]
+        resp = await client.patch(
+            f"/api/v1/web-portals/{pid}",
+            json={"card_config": {"visitor_filters": ["subtype", "subtype", "x"]}},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["card_config"] == {"visitor_filters": ["subtype"]}
+        resp = await client.patch(
+            f"/api/v1/web-portals/{pid}",
+            json={"card_config": {"visitor_filters": {"subtype": True}}},
+            headers=headers,
+        )
+        assert resp.status_code == 422
+        stored = await client.get(f"/api/v1/web-portals/{pid}", headers=headers)
+        assert stored.json()["card_config"] == {"visitor_filters": ["subtype"]}
+
+    async def test_a_board_portal_drops_them(self, client, db, portals_env):
+        await create_card_type(db, key="BusinessProcess", label="Business Process")
+        resp = await self._create(
+            client,
+            portals_env["admin"],
+            {"visitor_filters": ["tags"], "visitor_can_add_filters": False, "show_logo": False},
+            view="process_navigator",
+        )
+        assert resp.status_code == 201
+        assert resp.json()["card_config"] == {"show_logo": False}
+
+    async def test_switching_to_a_board_drops_them(self, client, db, portals_env):
+        await create_card_type(db, key="BusinessProcess", label="Business Process")
+        headers = auth_headers(portals_env["admin"])
+        created = await self._create(
+            client, portals_env["admin"], {"visitor_filters": ["tags"], "show_logo": False}
+        )
+        resp = await client.patch(
+            f"/api/v1/web-portals/{created.json()['id']}",
+            json={"view": "process_navigator"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["card_config"] == {"show_logo": False}
+
+    async def test_without_web_portals_manage_403(self, client, db, portals_env):
+        resp = await self._create(client, portals_env["viewer"], {"visitor_filters": ["tags"]})
+        assert resp.status_code == 403
+
+    async def test_changes_are_recorded_by_label(self, client, db, portals_env):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        app_type = (
+            await db.execute(select(CardType).where(CardType.key == "Application"))
+        ).scalar_one()
+        app_type.fields_schema = [
+            {"section": "Main", "fields": [{"key": "code", "label": "Code", "type": "text"}]}
+        ]
+        await db.flush()
+        await create_relation_type(
+            db,
+            key="appRunsOnApp",
+            label="runs on",
+            source_type_key="Application",
+            target_type_key="Application",
+        )
+        headers = auth_headers(portals_env["admin"])
+        created = await self._create(
+            client, portals_env["admin"], {"visitor_filters": ["tags", "subtype"]}
+        )
+        resp = await client.patch(
+            f"/api/v1/web-portals/{created.json()['id']}",
+            json={
+                "card_config": {
+                    "visitor_filters": ["tags", "field:code", "rel:appRunsOnApp"],
+                    "visitor_can_add_filters": False,
+                }
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
+        assert updated.details["items"] == [
+            {
+                "kind": "portal_toggle.changed",
+                "item": "subtype",
+                "surface": "filter",
+                "old": True,
+                "new": False,
+            },
+            {
+                "kind": "portal_toggle.changed",
+                "item": "Code",
+                "surface": "filter",
+                "old": False,
+                "new": True,
+            },
+            {
+                "kind": "portal_toggle.changed",
+                "item": "runs on",
+                "surface": "filter",
+                "old": False,
+                "new": True,
+            },
+            {
+                "kind": "portal_option.changed",
+                "option": "visitor_can_add_filters",
+                "old": True,
+                "new": False,
+            },
+        ]

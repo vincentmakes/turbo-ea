@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_CARD_FILTERS, type CardFilterValue } from "@/features/reports/cardFilters";
 import type { FilterKind } from "@/lib/fieldFilters";
-import { legacyTagsSpanGroups, portalCardFilters, portalFiltersBody } from "./webPortalFilters";
+import {
+  canBeVisitorFilter,
+  defaultVisitorFilters,
+  effectiveVisitorFilters,
+  eligibleVisitorFilters,
+  legacyTagsSpanGroups,
+  portalCardFilters,
+  portalFiltersBody,
+  shownOnPortal,
+  storedVisitorFilters,
+  toggleVisitorFilter,
+  visitorFiltersBody,
+  type VisitorFilterInput,
+} from "./webPortalFilters";
 
 describe("portalCardFilters", () => {
   it("reads stored card filters, dropping anything malformed", () => {
@@ -152,5 +165,171 @@ describe("legacyTagsSpanGroups", () => {
   it("counts an unlisted tag as a group of its own", () => {
     expect(legacyTagsSpanGroups({ tag_ids: ["t1", "gone"] }, groups)).toBe(true);
     expect(legacyTagsSpanGroups({ tag_ids: ["t1"] }, [])).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Visitor filters (#1425)                                            */
+/* ------------------------------------------------------------------ */
+
+const OPTS = [{ key: "a", label: "A" }];
+const f = (key: string, type: string, options?: { key: string; label: string }[]) => ({
+  key,
+  label: key,
+  type,
+  ...(options ? { options } : {}),
+});
+
+/** Mirrors `FILTER_SCHEMA` in `backend/tests/services/test_portal_visibility.py`. */
+const INPUT: VisitorFilterInput = {
+  subtypes: [{ key: "s" }],
+  fieldsSchema: [
+    {
+      fields: [
+        f("single", "single_select", OPTS),
+        f("multi", "multiple_select", OPTS),
+        f("noOptions", "single_select"),
+        f("emptyOptions", "single_select", []),
+        f("flag", "boolean"),
+        f("code", "text"),
+        f("notes", "multiline_text"),
+        f("site", "url"),
+        f("count", "number"),
+        f("share", "percentage"),
+        f("since", "date"),
+        f("spend", "cost"),
+        f("rating", "ext.plus.rating"),
+      ],
+    },
+    {
+      hideInFilters: true,
+      fields: [f("quietSelect", "single_select", OPTS), f("quietText", "text"), f("single", "text")],
+    },
+  ],
+  relationKeys: ["r1", "r2"],
+  toggles: { "rel:r1": { card: true, detail: false } },
+};
+
+describe("shownOnPortal", () => {
+  it("follows a toggle, else shows a field or built-in and hides a relation type", () => {
+    expect(shownOnPortal({}, "tags")).toBe(true);
+    expect(shownOnPortal({}, "field:x")).toBe(true);
+    expect(shownOnPortal({}, "rel:r")).toBe(false);
+    expect(shownOnPortal({ tags: { card: false, detail: false } }, "tags")).toBe(false);
+    expect(shownOnPortal({ tags: { card: true, detail: false } }, "tags")).toBe(true);
+    expect(shownOnPortal({ "rel:r": { card: false, detail: true } }, "rel:r")).toBe(true);
+  });
+});
+
+describe("canBeVisitorFilter", () => {
+  it.each([
+    ["single_select", OPTS, true],
+    ["single_select", undefined, false],
+    ["boolean", undefined, true],
+    ["text", undefined, true],
+    ["number", undefined, true],
+    ["date", undefined, true],
+    ["cost", undefined, false],
+    ["ext.plus.rating", undefined, false],
+  ])("%s → %s", (type, options, expected) => {
+    expect(canBeVisitorFilter(f("x", type, options))).toBe(expected);
+  });
+});
+
+describe("visitor filter defaults (twin of default_shown_filters)", () => {
+  it("defaults to the old bar: subtype, tags, shown selects with options, shown relations", () => {
+    expect(defaultVisitorFilters(INPUT)).toEqual([
+      "subtype",
+      "tags",
+      "field:single",
+      "field:multi",
+      "rel:r1",
+    ]);
+  });
+
+  it("offers every shown filterable field, hidden sections included, never a cost field", () => {
+    expect(eligibleVisitorFilters(INPUT)).toEqual([
+      "subtype",
+      "tags",
+      "field:single",
+      "field:multi",
+      "field:flag",
+      "field:code",
+      "field:notes",
+      "field:site",
+      "field:count",
+      "field:share",
+      "field:since",
+      "field:quietSelect",
+      "field:quietText",
+      "rel:r1",
+    ]);
+  });
+
+  it("leaves out what is hidden, the subtype without subtypes and the tags when hidden", () => {
+    const input: VisitorFilterInput = {
+      ...INPUT,
+      subtypes: [],
+      toggles: {
+        tags: { card: false, detail: false },
+        "field:multi": { card: false, detail: false },
+      },
+    };
+    expect(defaultVisitorFilters(input)).toEqual(["field:single"]);
+    expect(defaultVisitorFilters({ ...input, subtypes: undefined })).toEqual(["field:single"]);
+    expect(eligibleVisitorFilters(input)).not.toContain("field:multi");
+    expect(eligibleVisitorFilters(input)).not.toContain("tags");
+  });
+});
+
+describe("the visitor filter selection", () => {
+  it("follows the default until the admin chooses", () => {
+    expect(effectiveVisitorFilters(null, INPUT)).toEqual(defaultVisitorFilters(INPUT));
+    expect(visitorFiltersBody(null, INPUT)).toBeUndefined();
+  });
+
+  it("keeps a chosen list within what can be a filter now, in table order", () => {
+    expect(effectiveVisitorFilters(["rel:r2", "field:code", "field:spend", "tags"], INPUT)).toEqual([
+      "tags",
+      "field:code",
+    ]);
+  });
+
+  it("ticks and unticks from what is checked now", () => {
+    const ticked = toggleVisitorFilter(null, INPUT, "field:code", true);
+    expect(ticked).toEqual(["subtype", "tags", "field:single", "field:multi", "rel:r1", "field:code"]);
+    expect(toggleVisitorFilter(ticked, INPUT, "field:code", false)).toEqual(defaultVisitorFilters(INPUT));
+    expect(toggleVisitorFilter(null, INPUT, "tags", false)).toEqual([
+      "subtype",
+      "field:single",
+      "field:multi",
+      "rel:r1",
+    ]);
+  });
+
+  it("sends a list only when it differs from the default, in any order", () => {
+    const reordered = ["rel:r1", "field:multi", "field:single", "tags", "subtype"];
+    expect(visitorFiltersBody(reordered, INPUT)).toBeUndefined();
+    expect(visitorFiltersBody(["tags"], INPUT)).toEqual(["tags"]);
+    expect(visitorFiltersBody([], INPUT)).toEqual([]);
+    // Same length, different keys.
+    expect(visitorFiltersBody(["subtype", "tags", "field:single", "field:code", "rel:r1"], INPUT)).toEqual([
+      "subtype",
+      "tags",
+      "field:single",
+      "field:code",
+      "rel:r1",
+    ]);
+    // A superset of the default differs.
+    expect(visitorFiltersBody([...reordered, "field:code"], INPUT)).toHaveLength(6);
+  });
+
+  it("reads a stored list back, strings only; none means follow the default", () => {
+    expect(storedVisitorFilters({ visitor_filters: ["tags", 3, null, "field:a"] })).toEqual(["tags", "field:a"]);
+    expect(storedVisitorFilters({ visitor_filters: [] })).toEqual([]);
+    expect(storedVisitorFilters({ visitor_filters: "tags" })).toBeNull();
+    expect(storedVisitorFilters({})).toBeNull();
+    expect(storedVisitorFilters(null)).toBeNull();
+    expect(storedVisitorFilters(undefined)).toBeNull();
   });
 });

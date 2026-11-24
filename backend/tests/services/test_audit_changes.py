@@ -1174,6 +1174,78 @@ def test_portal_card_config_unset_show_logo_reads_true_and_no_op_is_empty():
     ]
 
 
+def test_portal_card_config_visitor_filters():
+    labels = {"field:code": "Code", "rel:owns": "owns", "tags": "tags"}
+    old = {"visitor_filters": ["tags", "field:code"]}
+    new = {"visitor_filters": ["field:code", "rel:owns"], "visitor_can_add_filters": False}
+    assert portal_card_config_items(old, new, item_labels=labels) == [
+        {
+            "kind": "portal_toggle.changed",
+            "item": "tags",
+            "surface": "filter",
+            "old": True,
+            "new": False,
+        },
+        {
+            "kind": "portal_toggle.changed",
+            "item": "owns",
+            "surface": "filter",
+            "old": False,
+            "new": True,
+        },
+        {
+            "kind": "portal_option.changed",
+            "option": "visitor_can_add_filters",
+            "old": True,
+            "new": False,
+        },
+    ]
+
+
+def test_portal_card_config_visitor_filters_against_the_default():
+    """A side without the list follows a default this builder cannot know:
+    its value is None, and only the listed keys are reported."""
+    listed = {"visitor_filters": ["subtype", 3]}
+    assert portal_card_config_items(None, listed) == [
+        {
+            "kind": "portal_toggle.changed",
+            "item": "subtype",
+            "surface": "filter",
+            "old": None,
+            "new": True,
+        }
+    ]
+    assert portal_card_config_items(listed, {}) == [
+        {
+            "kind": "portal_toggle.changed",
+            "item": "subtype",
+            "surface": "filter",
+            "old": True,
+            "new": None,
+        }
+    ]
+    assert portal_card_config_items(listed, copy.deepcopy(listed)) == []
+    assert portal_card_config_items({"visitor_filters": []}, {"visitor_filters": "x"}) == []
+
+
+def test_portal_card_config_adding_switch_reads_unset_as_on():
+    assert portal_card_config_items(None, {"visitor_can_add_filters": True}) == []
+    assert portal_card_config_items({"visitor_can_add_filters": False}, None) == [
+        {
+            "kind": "portal_option.changed",
+            "option": "visitor_can_add_filters",
+            "old": False,
+            "new": True,
+        }
+    ]
+    assert (
+        portal_card_config_items(
+            {"visitor_can_add_filters": False}, {"visitor_can_add_filters": False}
+        )
+        == []
+    )
+
+
 # ── lists and caps ────────────────────────────────────────────────────────
 
 

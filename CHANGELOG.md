@@ -14,6 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Add filter** also offers text, number and date fields: a text field filters on "contains", a number or percentage field on a min–max range and a date field on a from–to range, in the reports, the PPM board and the web portal filter dialog.
 - Cost fields can be added as number filters only by people who may see costs; a saved report or shared link carrying a cost filter narrows nothing for anyone else, and a web portal never filters on costs.
 - **View in inventory** from the Portfolio report does not carry text, number or date filters, which the inventory has no equivalent for.
+- Web portals: a **Visitor filter** column in the portal's display table chooses which filters visitors see, including the subtype, tags, relations and any shown field.
+- Web portal visitors can add more filters through **Add filter** (unless the portal switches it off), and their browser remembers the fields they added.
+- Web portal visitors can filter on text, number and date fields: "contains", a min–max range and a from–to range.
+
+### Changed
+- Web portal filters now take several values each and offer "(empty)" for cards with no value.
+- In a web portal's filter bar, tags picked from different tag groups must all match; tags from one group still match any of them.
+
+### Fixed
+- A web portal filter on a multiple-select field never matched any card.
+- A malformed tag or card id in a web portal filter returned an error instead of the cards.
+
+### Security
+- A web portal that hides tags no longer publishes the tag names nor accepts a tag filter.
+- The public card list of a web portal is rate limited.
 
 ## [2.212.0] - 2026-11-23
 

@@ -107,19 +107,32 @@ export interface FilterCatalogOptions<R, F> {
   descriptionLabel: string;
   /** The field as the block shows it: label, option labels, Yes / No resolved. */
   resolveField: (field: R) => F;
+  /**
+   * Whether a filterable field is shown by default. Absent: a facet field of
+   * a section not hidden from filters (the reports' rule). The portal viewer
+   * passes its own: shown iff the server lists the field (`visitor_filters.shown`).
+   */
+  shownByDefault?: (field: R, kind: FilterKind, section: FilterSchemaSection<R>) => boolean;
+}
+
+/** The reports' rule: a facet field of a section not hidden from filters. */
+function defaultShownByDefault<R>(_field: R, kind: FilterKind, section: FilterSchemaSection<R>): boolean {
+  return kind === "facet" && section.hideInFilters !== true;
 }
 
 /**
  * The catalog of a `fields_schema`: every section with a filterable field,
  * each field with its kind and whether it is shown by default. Shown by
- * default = a facet field of a section not hidden from filters; a text,
- * number or date field is always added by the person.
+ * default = a facet field of a section not hidden from filters (a text,
+ * number or date field is always added by the person), unless the caller
+ * decides it (`shownByDefault`).
  */
 export function buildFilterCatalog<R extends FacetFieldLike, F extends FacetFieldLike>(
   schema: readonly FilterSchemaSection<R>[],
   opts: FilterCatalogOptions<R, F>,
 ): FilterCatalog<F> {
   const out: FilterCatalog<F> = [];
+  const shownByDefault = opts.shownByDefault ?? defaultShownByDefault;
   for (const section of schema) {
     const hidden = section.hideInFilters === true;
     const fields: FilterCatalogField<F>[] = [];
@@ -127,7 +140,7 @@ export function buildFilterCatalog<R extends FacetFieldLike, F extends FacetFiel
       const kind = filterKindOf(raw);
       if (kind === null) continue;
       if (raw.type === "cost" && !opts.canViewCosts) continue;
-      fields.push({ field: opts.resolveField(raw), kind, shownByDefault: kind === "facet" && !hidden });
+      fields.push({ field: opts.resolveField(raw), kind, shownByDefault: shownByDefault(raw, kind, section) });
     }
     if (fields.length === 0) continue;
     out.push({

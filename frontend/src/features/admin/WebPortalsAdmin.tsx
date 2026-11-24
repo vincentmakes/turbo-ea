@@ -50,7 +50,18 @@ import {
 import type { RelTypeDef, TagGroupDef } from "@/features/reports/portfolioHelpers";
 import { useCardFilterOptions } from "@/features/reports/useCardFilterOptions";
 import type { WebPortal, TagGroup, PortalView, PpmGroupOption } from "@/types";
-import { legacyTagsSpanGroups, portalCardFilters, portalFiltersBody } from "./webPortalFilters";
+import {
+  canBeVisitorFilter,
+  eligibleVisitorFilters,
+  effectiveVisitorFilters,
+  legacyTagsSpanGroups,
+  portalCardFilters,
+  portalFiltersBody,
+  storedVisitorFilters,
+  toggleVisitorFilter,
+  visitorFiltersBody,
+  type VisitorFilterInput,
+} from "./webPortalFilters";
 import { alpha, useTheme } from "@mui/material/styles";
 
 interface ToggleEntry {
@@ -141,6 +152,10 @@ export default function WebPortalsAdmin() {
   const [approvalStatuses, setApprovalStatuses] = useState<string[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [showLogo, setShowLogo] = useState(true);
+  // The visitor filter column: the admin's list, or null while it follows the
+  // computed default; and whether visitors may add more filters.
+  const [visitorFilters, setVisitorFilters] = useState<string[] | null>(null);
+  const [visitorCanAdd, setVisitorCanAdd] = useState(true);
   const [accessMode, setAccessMode] = useState<"public" | "sso">("public");
   const [view, setView] = useState<PortalView>("cards");
   const [ppmShowCosts, setPpmShowCosts] = useState(true);
@@ -204,6 +219,8 @@ export default function WebPortalsAdmin() {
     setCardFiltersCollapsed(false);
     setApprovalStatuses([]);
     setShowLogo(true);
+    setVisitorFilters(null);
+    setVisitorCanAdd(true);
     setAccessMode("public");
     setView("cards");
     setBpmShowElementLinks(false);
@@ -239,6 +256,8 @@ export default function WebPortalsAdmin() {
     setShowLogo(
       (portal.card_config as Record<string, unknown>)?.show_logo !== false
     );
+    setVisitorFilters(storedVisitorFilters(portal.card_config));
+    setVisitorCanAdd(portal.card_config?.visitor_can_add_filters !== false);
     setFilterSubtypes(
       ((portal.filters as Record<string, unknown>)?.subtypes as string[]) || []
     );
@@ -327,6 +346,44 @@ export default function WebPortalsAdmin() {
       )
     : [];
 
+  // What the visitor filter column reads: which rows can be a filter, and the
+  // default it is compared against (`defaultVisitorFilters`).
+  const visitorInput: VisitorFilterInput = {
+    subtypes: selectedType?.subtypes,
+    fieldsSchema: selectedType?.fields_schema ?? [],
+    relationKeys: applicableRelTypes.map((r) => r.key),
+    toggles,
+  };
+  const eligibleFilters = new Set(eligibleVisitorFilters(visitorInput));
+  const checkedFilters = new Set(effectiveVisitorFilters(visitorFilters, visitorInput));
+
+  /** The "Visitor filter" cell of one row; disabled while the property is shown nowhere. */
+  const visitorFilterCell = (key: string, item: string) => {
+    const enabled = eligibleFilters.has(key);
+    const box = (
+      <Checkbox
+        size="small"
+        checked={enabled && checkedFilters.has(key)}
+        disabled={!enabled}
+        inputProps={{ "aria-label": t("webPortals.visitorFilterFor", { item }) }}
+        onChange={(e) =>
+          setVisitorFilters(toggleVisitorFilter(visitorFilters, visitorInput, key, e.target.checked))
+        }
+      />
+    );
+    return (
+      <TableCell align="center">
+        {enabled ? (
+          box
+        ) : (
+          <Tooltip title={t("webPortals.visitorFilterNeedsShown")}>
+            <span>{box}</span>
+          </Tooltip>
+        )}
+      </TableCell>
+    );
+  };
+
   const getOtherTypeLabel = (rt: { source_type_key: string; target_type_key: string }) => {
     const otherKey =
       rt.source_type_key === cardType
@@ -376,7 +433,17 @@ export default function WebPortalsAdmin() {
       : null;
     // `card_config` collapses to null when there is nothing in it — each board's
     // block has to count, or its switches silently vanish on save.
-    const hasCardConfig = hasToggles || !showLogo || ppmConfig !== null || bpmConfig !== null;
+    // Visitor filters belong to a card-list portal: the list only when it
+    // differs from the computed default, the switch only when off.
+    const visitorList = isBoard ? undefined : visitorFiltersBody(visitorFilters, visitorInput);
+    const visitorAddOff = !isBoard && !visitorCanAdd;
+    const hasCardConfig =
+      hasToggles ||
+      !showLogo ||
+      ppmConfig !== null ||
+      bpmConfig !== null ||
+      visitorList !== undefined ||
+      visitorAddOff;
     // Fold any un-committed text in the domain input into the list on save.
     const effectiveDomains =
       accessMode === "sso" && domainInput.trim()
@@ -408,6 +475,8 @@ export default function WebPortalsAdmin() {
             ...(hasToggles ? { toggles } : {}),
             ...(ppmConfig ? { ppm: ppmConfig } : {}),
             ...(bpmConfig ? { bpm: bpmConfig } : {}),
+            ...(visitorList !== undefined ? { visitor_filters: visitorList } : {}),
+            ...(visitorAddOff ? { visitor_can_add_filters: false } : {}),
             show_logo: showLogo,
           }
         : null,
@@ -763,6 +832,7 @@ export default function WebPortalsAdmin() {
               // and filters below key off the card type, so reset them whenever
               // the target changes.
               setToggles({});
+              setVisitorFilters(null);
               setFilterSubtypes([]);
               setFilterTagIds([]);
               setCardFilters(EMPTY_CARD_FILTERS);
@@ -818,6 +888,7 @@ export default function WebPortalsAdmin() {
             onChange={(e) => {
               setCardType(e.target.value);
               setToggles({});
+              setVisitorFilters(null);
               setFilterSubtypes([]);
               setFilterTagIds([]);
               setCardFilters(EMPTY_CARD_FILTERS);
@@ -1167,9 +1238,20 @@ export default function WebPortalsAdmin() {
                     <TableCell sx={{ fontWeight: 600, width: "50%" }}>{t("webPortals.columns.property")}</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 600 }}>{t("webPortals.columns.summaryCard")}</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 600 }}>{t("webPortals.columns.expandedDetail")}</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>{t("webPortals.columns.visitorFilter")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
+                  {(selectedType?.subtypes ?? []).length > 0 && (
+                    <TableRow>
+                      <TableCell>
+                        <Typography variant="body2">{t("webPortals.subtypeFilterRow")}</Typography>
+                      </TableCell>
+                      <TableCell />
+                      <TableCell />
+                      {visitorFilterCell("subtype", t("webPortals.subtypeFilterRow"))}
+                    </TableRow>
+                  )}
                   {BUILT_IN_PROPERTIES.map((prop) => {
                     const tog = toggles[prop.key];
                     const cardChecked = tog ? tog.card : (DEFAULT_CARD[prop.key] ?? true);
@@ -1209,6 +1291,7 @@ export default function WebPortalsAdmin() {
                             }
                           />
                         </TableCell>
+                        {prop.key === "tags" ? visitorFilterCell("tags", prop.label) : <TableCell />}
                       </TableRow>
                     );
                   })}
@@ -1216,7 +1299,7 @@ export default function WebPortalsAdmin() {
                   {allFields.length > 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={3}
+                        colSpan={4}
                         sx={{
                           pt: 1.5,
                           pb: 0.5,
@@ -1273,6 +1356,7 @@ export default function WebPortalsAdmin() {
                             }
                           />
                         </TableCell>
+                        {canBeVisitorFilter(field) ? visitorFilterCell(fKey, fieldLabel(field)) : <TableCell />}
                       </TableRow>
                     );
                   })}
@@ -1280,7 +1364,7 @@ export default function WebPortalsAdmin() {
                   {applicableRelTypes.length > 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={3}
+                        colSpan={4}
                         sx={{
                           pt: 1.5,
                           pb: 0.5,
@@ -1350,11 +1434,31 @@ export default function WebPortalsAdmin() {
                             }
                           />
                         </TableCell>
+                        {visitorFilterCell(rKey, `${getOtherTypeLabel(rt)} (${verb})`)}
                       </TableRow>
                     );
                   })}
                 </TableBody>
               </Table>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={visitorCanAdd}
+                    onChange={(e) => setVisitorCanAdd(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body1" fontWeight={500}>
+                      {t("webPortals.visitorCanAddFilters")}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.visitorCanAddFiltersHint")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ mt: 1.5, display: "flex", alignItems: "flex-start" }}
+              />
             </>
           )}
 

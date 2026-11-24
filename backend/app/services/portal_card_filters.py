@@ -25,6 +25,7 @@ Reads only; never commits.
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import uuid
@@ -668,4 +669,211 @@ async def preset_conditions(
         # No card filters, or ones that narrow nothing: the legacy keys (which
         # the dialog never writes beside card filters) are what is left.
         conditions.extend(_legacy_conditions(filters))
+    return conditions
+
+
+# ---------------------------------------------------------------------------
+# A visitor's own filters (#1425)
+# ---------------------------------------------------------------------------
+#
+# A visitor of a card-list portal narrows the page with the ``filters`` query
+# parameter of ``GET /web-portals/public/{slug}/cards``: a JSON object in the
+# ``CardFilterValue`` subset the viewer edits (``cardQueryParams`` in
+# ``portalViewerState.ts``). It is parsed (``normalise_visitor_filters``),
+# cut to what the portal lets a visitor filter on (``restrict_visitor_filters``
+# with ``visitor_filter_lists(...).allowed``) and turned into where-clauses
+# ANDed with the preset (``visitor_conditions``) — so a visitor can narrow the
+# page, never widen it, and a filter on anything the portal does not publish
+# changes nothing, not even ``total``.
+#
+# The query parameters the viewer sent before (``subtype``, ``tag_ids``,
+# ``attr_filters``, ``relation_filters``, ``related_type`` / ``related_id``)
+# keep working through ``legacy_visitor_filters``, onto the same builders and
+# the same restriction. Tags differ on purpose: ``tagFilterIds`` in
+# ``filters`` matches like the reports (any tag of a group, every group with
+# a pick — ``tag_conditions``), while the legacy ``tag_ids`` keeps its old
+# any-of meaning (``anyTagIds``, which ``filters`` itself never carries).
+
+#: The longest ``filters`` parameter read; a longer one is ignored whole.
+VISITOR_FILTERS_MAX_CHARS = 8192
+
+#: The keys of a visitor's filter value.
+_VISITOR_KEYS = ("subtypeFilters", "attrFilters", "attrConditions", "relationFilters")
+
+
+def _empty_visitor_filters() -> dict[str, Any]:
+    return {
+        "subtypeFilters": [],
+        "attrFilters": {},
+        "attrConditions": {},
+        "relationFilters": {},
+        "tagFilterIds": [],
+        "anyTagIds": [],
+    }
+
+
+def normalise_visitor_filters(raw: object) -> dict[str, Any]:
+    """The ``filters`` parameter (JSON text, or an already parsed object) as
+    a visitor's filter value: ``subtypeFilters``, ``attrFilters``,
+    ``attrConditions``, ``relationFilters`` and ``tagFilterIds``, anything
+    malformed dropped. Text over ``VISITOR_FILTERS_MAX_CHARS``, invalid JSON
+    or anything but an object is no filter at all. Relation subtypes and
+    *Include sub-cards* are preset-only."""
+    out = _empty_visitor_filters()
+    if isinstance(raw, str):
+        if len(raw) > VISITOR_FILTERS_MAX_CHARS:
+            return out
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return out
+    if not isinstance(raw, dict):
+        return out
+    out["subtypeFilters"] = _strings(raw.get("subtypeFilters"))
+    out["attrFilters"] = _string_lists(raw.get("attrFilters"))
+    out["attrConditions"] = normalise_attr_conditions(raw.get("attrConditions"))
+    out["relationFilters"] = _string_lists(raw.get("relationFilters"))
+    out["tagFilterIds"] = _strings(raw.get("tagFilterIds"))
+    return out
+
+
+def restrict_visitor_filters(
+    value: Mapping[str, Any], allowed: Iterable[str], field_types: Mapping[str, str]
+) -> dict[str, Any]:
+    """``value`` without every filter outside ``allowed`` (toggle keys:
+    ``subtype``, ``tags``, ``field:<key>``, ``rel:<key>``) — and, defensively,
+    without any field the public schema types ``cost`` or does not know."""
+    keys = set(allowed)
+
+    def field_ok(key: str) -> bool:
+        ftype = field_types.get(key)
+        return f"field:{key}" in keys and ftype is not None and ftype != "cost"
+
+    tags = "tags" in keys
+    return {
+        "subtypeFilters": list(value.get("subtypeFilters") or []) if "subtype" in keys else [],
+        "attrFilters": {k: v for k, v in (value.get("attrFilters") or {}).items() if field_ok(k)},
+        "attrConditions": {
+            k: v for k, v in (value.get("attrConditions") or {}).items() if field_ok(k)
+        },
+        "relationFilters": {
+            k: v for k, v in (value.get("relationFilters") or {}).items() if f"rel:{k}" in keys
+        },
+        "tagFilterIds": list(value.get("tagFilterIds") or []) if tags else [],
+        "anyTagIds": list(value.get("anyTagIds") or []) if tags else [],
+    }
+
+
+def _json_object(raw: str | None) -> dict:
+    if not raw or len(raw) > VISITOR_FILTERS_MAX_CHARS:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _legacy_value(value: object) -> str | None:
+    """One legacy filter value as the option key it names: a string as is, a
+    JSON boolean as ``"true"`` / ``"false"`` (a facet's keys), a number as its
+    text; anything else (a list, an object, null, ``""``) names nothing."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return value if isinstance(value, str) and value else None
+
+
+def legacy_visitor_filters(
+    *,
+    subtype: str | None = None,
+    tag_ids: str | None = None,
+    attr_filters: str | None = None,
+    relation_filters: str | None = None,
+    related_type: str | None = None,
+    related_id: str | None = None,
+) -> dict[str, Any]:
+    """The query parameters the viewer sent before ``filters``, as a visitor's
+    filter value: each single value becomes a one-value list, so a
+    ``multiple_select`` now matches a card holding the value among others.
+    Malformed JSON, a malformed id or an unusable value is ignored, never an
+    error. ``tag_ids`` keeps its any-of meaning (``anyTagIds``);
+    ``related_type`` / ``related_id`` join ``relation_filters`` (a pick on the
+    same relation type matches either card)."""
+    out = _empty_visitor_filters()
+    if subtype:
+        out["subtypeFilters"] = [subtype]
+    if tag_ids:
+        out["anyTagIds"] = [str(t) for t in uuids(t.strip() for t in tag_ids.split(","))]
+    for key, value in _json_object(attr_filters).items():
+        picked = _legacy_value(value)
+        if isinstance(key, str) and picked is not None:
+            out["attrFilters"][key] = [picked]
+    relations: dict[str, list[str]] = {}
+    pairs = list(_json_object(relation_filters).items())
+    if related_type and related_id:
+        pairs.append((related_type, related_id))
+    for key, value in pairs:
+        ids = uuids([value] if isinstance(value, str) else [])
+        if isinstance(key, str) and ids:
+            bucket = relations.setdefault(key, [])
+            if str(ids[0]) not in bucket:
+                bucket.append(str(ids[0]))
+    out["relationFilters"] = relations
+    return out
+
+
+def has_visitor_filters(value: Mapping[str, Any]) -> bool:
+    """Does a visitor's value narrow anything?"""
+    return any(value.get(key) for key in (*_VISITOR_KEYS, "tagFilterIds", "anyTagIds"))
+
+
+async def visitor_conditions(
+    db: AsyncSession, card_type: str, value: Mapping[str, Any]
+) -> list[ColumnElement[bool]]:
+    """The where-clauses a visitor's (restricted) value adds to the preset,
+    built with the preset's own builders. Call it on a value that went through
+    ``restrict_visitor_filters``: a relation key is then a relation type the
+    page shows, never read as a card type."""
+    if not has_visitor_filters(value):
+        return []
+    conditions = await _card_filter_conditions(
+        db,
+        card_type,
+        {
+            "subtypeFilters": list(value.get("subtypeFilters") or []),
+            "attrFilters": dict(value.get("attrFilters") or {}),
+            "attrConditions": dict(value.get("attrConditions") or {}),
+            "relationFilters": dict(value.get("relationFilters") or {}),
+            "relSubtypeFilters": {},
+            "tagFilterIds": list(value.get("tagFilterIds") or []),
+            "includeDescendants": False,
+        },
+    )
+    any_tags = uuids(value.get("anyTagIds") or [])
+    if any_tags:
+        conditions.append(Card.id.in_(select(CardTag.card_id).where(CardTag.tag_id.in_(any_tags))))
+    return conditions
+
+
+async def public_visitor_conditions(
+    db: AsyncSession,
+    card_type: str,
+    *,
+    allowed: Iterable[str],
+    field_types: Mapping[str, str],
+    filters: str | None,
+    legacy: Mapping[str, str | None],
+) -> list[ColumnElement[bool]]:
+    """Every where-clause a visitor's query adds to a card-list portal: the
+    ``filters`` parameter and the legacy parameters (``legacy``, the keyword
+    arguments of ``legacy_visitor_filters``), each restricted to ``allowed``.
+    When both are sent, both apply (AND): a legacy parameter can only narrow
+    what ``filters`` already narrowed, never undo it."""
+    allowed = list(allowed)
+    conditions: list[ColumnElement[bool]] = []
+    for value in (normalise_visitor_filters(filters), legacy_visitor_filters(**legacy)):
+        restricted = restrict_visitor_filters(value, allowed, field_types)
+        conditions.extend(await visitor_conditions(db, card_type, restricted))
     return conditions

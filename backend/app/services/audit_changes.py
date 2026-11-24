@@ -821,6 +821,37 @@ def portal_filter_items(
 
 _PORTAL_SURFACES = ("card", "detail")
 _PORTAL_BLOCKS = ("ppm", "bpm")
+#: The surface a ``card_config.visitor_filters`` entry is reported under.
+_PORTAL_FILTER_SURFACE = "filter"
+
+
+def _visitor_filter_items(
+    before: Mapping[str, Any], after: Mapping[str, Any], labels: Mapping[Any, Any]
+) -> list[dict[str, Any]]:
+    """``portal_toggle.changed`` {item, surface: "filter", old, new} for each
+    key of ``visitor_filters`` whose membership changed. A side without the
+    list follows the computed default, which this builder cannot know, so its
+    value is ``None`` ("—") and only the keys the other side lists appear."""
+    was, now = before.get("visitor_filters"), after.get("visitor_filters")
+    was_list, now_list = isinstance(was, list), isinstance(now, list)
+    keys = [*_as_list(was), *(k for k in _as_list(now) if k not in _as_list(was))]
+    out = []
+    for key in keys:
+        if not isinstance(key, str):
+            continue
+        a = (key in was) if was_list else None
+        b = (key in now) if now_list else None
+        if a != b:
+            out.append(
+                item(
+                    "portal_toggle.changed",
+                    item=labels.get(key) or key,
+                    surface=_PORTAL_FILTER_SURFACE,
+                    old=a,
+                    new=b,
+                )
+            )
+    return out
 
 
 def portal_card_config_items(
@@ -831,9 +862,11 @@ def portal_card_config_items(
     ``portal_toggle.changed`` {item, surface, old, new} for each per-item
     exposure switch (``toggles[<item>][card|detail]``; ``item`` is the label
     from ``item_labels``, the key when unknown; an unset switch is ``None``),
-    then ``portal_option.changed`` {option, old, new} for the board settings —
-    ``ppm_<key>`` / ``bpm_<key>`` — and ``show_logo`` (unset reads as ``True``,
-    as the portal renders it).
+    then ``portal_toggle.changed`` with surface ``filter`` for each visitor
+    filter the admin listed or unlisted (``visitor_filters``), then
+    ``portal_option.changed`` {option, old, new} for the board settings —
+    ``ppm_<key>`` / ``bpm_<key>`` —, ``visitor_can_add_filters`` and
+    ``show_logo`` (both unset read as ``True``, as the portal applies them).
     """
     before, after = _as_dict(old), _as_dict(new)
     labels = _as_dict(item_labels)
@@ -866,6 +899,18 @@ def portal_card_config_items(
                         new=_compact(b),
                     )
                 )
+    out.extend(_visitor_filter_items(before, after, labels))
+    old_add = before.get("visitor_can_add_filters") is not False
+    new_add = after.get("visitor_can_add_filters") is not False
+    if old_add != new_add:
+        out.append(
+            item(
+                "portal_option.changed",
+                option="visitor_can_add_filters",
+                old=old_add,
+                new=new_add,
+            )
+        )
     old_logo, new_logo = before.get("show_logo", True), after.get("show_logo", True)
     if old_logo != new_logo:
         out.append(

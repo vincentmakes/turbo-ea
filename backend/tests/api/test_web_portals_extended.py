@@ -49,10 +49,14 @@ async def portal_env(db):
                         "key": "businessCriticality",
                         "label": "Business Criticality",
                         "type": "single_select",
+                        # A select needs options to be a visitor filter.
+                        "options": [{"key": "high"}, {"key": "low"}],
                     }
                 ],
             }
         ],
+        # A subtype filter is offered only on a type with subtypes.
+        subtypes=[{"key": "Microservice", "label": "Microservice"}],
     )
     await create_card_type(db, key="ITComponent", label="IT Component")
     await create_relation_type(

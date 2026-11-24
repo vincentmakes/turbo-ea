@@ -173,6 +173,20 @@ What information appears when a visitor clicks on a card:
 
 - Same toggle controls as the list view, but for the expanded detail panel
 
+### Visitor filters
+
+On a **Card list** portal, the display table has a third column, **Visitor filter**. A ticked row is shown in the visitors' filter bar:
+
+- **Subtype** (a row of its own, when the card type has subtypes), **Tags**, each **relation type**, and each field that can be filtered: select and yes/no fields (pick values, **(empty)** included), text fields ("contains"), number and percentage fields (a range) and date fields (a range).
+- **A filter needs the property to be shown.** A row shown neither on the summary card nor in the expanded detail has its filter checkbox greyed out: a visitor can never filter on something the portal does not publish.
+- **Cost fields are never filterable on a portal**, and have no checkbox.
+
+Until you change the column, it follows the default: the subtype, the tags, every shown select field with options and every shown relation type — the filter bar portals always had — minus the fields of a section marked **Hidden from filters** in the card layout. While the column stays at its default, nothing is stored, so a field added to the card type later follows the same rule.
+
+Below the table, **Visitors can add more filters** (on by default) lets visitors add any other shown field through an **Add filter** chip in their filter bar. Their browser remembers the fields they added, never the values. Subtype, tags and relation filters are not offered there: they appear only when ticked. Switch it off and visitors get exactly the ticked filters, and the portal ignores any other filter it is sent.
+
+Visitor filters always narrow the cards the portal's own card filters keep, never widen them. A tag filter matches like the reports: any tag within one group, and one from every group picked from.
+
 ## Access Protection
 
 Each portal has an **access mode** that controls who can open it:

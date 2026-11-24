@@ -129,6 +129,34 @@ describe("buildFilterCatalog", () => {
     expect(shown.fields[0].shownByDefault).toBe(true);
   });
 
+  it("lets the caller decide what is shown by default, with the raw field, its kind and section", () => {
+    const seen: [string, FilterKind, string][] = [];
+    const catalog = buildFilterCatalog<Field, Field>(SCHEMA, {
+      canViewCosts: false,
+      sectionLabel: (s) => s.section,
+      descriptionLabel: "Description",
+      resolveField: (f) => ({ ...f, label: `F:${f.label}` }),
+      shownByDefault: (field, kind, section) => {
+        seen.push([field.label, kind, section.section]);
+        return field.key === "alias" || field.key === "risk";
+      },
+    });
+    expect(catalogFields(catalog).filter((e) => e.shownByDefault).map((e) => e.field.key)).toEqual([
+      "alias",
+      "risk",
+    ]);
+    // The raw field (its label unresolved), never a cost field the reader cannot see.
+    expect(seen).toEqual([
+      ["Alias", "text", DESCRIPTION_SECTION],
+      ["Tier", "facet", DESCRIPTION_SECTION],
+      ["Criticality", "facet", "Business"],
+      ["Cloud", "facet", "Business"],
+      ["Risk Level", "facet", "Compliance"],
+      ["AI Act Class", "facet", "Compliance"],
+      ["Note", "text", "Notes"],
+    ]);
+  });
+
   it("drops a section with no filterable field, and an empty schema", () => {
     const schema = [
       { section: "Ext", fields: [{ key: "r", label: "R", type: "ext.plus.rating" }] },

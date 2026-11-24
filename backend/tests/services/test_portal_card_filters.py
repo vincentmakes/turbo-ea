@@ -761,3 +761,321 @@ class TestFieldTypes:
         ]
         assert pcf.field_types(schema) == {"a": "boolean", "b": ""}
         assert pcf.field_types(None) == {}
+
+
+# ---------------------------------------------------------------------------
+# A visitor's own filters (#1425)
+# ---------------------------------------------------------------------------
+
+EMPTY_VISITOR = {
+    "subtypeFilters": [],
+    "attrFilters": {},
+    "attrConditions": {},
+    "relationFilters": {},
+    "tagFilterIds": [],
+    "anyTagIds": [],
+}
+
+#: Every filter of the ``land`` landscape a visitor might use.
+ALLOWED = ["subtype", "tags", "field:criticality", "field:regions", "field:cloud", "field:code"]
+ALLOWED += ["rel:orgOwnsApp", "rel:orgUsesApp", "rel:appCallsApp"]
+
+TYPES = {"criticality": "single_select", "regions": "multiple_select", "cloud": "boolean"}
+TYPES |= {"code": "text", "spend": "cost"}
+
+
+async def _visitor_names(db, value: dict, *, allowed=ALLOWED) -> set[str]:
+    restricted = pcf.restrict_visitor_filters({**EMPTY_VISITOR, **value}, allowed, TYPES)
+    conditions = await pcf.visitor_conditions(db, "Application", restricted)
+    rows = await db.execute(
+        select(Card.name).where(Card.type == "Application", Card.status == "ACTIVE", *conditions)
+    )
+    return set(rows.scalars().all())
+
+
+class TestNormaliseVisitorFilters:
+    def test_parses_json_and_keeps_the_subset(self):
+        raw = (
+            '{"subtypeFilters": ["micro", 3], "attrFilters": {"regions": ["eu", 1]},'
+            ' "attrConditions": {"code": {"contains": " A "}, "bad": {"contains": ""}},'
+            ' "relationFilters": {"orgOwnsApp": ["x"]}, "tagFilterIds": ["t", null],'
+            ' "relSubtypeFilters": {"r::f": ["v"]}, "includeDescendants": true,'
+            ' "anyTagIds": ["t2"], "filterFields": ["code"]}'
+        )
+        assert pcf.normalise_visitor_filters(raw) == {
+            "subtypeFilters": ["micro"],
+            "attrFilters": {"regions": ["eu"]},
+            "attrConditions": {"code": {"contains": "A"}},
+            "relationFilters": {"orgOwnsApp": ["x"]},
+            "tagFilterIds": ["t"],
+            "anyTagIds": [],
+        }
+
+    def test_an_object_is_read_as_is(self):
+        out = pcf.normalise_visitor_filters({"subtypeFilters": ["micro"]})
+        assert out == {**EMPTY_VISITOR, "subtypeFilters": ["micro"]}
+
+    @pytest.mark.parametrize(
+        "raw",
+        [None, "", "not json", "[1, 2]", '"text"', "3", "null", ["subtypeFilters"], 7, "{"],
+    )
+    def test_garbage_is_no_filter(self, raw):
+        assert pcf.normalise_visitor_filters(raw) == EMPTY_VISITOR
+
+    def test_wrong_types_inside_are_dropped(self):
+        raw = {
+            "subtypeFilters": "micro",
+            "attrFilters": ["x"],
+            "attrConditions": "code",
+            "relationFilters": {"r": "id"},
+            "tagFilterIds": {"t": 1},
+        }
+        assert pcf.normalise_visitor_filters(raw) == EMPTY_VISITOR
+
+    def test_oversize_is_ignored_whole(self):
+        at_cap = '{"subtypeFilters": ["a"]}'.ljust(pcf.VISITOR_FILTERS_MAX_CHARS)
+        assert len(at_cap) == pcf.VISITOR_FILTERS_MAX_CHARS
+        assert pcf.normalise_visitor_filters(at_cap)["subtypeFilters"] == ["a"]
+        over = at_cap + " "
+        assert pcf.normalise_visitor_filters(over) == EMPTY_VISITOR
+
+
+class TestRestrictVisitorFilters:
+    VALUE = {
+        "subtypeFilters": ["micro"],
+        "attrFilters": {"criticality": ["high"], "secret": ["x"], "spend": ["1"]},
+        "attrConditions": {"code": {"contains": "A"}, "spend": {"min": 1}, "gone": {"min": 1}},
+        "relationFilters": {"orgOwnsApp": ["id"], "Organization": ["id"], "hiddenRel": ["id"]},
+        "tagFilterIds": ["t"],
+        "anyTagIds": ["t2"],
+    }
+
+    def test_keeps_what_is_allowed(self):
+        allowed = [*ALLOWED, "field:spend", "field:secret", "field:gone"]
+        out = pcf.restrict_visitor_filters(self.VALUE, allowed, {**TYPES, "secret": "text"})
+        assert out == {
+            "subtypeFilters": ["micro"],
+            # A cost field never, even listed; an unknown field never.
+            "attrFilters": {"criticality": ["high"], "secret": ["x"]},
+            "attrConditions": {"code": {"contains": "A"}},
+            # A card type key is not a relation type: never read as one here.
+            "relationFilters": {"orgOwnsApp": ["id"]},
+            "tagFilterIds": ["t"],
+            "anyTagIds": ["t2"],
+        }
+
+    def test_nothing_allowed_keeps_nothing(self):
+        assert pcf.restrict_visitor_filters(self.VALUE, [], TYPES) == EMPTY_VISITOR
+
+    def test_each_key_needs_its_own_entry(self):
+        out = pcf.restrict_visitor_filters(self.VALUE, ["field:code", "rel:orgOwnsApp"], TYPES)
+        assert out == {
+            **EMPTY_VISITOR,
+            "attrConditions": {"code": {"contains": "A"}},
+            "relationFilters": {"orgOwnsApp": ["id"]},
+        }
+
+    def test_a_bare_key_is_not_a_field_key(self):
+        """``code`` alone, without the ``field:`` prefix, allows nothing."""
+        out = pcf.restrict_visitor_filters(self.VALUE, ["code", "orgOwnsApp", "criticality"], TYPES)
+        assert out == EMPTY_VISITOR
+
+    def test_tolerates_missing_keys(self):
+        assert pcf.restrict_visitor_filters({}, ALLOWED, TYPES) == EMPTY_VISITOR
+
+
+class TestLegacyVisitorFilters:
+    def test_nothing_sent(self):
+        assert pcf.legacy_visitor_filters() == EMPTY_VISITOR
+
+    def test_single_values_become_lists(self):
+        tag = uuid.uuid4()
+        card = uuid.uuid4()
+        other = uuid.uuid4()
+        out = pcf.legacy_visitor_filters(
+            subtype="micro",
+            tag_ids=f" {tag} ,,nope",
+            attr_filters='{"criticality": "high", "cloud": true, "count": 3, "off": false}',
+            relation_filters=f'{{"orgOwnsApp": "{card}"}}',
+            related_type="orgUsesApp",
+            related_id=str(other),
+        )
+        assert out == {
+            "subtypeFilters": ["micro"],
+            "attrFilters": {
+                "criticality": ["high"],
+                "cloud": ["true"],
+                "count": ["3"],
+                "off": ["false"],
+            },
+            "attrConditions": {},
+            "relationFilters": {"orgOwnsApp": [str(card)], "orgUsesApp": [str(other)]},
+            "tagFilterIds": [],
+            "anyTagIds": [str(tag)],
+        }
+
+    def test_malformed_input_is_ignored(self):
+        out = pcf.legacy_visitor_filters(
+            tag_ids="not-a-uuid",
+            attr_filters='{"a": [1], "b": {}, "c": null, "d": ""}',
+            relation_filters='{"orgOwnsApp": "nope", "orgUsesApp": ["x"]}',
+            related_type="orgOwnsApp",
+            related_id="also-not-a-uuid",
+        )
+        assert out == EMPTY_VISITOR
+
+    @pytest.mark.parametrize("raw", ["not-json", "[1]", '"x"', "{" + " " * 9000 + "}"])
+    def test_malformed_json_is_ignored(self, raw):
+        out = pcf.legacy_visitor_filters(attr_filters=raw, relation_filters=raw)
+        assert out == EMPTY_VISITOR
+
+    def test_related_id_without_a_type_is_ignored(self):
+        assert pcf.legacy_visitor_filters(related_id=str(uuid.uuid4())) == EMPTY_VISITOR
+        assert pcf.legacy_visitor_filters(related_type="orgOwnsApp") == EMPTY_VISITOR
+
+    def test_related_and_relation_filters_on_one_type_join(self):
+        card = uuid.uuid4()
+        other = uuid.uuid4()
+        out = pcf.legacy_visitor_filters(
+            relation_filters=f'{{"orgOwnsApp": "{card}"}}',
+            related_type="orgOwnsApp",
+            related_id=str(other),
+        )
+        assert out["relationFilters"] == {"orgOwnsApp": [str(card), str(other)]}
+        same = pcf.legacy_visitor_filters(
+            relation_filters=f'{{"orgOwnsApp": "{card}"}}',
+            related_type="orgOwnsApp",
+            related_id=str(card),
+        )
+        assert same["relationFilters"] == {"orgOwnsApp": [str(card)]}
+
+
+class TestHasVisitorFilters:
+    def test_empty(self):
+        assert pcf.has_visitor_filters(EMPTY_VISITOR) is False
+        assert pcf.has_visitor_filters({}) is False
+
+    @pytest.mark.parametrize(
+        "key,picked",
+        [
+            ("subtypeFilters", ["a"]),
+            ("attrFilters", {"k": ["v"]}),
+            ("attrConditions", {"k": {"contains": "v"}}),
+            ("relationFilters", {"r": ["id"]}),
+            ("tagFilterIds", ["t"]),
+            ("anyTagIds", ["t"]),
+        ],
+    )
+    def test_any_pick(self, key, picked):
+        assert pcf.has_visitor_filters({**EMPTY_VISITOR, key: picked}) is True
+
+
+class TestVisitorConditions:
+    async def test_no_filter_no_condition(self, db, land):
+        assert await pcf.visitor_conditions(db, "Application", EMPTY_VISITOR) == []
+        assert await _visitor_names(db, {}) == ALL
+
+    async def test_subtype_with_empty(self, db, land):
+        assert await _visitor_names(db, {"subtypeFilters": ["micro"]}) == {"Beta", "Epsilon"}
+        both = {"subtypeFilters": ["business", EMPTY_KEY]}
+        assert await _visitor_names(db, both) == {"Alpha", "Gamma", "Delta"}
+
+    async def test_a_multiple_select_matches_one_value_among_several(self, db, land):
+        assert await _visitor_names(db, {"attrFilters": {"regions": ["us"]}}) == {"Alpha"}
+        assert await _visitor_names(db, {"attrFilters": {"regions": ["eu"]}}) == {"Alpha", "Beta"}
+
+    async def test_facet_values_or_empty(self, db, land):
+        value = {"attrFilters": {"criticality": ["low", EMPTY_KEY]}}
+        assert await _visitor_names(db, value) == {"Beta", "Gamma", "Delta", "Epsilon"}
+
+    async def test_boolean(self, db, land):
+        assert await _visitor_names(db, {"attrFilters": {"cloud": ["true"]}}) == {"Alpha", "Beta"}
+
+    async def test_text_condition(self, db, land):
+        assert await _visitor_names(db, {"attrConditions": {"code": {"contains": "a"}}}) == {
+            "Alpha"
+        }
+
+    async def test_relation_with_empty(self, db, land):
+        value = {"relationFilters": {"orgOwnsApp": [str(land.corp.id)]}}
+        assert await _visitor_names(db, value) == {"Alpha"}
+        empty = {"relationFilters": {"orgOwnsApp": [EMPTY_KEY]}}
+        assert await _visitor_names(db, empty) == {"Beta", "Gamma", "Delta", "Epsilon"}
+
+    async def test_a_relation_pick_does_not_reach_sub_cards(self, db, land):
+        """Include sub-cards is preset-only: a visitor's pick is that card."""
+        value = {"relationFilters": {"orgUsesApp": [str(land.corp.id)]}}
+        assert await _visitor_names(db, value) == {"Gamma"}
+
+    async def test_tags_or_within_and_across_groups(self, db, land):
+        within = {"tagFilterIds": [str(land.finance.id), str(land.sales.id)]}
+        assert await _visitor_names(db, within) == {"Alpha", "Beta"}
+        across = {"tagFilterIds": [str(land.sales.id), str(land.gold.id)]}
+        assert await _visitor_names(db, across) == set()
+
+    async def test_legacy_tags_are_any_of(self, db, land):
+        across = {"anyTagIds": [str(land.sales.id), str(land.gold.id)]}
+        assert await _visitor_names(db, across) == {"Alpha", "Beta", "Gamma"}
+        assert await _visitor_names(db, {"anyTagIds": ["nope"]}) == ALL
+
+    async def test_filters_are_anded(self, db, land):
+        value = {
+            "subtypeFilters": ["business", "micro"],
+            "attrFilters": {"regions": ["eu"]},
+        }
+        assert await _visitor_names(db, value) == {"Alpha", "Beta"}
+        value["attrFilters"]["criticality"] = ["low"]
+        assert await _visitor_names(db, value) == {"Beta"}
+
+    async def test_nothing_applies_without_its_allowed_key(self, db, land):
+        value = {"subtypeFilters": ["micro"], "tagFilterIds": [str(land.sales.id)]}
+        assert await _visitor_names(db, value, allowed=["field:code"]) == ALL
+
+    async def test_malformed_ids_are_dropped(self, db, land):
+        value = {"relationFilters": {"orgOwnsApp": ["nope"]}, "tagFilterIds": ["nope"]}
+        assert await _visitor_names(db, value) == ALL
+
+
+class TestPublicVisitorConditions:
+    async def _names(self, db, *, filters=None, allowed=ALLOWED, **legacy):
+        conditions = await pcf.public_visitor_conditions(
+            db,
+            "Application",
+            allowed=allowed,
+            field_types=TYPES,
+            filters=filters,
+            legacy=legacy,
+        )
+        rows = await db.execute(
+            select(Card.name).where(
+                Card.type == "Application", Card.status == "ACTIVE", *conditions
+            )
+        )
+        return set(rows.scalars().all())
+
+    async def test_nothing_sent(self, db, land):
+        assert await self._names(db) == ALL
+
+    async def test_filters_alone(self, db, land):
+        assert await self._names(db, filters='{"subtypeFilters": ["micro"]}') == {
+            "Beta",
+            "Epsilon",
+        }
+
+    async def test_legacy_alone(self, db, land):
+        assert await self._names(db, attr_filters='{"regions": "us"}') == {"Alpha"}
+
+    async def test_both_apply(self, db, land):
+        names = await self._names(
+            db, filters='{"subtypeFilters": ["micro"]}', attr_filters='{"regions": "eu"}'
+        )
+        assert names == {"Beta"}
+
+    async def test_each_is_restricted(self, db, land):
+        names = await self._names(
+            db,
+            filters='{"subtypeFilters": ["micro"]}',
+            subtype="business",
+            allowed=["field:code"],
+        )
+        assert names == ALL

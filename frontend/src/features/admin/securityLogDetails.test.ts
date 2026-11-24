@@ -271,6 +271,13 @@ describe("classifyValue", () => {
     expect(classifyValue("no_such_code", "type")).toBe("text");
   });
 
+  it("labels a portal's visitor filter items: the filter surface, the subtype filter", () => {
+    expect(classifyValue("filter", "surface")).toBe("code");
+    expect(classifyValue("subtype", "item")).toBe("code");
+    expect(hasValueLabel("filter")).toBe(true);
+    expect(hasValueLabel("subtype")).toBe(true);
+  });
+
   it("never reads a label, slug or email as a code — except the description section", () => {
     expect(classifyValue("lifecycle", "item")).toBe("code");
     for (const field of ["label", "slug", "section", "role", "email", "from_section"]) {

@@ -7,7 +7,7 @@
  * the detail dialog, and a failed card query that said nothing.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from "react-router";
 
@@ -234,15 +234,13 @@ describe("PortalViewer item count and labels", () => {
     expect(screen.queryByText(/ item$/)).toBeNull();
   });
 
-  it("offers each relation filter's empty choice without pluralising its label", async () => {
+  it("offers each relation filter's empty choice, never a pluralised label", async () => {
     const user = userEvent.setup();
     renderPortal();
     await screen.findByText("Customer Management");
     await user.click(screen.getByRole("button", { name: "tune" }));
-    await user.click(await screen.findByRole("combobox", { name: /IT Component · runs on/ }));
-    expect(
-      await screen.findByRole("option", { name: "All IT Component · runs on", selected: true }),
-    ).toBeInTheDocument();
+    fireEvent.mouseDown(await screen.findByRole("combobox", { name: /IT Component · runs on/ }));
+    expect(await screen.findByRole("option", { name: "(empty)" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /ons$/ })).toBeNull();
   });
 });
