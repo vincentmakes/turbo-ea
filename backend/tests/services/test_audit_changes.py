@@ -8,6 +8,7 @@ matching rules fails here first.
 from __future__ import annotations
 
 import copy
+import datetime
 
 import pytest
 
@@ -1047,6 +1048,14 @@ def test_portal_filter_items_log_a_changed_field_condition():
     assert portal_filter_items({"subtypes": []}, {"card_filters": {}}) == []
 
 
+def test_an_unknown_condition_reads_as_json_with_sorted_keys():
+    """A condition of no known shape is shown as its JSON: keys sorted, so the
+    same condition always reads the same, and a value JSON cannot encode is
+    shown as its text rather than failing the log line."""
+    assert ac._condition_text({"y": 1, "x": 2}) == '{"x": 2, "y": 1}'
+    assert ac._condition_text({"at": datetime.date(2026, 1, 2)}) == '{"at": "2026-01-02"}'
+
+
 def test_portal_filter_items_label_the_old_side_too():
     old = {
         "card_filters": {
@@ -1226,6 +1235,20 @@ def test_portal_card_config_visitor_filters_against_the_default():
     ]
     assert portal_card_config_items(listed, copy.deepcopy(listed)) == []
     assert portal_card_config_items({"visitor_filters": []}, {"visitor_filters": "x"}) == []
+
+
+def test_stored_visitor_filters_past_a_non_string_key():
+    """A non-string entry is skipped, not the end of the list: the keys after
+    it are still reported."""
+    assert portal_card_config_items({"visitor_filters": [3, "tags"]}, {"visitor_filters": []}) == [
+        {
+            "kind": "portal_toggle.changed",
+            "item": "tags",
+            "surface": "filter",
+            "old": True,
+            "new": False,
+        }
+    ]
 
 
 _DEFAULT_SHOWN = ("subtype", "tags", "field:tier", "rel:owns")

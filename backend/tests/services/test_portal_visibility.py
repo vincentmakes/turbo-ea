@@ -357,6 +357,15 @@ class TestPublishableFilters:
     def test_a_cost_field_never_is_even_when_exposed(self):
         assert "field:spend" not in pv.publishable_filters(FILTER_SCHEMA, **_shape())
 
+    def test_a_cost_field_is_neither_published_nor_a_default(self):
+        """Called directly — ``load_portal_visibility`` strips cost fields
+        first — a cost field in the schema and in ``exposed_fields`` is still
+        never offered, in either list."""
+        schema = [{"fields": [{"key": "spend", "type": "cost"}]}]
+        shape = _shape(exposed_fields=frozenset({"spend"}), relation_types=frozenset())
+        assert pv.publishable_filters(schema, **shape) == ["subtype", "tags"]
+        assert pv.default_shown_filters(schema, **shape) == ["subtype", "tags"]
+
     def test_no_subtypes_no_tags_no_relations(self):
         out = pv.publishable_filters(
             FILTER_SCHEMA,
@@ -523,13 +532,16 @@ class TestNormaliseVisitorFilterConfig:
 
     @pytest.mark.parametrize("raw", ["tags", {"tags": True}, 3])
     def test_a_non_list_is_refused(self, raw):
-        with pytest.raises(ValueError, match="visitor_filters"):
+        with pytest.raises(ValueError) as exc:
             pv.normalise_visitor_filter_config({"visitor_filters": raw}, "cards")
+        # The route returns this text as the 422 detail, so it is pinned whole.
+        assert str(exc.value) == "card_config.visitor_filters must be a list of filter keys"
 
     @pytest.mark.parametrize("raw", ["false", 0, []])
     def test_a_non_boolean_switch_is_refused(self, raw):
-        with pytest.raises(ValueError, match="visitor_can_add_filters"):
+        with pytest.raises(ValueError) as exc:
             pv.normalise_visitor_filter_config({"visitor_can_add_filters": raw}, "cards")
+        assert str(exc.value) == "card_config.visitor_can_add_filters must be true or false"
 
     @pytest.mark.parametrize("card_config", [None, "junk", []])
     def test_not_an_object_is_left_alone(self, card_config):

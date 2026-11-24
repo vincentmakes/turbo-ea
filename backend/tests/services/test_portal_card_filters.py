@@ -9,6 +9,7 @@ PostgreSQL test database; the pure helpers at the bottom need none.
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -356,6 +357,19 @@ class TestNumberConditions:
         assert await _gadgets(db, {"pct": {"min": 50}}) == {"Alpha"}
         assert await _gadgets(db, {"pct": {"max": 49.5}}) == {"Beta"}
 
+    async def test_a_float_bound_is_the_number_as_written(self, db, gadgets):
+        """``0.1`` bounds the stored ``0.1`` both ways: the bound is read as
+        ``Decimal("0.1")``, never as the float's binary expansion, which lies
+        just above it and would make ``min: 0.1`` miss the value."""
+        await create_card(db, card_type="Gadget", name="Tenth", attributes={"n": 0.1})
+        assert await _gadgets(db, {"n": {"min": 0.1, "max": 0.1}}) == {"Tenth"}
+
+    def test_decimal_reads_a_float_by_its_shortest_text(self):
+        assert pcf._decimal(0.1) == Decimal("0.1")
+        assert pcf._decimal(0.1) != Decimal(0.1)
+        assert pcf._decimal(-1e99) == Decimal("-1e+99")
+        assert pcf._decimal(12) == Decimal(12)
+
 
 class TestDateConditions:
     async def test_from(self, db, gadgets):
@@ -399,6 +413,11 @@ class TestConditionsThatDoNotApply:
         clause = pcf.condition_clause("code", {"contains": "x"}, "text", card=other)
         assert "cond_other" in str(clause.compile(dialect=postgresql.dialect()))
         assert pcf.condition_clause("code", {"contains": "x"}, None) is None
+
+    def test_condition_clauses_read_the_given_entity(self):
+        other = aliased(Card, name="conds_other")
+        [clause] = pcf.condition_clauses({"code": {"contains": "x"}}, {"code": "text"}, card=other)
+        assert "conds_other" in str(clause.compile(dialect=postgresql.dialect()))
 
 
 class TestRelations:
@@ -952,6 +971,19 @@ class TestLegacyVisitorFilters:
     def test_related_id_without_a_type_is_ignored(self):
         assert pcf.legacy_visitor_filters(related_id=str(uuid.uuid4())) == EMPTY_VISITOR
         assert pcf.legacy_visitor_filters(related_type="orgOwnsApp") == EMPTY_VISITOR
+
+    def test_a_blank_related_type_is_ignored(self):
+        """``?related_type=&related_id=<id>`` names no relation type: no pick,
+        not a pick filed under the empty key."""
+        out = pcf.legacy_visitor_filters(related_type="", related_id=str(uuid.uuid4()))
+        assert out == EMPTY_VISITOR
+
+    def test_a_relation_filter_value_must_be_a_string(self):
+        """A JSON number of 32 decimal digits is 32 hex digits once written
+        out, which ``uuid.UUID`` would accept: only a string is read as an id."""
+        raw = '{"orgOwnsApp": 12345678901234567890123456789012}'
+        assert uuid.UUID(str(12345678901234567890123456789012))  # what is being guarded
+        assert pcf.legacy_visitor_filters(relation_filters=raw) == EMPTY_VISITOR
 
     def test_related_and_relation_filters_on_one_type_join(self):
         card = uuid.uuid4()

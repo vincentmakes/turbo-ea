@@ -6,6 +6,12 @@ import uuid
 
 import pytest
 
+from app.api.v1.web_portals import (
+    _PortalAuditLabels,
+    _shown_visitor_filters,
+    _toggle_relation_keys,
+)
+from app.services import portal_visibility
 from tests.conftest import (
     auth_headers,
     create_card_type,
@@ -913,12 +919,15 @@ class TestVisitorFilterConfig:
     async def test_a_non_list_is_refused(self, client, db, portals_env):
         resp = await self._create(client, portals_env["admin"], {"visitor_filters": "tags"})
         assert resp.status_code == 422
-        assert "visitor_filters" in resp.json()["detail"]
+        assert resp.json()["detail"] == "card_config.visitor_filters must be a list of filter keys"
         assert await _audit_rows(db) == []
 
     async def test_a_non_boolean_switch_is_refused(self, client, db, portals_env):
         resp = await self._create(client, portals_env["admin"], {"visitor_can_add_filters": "no"})
         assert resp.status_code == 422
+        assert resp.json()["detail"] == (
+            "card_config.visitor_can_add_filters must be true or false"
+        )
 
     async def test_update_normalises_and_refuses(self, client, db, portals_env):
         headers = auth_headers(portals_env["admin"])
@@ -963,6 +972,34 @@ class TestVisitorFilterConfig:
         )
         assert resp.status_code == 200
         assert resp.json()["card_config"] == {"show_logo": False}
+
+    async def test_switching_to_a_board_logs_each_shown_filter_leaving(
+        self, client, db, portals_env
+    ):
+        """The board has no filter bar: every filter the card list showed is
+        logged as gone, resolved on the card-list side and nothing on the
+        board side."""
+        await create_card_type(db, key="BusinessProcess", label="Business Process")
+        created = await self._create(
+            client, portals_env["admin"], {"visitor_filters": ["tags"], "show_logo": False}
+        )
+        resp = await client.patch(
+            f"/api/v1/web-portals/{created.json()['id']}",
+            json={"view": "process_navigator"},
+            headers=auth_headers(portals_env["admin"]),
+        )
+        assert resp.status_code == 200
+
+        [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
+        assert [i for i in updated.details["items"] if i.get("surface") == "filter"] == [
+            {
+                "kind": "portal_toggle.changed",
+                "item": "tags",
+                "surface": "filter",
+                "old": True,
+                "new": False,
+            }
+        ]
 
     async def test_without_web_portals_manage_403(self, client, db, portals_env):
         resp = await self._create(client, portals_env["viewer"], {"visitor_filters": ["tags"]})
@@ -1083,3 +1120,89 @@ class TestVisitorFilterConfig:
         assert await filter_items({}) == [{**untick, "old": False, "new": True}]
         # The default written out as a list: the bar is the same, so nothing.
         assert await filter_items({"visitor_filters": ["tags", "field:tier"]}) == []
+
+
+class TestPortalAuditHelpers:
+    """The audit helpers of ``web_portals.py``, called directly."""
+
+    def test_the_subtype_filter_keeps_its_code_over_a_field_of_that_key(self):
+        # A field keyed ``subtype`` must not lend its label to the subtype filter.
+        labels = _PortalAuditLabels(fields={"subtype": "Variant", "code": "Code"})
+        out = labels.item_labels()
+        assert out["subtype"] == "subtype"
+        assert out["field:subtype"] == "Variant"
+        assert out["code"] == "Code"
+
+    def test_relation_keys_come_from_the_toggles_and_the_visitor_filters(self):
+        keys = _toggle_relation_keys(
+            {
+                "toggles": {"rel:shown": {"card": True}, "field:x": {"card": True}},
+                "visitor_filters": ["rel:listed", "field:code", 3, "tags"],
+            },
+            {"visitor_filters": ["rel:other"]},
+            {"visitor_filters": "rel:not-a-list"},
+            None,
+            "junk",
+        )
+        assert keys == {"shown", "listed", "other"}
+
+
+class TestShownVisitorFilters:
+    """``_shown_visitor_filters``: the bar a snapshot's visitors see."""
+
+    CONFIG = {"visitor_filters": ["tags"]}
+
+    async def test_a_card_list_resolves_its_bar(self, db, portals_env):
+        snapshot = {"view": "cards", "card_type": "Application", "card_config": self.CONFIG}
+        assert await _shown_visitor_filters(db, snapshot) == ("tags",)
+
+    async def test_no_view_reads_as_a_card_list(self, db, portals_env):
+        snapshot = {"card_type": "Application", "card_config": self.CONFIG}
+        assert await _shown_visitor_filters(db, snapshot) == ("tags",)
+        snapshot["view"] = None
+        assert await _shown_visitor_filters(db, snapshot) == ("tags",)
+
+    async def test_a_board_has_no_bar(self, db, portals_env):
+        snapshot = {
+            "view": "process_navigator",
+            "card_type": "Application",
+            "card_config": self.CONFIG,
+        }
+        assert await _shown_visitor_filters(db, snapshot) == ()
+
+    @pytest.mark.parametrize("card_type", [None, ""])
+    async def test_no_card_type_has_no_bar(self, db, portals_env, card_type):
+        snapshot = {"view": "cards", "card_type": card_type, "card_config": self.CONFIG}
+        assert await _shown_visitor_filters(db, snapshot) == ()
+        assert await _shown_visitor_filters(db, {"card_config": self.CONFIG}) == ()
+
+
+class TestLoadPortalVisibility:
+    """``portal_visibility.load_portal_visibility`` against the database."""
+
+    async def test_field_types_of_the_public_schema(self, db):
+        await create_card_type(
+            db,
+            key="Widget",
+            label="Widget",
+            fields_schema=[
+                {
+                    "section": "Main",
+                    "fields": [
+                        {"key": "code", "type": "text"},
+                        {"key": "untyped"},
+                        {"key": "spend", "type": "cost"},
+                    ],
+                }
+            ],
+        )
+        vis = await portal_visibility.load_portal_visibility(db, "Widget", None)
+        # No type reads as "", never "None"; a cost field is not published.
+        assert vis.field_types == {"code": "text", "untyped": ""}
+
+    async def test_an_unknown_card_type_shows_nothing_and_does_not_fail(self, db):
+        vis = await portal_visibility.load_portal_visibility(db, "NoSuchType", {"toggles": {}})
+        assert vis.field_types == {}
+        assert vis.exposed_fields == frozenset()
+        assert vis.relation_types == frozenset()
+        assert "subtype" not in vis.visitor_filters.allowed
