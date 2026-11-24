@@ -231,11 +231,11 @@ const BASE = "/ppm/initiatives/i1";
 const EMPTY_FINANCIALS = {
   initiative_id: "i1", field_definitions: {}, invoice_access: true,
   budget_lines: [], budget_subtotals: [], cost_items: [], invoices: [], actual_invoiced: "0",
-  budget_totals: { amount: "0", total_cost_items: "0", total_invoiced: "0", remaining_to_invoice: "0" },
+  budget_totals: { amount: "0", total_cost_items: "0", remaining_budget: "0", total_invoiced: "0", remaining_to_invoice: "0" },
 };
 const FINANCIALS = {
   ...EMPTY_FINANCIALS,
-  budget_lines: BUDGETS.map((b) => ({ ...b, total_cost_items: "0", total_invoiced: "0", remaining_to_invoice: "0", field_values: {}, calculated_values: {} })),
+  budget_lines: BUDGETS.map((b) => ({ ...b, total_cost_items: "0", remaining_budget: "0", total_invoiced: "0", remaining_to_invoice: "0", field_values: {}, calculated_values: {} })),
   cost_items: COSTS.map((c, i) => ({ ...c, budget_line_id: BUDGETS[i].id, total_invoiced: "0", remaining_to_invoice: "0", field_values: {}, calculated_values: {} })),
 };
 
@@ -1360,15 +1360,15 @@ describe("PpmProjectReport — invoiced financial hierarchy", () => {
       invoice_access: true,
       budget_lines: [{
         id: "budget-a", fiscal_year: 2026, category: "opex", description: "Platform",
-        amount: "100.13", total_cost_items: "100.13", total_invoiced: "30.11",
+        amount: "100.13", total_cost_items: "100.13", remaining_budget: "0", total_invoiced: "30.11",
         remaining_to_invoice: "70.02", field_values: {}, calculated_values: {},
       }],
       budget_subtotals: [{
-        fiscal_year: 2026, category: "opex", amount: "100.13", total_cost_items: "100.13",
+        fiscal_year: 2026, category: "opex", amount: "100.13", total_cost_items: "100.13", remaining_budget: "0",
         total_invoiced: "30.11", remaining_to_invoice: "70.02",
       }],
       budget_totals: {
-        amount: "100.13", total_cost_items: "100.13",
+        amount: "100.13", total_cost_items: "100.13", remaining_budget: "0",
         total_invoiced: "30.11", remaining_to_invoice: "70.02",
       },
       cost_items: [{

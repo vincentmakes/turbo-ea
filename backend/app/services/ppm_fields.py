@@ -12,7 +12,11 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from simpleeval import InvalidExpression
+
 from app.schemas.ppm_fields import PmlFieldDefinition, PmlRowKind, PmlSectionConfig
+from app.services.calculation_engine import SAFE_FUNCTIONS, _DotDict, _evaluate_formula
+from app.services.calculation_lint import split_formula_lines
 
 
 class _Unavailable:
@@ -38,6 +42,14 @@ STANDARD_INPUTS = {
         "planned",
         "provider.effective",
         "provider.budget",
+        "budget.amount",
+        "budget.fiscal_year",
+        "budget.category",
+        "budget.description",
+        "budget.provider",
+        "budget.initiative.id",
+        "budget.initiative.name",
+        "budget.initiative.type",
     },
     "invoice": {"invoice_date", "invoice_id", "amount"},
 }
@@ -53,7 +65,25 @@ _STANDARD_TYPES = {
     "invoice_id": "text",
     "provider.effective": "card_reference",
     "provider.budget": "card_reference",
+    "budget.amount": "number",
+    "budget.fiscal_year": "number",
+    "budget.category": "text",
+    "budget.description": "text",
+    "budget.provider": "card_reference",
+    "budget.initiative.id": "text",
+    "budget.initiative.name": "text",
+    "budget.initiative.type": "text",
 }
+
+_CORE_STANDARD_NAMES = {
+    "providerEffective": "provider.effective",
+    "providerBudget": "provider.budget",
+    "budgetAmount": "budget.amount",
+    "budgetFiscalYear": "budget.fiscal_year",
+    "budgetCategory": "budget.category",
+    "budgetDescription": "budget.description",
+}
+
 _SYSTEM_KEYS = {
     "budget_line_id",
     "cost_item_id",
@@ -193,6 +223,124 @@ def validate_field_values(
     return result
 
 
+def _core_data_sources(
+    section: PmlRowKind, fields: dict[str, PmlFieldDefinition]
+) -> dict[str, str]:
+    sources = {key: key for key in STANDARD_INPUTS[section] if key.isidentifier()}
+    sources.update(
+        {
+            name: source
+            for name, source in _CORE_STANDARD_NAMES.items()
+            if source in STANDARD_INPUTS[section]
+        }
+    )
+    # A Cost Item's budget root denotes its linked budget. A legacy custom
+    # field named budget remains available through an explicit input alias.
+    if section == "cost_item":
+        sources.update({key: key for key in STANDARD_INPUTS[section] if key.startswith("budget.")})
+    sources.update(
+        {
+            key: key
+            for key, field in fields.items()
+            if field.active and not (section == "cost_item" and key == "budget")
+        }
+    )
+    return sources
+
+
+def _core_data_sources_for_evaluation(
+    fields: dict[str, PmlFieldDefinition],
+) -> dict[str, str]:
+    sources = {key: key for key in _STANDARD_TYPES if key.isidentifier()}
+    sources.update(_CORE_STANDARD_NAMES)
+    sources.update({key: key for key in _STANDARD_TYPES if key.startswith("budget.")})
+    sources.update({key: key for key, field in fields.items() if field.active})
+    return sources
+
+
+def _data_path(node: ast.AST) -> str | None:
+    parts: list[str] = []
+    while isinstance(node, (ast.Attribute, ast.Subscript)):
+        if isinstance(node, ast.Attribute):
+            parts.append(node.attr)
+        else:
+            if not isinstance(node.slice, ast.Constant) or not isinstance(node.slice.value, str):
+                return None
+            parts.append(node.slice.value)
+        node = node.value
+    if isinstance(node, ast.Name) and node.id == "data" and parts:
+        return ".".join(reversed(parts))
+    return None
+
+
+def _core_formula_refs(expression: str) -> set[str]:
+    refs: set[str] = set()
+    for _assignment, line in split_formula_lines(expression):
+        try:
+            tree = ast.parse(line, mode="eval")
+        except SyntaxError as exc:
+            raise ValueError("Invalid expression") from exc
+        nodes = list(ast.walk(tree))
+        parents = {child: node for node in nodes for child in ast.iter_child_nodes(node)}
+        for node in nodes:
+            if not isinstance(node, ast.Name) or node.id != "data":
+                continue
+            path_node: ast.AST = node
+            while True:
+                parent = parents.get(path_node)
+                if not isinstance(parent, (ast.Attribute, ast.Subscript)):
+                    break
+                if parent.value is not path_node:
+                    break
+                path_node = parent
+            path = _data_path(path_node)
+            if path is None:
+                raise ValueError("Data fields must be referenced by name")
+            refs.add(path)
+    return refs
+
+
+def _validate_core_formula(expression: str, aliases: set[str], sources: dict[str, str]) -> set[str]:
+    lines = split_formula_lines(expression)
+    if not lines:
+        raise ValueError("Empty formula")
+    reserved = set(aliases) | set(SAFE_FUNCTIONS) | {"data"}
+    names = set(reserved)
+    for assignment, line in lines:
+        try:
+            tree = ast.parse(line, mode="eval")
+        except SyntaxError as exc:
+            raise ValueError("Invalid expression") from exc
+        nodes = list(ast.walk(tree))
+        if len(nodes) > 150:
+            raise ValueError("Expression is too complex")
+        for node in nodes:
+            if isinstance(node, ast.Name) and node.id not in names:
+                raise ValueError(f"Unknown input {node.id}")
+        if assignment:
+            if assignment in reserved:
+                raise ValueError("Assignment cannot overwrite a reserved name")
+            names.add(assignment)
+    refs = _core_formula_refs(expression)
+    unknown = refs - set(sources)
+    if unknown:
+        raise ValueError(f"Unknown or inactive data fields: {', '.join(sorted(unknown))}")
+    return {sources[name] for name in refs}
+
+
+def _nested_data(values: dict[str, Any]) -> _DotDict:
+    data = _DotDict()
+    for path, value in values.items():
+        parts = path.split(".")
+        target = data
+        for part in parts[:-1]:
+            if part not in target:
+                target[part] = _DotDict()
+            target = target[part]
+        target[parts[-1]] = value
+    return data
+
+
 def _validate_expression(expression: str, aliases: set[str]) -> ast.Expression:
     try:
         tree = ast.parse(expression, mode="eval")
@@ -231,13 +379,19 @@ def _validate_expression(expression: str, aliases: set[str]) -> ast.Expression:
     for node in nodes:
         if not isinstance(node, allowed):
             raise ValueError("Unsupported expression syntax")
-        if isinstance(node, ast.Name) and node.id not in aliases | {"YEAR", "MONTH", "DAY"}:
+        if isinstance(node, ast.Name) and node.id not in aliases | {"YEAR", "MONTH", "DAY", "IF"}:
             raise ValueError(f"Unknown input {node.id}")
         if isinstance(node, ast.Call):
-            if not isinstance(node.func, ast.Name) or node.func.id not in {"YEAR", "MONTH", "DAY"}:
+            if not isinstance(node.func, ast.Name) or node.func.id not in {
+                "YEAR",
+                "MONTH",
+                "DAY",
+                "IF",
+            }:
                 raise ValueError("Unsupported function")
-            if len(node.args) != 1 or node.keywords:
-                raise ValueError("Date functions require one argument")
+            expected_args = 3 if node.func.id == "IF" else 1
+            if len(node.args) != expected_args or node.keywords:
+                raise ValueError(f"{node.func.id} requires {expected_args} arguments")
         if isinstance(node, ast.Constant) and not isinstance(
             node.value, (str, int, float, bool, type(None))
         ):
@@ -332,6 +486,14 @@ def _infer_expression_type(node: ast.AST, input_types: dict[str, str]) -> str:
             raise ValueError("Function must be called")
         return input_types[node.id]
     if isinstance(node, ast.Call):
+        if isinstance(node.func, ast.Name) and node.func.id == "IF":
+            if _infer_expression_type(node.args[0], input_types) != "boolean":
+                raise ValueError("IF condition requires a boolean")
+            branches = {_infer_expression_type(arg, input_types) for arg in node.args[1:]}
+            branches.discard("null")
+            if len(branches) > 1:
+                raise ValueError("IF branches must have compatible types")
+            return next(iter(branches), "null")
         if _infer_expression_type(node.args[0], input_types) != "date":
             raise ValueError("Date function requires a date")
         return "number"
@@ -420,9 +582,21 @@ def validate_section_config(
                     raise ValueError("Choose an expression or ordered rules")
                 if not field.active:
                     continue
-                aliases = set(calc.inputs)
+                constants = calc.provider_constants
+                if constants and (section != "cost_item" or calc.expression is None):
+                    raise ValueError("Provider constants require a Cost Item formula")
+                if set(calc.inputs) & set(constants):
+                    raise ValueError("Provider constants must have unique aliases")
+                aliases = set(calc.inputs) | set(constants)
+                if calc.formula_engine == "core" and aliases & (set(SAFE_FUNCTIONS) | {"data"}):
+                    raise ValueError("Input alias is reserved")
                 if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) for key in aliases):
                     raise ValueError("Invalid input alias")
+                if set(constants) & {"IF", "YEAR", "MONTH", "DAY"}:
+                    raise ValueError("Provider constant alias is reserved")
+                for value in constants.values():
+                    if str(uuid.UUID(value)) != value:
+                        raise ValueError("Provider constant requires a canonical UUID")
                 for source in calc.inputs.values():
                     dependency = fields.get(source)
                     if source not in STANDARD_INPUTS[section] and (
@@ -433,11 +607,18 @@ def validate_section_config(
                     source for source in calc.inputs.values() if source in fields
                 }
                 input_types = _input_types(fields, calc.inputs)
+                input_types.update({alias: "card_reference" for alias in constants})
                 if calc.expression is not None:
-                    tree = _validate_expression(calc.expression, aliases)
-                    actual = _infer_expression_type(tree, input_types)
-                    if actual not in {calc.result_type, "null"}:
-                        raise ValueError("Expression result type does not match")
+                    if calc.formula_engine == "core":
+                        refs = _validate_core_formula(
+                            calc.expression, aliases, _core_data_sources(section, fields)
+                        )
+                        dependencies[field.key].update(refs & set(fields))
+                    else:
+                        tree = _validate_expression(calc.expression, aliases)
+                        actual = _infer_expression_type(tree, input_types)
+                        if actual not in {calc.result_type, "null"}:
+                            raise ValueError("Expression result type does not match")
                 if calc.rules is not None:
                     _result_type(calc.fallback, calc.result_type)
                     budget = 1000
@@ -484,6 +665,9 @@ def _expression_value(node: ast.AST, names: dict[str, Any]) -> Any:
     if isinstance(node, ast.Name):
         return names[node.id]
     if isinstance(node, ast.Call):
+        if isinstance(node.func, ast.Name) and node.func.id == "IF":
+            condition = _expression_value(node.args[0], names)
+            return _expression_value(node.args[1] if condition else node.args[2], names)
         value = _expression_value(node.args[0], names)
         if value is None:
             return None
@@ -570,11 +754,26 @@ def evaluate_row_fields(
             inputs[alias] = (
                 compute(source) if source in calculated else values.get(source, context.get(source))
             )
+        data = {}
+        sources = {}
+        if calc.formula_engine == "core" and calc.expression is not None:
+            available_sources = _core_data_sources_for_evaluation(fields)
+            sources = {
+                name: available_sources[name]
+                for name in _core_formula_refs(calc.expression)
+                if name in available_sources
+            }
+            for name, source in sources.items():
+                data[name] = (
+                    compute(source)
+                    if source in calculated
+                    else values.get(source, context.get(source))
+                )
         visiting.remove(key)
-        if any(value is UNAVAILABLE for value in inputs.values()):
+        if any(value is UNAVAILABLE for value in (*inputs.values(), *data.values())):
             unavailable.add(key)
             return UNAVAILABLE
-        if any(source in errors for source in calc.inputs.values()):
+        if any(source in errors for source in (*calc.inputs.values(), *sources.values())):
             errors[key] = "Calculation dependency failed"
             return None
         try:
@@ -583,9 +782,22 @@ def evaluate_row_fields(
                 alias: _typed_operand(value, input_types[alias]) for alias, value in inputs.items()
             }
             if calc.expression is not None:
-                result = _expression_value(
-                    _validate_expression(calc.expression, set(inputs)), inputs
-                )
+                inputs.update(calc.provider_constants)
+                if calc.formula_engine == "core":
+                    data_types = _input_types(fields, {name: sources[name] for name in data})
+                    typed_data = {
+                        name: _typed_operand(value, data_types[name])
+                        for name, value in data.items()
+                    }
+                    result = _evaluate_formula(
+                        calc.expression,
+                        {**inputs, "data": _nested_data(typed_data)},
+                        decimal_numbers=True,
+                    )
+                else:
+                    result = _expression_value(
+                        _validate_expression(calc.expression, set(inputs)), inputs
+                    )
             else:
                 result = calc.fallback
                 for rule in calc.rules or []:
@@ -603,7 +815,14 @@ def evaluate_row_fields(
                     result = date.fromisoformat(str(result)).isoformat()
             output[key] = result
             return result
-        except (ValueError, KeyError, TypeError, ArithmeticError) as exc:
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            ArithmeticError,
+            InvalidExpression,
+            SyntaxError,
+        ) as exc:
             errors[key] = str(exc)
             return None
 

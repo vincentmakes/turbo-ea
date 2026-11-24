@@ -236,6 +236,9 @@ def rewrite_pml_field_configuration(
         calculation = item.get("calculation")
         if not isinstance(calculation, dict):
             continue
+        constants = calculation.get("provider_constants") or {}
+        for alias, value in constants.items():
+            constants[alias] = pml_card_id(value, ctx, tally)
         aliases = {
             alias
             for alias, source in (calculation.get("inputs") or {}).items()

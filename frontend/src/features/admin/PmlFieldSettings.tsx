@@ -20,6 +20,7 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useRelationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import type { PmlRowKind } from "@/types";
+import { FormulaEditor } from "./FormulaEditor";
 
 type Option = { id: string; label: string; active: boolean };
 type Scalar = string | number | boolean | null;
@@ -30,7 +31,9 @@ type Condition =
 type Rule = { when: Condition; then: Scalar };
 type Calculation = {
   result_type: "text" | "number" | "date" | "boolean";
+  formula_engine?: "core" | "legacy";
   inputs: Record<string, string>;
+  provider_constants?: Record<string, string>;
   expression: string | null;
   rules: Rule[] | null;
   fallback: string | number | boolean | null;
@@ -348,12 +351,44 @@ const newField = (): Field => ({
 });
 const newCalculation = (): Calculation => ({
   result_type: "text",
+  formula_engine: "core",
   inputs: {},
   expression: "",
   rules: null,
   fallback: null,
 });
 
+const coreSource: Record<string, string> = {
+  providerEffective: "provider.effective",
+  providerBudget: "provider.budget",
+  budgetAmount: "budget.amount",
+  budgetFiscalYear: "budget.fiscal_year",
+  budgetCategory: "budget.category",
+  budgetDescription: "budget.description",
+};
+function calculationSources(
+  calculation: Calculation,
+  fields: Field[],
+  section: PmlRowKind,
+): string[] {
+  const sources = [...Object.values(calculation.inputs)];
+  if (calculation.formula_engine !== "core" || !calculation.expression) return sources;
+  const direct = calculation.expression.matchAll(
+    /\bdata\.([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)/g,
+  );
+  const indexed = calculation.expression.matchAll(
+    /\bdata\[\s*(["'])([A-Za-z_][A-Za-z0-9_]*)\1\s*\]/g,
+  );
+  for (const path of [
+    ...Array.from(direct, (match) => match[1]),
+    ...Array.from(indexed, (match) => match[2]),
+  ]) {
+    const key = path.startsWith("budget.") ? path : path.split(".")[0];
+    if (section === "cost_item" && key === "budget") continue;
+    sources.push(fields.some((field) => field.key === key) ? key : (coreSource[key] ?? key));
+  }
+  return [...new Set(sources)];
+}
 const fieldSettingsPath = "/settings/pml/financial-fields";
 
 export default function PmlFieldSettings() {
@@ -462,7 +497,9 @@ export default function PmlFieldSettings() {
         if (
           !unavailable.has(item.key) &&
           item.calculation &&
-          Object.values(item.calculation.inputs).some((source) => unavailable.has(source))
+          calculationSources(item.calculation, config.fields, section).some((source) =>
+            unavailable.has(source),
+          )
         ) {
           unavailable.add(item.key);
           changed = true;
@@ -498,12 +535,24 @@ export default function PmlFieldSettings() {
   };
   const sourceFields = [
     ...standard[section],
+    ...(section === "cost_item"
+      ? [
+          "budget.amount",
+          "budget.fiscal_year",
+          "budget.category",
+          "budget.description",
+          "budget.provider",
+          "budget.initiative.id",
+          "budget.initiative.name",
+          "budget.initiative.type",
+        ]
+      : []),
     ...config.fields
       .filter((item) => item.active !== false && item.key !== field?.key)
       .map((item) => item.key),
   ];
   const sourceType = (source: string) =>
-    source.startsWith("provider.")
+    source.startsWith("provider.") || source === "budget.provider"
       ? "Provider"
       : config.fields.find((item) => item.key === source)?.card_type;
   const calc = field?.calculation;
@@ -512,9 +561,61 @@ export default function PmlFieldSettings() {
     return (
       item?.calculation?.result_type ??
       item?.kind ??
-      (["fiscal_year", "amount", "actual", "planned"].includes(source) ? "number" : undefined)
+      ([
+        "fiscal_year",
+        "amount",
+        "actual",
+        "planned",
+        "budget.amount",
+        "budget.fiscal_year",
+      ].includes(source)
+        ? "number"
+        : undefined)
     );
   };
+  const sampleInputs: Record<string, string> = {};
+  const collectSamples = (calculation: Calculation, visited: Set<string>) => {
+    for (const source of calculationSources(calculation, config.fields, section)) {
+      const dependency = config.fields.find((item) => item.key === source);
+      if (dependency?.kind === "calculated") {
+        if (dependency.calculation && !visited.has(source)) {
+          visited.add(source);
+          collectSamples(dependency.calculation, visited);
+        }
+      } else if (source && !dependency?.protected) {
+        const alias = Object.entries(calculation.inputs).find(([, value]) => value === source)?.[0];
+        sampleInputs[alias ?? source] = source;
+      }
+    }
+  };
+  if (calc) collectSamples(calc, new Set());
+  const financialDataFields = [
+    ...standard[section]
+      .filter((key) => !key.startsWith("provider."))
+      .map((key) => ({ key, label: key })),
+    ...(section === "cost_item"
+      ? [
+          { key: "budget", label: "Budget" },
+          ...["providerEffective", "providerBudget"]
+            .filter((key) => !config.fields.some((item) => item.key === key))
+            .map((key) => ({ key, label: key })),
+        ]
+      : []),
+    ...config.fields
+      .filter(
+        (item) =>
+          item.active !== false &&
+          !item.protected &&
+          item.key !== field?.key &&
+          !(section === "cost_item" && item.key === "budget"),
+      )
+      .map((item) => ({
+        key: item.key,
+        label: item.label,
+        kind: item.kind,
+        options: item.options,
+      })),
+  ];
   return (
     <Box component="fieldset" disabled={busy} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
       <Tabs
@@ -901,8 +1002,8 @@ export default function PmlFieldSettings() {
                 onChange={(event) =>
                   changeCalculation(
                     event.target.value === "rules"
-                      ? { expression: null, rules: [] }
-                      : { expression: "", rules: null },
+                      ? { expression: null, rules: [], provider_constants: {} }
+                      : { expression: "", rules: null, formula_engine: "core" },
                   )
                 }
               >
@@ -916,7 +1017,11 @@ export default function PmlFieldSettings() {
                     value={alias}
                     onChange={(event) => {
                       const nextAlias = event.target.value;
-                      if (nextAlias !== alias && nextAlias in calc.inputs) return;
+                      if (
+                        nextAlias !== alias &&
+                        (nextAlias in calc.inputs || nextAlias in (calc.provider_constants ?? {}))
+                      )
+                        return;
                       const inputs = Object.fromEntries(
                         Object.entries(calc.inputs).map(([key, value]) =>
                           key === alias ? [nextAlias, value] : [key, value],
@@ -962,11 +1067,123 @@ export default function PmlFieldSettings() {
                 {k("addInput")}
               </Button>
               {calc.rules === null ? (
-                <TextField
-                  label={k("expression")}
-                  value={calc.expression ?? ""}
-                  onChange={(event) => changeCalculation({ expression: event.target.value })}
-                />
+                <>
+                  <TextField
+                    select
+                    label={k("formulaEngine")}
+                    value={calc.formula_engine ?? "legacy"}
+                    onChange={(event) =>
+                      changeCalculation({ formula_engine: event.target.value as "core" | "legacy" })
+                    }
+                  >
+                    <MenuItem value="core">{k("formulaEngineCore")}</MenuItem>
+                    <MenuItem value="legacy">{k("formulaEngineLegacy")}</MenuItem>
+                  </TextField>
+                  <FormulaEditor
+                    value={calc.expression ?? ""}
+                    onChange={(expression) => changeCalculation({ expression })}
+                    cardType={null}
+                    relationTypes={[]}
+                    dataFields={financialDataFields}
+                    nestedFields={
+                      section === "cost_item"
+                        ? {
+                            "data.budget": [
+                              "amount",
+                              "fiscal_year",
+                              "category",
+                              "description",
+                              "provider",
+                              "initiative",
+                            ].map((key) => ({ key, label: key })),
+                            "data.budget.initiative": ["id", "name", "type"].map((key) => ({
+                              key,
+                              label: key,
+                            })),
+                          }
+                        : undefined
+                    }
+                    extraNames={[
+                      ...Object.keys(calc.inputs),
+                      ...Object.keys(calc.provider_constants ?? {}),
+                    ]}
+                    textareaId="pml-formula-editor-textarea"
+                  />
+                  {section === "cost_item" && (
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      {Object.entries(calc.provider_constants ?? {}).map(([alias, id], index) => (
+                        <Box
+                          key={index}
+                          sx={{
+                            display: "flex",
+                            gap: 1,
+                            alignItems: "center",
+                          }}
+                        >
+                          <TextField
+                            label={k("providerConstantAlias")}
+                            value={alias}
+                            onChange={(event) => {
+                              const nextAlias = event.target.value;
+                              const constants = calc.provider_constants ?? {};
+                              if (nextAlias !== alias && nextAlias in constants) return;
+                              if (nextAlias in calc.inputs) return;
+                              changeCalculation({
+                                provider_constants: Object.fromEntries(
+                                  Object.entries(constants).map(([key, value]) =>
+                                    key === alias ? [nextAlias, value] : [key, value],
+                                  ),
+                                ),
+                              });
+                            }}
+                          />
+                          <ReferencePicker
+                            id={id || null}
+                            type="Provider"
+                            label={k("providerConstant")}
+                            onChange={(value) =>
+                              changeCalculation({
+                                provider_constants: {
+                                  ...calc.provider_constants,
+                                  [alias]: value?.id ?? "",
+                                },
+                              })
+                            }
+                          />
+                          <Button
+                            onClick={() => {
+                              const constants = {
+                                ...calc.provider_constants,
+                              };
+                              delete constants[alias];
+                              changeCalculation({
+                                provider_constants: constants,
+                              });
+                            }}
+                          >
+                            {k("remove")}
+                          </Button>
+                        </Box>
+                      ))}
+                      <Button
+                        disabled={!config.provider_source}
+                        onClick={() => {
+                          const constants = calc.provider_constants ?? {};
+                          let n = 1;
+                          while ("provider" + n in constants || "provider" + n in calc.inputs) n++;
+                          changeCalculation({
+                            provider_constants: {
+                              ...constants,
+                              ["provider" + n]: "",
+                            },
+                          });
+                        }}
+                      >
+                        {k("addProviderConstant")}
+                      </Button>
+                    </Box>
+                  )}
+                </>
               ) : (
                 <Box>
                   {calc.rules.map((rule, index) => {
@@ -1048,7 +1265,7 @@ export default function PmlFieldSettings() {
                   />
                 </Box>
               )}
-              {Object.entries(calc.inputs)
+              {Object.entries(sampleInputs)
                 .filter(
                   ([, source]) =>
                     !config.fields.some(
@@ -1067,6 +1284,25 @@ export default function PmlFieldSettings() {
                         setSamples({ ...samples, [source]: value?.id ?? null });
                       }}
                     />
+                  ) : typeFor(source) === "select" ? (
+                    <TextField
+                      select
+                      key={alias}
+                      label={k("sample") + " " + alias}
+                      value={String(samples[source] ?? "")}
+                      onChange={(event) =>
+                        setSamples({ ...samples, [source]: event.target.value || null })
+                      }
+                    >
+                      <MenuItem value="">{k("none")}</MenuItem>
+                      {(config.fields.find((item) => item.key === source)?.options ?? [])
+                        .filter((option) => option.active)
+                        .map((option) => (
+                          <MenuItem key={option.id} value={option.id}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                    </TextField>
                   ) : typeFor(source) === "boolean" ? (
                     <TextField
                       select

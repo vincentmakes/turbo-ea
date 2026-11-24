@@ -179,6 +179,19 @@ Turbo EA 会发送邀请邮件、调查通知、密码重置以及其他系统�
 
 配置计算字段时，先选择结果类型，再添加输入别名和来源。选择公式或有序规则。第一个匹配的规则决定结果，无匹配时使用回退结果。比较条件可用 AND、OR 和 NOT 组合。保存前输入样本值并选择**预览**。这里计算财务行字段，卡片字段使用[元模型计算](calculations.md)。
 
+**公式**模式使用**元模型 → 计算**中的编辑器和公式语言。使用 `data.fieldKey` 访问当前财务行的字段。单选字段返回所选选项的 ID。对于成本项，`data.providerEffective` 提供该项实际使用的 Provider，`data.providerBudget` 提供其预算中选择的 Provider。使用 `data.budget.amount`、`data.budget.fiscal_year`、`data.budget.category`、`data.budget.description` 和 `data.budget.provider` 访问关联的计划预算。使用 `data.budget.initiative.name`、`data.budget.initiative.id` 或 `data.budget.initiative.type` 访问关联举措。使用**预览**和示例值测试结果。
+
+现有 PML 公式继续使用原有的求值器。要转换公式，请选择**公式引擎 → 核心计算**。保存前先预览更新后的公式。仍可使用**有序规则**。
+
+例如，要对成本项分类，请添加名为 `arubaSpa`、`arubaPec`、`actalis` 和 `external` 的 Provider 常量，并为每个常量选择对应的 Provider 卡片。本例中，`otherServiceType` 中的 **Licenze** 选项 ID 为 `licencing`。使用以下两行：
+
+```text
+internal = data.providerEffective == arubaSpa or data.providerEffective == arubaPec or data.providerEffective == actalis
+IF(data.providerEffective == None, None, IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", "Licenze", IF(data.providerEffective == external, "Servizi Esterni", "Servizi Intercompany"))))
+```
+
+未设置 Provider 的项目结果为空。即使购买许可证，Aruba Spa、Aruba PEC 和 Actalis 仍归为内部服务。对于其他 Provider，服务类型用于区分许可证。重命名 Provider 卡片或将其随工作区迁移时，常量仍指向所选卡片。
+
 卡片引用可限制卡片类型。选择兼容的关系可以把所引用的卡片关联到举措。在成本项设置中选择预算上的提供方字段，并可允许选择其直接下级。开票记录有自己的字段，提供方配置属于预算和成本项。
 
 #### Aruba 配置示例

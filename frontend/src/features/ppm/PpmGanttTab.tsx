@@ -85,6 +85,7 @@ import {
   roundToDay,
   saveGanttSort,
   sortGanttRows,
+  todayOffsetInColumn,
   zoomBounds,
 } from "./ppmGanttModel";
 import type { GanttDropKind, GanttSort, GanttSortKey } from "./ppmGanttModel";
@@ -1704,6 +1705,15 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
               ${theme.palette.divider} 39px,
               ${theme.palette.divider} 40px
             ) !important`,
+          },
+          /* The chart library supplies a full-column today rectangle. Move its
+             left edge to today's position and render it as a visible line. */
+          "& .gridBody .today rect": {
+            width: "2px",
+            fill: theme.palette.error.main,
+            opacity: 1,
+            transform: "translateX(" + todayOffsetInColumn(viewMode, new Date()) + "px)",
+            pointerEvents: "none",
           },
           /* ── Touch scrolling: allow native pan gestures on all scroll containers ── */
           "& [class*='ganttTaskRoot_']": { touchAction: "pan-x pan-y" },

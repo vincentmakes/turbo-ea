@@ -297,6 +297,9 @@ async def load_financials(db: AsyncSession, card: Card, user: User) -> tuple[dic
                 "amount": str(budget.amount),
             }
             budget_row["total_cost_items"] = str(vals["total_cost_items"])
+            budget_row["remaining_budget"] = str(
+                Decimal(str(budget.amount)) - vals["total_cost_items"]
+            )
             if can_view:
                 budget_row.update(
                     {k: str(vals[k]) for k in ("total_invoiced", "remaining_to_invoice")}
@@ -312,6 +315,7 @@ async def load_financials(db: AsyncSession, card: Card, user: User) -> tuple[dic
                 "category": category,
                 "amount": str(values["amount"]),
                 "total_cost_items": str(values["total_cost_items"]),
+                "remaining_budget": str(values["amount"] - values["total_cost_items"]),
             }
             if can_view:
                 subtotal_result.update(
@@ -321,6 +325,7 @@ async def load_financials(db: AsyncSession, card: Card, user: User) -> tuple[dic
         grand_result = {
             "amount": str(grand["amount"]),
             "total_cost_items": str(grand["total_cost_items"]),
+            "remaining_budget": str(grand["amount"] - grand["total_cost_items"]),
         }
         result: dict[str, Any] = {
             "initiative_id": str(card.id),

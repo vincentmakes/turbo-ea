@@ -10,28 +10,10 @@ import {
 } from "@/components/licensing/pairBarsOption";
 import { brand } from "@/theme";
 import type { PpmFinancials } from "@/types";
-import { decimalWithoutExponent, usePpmFinancialAmount } from "./usePpmFinancials";
+import { usePpmFinancialAmount } from "./usePpmFinancials";
 
 type Comparison = NonNullable<PpmFinancials["card_comparison"]>;
 type Bucket = "total" | "capex" | "opex";
-
-function difference(budget: string, actual: string): string {
-  const left = decimalWithoutExponent(budget);
-  const right = decimalWithoutExponent(actual);
-  const fractional = Math.max(left.split(".")[1]?.length ?? 0, right.split(".")[1]?.length ?? 0);
-  const scaled = (value: string) => {
-    const negative = value.startsWith("-");
-    const [whole, part = ""] = (negative ? value.slice(1) : value).split(".");
-    const result = BigInt(whole + part.padEnd(fractional, "0"));
-    return negative ? -result : result;
-  };
-  const delta = scaled(left) - scaled(right);
-  const sign = delta < 0n ? "-" : "";
-  const digits = (delta < 0n ? -delta : delta).toString().padStart(fractional + 1, "0");
-  return fractional
-    ? sign + digits.slice(0, -fractional) + "." + digits.slice(-fractional)
-    : sign + digits;
-}
 
 function financialPairs(comparison: Comparison) {
   return (["total", "capex", "opex"] as Bucket[]).map((bucket) => {
@@ -41,8 +23,6 @@ function financialPairs(comparison: Comparison) {
       bucket,
       budget,
       actual,
-      variance: budget - actual,
-      exactVariance: difference(comparison.budget[bucket], comparison.actual[bucket]),
       ratio: budget > 0 ? Math.round((actual / budget) * 100) : null,
     };
   });
@@ -106,15 +86,6 @@ export default function PpmInitiativeFinancials({ data }: { data?: PpmFinancials
         style={{ height: pairBarsHeight(groups), width: "100%" }}
         ariaLabel={t("financials")}
       />
-      {rows.map((row) => (
-        <Typography key={row.bucket} variant="body2">
-          {labelFor(row.bucket)}: {format(comparison.actual[row.bucket])} /{" "}
-          {format(comparison.budget[row.bucket])}
-          {row.ratio !== null && " (" + row.ratio + "%)"} · {t("variance")}:{" "}
-          {row.variance > 0 ? "+" : ""}
-          {format(row.exactVariance)}
-        </Typography>
-      ))}
     </Box>
   );
 }

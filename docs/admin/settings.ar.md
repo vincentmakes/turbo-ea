@@ -179,6 +179,19 @@
 
 لإضافة حقل محسوب، اختر نوع النتيجة وعرّف أسماء المدخلات ومصادرها. اختر صيغة أو قواعد مرتبة؛ تُطبّق أول قاعدة مطابقة، وتُستخدم النتيجة الاحتياطية إذا لم تتطابق أي قاعدة. يمكن تركيب المقارنات باستخدام AND وOR وNOT. أدخل عيّنات واستعمل **المعاينة** قبل الحفظ. تضبط هنا حسابات صفوف المالية؛ توجد حسابات البطاقة في [حسابات النموذج الوصفي](calculations.md).
 
+يستخدم وضع **الصيغة** المحرّر ولغة الصيغ في **النموذج الوصفي ← الحسابات**. استخدم `data.fieldKey` لحقل في صف المالية الحالي. يعرض حقل الاختيار الواحد معرّف الخيار المحدد. في بند التكلفة، يحتوي `data.providerEffective` على الموفّر المستخدم لهذا البند، ويحتوي `data.providerBudget` على الموفّر المحدد في ميزانيته. استخدم `data.budget.amount` و`data.budget.fiscal_year` و`data.budget.category` و`data.budget.description` و`data.budget.provider` للوصول إلى الميزانية المخططة المرتبطة. وللوصول إلى المبادرة المرتبطة، استخدم `data.budget.initiative.name` أو `data.budget.initiative.id` أو `data.budget.initiative.type`. اختبر النتيجة بقيم نموذجية عبر **المعاينة**.
+
+تستمر صيغ PML الحالية باستخدام المقيّم الأصلي. لتحويل صيغة، اختر **محرك الصيغ ← الحسابات الأساسية**. اعرض الصيغة المحدّثة قبل حفظها. تظل **القواعد المرتبة** متاحة.
+
+مثلًا، لتصنيف بند تكلفة، أضف ثوابت Provider بالأسماء `arubaSpa` و`arubaPec` و`actalis` و`external`، واختر بطاقة Provider المطابقة لكل منها. في هذا المثال، معرّف الخيار **Licenze** في `otherServiceType` هو `licencing`. استخدم السطرين التاليين:
+
+```text
+internal = data.providerEffective == arubaSpa or data.providerEffective == arubaPec or data.providerEffective == actalis
+IF(data.providerEffective == None, None, IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", "Licenze", IF(data.providerEffective == external, "Servizi Esterni", "Servizi Intercompany"))))
+```
+
+تظل نتيجة البنود التي لا تملك Provider فارغة. يُصنّف Aruba Spa وAruba PEC وActalis ضمن الخدمات الداخلية حتى عند شراء ترخيص. أما مع بقية Provider، فيُستخدم نوع الخدمة للتمييز بين التراخيص. وتظل ثوابت Provider مرتبطة بالبطاقات المحددة عند إعادة تسميتها أو نقلها مع مساحة العمل.
+
 يقيّد مرجع البطاقة الاختيار بنوع محدّد. اختر علاقة متوافقة عند الحاجة إلى ربط البطاقة المشار إليها بالمبادرة. اختر في بنود التكلفة حقل الموفّر في الميزانية، واسمح اختياريًا باختيار موفّر فرعي مباشر. للفواتير المسجّلة حقولها الخاصة، ويُضبط الموفّر في الميزانية وبنودها.
 
 #### مثال ضبط Aruba

@@ -299,6 +299,7 @@ class PpmFinancialBudgetOut(BaseModel):
     description: str | None
     amount: str
     total_cost_items: str
+    remaining_budget: str
     total_invoiced: str | None = None
     remaining_to_invoice: str | None = None
 
@@ -306,6 +307,7 @@ class PpmFinancialBudgetOut(BaseModel):
 class PpmFinancialTotalsOut(BaseModel):
     amount: str
     total_cost_items: str
+    remaining_budget: str
     total_invoiced: str | None = None
     remaining_to_invoice: str | None = None
 

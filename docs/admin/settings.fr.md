@@ -179,6 +179,19 @@ Ouvrez **Administration → Paramètres → PML → Budget et coûts** et choisi
 
 Pour un champ **Calculé**, choisissez le résultat et ajoutez les alias et sources des entrées. Choisissez une formule ou des règles ordonnées. La première règle applicable donne le résultat, sinon la valeur de repli est utilisée. Combinez les comparaisons avec AND, OR et NOT. Testez des exemples avec **Aperçu** avant d'enregistrer. Les [calculs du métamodèle](calculations.md) portent sur les fiches.
 
+Le mode **Formule** utilise l’éditeur et le langage de formule de **Métamodèle → Calculs**. Utilisez `data.fieldKey` pour un champ de la ligne financière en cours. Un champ à sélection unique fournit l’identifiant de l’option sélectionnée. Pour un poste de coût, `data.providerEffective` contient le Provider utilisé pour ce poste et `data.providerBudget` celui sélectionné dans son budget. Accédez au budget prévisionnel lié avec `data.budget.amount`, `data.budget.fiscal_year`, `data.budget.category`, `data.budget.description` et `data.budget.provider`. Pour l’Initiative liée, utilisez `data.budget.initiative.name`, `data.budget.initiative.id` ou `data.budget.initiative.type`. Testez le résultat avec des exemples dans **Aperçu**.
+
+Les formules PML existantes conservent leur évaluateur d’origine. Pour convertir une formule, choisissez **Moteur de formule → Calculs du métamodèle**. Prévisualisez la formule mise à jour avant de l’enregistrer. Les **Règles ordonnées** restent disponibles.
+
+Par exemple, pour classer un poste de coût, ajoutez les constantes Provider `arubaSpa`, `arubaPec`, `actalis` et `external`, puis sélectionnez la fiche Provider correspondante pour chacune. Dans cet exemple, l’option **Licenze** de `otherServiceType` porte l’identifiant `licencing`. Utilisez ces deux lignes :
+
+```text
+internal = data.providerEffective == arubaSpa or data.providerEffective == arubaPec or data.providerEffective == actalis
+IF(data.providerEffective == None, None, IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", "Licenze", IF(data.providerEffective == external, "Servizi Esterni", "Servizi Intercompany"))))
+```
+
+Le résultat reste vide pour les postes sans Provider. Aruba Spa, Aruba PEC et Actalis sont classés comme fournisseurs internes, même pour un achat de licence. Pour les autres Providers, le type de service permet de distinguer les licences. Les constantes Provider restent liées aux fiches sélectionnées si celles-ci sont renommées ou transférées avec l’espace de travail.
+
 Une référence à une fiche limite le choix à un type. Une relation compatible peut relier cette fiche à l'initiative. Dans **Postes de coût**, sélectionnez le champ fournisseur du budget et autorisez, si nécessaire, les enfants directs. Le facturé réel a ses propres champs.
 
 #### Exemple de configuration Aruba

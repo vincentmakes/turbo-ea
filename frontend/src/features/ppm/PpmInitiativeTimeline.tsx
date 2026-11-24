@@ -5,8 +5,6 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import type { PmlInitiativeSchedule } from "@/types";
 import { dateRangeBar, portfolioWindowIncludingDates } from "./ppmPortfolioModel";
 import { getQuarters } from "./ppmPortfolioFormat";
-import { HealthDot } from "./ppmVisuals";
-import { useHealthRatingLabel } from "./ppmHealth";
 
 interface Props {
   schedule: PmlInitiativeSchedule | undefined;
@@ -23,7 +21,6 @@ export default function PpmInitiativeTimeline({
 }: Props) {
   const { t } = useTranslation("ppm");
   const { formatDate } = useDateFormat();
-  const rating = useHealthRatingLabel();
   if (!schedule) return null;
   const dates = [
     schedule.plan_start_date,
@@ -38,6 +35,7 @@ export default function PpmInitiativeTimeline({
     window.start.getMonth() +
     1;
   const quarters = getQuarters(window.start, months);
+  const todayLeft = ((now.getTime() - window.start.getTime()) / window.ms) * 100;
   const rows = [
     {
       key: "plan",
@@ -137,6 +135,20 @@ export default function PpmInitiativeTimeline({
                   sx={{ height: 20, flex: 1, position: "relative", bgcolor: "action.hover" }}
                   aria-label={label + (text ? ": " + text : "")}
                 >
+                  <Box
+                    data-testid="today-marker"
+                    title={t("today")}
+                    aria-hidden="true"
+                    sx={{
+                      position: "absolute",
+                      left: todayLeft + "%",
+                      top: 0,
+                      bottom: 0,
+                      width: 2,
+                      bgcolor: "error.main",
+                      zIndex: 1,
+                    }}
+                  />
                   {bar && (
                     <Box
                       data-testid={bar.width === 0 ? key + "-marker" : key + "-bar"}
@@ -163,29 +175,6 @@ export default function PpmInitiativeTimeline({
             );
           })}
         </Box>
-      </Box>
-      <Box display="flex" gap={2} flexWrap="wrap" mt={1}>
-        {schedule.schedule_health && (
-          <HealthDot
-            label={t("onTime")}
-            value={schedule.schedule_health}
-            rating={rating(schedule.schedule_health)}
-          />
-        )}
-        {schedule.cost_health && (
-          <HealthDot
-            label={t("onCost")}
-            value={schedule.cost_health}
-            rating={rating(schedule.cost_health)}
-          />
-        )}
-        {schedule.scope_health && (
-          <HealthDot
-            label={t("onScope")}
-            value={schedule.scope_health}
-            rating={rating(schedule.scope_health)}
-          />
-        )}
       </Box>
     </Box>
   );

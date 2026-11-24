@@ -44,6 +44,7 @@ import {
   roundToDay,
   saveGanttSort,
   sortGanttRows,
+  todayOffsetInColumn,
   zoomBounds,
 } from "./ppmGanttModel";
 import type { GanttSort } from "./ppmGanttModel";
@@ -108,6 +109,23 @@ function dep(id: string, pred: string, succ: string): PpmDependency {
     created_at: "2026-01-01",
   };
 }
+
+describe("todayOffsetInColumn", () => {
+  it("positions today within the calendar column at each supported zoom", () => {
+    const today = day(2026, 11, 24, 14);
+    expect(todayOffsetInColumn(ViewMode.Day, today)).toBe(0);
+    expect(todayOffsetInColumn(ViewMode.Week, today)).toBeCloseTo(200 * 2 / 7);
+    expect(todayOffsetInColumn(ViewMode.Month, today)).toBeCloseTo(300 * 23 / 30);
+    expect(todayOffsetInColumn(ViewMode.QuarterYear, today)).toBeCloseTo(180 * 54 / 92);
+    expect(todayOffsetInColumn(ViewMode.Year, today)).toBeCloseTo(240 * 327 / 365);
+  });
+  it("uses the full leap-year and quarter lengths", () => {
+    const today = day(2028, 2, 29);
+    expect(todayOffsetInColumn(ViewMode.Month, today)).toBeCloseTo(300 * 28 / 29);
+    expect(todayOffsetInColumn(ViewMode.QuarterYear, today)).toBeCloseTo(180 * 59 / 91);
+    expect(todayOffsetInColumn(ViewMode.Year, today)).toBeCloseTo(240 * 59 / 366);
+  });
+});
 
 describe("scale and geometry", () => {
   it("pins the scale and the storage keys", () => {

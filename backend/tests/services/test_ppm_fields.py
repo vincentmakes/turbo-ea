@@ -453,3 +453,257 @@ def test_boolean_expressions_short_circuit(expression, expected):
     values, errors = evaluate_row_fields(config, {"quantity": "0"}, {"amount": "4"})
     assert errors == {}
     assert values["result"] is expected
+
+
+def test_if_formula_compares_provider_constants_and_is_lazy():
+    provider_id = "11111111-1111-4111-8111-111111111111"
+    config = _config(
+        _calculated(
+            "aggregate",
+            {"provider": "provider.effective", "amount": "actual"},
+            provider_constants={"licence": provider_id},
+            expression='IF(provider == licence, "Licenze", IF(amount > 0, "Servizi", "Altro"))',
+        )
+    )
+    validate_section_config("cost_item", config)
+    values, errors = evaluate_row_fields(
+        config, {}, {"provider.effective": provider_id, "actual": 1}
+    )
+    assert values == {"aggregate": "Licenze"}
+    assert not errors
+    values, errors = evaluate_row_fields(config, {}, {"provider.effective": None, "actual": 1})
+    assert values == {"aggregate": "Servizi"}
+    assert not errors
+
+    lazy = _config(
+        _field(
+            "result",
+            "calculated",
+            calculation={"result_type": "number", "inputs": {}, "expression": "IF(True, 7, 1 / 0)"},
+        )
+    )
+    validate_section_config("invoice", lazy)
+    assert evaluate_row_fields(lazy, {}, {}) == ({"result": "7"}, {})
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        'IF(1, "yes", "no")',
+        'IF(True, "yes", 1)',
+        'IF(True, "yes")',
+        'IF(True, "yes", "no", "extra")',
+    ],
+)
+def test_if_formula_requires_boolean_condition_and_compatible_branches(expression):
+    config = _config(_calculated("result", {}, expression=expression))
+    with pytest.raises(PmlFieldError):
+        validate_section_config("cost_item", config)
+
+
+@pytest.mark.parametrize(
+    ("section", "constants", "inputs", "expression"),
+    [
+        ("budget", {"p": "11111111-1111-4111-8111-111111111111"}, {}, 'IF(True, "a", "b")'),
+        ("invoice", {"p": "11111111-1111-4111-8111-111111111111"}, {}, 'IF(True, "a", "b")'),
+        ("cost_item", {"p": "not-uuid"}, {}, 'IF(True, "a", "b")'),
+        (
+            "cost_item",
+            {"p": "11111111-1111-4111-8111-111111111111"},
+            {"p": "actual"},
+            'IF(True, "a", "b")',
+        ),
+        ("cost_item", {"IF": "11111111-1111-4111-8111-111111111111"}, {}, 'IF(True, "a", "b")'),
+    ],
+)
+def test_provider_constants_are_validated(section, constants, inputs, expression):
+    config = _config(
+        _calculated("result", inputs, expression=expression, provider_constants=constants)
+    )
+    with pytest.raises((PmlFieldError, ValueError)):
+        validate_section_config(section, config)
+
+
+def test_if_formula_handles_multiline_and_missing_provider():
+    provider_id = "11111111-1111-4111-8111-111111111111"
+    config = _config(
+        _calculated(
+            "aggregate",
+            {"provider": "provider.effective"},
+            provider_constants={"partner": provider_id},
+            expression=(
+                'IF(\n provider == None, None,\n IF(provider == partner, "Partner", "Other")\n)'
+            ),
+        )
+    )
+    validate_section_config("cost_item", config)
+    assert evaluate_row_fields(config, {}, {"provider.effective": None}) == (
+        {"aggregate": None},
+        {},
+    )
+    assert evaluate_row_fields(config, {}, {"provider.effective": provider_id}) == (
+        {"aggregate": "Partner"},
+        {},
+    )
+    assert evaluate_row_fields(config, {}, {"provider.effective": UNAVAILABLE}) == ({}, {})
+
+
+def test_core_formula_reads_select_and_provider_without_helper_fields():
+    config = _config(
+        _field("otherServiceType", "select", options=[{"id": "licencing", "label": "Licenze"}]),
+        _calculated(
+            "aggregate",
+            {},
+            formula_engine="core",
+            provider_constants={"arubaSpa": "00000000-0000-4000-8000-000000000001"},
+            expression="internal = data.providerEffective == arubaSpa\n"
+            'IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", '
+            '"Licenze", "Servizi Intercompany"))',
+        ),
+    )
+    validate_section_config("cost_item", config)
+    values, errors = evaluate_row_fields(
+        config,
+        {"otherServiceType": "licencing"},
+        {"provider.effective": "00000000-0000-4000-8000-000000000001"},
+    )
+    assert not errors
+    assert values["aggregate"] == "Servizi interni"
+    values, errors = evaluate_row_fields(
+        config,
+        {"otherServiceType": "licencing"},
+        {"provider.effective": "00000000-0000-4000-8000-000000000002"},
+    )
+    assert not errors
+    assert values["aggregate"] == "Licenze"
+
+
+def test_core_formula_computes_dependencies_and_propagates_unavailable():
+    config = _config(
+        _field("origin", "card_reference", card_type="Provider"),
+        _calculated(
+            "first", {}, formula_engine="core", expression='IF(data.origin == None, "empty", "set")'
+        ),
+        _calculated("second", {}, formula_engine="core", expression='CONCAT(data.first, "!")'),
+    )
+    validate_section_config("cost_item", config)
+    values, errors = evaluate_row_fields(config, {"origin": UNAVAILABLE}, {})
+    assert not errors
+    assert "first" not in values and "second" not in values
+    values, errors = evaluate_row_fields(config, {"origin": None}, {})
+    assert not errors and values["second"] == "empty!"
+
+
+def test_core_formula_rejects_unknown_dynamic_and_cyclic_data():
+    for expression in ("data.notAField", "data[data.description]", "data", "IF("):
+        config = _config(_calculated("first", {}, formula_engine="core", expression=expression))
+        with pytest.raises(PmlFieldError):
+            validate_section_config("cost_item", config)
+    config = _config(
+        _calculated("first", {}, formula_engine="core", expression="data.second"),
+        _calculated("second", {}, formula_engine="core", expression="data.first"),
+    )
+    with pytest.raises(PmlFieldError):
+        validate_section_config("cost_item", config)
+
+
+def test_core_formula_financial_arithmetic_keeps_decimal_precision():
+    config = _config(
+        _field("charge", "number"),
+        _field(
+            "total",
+            "calculated",
+            calculation={
+                "result_type": "number",
+                "inputs": {},
+                "formula_engine": "core",
+                "expression": "SUM([data.charge, 0.2])",
+            },
+        ),
+        _field(
+            "rounded",
+            "calculated",
+            calculation={
+                "result_type": "number",
+                "inputs": {},
+                "formula_engine": "core",
+                "expression": "ROUND(data.total, 2)",
+            },
+        ),
+    )
+    validate_section_config("cost_item", config)
+    values, errors = evaluate_row_fields(config, {"charge": "0.1"}, {})
+    assert not errors
+    assert values["total"] == "0.3"
+    assert values["rounded"] == "0.30"
+
+
+def test_core_formula_reads_budget_and_initiative_without_losing_decimal_precision():
+    config = _config(
+        _field(
+            "remaining",
+            "calculated",
+            calculation={
+                "result_type": "number",
+                "inputs": {},
+                "formula_engine": "core",
+                "expression": 'IF(data.budget.initiative.name == "Demo", '
+                "data.budget.amount - data.actual, 0)",
+            },
+        ),
+    )
+    validate_section_config("cost_item", config)
+    values, errors = evaluate_row_fields(
+        config, {}, {"budget.amount": "0.3", "actual": "0.1", "budget.initiative.name": "Demo"}
+    )
+    assert not errors and values["remaining"] == "0.2"
+
+
+def test_core_formula_protects_unavailable_budget_and_rejects_bare_budget():
+    field = _calculated(
+        "result", {}, formula_engine="core", expression="data.budget.initiative.name"
+    )
+    config = _config(field)
+    validate_section_config("cost_item", config)
+    values, errors = evaluate_row_fields(config, {}, {"budget.initiative.name": UNAVAILABLE})
+    assert not errors and "result" not in values
+    for expression in ("data.budget", "data.budget.initiative", "data.budget[data.description]"):
+        config = _config(_calculated("result", {}, formula_engine="core", expression=expression))
+        with pytest.raises(PmlFieldError):
+            validate_section_config("cost_item", config)
+
+
+def test_core_formula_allows_reassigning_local_variables():
+    config = _config(
+        _field("charge", "number"),
+        _calculated(
+            "result",
+            {},
+            formula_engine="core",
+            expression="amount = data.charge\namount = amount + 0.2\nstr(amount)",
+        ),
+    )
+    validate_section_config("cost_item", config)
+    values, errors = evaluate_row_fields(config, {"charge": "0.1"}, {})
+    assert not errors and values["result"] == "0.3"
+
+
+def test_core_budget_root_works_with_legacy_custom_budget_key():
+    config = _config(
+        _field("budget", "text"),
+        _calculated(
+            "result",
+            {"legacyBudget": "budget"},
+            formula_engine="core",
+            expression='IF(data.budget.amount > 0, legacyBudget, "none")',
+        ),
+    )
+    validate_section_config("cost_item", config)
+    values, errors = evaluate_row_fields(config, {"budget": "preserved"}, {"budget.amount": "1"})
+    assert not errors and values["result"] == "preserved"
+    invalid = _config(
+        _field("budget", "text"),
+        _calculated("result", {}, formula_engine="core", expression="data.budget"),
+    )
+    with pytest.raises(PmlFieldError):
+        validate_section_config("cost_item", invalid)

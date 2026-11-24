@@ -179,6 +179,19 @@ Vælg **Planlagt budget**, **Omkostningsposter** eller **Faktisk faktureret** un
 
 For et beregnet felt vælger du resultattype, inputaliaser og kilder. Vælg en formel eller ordnede regler. Den første regel, der passer, giver resultatet. Standardresultatet bruges, når ingen regel passer. Betingelser kan kombineres med AND, OR og NOT. Indtast eksempelværdier og vælg **Forhåndsvisning**, inden du gemmer. Her beregnes felter på økonomirækker. [Metamodelberegninger](calculations.md) gælder kortfelter.
 
+Tilstanden **Formel** bruger editoren og formelsproget fra **Metamodel → Beregninger**. Brug `data.fieldKey` til et felt på den aktuelle økonomirække. Et enkeltvalgsfelt leverer ID'et for den valgte indstilling. På en omkostningspost indeholder `data.providerEffective` den Provider, der bruges på posten, og `data.providerBudget` den Provider, der er valgt på budgettet. Få adgang til det tilknyttede planlagte budget med `data.budget.amount`, `data.budget.fiscal_year`, `data.budget.category`, `data.budget.description` og `data.budget.provider`. Brug `data.budget.initiative.name`, `data.budget.initiative.id` eller `data.budget.initiative.type` til det tilknyttede initiativ. Brug **Forhåndsvisning** til at teste resultatet med eksempelværdier.
+
+Eksisterende PML-formler beholder deres oprindelige beregner. Vælg **Formelmotor → Kerneberegninger** for at konvertere en formel. Forhåndsvis den opdaterede formel, før du gemmer. **Ord­nede regler** er stadig tilgængelige.
+
+Hvis du for eksempel vil klassificere en omkostningspost, skal du tilføje Provider-konstanter med navnene `arubaSpa`, `arubaPec`, `actalis` og `external` og vælge det tilsvarende Provider-kort for hver. I dette eksempel har valget **Licenze** i `otherServiceType` ID'et `licencing`. Brug disse to linjer:
+
+```text
+internal = data.providerEffective == arubaSpa or data.providerEffective == arubaPec or data.providerEffective == actalis
+IF(data.providerEffective == None, None, IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", "Licenze", IF(data.providerEffective == external, "Servizi Esterni", "Servizi Intercompany"))))
+```
+
+Poster uden Provider får intet resultat. Aruba Spa, Aruba PEC og Actalis klassificeres som interne, også ved køb af en licens. For andre Provider skelner servicetypen mellem licenser og andet. Provider-konstanterne følger de valgte kort, hvis de omdøbes eller overføres sammen med arbejdsområdet.
+
 En kortreference begrænser valget til en korttype. Vælg en kompatibel relation for at knytte referencekortet til initiativet. Vælg leverandørfeltet på budgettet under **Omkostningsposter**, og tillad eventuelt direkte underleverandører. Fakturaregistreringer har egne felter; leverandøren hører til budgettet og omkostningsposterne.
 
 #### Eksempel på Aruba-konfiguration

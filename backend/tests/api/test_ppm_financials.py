@@ -74,6 +74,55 @@ async def test_new_cost_requires_budget_in_same_initiative(client, ppm_env):
     assert listed.json() == []
 
 
+async def test_core_formula_reads_linked_budget_and_initiative(client, db, ppm_env):
+    initiative = ppm_env["initiative"]
+    initiative_id = str(initiative.id)
+    initiative_name = initiative.name
+    headers = auth_headers(ppm_env["admin"])
+    settings = await client.put(
+        "/api/v1/settings/pml/financial-fields/cost_item",
+        json={
+            "fields": [
+                {
+                    "key": "budgetInitiative",
+                    "label": "Budget Initiative",
+                    "kind": "calculated",
+                    "calculation": {
+                        "result_type": "text",
+                        "formula_engine": "core",
+                        "expression": (
+                            "IF(data.budget.amount == 12500 and data.budget.fiscal_year == 2026 "
+                            'and data.budget.category == "capex" and '
+                            'data.budget.initiative.type == "Initiative", '
+                            "data.budget.initiative.name, None)"
+                        ),
+                    },
+                }
+            ],
+        },
+        headers=headers,
+    )
+    assert settings.status_code == 200, settings.text
+    budget = await _budget(client, initiative_id, headers, amount=12500, category="capex")
+    legacy = await create_cost_line(db, initiative_id=initiative.id, actual=5)
+    created = await _cost(client, initiative_id, headers, budget["id"], amount=100)
+    assert created["calculated_values"]["budgetInitiative"] == initiative_name
+    expected = {created["id"]: initiative_name, str(legacy.id): None}
+
+    response = await client.get(f"{BASE}/initiatives/{initiative_id}/costs", headers=headers)
+    assert response.status_code == 200, response.text
+    assert {
+        row["id"]: row["calculated_values"]["budgetInitiative"] for row in response.json()
+    } == expected
+
+    response = await client.get(f"{BASE}/initiatives/{initiative_id}/financials", headers=headers)
+    assert response.status_code == 200, response.text
+    assert {
+        row["id"]: row["calculated_values"]["budgetInitiative"]
+        for row in response.json()["cost_items"]
+    } == expected
+
+
 async def test_linked_financials_and_legacy_costs(client, db, ppm_env):
     initiative_id = str(ppm_env["initiative"].id)
     headers = auth_headers(ppm_env["admin"])
@@ -94,6 +143,27 @@ async def test_linked_financials_and_legacy_costs(client, db, ppm_env):
     assert Decimal(data["budget_totals"]["total_invoiced"]) == Decimal("6500")
     assert Decimal(data["budget_totals"]["remaining_to_invoice"]) == Decimal("3500")
     assert len(data["invoices"]) == 3
+
+
+async def test_budget_remaining_uses_only_linked_costs_and_preserves_precision(client, db, ppm_env):
+    initiative_id = str(ppm_env["initiative"].id)
+    headers = auth_headers(ppm_env["admin"])
+    first = await _budget(client, initiative_id, headers, amount=100.30)
+    second = await _budget(client, initiative_id, headers, amount=50.00)
+    cost = await _cost(client, initiative_id, headers, first["id"], amount=100.40)
+    await _cost(client, initiative_id, headers, second["id"], amount=20.10)
+    await create_cost_line(db, initiative_id=ppm_env["initiative"].id, actual=1000)
+    await _invoice(client, initiative_id, headers, cost["id"], amount="10", invoice_id="INV-R")
+
+    response = await client.get(f"{BASE}/initiatives/{initiative_id}/financials", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    budgets = {row["id"]: row for row in data["budget_lines"]}
+    assert Decimal(budgets[first["id"]]["remaining_budget"]) == Decimal("-0.10")
+    assert Decimal(budgets[second["id"]]["remaining_budget"]) == Decimal("29.90")
+    assert Decimal(data["budget_subtotals"][0]["remaining_budget"]) == Decimal("29.80")
+    assert Decimal(data["budget_totals"]["remaining_budget"]) == Decimal("29.80")
+    assert Decimal(data["budget_totals"]["total_invoiced"]) == Decimal("10")
 
 
 async def test_invoice_amount_and_residual(client, ppm_env):
@@ -223,6 +293,8 @@ async def test_invoice_access_requires_module_and_cost_permissions(client, db, p
     assert response.status_code == 200
     data = response.json()
     assert data["invoice_access"] is False
+    assert Decimal(data["budget_lines"][0]["remaining_budget"]) == Decimal("11900")
+    assert Decimal(data["budget_totals"]["remaining_budget"]) == Decimal("11900")
     assert "invoices" not in data
     assert "actual_invoiced" not in data
     assert "card_comparison" not in data

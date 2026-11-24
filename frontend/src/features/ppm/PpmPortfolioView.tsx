@@ -555,7 +555,14 @@ export default function PpmPortfolioView({
     [subtypeDefs, stLabel],
   );
 
-  const subtypes = useMemo(() => subtypeKeys(items), [items]);
+  const subtypes = useMemo(
+    () => [...new Set([
+      ...(subtypeDefs ?? []).map((definition) => definition.key),
+      ...subtypeKeys(items),
+      ...(subtypeFilter ? [subtypeFilter] : []),
+    ])],
+    [items, subtypeDefs, subtypeFilter],
+  );
 
   const filtered = useMemo(
     () => filterItems(items, search, subtypeFilter, matchIds),

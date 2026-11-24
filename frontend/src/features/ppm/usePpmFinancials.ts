@@ -19,8 +19,8 @@ function useInitiativeQuery<T extends { initiative_id: string }>(
   };
 }
 
-export function usePpmFinancials(initiativeId: string | null | undefined) {
-  return useInitiativeQuery<PpmFinancials>(initiativeId, "financials");
+export function usePpmFinancials(initiativeId: string | null | undefined, refetchKey?: number) {
+  return useInitiativeQuery<PpmFinancials>(initiativeId, "financials", refetchKey);
 }
 
 export function usePpmSchedule(initiativeId: string | null | undefined, refetchKey?: number) {

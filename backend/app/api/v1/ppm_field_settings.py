@@ -98,6 +98,8 @@ def _reference_pairs(config: PmlSectionConfig, field) -> set[tuple[uuid.UUID, st
     calculation = field.calculation
     if calculation is None:
         return refs
+    for value in calculation.provider_constants.values():
+        add(value, "Provider")
     card_types = {
         item.key: item.card_type for item in config.fields if item.kind == "card_reference"
     }
@@ -352,7 +354,13 @@ async def preview_field(
         if field.kind == "card_reference"
     }
     if section == "cost_item":
-        card_fields.update({"provider.effective": "Provider", "provider.budget": "Provider"})
+        card_fields.update(
+            {
+                "provider.effective": "Provider",
+                "provider.budget": "Provider",
+                "budget.provider": "Provider",
+            }
+        )
     scope = await CardReadScope.load(db, user, include_subtype_denials=True)
     for key, value in body.sample_values.items():
         if key not in card_fields or value is None:

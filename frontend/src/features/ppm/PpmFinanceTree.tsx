@@ -1,6 +1,7 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Collapse from "@mui/material/Collapse";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -125,22 +126,36 @@ export default function PpmFinanceTree({
       duplicate ? budget.id : prefix,
     ].join(" · ");
   };
-  const extra = (row: FinancialRow, kind: "budget" | "cost_item" | "invoice") => {
+  const columns = (kind: "budget" | "cost_item" | "invoice") => {
     const config = data.field_definitions?.[kind];
-    return config?.visible_columns.map((key) => {
-      const field = config.fields.find((item) => item.key === key);
-      if (!field) return null;
-      const reference = row.reference_display?.[key];
-      const value = reference?.name ?? row.calculated_values?.[key] ?? row.field_values?.[key];
+    return (config?.visible_columns ?? [])
+      .map((key) => config?.fields.find((field) => field.key === key))
+      .filter((field): field is NonNullable<typeof field> => !!field);
+  };
+  const customCells = (
+    row: FinancialRow,
+    kind: "budget" | "cost_item" | "invoice",
+  ) =>
+    columns(kind).map((field) => {
+      const reference = row.reference_display?.[field.key];
+      const value =
+        reference?.name ??
+        row.calculated_values?.[field.key] ??
+        row.field_values?.[field.key];
       const option = field.options?.find((item) => item.id === value);
-      if (value == null && !reference) return null;
       return (
-        <Typography key={key} variant="caption" display="block">
-          {field.label}: {option?.label ?? String(value ?? t("financialForm.unavailable"))}
-        </Typography>
+        <TableCell key={field.key}>
+          {value == null && !reference
+            ? "—"
+            : (option?.label ??
+              String(value ?? t("financialForm.unavailable")))}
+        </TableCell>
       );
     });
-  };
+  const customHeaders = (kind: "budget" | "cost_item" | "invoice") =>
+    columns(kind).map((field) => (
+      <TableCell key={field.key}>{field.label}</TableCell>
+    ));
   const action = (name: string, icon: string, click: () => void) =>
     !readOnly && (
       <IconButton size="small" aria-label={name} onClick={click}>
@@ -151,93 +166,177 @@ export default function PpmFinanceTree({
     !expandAll && (
       <IconButton
         size="small"
-        aria-label={t(open(id) ? "financeTree.collapse" : "financeTree.expand", { name })}
+        aria-label={t(
+          open(id) ? "financeTree.collapse" : "financeTree.expand",
+          { name },
+        )}
         aria-expanded={open(id)}
         onClick={() => toggle(id)}
       >
-        <MaterialSymbol icon={open(id) ? "expand_less" : "expand_more"} size={18} />
+        <MaterialSymbol
+          icon={open(id) ? "expand_less" : "expand_more"}
+          size={18}
+        />
       </IconButton>
     );
-  const invoiceRows = (cost: PpmFinancialCost) =>
-    (invoicesByCost.get(cost.id) ?? []).map((invoice) => (
-      <TableRow key={invoice.id}>
-        <TableCell sx={{ pl: 8 }}>
-          {t("financialForm.invoiceDate")}: {formatDate(invoice.invoice_date)} ·{" "}
-          {t("financialForm.invoiceId")}: <span>{invoice.invoice_id}</span>
-          {extra(invoice, "invoice")}
-        </TableCell>
-        <TableCell>—</TableCell>
-        <TableCell>—</TableCell>
-        <TableCell>{amount(invoice.amount)}</TableCell>
-        <TableCell>—</TableCell>
-        {!readOnly && (
-          <TableCell>
-            {action(t("financeTree.editInvoice", { name: invoice.invoice_id }), "edit", () =>
-              show("invoice", "edit", invoice, cost.id),
-            )}
-            {action(
-              t("financeTree.moveInvoice", { name: invoice.invoice_id }),
-              "drive_file_move",
-              () => show("invoice", "move", invoice, cost.id),
-            )}
-            {action(t("financeTree.deleteInvoice", { name: invoice.invoice_id }), "delete", () =>
-              setDeletePath("/ppm/invoices/" + invoice.id),
-            )}
-          </TableCell>
-        )}
-      </TableRow>
-    ));
-  const costRows = (cost: PpmFinancialCost) => (
-    <Fragment key={cost.id}>
-      <TableRow>
-        <TableCell sx={{ pl: 4 }}>
-          {expand(cost.id, cost.description)} <LinkifiedText text={cost.description} />{" "}
-          <Typography variant="caption" display="block">
-            {cost.category.toUpperCase()}
-          </Typography>
-          {cost.date && (
-            <Typography variant="caption" display="block">
-              {t("financeTree.costDate")}: {formatDate(cost.date)}
-            </Typography>
-          )}
-          {cost.provider?.name && (
-            <Typography variant="caption" display="block">
-              {cost.provider.name}
-            </Typography>
-          )}
-          {extra(cost, "cost_item")}
-        </TableCell>
-        <TableCell>—</TableCell>
-        <TableCell>{amount(cost.actual)}</TableCell>
-        <TableCell>{data.invoice_access ? amount(cost.total_invoiced) : "—"}</TableCell>
-        <TableCell>{data.invoice_access ? amount(cost.remaining_to_invoice) : "—"}</TableCell>
-        {!readOnly && (
-          <TableCell>
-            {action(t("financeTree.editCost", { name: cost.description }), "edit", () =>
-              show("cost", "edit", cost, cost.budget_line_id ?? undefined),
-            )}
-            {action(
-              t(cost.budget_line_id ? "financeTree.moveCost" : "financeTree.assignCost", {
-                name: cost.description,
-              }),
-              "drive_file_move",
-              () => show("cost", "move", cost, cost.budget_line_id ?? undefined),
-            )}
-            {data.invoice_access &&
-              action(
-                t("financeTree.recordInvoice", { name: cost.description }),
-                "receipt_long",
-                () => show("invoice", "create", undefined, cost.id),
+  const invoiceTable = (cost: PpmFinancialCost) => (
+    <TableContainer sx={{ overflowX: "auto" }}>
+      <Table
+        size="small"
+        aria-label={t("financeTree.invoices")}
+        sx={expandAll ? undefined : { minWidth: 560 }}
+      >
+        <TableHead sx={{ bgcolor: "action.hover" }}>
+          <TableRow>
+            <TableCell>{t("financialForm.invoiceId")}</TableCell>
+            <TableCell>{t("financialForm.invoiceDate")}</TableCell>
+            <TableCell>{t("amount")}</TableCell>
+            {customHeaders("invoice")}
+            {!readOnly && <TableCell />}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {(invoicesByCost.get(cost.id) ?? []).map((invoice) => (
+            <TableRow key={invoice.id}>
+              <TableCell>{invoice.invoice_id}</TableCell>
+              <TableCell>{formatDate(invoice.invoice_date)}</TableCell>
+              <TableCell>{amount(invoice.amount)}</TableCell>
+              {customCells(invoice, "invoice")}
+              {!readOnly && (
+                <TableCell>
+                  {action(
+                    t("financeTree.editInvoice", { name: invoice.invoice_id }),
+                    "edit",
+                    () => show("invoice", "edit", invoice, cost.id),
+                  )}
+                  {action(
+                    t("financeTree.moveInvoice", { name: invoice.invoice_id }),
+                    "drive_file_move",
+                    () => show("invoice", "move", invoice, cost.id),
+                  )}
+                  {action(
+                    t("financeTree.deleteInvoice", {
+                      name: invoice.invoice_id,
+                    }),
+                    "delete",
+                    () => setDeletePath("/ppm/invoices/" + invoice.id),
+                  )}
+                </TableCell>
               )}
-            {data.invoice_access &&
-              action(t("financeTree.deleteCost", { name: cost.description }), "delete", () =>
-                setDeletePath("/ppm/costs/" + cost.id),
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+  const costTable = (costs: PpmFinancialCost[]) => (
+    <TableContainer sx={{ overflowX: "auto" }}>
+      <Table
+        size="small"
+        aria-label={t("costItems")}
+        sx={expandAll ? undefined : { minWidth: 850 }}
+      >
+        <TableHead sx={{ bgcolor: "action.hover" }}>
+          <TableRow>
+            <TableCell>{t("common:labels.description")}</TableCell>
+            {customHeaders("cost_item")}
+            <TableCell>{t("financialForm.providerChild")}</TableCell>
+            <TableCell>{t("category")}</TableCell>
+            <TableCell>{t("financeTree.costDate")}</TableCell>
+            <TableCell>{t("actual")}</TableCell>
+            <TableCell>{t("financeTree.invoiced")}</TableCell>
+            <TableCell>{t("financeTree.remaining")}</TableCell>
+            {!readOnly && <TableCell />}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {costs.map((cost) => (
+            <Fragment key={cost.id}>
+              <TableRow
+                sx={open(cost.id) ? { bgcolor: "action.hover" } : undefined}
+              >
+                <TableCell>
+                  {data.invoice_access && expand(cost.id, cost.description)}{" "}
+                  <LinkifiedText text={cost.description} />
+                </TableCell>
+                {customCells(cost, "cost_item")}
+                <TableCell>{cost.provider?.name ?? "—"}</TableCell>
+                <TableCell>{cost.category.toUpperCase()}</TableCell>
+                <TableCell>{cost.date ? formatDate(cost.date) : "—"}</TableCell>
+                <TableCell>{amount(cost.actual)}</TableCell>
+                <TableCell>
+                  {data.invoice_access ? amount(cost.total_invoiced) : "—"}
+                </TableCell>
+                <TableCell>
+                  {data.invoice_access
+                    ? amount(cost.remaining_to_invoice)
+                    : "—"}
+                </TableCell>
+                {!readOnly && (
+                  <TableCell>
+                    {action(
+                      t("financeTree.editCost", { name: cost.description }),
+                      "edit",
+                      () =>
+                        show(
+                          "cost",
+                          "edit",
+                          cost,
+                          cost.budget_line_id ?? undefined,
+                        ),
+                    )}
+                    {action(
+                      t(
+                        cost.budget_line_id
+                          ? "financeTree.moveCost"
+                          : "financeTree.assignCost",
+                        { name: cost.description },
+                      ),
+                      "drive_file_move",
+                      () =>
+                        show(
+                          "cost",
+                          "move",
+                          cost,
+                          cost.budget_line_id ?? undefined,
+                        ),
+                    )}
+                    {data.invoice_access &&
+                      action(
+                        t("financeTree.recordInvoice", {
+                          name: cost.description,
+                        }),
+                        "receipt_long",
+                        () => show("invoice", "create", undefined, cost.id),
+                      )}
+                    {data.invoice_access &&
+                      action(
+                        t("financeTree.deleteCost", { name: cost.description }),
+                        "delete",
+                        () => setDeletePath("/ppm/costs/" + cost.id),
+                      )}
+                  </TableCell>
+                )}
+              </TableRow>
+              {data.invoice_access && (
+                <TableRow>
+                  <TableCell
+                    colSpan={
+                      7 + columns("cost_item").length + (readOnly ? 0 : 1)
+                    }
+                    sx={{ py: 0, borderBottom: 0 }}
+                  >
+                    <Collapse in={open(cost.id)} unmountOnExit>
+                      <Box sx={{ ml: 3, my: 1 }}>{invoiceTable(cost)}</Box>
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
               )}
-          </TableCell>
-        )}
-      </TableRow>
-      {open(cost.id) && invoiceRows(cost)}
-    </Fragment>
+            </Fragment>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
   return (
     <Box>
@@ -246,7 +345,12 @@ export default function PpmFinanceTree({
           {error}
         </Alert>
       )}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={1}
+      >
         <Typography
           variant="subtitle1"
           fontWeight={600}
@@ -255,10 +359,14 @@ export default function PpmFinanceTree({
           {t("plannedBudget")}
         </Typography>
         {!readOnly && (
-          <Button onClick={() => show("budget", "create")}>{t("addBudgetLine")}</Button>
+          <Button onClick={() => show("budget", "create")}>
+            {t("addBudgetLine")}
+          </Button>
         )}
       </Box>
-      {!data.budget_lines.length && <Alert severity="info">{t("financeTree.noBudgets")}</Alert>}
+      {!data.budget_lines.length && (
+        <Alert severity="info">{t("financeTree.noBudgets")}</Alert>
+      )}
       {data.invoice_access && (
         <Typography sx={{ mb: 1 }}>
           {t("financeTree.initiativeInvoiced")}: {amount(data.actual_invoiced)}
@@ -271,12 +379,16 @@ export default function PpmFinanceTree({
         aria-label={t("financeTree.item")}
         sx={{ overflowX: "auto" }}
       >
-        <Table size="small" sx={expandAll ? undefined : { minWidth: 720 }}>
+        <Table
+          size="small"
+          sx={{ tableLayout: "fixed", minWidth: expandAll ? undefined : 900 }}
+        >
           <TableHead>
             <TableRow>
               <TableCell>{t("financeTree.item")}</TableCell>
-              <TableCell>{t("financeTree.budget")}</TableCell>
+              <TableCell>{t("plannedBudget")}</TableCell>
               <TableCell>{t("costItems")}</TableCell>
+              <TableCell>{t("financeTree.remainingBudget")}</TableCell>
               <TableCell>{t("financeTree.invoiced")}</TableCell>
               <TableCell>{t("financeTree.remaining")}</TableCell>
               {!readOnly && <TableCell />}
@@ -285,12 +397,16 @@ export default function PpmFinanceTree({
           <TableBody>
             {data.budget_lines.map((budget) => (
               <Fragment key={budget.id}>
-                <TableRow>
+                <TableRow
+                  sx={open(budget.id) ? { bgcolor: "action.hover" } : undefined}
+                >
                   <TableCell>
-                    {expand(budget.id, label(budget))} <LinkifiedText text={label(budget)} />{" "}
+                    {expand(budget.id, label(budget))}{" "}
+                    <LinkifiedText text={label(budget)} />{" "}
                     {budget.description && (
                       <Typography variant="caption" display="block">
-                        {yearLabel(budget.fiscal_year)} · {budget.category.toUpperCase()}
+                        {yearLabel(budget.fiscal_year)} ·{" "}
+                        {budget.category.toUpperCase()}
                       </Typography>
                     )}
                     {budget.provider?.name && (
@@ -298,21 +414,29 @@ export default function PpmFinanceTree({
                         {budget.provider.name}
                       </Typography>
                     )}
-                    {extra(budget, "budget")}
                   </TableCell>
                   <TableCell>{amount(budget.amount)}</TableCell>
                   <TableCell>{amount(budget.total_cost_items)}</TableCell>
-                  <TableCell>{data.invoice_access ? amount(budget.total_invoiced) : "—"}</TableCell>
+                  <TableCell>{amount(budget.remaining_budget)}</TableCell>
                   <TableCell>
-                    {data.invoice_access ? amount(budget.remaining_to_invoice) : "—"}
+                    {data.invoice_access ? amount(budget.total_invoiced) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {data.invoice_access
+                      ? amount(budget.remaining_to_invoice)
+                      : "—"}
                   </TableCell>
                   {!readOnly && (
                     <TableCell>
-                      {action(t("financeTree.addCost", { name: label(budget) }), "add", () =>
-                        show("cost", "create", undefined, budget.id),
+                      {action(
+                        t("financeTree.addCost", { name: label(budget) }),
+                        "add",
+                        () => show("cost", "create", undefined, budget.id),
                       )}
-                      {action(t("financeTree.editBudget", { name: label(budget) }), "edit", () =>
-                        show("budget", "edit", budget),
+                      {action(
+                        t("financeTree.editBudget", { name: label(budget) }),
+                        "edit",
+                        () => show("budget", "edit", budget),
                       )}
                       {action(
                         t("financeTree.deleteBudget", { name: label(budget) }),
@@ -322,28 +446,73 @@ export default function PpmFinanceTree({
                     </TableCell>
                   )}
                 </TableRow>
-                {open(budget.id) && (costsByBudget.get(budget.id) ?? []).map(costRows)}
+                <TableRow>
+                  <TableCell
+                    colSpan={readOnly ? 6 : 7}
+                    sx={{ py: 0, borderBottom: 0 }}
+                  >
+                    <Collapse in={open(budget.id)} unmountOnExit>
+                      <Box sx={{ ml: 3, my: 1 }}>
+                        {columns("budget").length > 0 && (
+                          <TableContainer sx={{ overflowX: "auto", mb: 1 }}>
+                            <Table
+                              size="small"
+                              aria-label={t("financeTree.budgetDetails")}
+                            >
+                              <TableHead sx={{ bgcolor: "action.hover" }}>
+                                <TableRow>{customHeaders("budget")}</TableRow>
+                              </TableHead>
+                              <TableBody>
+                                <TableRow>
+                                  {customCells(budget, "budget")}
+                                </TableRow>
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        )}
+                        {costTable(costsByBudget.get(budget.id) ?? [])}
+                      </Box>
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
               </Fragment>
             ))}
             {legacy.length > 0 && (
               <TableRow>
-                <TableCell colSpan={readOnly ? 5 : 6}>
+                <TableCell colSpan={readOnly ? 6 : 7}>
                   {expand("legacy", t("financeTree.unassigned"))}{" "}
                   <strong>{t("financeTree.unassigned")}</strong>
                 </TableCell>
               </TableRow>
             )}
-            {open("legacy") && legacy.map(costRows)}
+            {legacy.length > 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={readOnly ? 6 : 7}
+                  sx={{ py: 0, borderBottom: 0 }}
+                >
+                  <Collapse in={open("legacy")} unmountOnExit>
+                    <Box sx={{ ml: 3, my: 1 }}>{costTable(legacy)}</Box>
+                  </Collapse>
+                </TableCell>
+              </TableRow>
+            )}
             {data.budget_subtotals.map((subtotal) => (
               <TableRow key={String(subtotal.fiscal_year) + subtotal.category}>
                 <TableCell>
-                  {yearLabel(subtotal.fiscal_year)} · {subtotal.category.toUpperCase()}
+                  {yearLabel(subtotal.fiscal_year)} ·{" "}
+                  {subtotal.category.toUpperCase()}
                 </TableCell>
                 <TableCell>{amount(subtotal.amount)}</TableCell>
                 <TableCell>{amount(subtotal.total_cost_items)}</TableCell>
-                <TableCell>{data.invoice_access ? amount(subtotal.total_invoiced) : "—"}</TableCell>
+                <TableCell>{amount(subtotal.remaining_budget)}</TableCell>
                 <TableCell>
-                  {data.invoice_access ? amount(subtotal.remaining_to_invoice) : "—"}
+                  {data.invoice_access ? amount(subtotal.total_invoiced) : "—"}
+                </TableCell>
+                <TableCell>
+                  {data.invoice_access
+                    ? amount(subtotal.remaining_to_invoice)
+                    : "—"}
                 </TableCell>
                 {!readOnly && <TableCell />}
               </TableRow>
@@ -353,12 +522,21 @@ export default function PpmFinanceTree({
                 <strong>{t("financeTree.total")}</strong>
               </TableCell>
               <TableCell>{amount(data.budget_totals.amount)}</TableCell>
-              <TableCell>{amount(data.budget_totals.total_cost_items)}</TableCell>
               <TableCell>
-                {data.invoice_access ? amount(data.budget_totals.total_invoiced) : "—"}
+                {amount(data.budget_totals.total_cost_items)}
               </TableCell>
               <TableCell>
-                {data.invoice_access ? amount(data.budget_totals.remaining_to_invoice) : "—"}
+                {amount(data.budget_totals.remaining_budget)}
+              </TableCell>
+              <TableCell>
+                {data.invoice_access
+                  ? amount(data.budget_totals.total_invoiced)
+                  : "—"}
+              </TableCell>
+              <TableCell>
+                {data.invoice_access
+                  ? amount(data.budget_totals.remaining_to_invoice)
+                  : "—"}
               </TableCell>
               {!readOnly && <TableCell />}
             </TableRow>
@@ -369,9 +547,13 @@ export default function PpmFinanceTree({
                 .map((year) => (
                   <TableRow key={"derived-budget-" + year.year}>
                     <TableCell>
-                      {t("financeTree.descendantBudget")} · {yearLabel(year.year)}
+                      {t("financeTree.descendantBudget")} ·{" "}
+                      {yearLabel(year.year)}
                     </TableCell>
-                    <TableCell>{amount(year.capex_budget + year.opex_budget)}</TableCell>
+                    <TableCell>
+                      {amount(year.capex_budget + year.opex_budget)}
+                    </TableCell>
+                    <TableCell>—</TableCell>
                     <TableCell>—</TableCell>
                     <TableCell>—</TableCell>
                     <TableCell>—</TableCell>
@@ -385,10 +567,14 @@ export default function PpmFinanceTree({
                 .map((year) => (
                   <TableRow key={"derived-actual-" + year.year}>
                     <TableCell>
-                      {t("financeTree.descendantActual")} · {yearLabel(year.year)}
+                      {t("financeTree.descendantActual")} ·{" "}
+                      {yearLabel(year.year)}
                     </TableCell>
                     <TableCell>—</TableCell>
-                    <TableCell>{amount(year.capex_actual + year.opex_actual)}</TableCell>
+                    <TableCell>
+                      {amount(year.capex_actual + year.opex_actual)}
+                    </TableCell>
+                    <TableCell>—</TableCell>
                     <TableCell>—</TableCell>
                     <TableCell>—</TableCell>
                     {!readOnly && <TableCell />}
@@ -398,13 +584,23 @@ export default function PpmFinanceTree({
         </Table>
       </TableContainer>
 
-      <Dialog open={!!deletePath} onClose={() => setDeletePath(null)}>
+      <Dialog
+        open={!!deletePath}
+        disableRestoreFocus
+        onClose={() => setDeletePath(null)}
+      >
         <DialogTitle>{t("financeTree.deleteTitle")}</DialogTitle>
         <DialogContent>
-          {error ? <Alert severity="error">{error}</Alert> : t("financeTree.deleteConfirm")}
+          {error ? (
+            <Alert severity="error">{error}</Alert>
+          ) : (
+            t("financeTree.deleteConfirm")
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeletePath(null)}>{t("common:actions.cancel")}</Button>
+          <Button onClick={() => setDeletePath(null)}>
+            {t("common:actions.cancel")}
+          </Button>
           <Button color="error" onClick={() => void remove()}>
             {t("common:actions.delete")}
           </Button>
@@ -423,13 +619,17 @@ export default function PpmFinanceTree({
           onClose={() => setForm(null)}
           onSaved={(destinationId) => {
             if (destinationId) {
-              const destinationCost = data.cost_items.find((cost) => cost.id === destinationId);
+              const destinationCost = data.cost_items.find(
+                (cost) => cost.id === destinationId,
+              );
               setExpanded(
                 (previous) =>
                   new Set([
                     ...previous,
                     destinationId,
-                    ...(destinationCost?.budget_line_id ? [destinationCost.budget_line_id] : []),
+                    ...(destinationCost?.budget_line_id
+                      ? [destinationCost.budget_line_id]
+                      : []),
                   ]),
               );
             }

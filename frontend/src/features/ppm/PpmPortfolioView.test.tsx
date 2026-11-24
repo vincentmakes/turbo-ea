@@ -131,6 +131,41 @@ describe("PpmPortfolioView row interaction", () => {
   });
 });
 
+describe("PpmPortfolioView subtype options", () => {
+  it("offers every configured subtype and filters to an empty result", () => {
+    renderAt("/", {
+      items: [ITEM],
+      subtypeDefs: [
+        { key: "Project", label: "Project" },
+        { key: "program", label: "Program" },
+        { key: "idea", label: "Idea" },
+      ],
+    });
+
+    fireEvent.mouseDown(screen.getAllByRole("combobox")[1]);
+    const options = screen.getByRole("listbox");
+    expect(within(options).getByRole("option", { name: "Project" })).toBeInTheDocument();
+    expect(within(options).getByRole("option", { name: "Program" })).toBeInTheDocument();
+    fireEvent.click(within(options).getByRole("option", { name: "Idea" }));
+
+    expect(screen.getAllByRole("combobox")[1]).toHaveTextContent("Idea");
+    expect(screen.queryByText("ERP Replacement")).not.toBeInTheDocument();
+    expect(location()).toContain("subtype=idea");
+  });
+
+  it("keeps a historical subtype present in rows even after its definition was removed", () => {
+    renderBoard({
+      items: [{ ...ITEM, subtype: "retired" }],
+      subtypeDefs: [{ key: "Project", label: "Project" }],
+    });
+
+    fireEvent.mouseDown(screen.getAllByRole("combobox")[1]);
+    const options = screen.getByRole("listbox");
+    expect(within(options).getByRole("option", { name: "Project" })).toBeInTheDocument();
+    expect(within(options).getByRole("option", { name: "retired" })).toBeInTheDocument();
+  });
+});
+
 describe("PpmPortfolioView withheld data", () => {
   it("hides the budget KPI when the figure is not published", () => {
     renderBoard({ dashboard: { ...DASHBOARD, total_budget: null } });
@@ -1129,10 +1164,16 @@ describe("PpmPortfolioView grouped by a subtype", () => {
     expect(rowNames()).toEqual(["Child Project"]);
   });
 
-  it("does not offer the grouping subtype in the subtype filter", () => {
+  it("filters to matching group anchors when the grouping subtype is selected", () => {
     renderAt(URL, { items: BOARD, subtypeDefs: SUBTYPES });
     fireEvent.mouseDown(selects()[1]);
-    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["All", "Project"]);
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All", "Program", "Project", "Epic",
+    ]);
+    fireEvent.click(screen.getByRole("option", { name: "Program" }));
+    expect(headers()).toEqual(["Program X", "Program Y"]);
+    expect(rowNames()).toEqual([]);
+    expect(location()).toContain("subtype=Program");
   });
 
   it("shows the program's figures under its header on a phone", () => {

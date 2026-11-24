@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.212.0] - 2026-11-24
+
+### Added
+
+- Use the Metamodel Calculations formula editor and language for Initiative financial fields.
+- See the remaining budget after recorded Cost Items on each Initiative budget line.
+
+### Changed
+
+- Expand budget and Cost Item rows to see details under their own column headings.
+- Manage costs, timelines and status reports from the Initiative card.
+
+### Fixed
+
+- Use the configured Initiative subtypes in the Portfolio filter.
+
 ## [2.211.0] - 2026-11-23
 
 ### Added

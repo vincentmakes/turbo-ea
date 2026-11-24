@@ -54,7 +54,9 @@ vi.mock("@wamra/gantt-task-react", async (importOriginal) => {
               </div>
             ))}
           </div>
-          <div data-testid="gantt">{props.tasks.map((t) => t.name).join("|")}</div>
+          <div data-testid="gantt">{props.tasks.map((t) => t.name).join("|")}
+            <svg><g className="gridBody"><g className="today"><rect data-testid="today-line" /></g></g></svg>
+          </div>
         </>
       );
     },
@@ -165,6 +167,13 @@ afterEach(() => {
 });
 
 describe("PpmGanttTab", () => {
+  it("renders the chart library's today marker as a visible narrow line", async () => {
+    serve([wbs("w1")], []);
+    await renderTab();
+    const marker = screen.getByTestId("today-line");
+    expect(marker).toHaveStyle({ width: "2px", opacity: "1" });
+  });
+
   it("hands the chart the initiative's WBS items and tasks, then an empty row", async () => {
     serve(
       [wbs("w1"), wbs("w2", { parent_id: "w1" })],

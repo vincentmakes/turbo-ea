@@ -179,6 +179,19 @@ Abra **Administração → Definições → PML → Orçamento e custos** e esco
 
 Para um campo **Calculado**, defina o tipo de resultado, os aliases e as fontes. Escolha uma fórmula ou regras ordenadas. A primeira regra aplicável fornece o resultado; quando nenhuma corresponde, aplica-se o valor alternativo. Combine comparações com AND, OR e NOT. Use valores de exemplo e **Pré-visualização** antes de guardar. Os [cálculos do metamodelo](calculations.md) aplicam-se aos campos dos cartões.
 
+O modo **Fórmula** utiliza o editor e a linguagem de fórmulas de **Metamodelo → Cálculos**. Use `data.fieldKey` para um campo da linha financeira atual. Um campo de seleção única fornece o ID da opção selecionada. Num item de custo, `data.providerEffective` contém o Provider utilizado nesse item e `data.providerBudget` o Provider selecionado no respetivo orçamento. Aceda ao Orçamento planeado associado através de `data.budget.amount`, `data.budget.fiscal_year`, `data.budget.category`, `data.budget.description` e `data.budget.provider`. Para a iniciativa associada, use `data.budget.initiative.name`, `data.budget.initiative.id` ou `data.budget.initiative.type`. Use **Pré-visualização** para testar o resultado com valores de exemplo.
+
+As fórmulas PML existentes mantêm o avaliador original. Para converter uma fórmula, escolha **Mecanismo de fórmulas → Cálculos principais**. Pré-visualize a fórmula atualizada antes de guardar. As **Regras ordenadas** continuam disponíveis.
+
+Por exemplo, para classificar um item de custo, adicione as constantes Provider `arubaSpa`, `arubaPec`, `actalis` e `external`, selecionando o cartão Provider correspondente para cada uma. Neste exemplo, a opção **Licenze** em `otherServiceType` tem o ID `licencing`. Use estas duas linhas:
+
+```text
+internal = data.providerEffective == arubaSpa or data.providerEffective == arubaPec or data.providerEffective == actalis
+IF(data.providerEffective == None, None, IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", "Licenze", IF(data.providerEffective == external, "Servizi Esterni", "Servizi Intercompany"))))
+```
+
+Os itens sem Provider ficam sem resultado. Aruba Spa, Aruba PEC e Actalis são classificados como internos mesmo quando se compra uma licença. Para os outros Provider, o tipo de serviço distingue as licenças. As constantes Provider acompanham os cartões selecionados quando estes são renomeados ou transferidos com o workspace.
+
 Uma referência para cartão limita a escolha ao tipo indicado. Configure uma relação compatível para associar o cartão à iniciativa. Em Itens de custo, selecione o campo do fornecedor no orçamento e, se necessário, permita filhos diretos. A faturação tem campos próprios.
 
 #### Exemplo de configuração Aruba

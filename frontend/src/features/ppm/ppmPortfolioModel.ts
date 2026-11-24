@@ -399,7 +399,7 @@ export function filterItems(
     items.filter((i) => !i.group_anchor && matches(i)).map((i) => i.group_id),
   );
   return items.filter((i) =>
-    i.group_anchor ? unfiltered || keptGroups.has(i.group_id) : matches(i),
+    i.group_anchor ? unfiltered || (!!subtype && matches(i)) || keptGroups.has(i.group_id) : matches(i),
   );
 }
 
