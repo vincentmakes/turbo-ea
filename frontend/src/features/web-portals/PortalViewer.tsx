@@ -887,6 +887,41 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                 catalog={filterCatalog}
                 value={filters}
                 onChange={(patch: Partial<FieldFilterState>) => updateFilters(patch)}
+                fixed={
+                  <>
+                    {filterRelTypes.map((rt) => {
+                      const opts = relationOptions[rt.other_type_key] || [];
+                      if (opts.length === 0) return null;
+                      // The filter state is keyed by relation type, so two relation
+                      // types reaching one card type add their verb to tell apart.
+                      const relFilterLabel = relationFilterLabel(rt, filterRelTypes, relLabel);
+                      return (
+                        <FilterSelect
+                          key={rt.key}
+                          label={relFilterLabel}
+                          options={opts.map((o) => ({ key: o.id, label: o.name }))}
+                          value={relationFilters[rt.key] || []}
+                          onChange={(v) =>
+                            updateFilters({ relationFilters: { ...relationFilters, [rt.key]: v } })
+                          }
+                        />
+                      );
+                    })}
+
+                    {showsFilter(visitorLists, "tags") &&
+                      (portal.tag_groups || []).some((g) => (g.tags || []).length > 0) && (
+                      <TagPicker
+                        groups={(portal.tag_groups || []) as unknown as TagGroup[]}
+                        value={tagFilterIds}
+                        onChange={(ids) => updateFilters({ tagFilterIds: ids })}
+                        size="small"
+                        label={t("portal.tags")}
+                        placeholder=""
+                        sx={{ width: 200 }}
+                      />
+                    )}
+                  </>
+                }
               >
                 {showsFilter(visitorLists, "subtype") &&
                   (portal.type_info?.subtypes ?? []).length > 0 && (
@@ -901,38 +936,6 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                     />
                   )}
               </FieldFilters>
-
-              {filterRelTypes.map((rt) => {
-                const opts = relationOptions[rt.other_type_key] || [];
-                if (opts.length === 0) return null;
-                // The filter state is keyed by relation type, so two relation
-                // types reaching one card type add their verb to tell apart.
-                const relFilterLabel = relationFilterLabel(rt, filterRelTypes, relLabel);
-                return (
-                  <FilterSelect
-                    key={rt.key}
-                    label={relFilterLabel}
-                    options={opts.map((o) => ({ key: o.id, label: o.name }))}
-                    value={relationFilters[rt.key] || []}
-                    onChange={(v) =>
-                      updateFilters({ relationFilters: { ...relationFilters, [rt.key]: v } })
-                    }
-                  />
-                );
-              })}
-
-              {showsFilter(visitorLists, "tags") &&
-                (portal.tag_groups || []).some((g) => (g.tags || []).length > 0) && (
-                <TagPicker
-                  groups={(portal.tag_groups || []) as unknown as TagGroup[]}
-                  value={tagFilterIds}
-                  onChange={(ids) => updateFilters({ tagFilterIds: ids })}
-                  size="small"
-                  label={t("portal.tags")}
-                  placeholder=""
-                  sx={{ width: 200 }}
-                />
-              )}
 
               {hasActiveFilters && (
                 <Chip

@@ -985,6 +985,24 @@ describe("PortalViewer visitor filters from the server's lists", () => {
     expect(cardQueries()[0].has("filters")).toBe(false);
   });
 
+  it("keeps the added fields and the Add filter chip after every listed filter", async () => {
+    localStorage.setItem("turboea.portal.apps.prefs", JSON.stringify({ filterFields: ["owner"] }));
+    serve(SLUG, { portal: withLists({ shown: ["field:criticality", "rel:relAppToApp", "tags"] }) });
+    const user = await renderLoaded();
+    await openFilters(user);
+    const relation = await screen.findByRole("combobox", { name: "Application" });
+    const order = [
+      screen.getByRole("combobox", { name: "Criticality" }),
+      relation,
+      screen.getByText("pick-one:Tags"),
+      screen.getByRole("textbox", { name: "Owner Contact" }),
+      screen.getByText("Add filter"),
+    ];
+    order.slice(1).forEach((el, i) =>
+      expect(order[i].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(),
+    );
+  });
+
   it("forgets a removed row", async () => {
     localStorage.setItem("turboea.portal.apps.prefs", JSON.stringify({ filterFields: ["owner"] }));
     serve(SLUG, { portal: withLists() });

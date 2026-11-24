@@ -231,10 +231,20 @@ describe("rowsToRender", () => {
     expect(rows.every((r) => !r.removable)).toBe(true);
   });
 
-  it("adds the user-added and the valued fields, in schema order, removable", () => {
+  it("puts the added fields after the default ones, in the order added, then other valued fields", () => {
     const rows = rowsToRender(catalog, ["aiAct"], new Set(["risk"]));
-    expect(keys(rows)).toEqual(["tier", "crit", "cloud", "risk", "aiAct"]);
-    expect(rows.filter((r) => r.removable).map((r) => r.field.key)).toEqual(["risk", "aiAct"]);
+    expect(keys(rows)).toEqual(["tier", "crit", "cloud", "aiAct", "risk"]);
+    expect(rows.filter((r) => r.removable).map((r) => r.field.key)).toEqual(["aiAct", "risk"]);
+    // The order the person added them in, not the schema's; a valued added field is listed once.
+    expect(keys(rowsToRender(catalog, ["note", "alias", "risk"], new Set(["risk", "aiAct"])))).toEqual([
+      "tier",
+      "crit",
+      "cloud",
+      "note",
+      "alias",
+      "risk",
+      "aiAct",
+    ]);
   });
 
   it("ignores keys the catalog does not know, and lists a default field once", () => {

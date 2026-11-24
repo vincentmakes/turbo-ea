@@ -660,9 +660,11 @@ hand-rolled list of `FilterSelect`s:
   module is a leaf (no API client, no metamodel hook, no feature import) so the account-less
   portal viewer can use it; labels come in through `sectionLabel` / `resolveField`.
 - The row is `FieldFilters` (`src/components/filters/`): leading controls (the subtype
-  select) first, then `rowsToRender` — shown by default ∪ added by the person
-  (`filterFields`) ∪ holding a value, in schema order — then the dashed **Add filter** chip
-  (`AddFilterMenu`), rendered **only when something is addable**. An added row has a remove
+  select) first, then the fields shown by default in schema order, then the block's
+  `fixed` filters (the portal's relation and tag filters), then the fields the person
+  added in the order they added them (`filterFields`, then any other field holding a
+  value — `rowsToRender`), and **last** the dashed **Add filter** chip (`AddFilterMenu`),
+  rendered **only when something is addable**: what the chip adds appears just before it. An added row has a remove
   button that also clears its value (`removeFilterField`).
 - `filterFields` is display state: never counted, described or matched. **Clear all** clears
   values and keeps it (`clearCardFilterValues`); a report Reset and a card-type change empty

@@ -448,24 +448,31 @@ export interface RenderedFilterRow<F> extends FilterCatalogField<F> {
 }
 
 /**
- * The rows to render: the fields shown by default, the ones the person added
- * and every field with an active value, in schema order. A key the catalog
- * does not know (a field since deleted, or one the reader may not filter on)
- * renders nothing.
+ * The rows to render: first the fields shown by default, in schema order;
+ * then the ones the person added, in the order they added them; then any
+ * other field holding a value (one restored from an older link), in schema
+ * order. The added rows sit together at the end, just before the "Add
+ * filter" chip that added them. A key the catalog does not know (a field
+ * since deleted, or one the reader may not filter on) renders nothing.
  */
 export function rowsToRender<F extends { key: string }>(
   catalog: FilterCatalog<F>,
   filterFields: readonly string[],
   activeKeys: ReadonlySet<string>,
 ): RenderedFilterRow<F>[] {
-  const added = new Set(filterFields);
-  const out: RenderedFilterRow<F>[] = [];
-  for (const entry of catalogFields(catalog)) {
-    const key = entry.field.key;
-    if (entry.shownByDefault) out.push({ ...entry, removable: false });
-    else if (added.has(key) || activeKeys.has(key)) out.push({ ...entry, removable: true });
-  }
-  return out;
+  const entries = catalogFields(catalog);
+  const shown = entries.filter((e) => e.shownByDefault).map((e) => ({ ...e, removable: false }));
+  const byKey = new Map(entries.filter((e) => !e.shownByDefault).map((e) => [e.field.key, e]));
+  const added: RenderedFilterRow<F>[] = [];
+  const take = (key: string) => {
+    const entry = byKey.get(key);
+    if (!entry) return;
+    byKey.delete(key);
+    added.push({ ...entry, removable: true });
+  };
+  filterFields.forEach(take);
+  entries.forEach((e) => activeKeys.has(e.field.key) && take(e.field.key));
+  return [...shown, ...added];
 }
 
 /** The catalog without the rendered fields: what "Add filter" offers. Empty sections are dropped. */

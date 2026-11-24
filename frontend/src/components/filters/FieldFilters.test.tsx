@@ -41,7 +41,12 @@ function Harness({ hidden = true, initial }: { hidden?: boolean; initial?: Parti
   });
   return (
     <>
-      <FieldFilters catalog={catalogOf(hidden)} value={value} onChange={(p) => setValue((v) => ({ ...v, ...p }))}>
+      <FieldFilters
+        catalog={catalogOf(hidden)}
+        value={value}
+        onChange={(p) => setValue((v) => ({ ...v, ...p }))}
+        fixed={<span>fixed control</span>}
+      >
         <span>leading control</span>
       </FieldFilters>
       <output data-testid="state">{JSON.stringify(value)}</output>
@@ -61,6 +66,29 @@ describe("FieldFilters", () => {
     expect(lead.compareDocumentPosition(crit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(crit.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(facet("Risk")).not.toBeInTheDocument();
+  });
+
+  it("puts the fixed filters after the default rows, and an added row after them, before the chip", () => {
+    const after = (a: Element, b: Element) =>
+      expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    render(<Harness hidden initial={{ filterFields: ["risk"] }} />);
+    const order = [
+      screen.getByText("leading control"),
+      facet("Criticality")!,
+      screen.getByText("fixed control"),
+      facet("Risk")!,
+    ];
+    order.slice(1).forEach((el, i) => after(order[i], el));
+    // Everything is shown now: no chip. With a field left to add, the chip comes last.
+    expect(screen.queryByText("Add filter")).not.toBeInTheDocument();
+  });
+
+  it("keeps the Add filter chip after the fixed filters", () => {
+    render(<Harness />);
+    const fixed = screen.getByText("fixed control");
+    const chip = screen.getByText("Add filter");
+    expect(facet("Criticality")!.compareDocumentPosition(fixed) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fixed.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("adds a row through the chip, then hides the chip once nothing is left", () => {
