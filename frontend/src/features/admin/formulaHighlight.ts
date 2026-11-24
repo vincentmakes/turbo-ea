@@ -1,5 +1,3 @@
-// ── Syntax highlighting ───────────────────────────────────────────
-
 const FORMULA_FUNCTIONS = new Set([
   "IF",
   "SUM",
@@ -38,9 +36,7 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/** Simple tokenizer that produces syntax-highlighted HTML. */
 export function highlightFormula(code: string): string {
-  // Process line by line to handle # comments
   return code
     .split("\n")
     .map((line) => {
@@ -56,7 +52,6 @@ export function highlightFormula(code: string): string {
     .join("\n");
 }
 
-/** Find the start of a # comment (not inside a string). */
 function findCommentStart(line: string): number {
   let inStr: string | null = null;
   for (let i = 0; i < line.length; i++) {
@@ -72,9 +67,7 @@ function findCommentStart(line: string): number {
   return -1;
 }
 
-/** Highlight a single line of code (no comments). */
 function highlightLine(line: string): string {
-  // Regex that matches tokens in order of priority
   const rx =
     /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\b\d+(?:\.\d+)?\b)|(\.?\b[a-zA-Z_]\w*\b)|([>=<!]=|[+\-*/%<>=,(){}:[\]])/g;
   let result = "";
@@ -83,16 +76,12 @@ function highlightLine(line: string): string {
   while ((m = rx.exec(line)) !== null) {
     if (m.index > lastIdx) result += escapeHtml(line.slice(lastIdx, m.index));
     if (m[1]) {
-      // string
       result += `<span class="hl-string">${escapeHtml(m[1])}</span>`;
     } else if (m[2]) {
-      // number
       result += `<span class="hl-number">${escapeHtml(m[2])}</span>`;
     } else if (m[3]) {
-      // word
       const word = m[3];
       if (word.startsWith(".")) {
-        // .property access — highlight the dot as punctuation, word as property
         result += `<span class="hl-punct">.</span><span class="hl-property">${escapeHtml(word.slice(1))}</span>`;
       } else if (FORMULA_FUNCTIONS.has(word)) {
         result += `<span class="hl-function">${escapeHtml(word)}</span>`;
@@ -116,7 +105,6 @@ function highlightLine(line: string): string {
         result += escapeHtml(word);
       }
     } else if (m[4]) {
-      // operator / punctuation
       result += `<span class="hl-punct">${escapeHtml(m[4])}</span>`;
     }
     lastIdx = rx.lastIndex;
@@ -125,7 +113,6 @@ function highlightLine(line: string): string {
   return result;
 }
 
-/** CSS for syntax highlighting classes. */
 export const HL_STYLES = `
   .hl-comment { color: #6a737d; font-style: italic; }
   .hl-string { color: #b31d28; }

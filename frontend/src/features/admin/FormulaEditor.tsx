@@ -9,16 +9,12 @@ import { useFieldLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import type { CardType, RelationType } from "@/types";
 import { HL_STYLES, highlightFormula } from "./formulaHighlight";
 
-// ── Suggestion types ───────────────────────────────────────────────
-
 interface Suggestion {
   insert: string; // text to insert
   label: string; // display label
   detail?: string; // secondary text (type, description)
   category: string; // grouping label
 }
-
-// ── FormulaEditor with autocomplete ────────────────────────────────
 
 interface FormulaEditorProps {
   value: string;
@@ -59,11 +55,9 @@ export function FormulaEditor({
     [textareaId],
   );
 
-  // Build the full suggestion catalog based on selected card type
   const allSuggestions = useMemo(() => {
     const items: Suggestion[] = [];
 
-    // Top-level context variables
     items.push(
       { insert: "data", label: "data", detail: "Card fields object", category: "Context" },
       {
@@ -110,7 +104,6 @@ export function FormulaEditor({
       );
     }
 
-    // Functions
     const fns: [string, string, string][] = [
       ["IF", "IF(cond, true_val, false_val)", "Conditional"],
       ["SUM", "SUM(list)", "Sum numbers"],
@@ -139,7 +132,6 @@ export function FormulaEditor({
       });
     }
 
-    // Python builtins
     for (const b of [
       "len(",
       "str(",
@@ -159,7 +151,6 @@ export function FormulaEditor({
     return items;
   }, [t, dataFields, extraNames]);
 
-  // PPM budget/cost measures (used after "ppm.")
   const ppmFieldSuggestions = useMemo<Suggestion[]>(() => {
     const items: Suggestion[] = [];
     for (const measure of ["Budget", "Planned", "Actual"]) {
@@ -266,7 +257,6 @@ export function FormulaEditor({
     return items;
   }, [t]);
 
-  // Data fields for the selected card type (used after "data.")
   const dataFieldSuggestions = useMemo(() => {
     const items: Suggestion[] = [
       { insert: "name", label: "name", detail: "Card name (text)", category: "Card Fields" },
@@ -320,7 +310,6 @@ export function FormulaEditor({
     return items;
   }, [cardType, dataFields, fieldLabel]);
 
-  // Relation type keys (used after "relations." and "relation_count.")
   const relationKeySuggestions = useMemo(() => {
     if (!cardType) return [];
     return relationTypes
@@ -333,15 +322,12 @@ export function FormulaEditor({
       }));
   }, [cardType, relationTypes, relLabel]);
 
-  // Extract the token being typed at cursor position
   const getTokenAtCursor = useCallback((text: string, pos: number) => {
-    // Walk backwards to find token start
     const before = text.slice(0, pos);
     // Match the last word-like token, possibly with dots (e.g. "data.bus", "relation_count.rel")
     const match = before.match(/([\w.]+)$/);
     if (!match) return { prefix: "", token: "" };
     const full = match[1];
-    // Split by last dot to determine prefix context
     const dotIdx = full.lastIndexOf(".");
     if (dotIdx >= 0) {
       return { prefix: full.slice(0, dotIdx), token: full.slice(dotIdx + 1) };
@@ -349,7 +335,6 @@ export function FormulaEditor({
     return { prefix: "", token: full };
   }, []);
 
-  // Compute filtered suggestions based on current token
   const filteredSuggestions = useMemo(() => {
     const { prefix, token } = cursorToken;
     const lower = token.toLowerCase();
@@ -387,11 +372,9 @@ export function FormulaEditor({
     nestedFields,
   ]);
 
-  // Handle value change from the code editor
   const handleValueChange = useCallback(
     (newValue: string) => {
       onChange(newValue);
-      // Read cursor position after the editor updates
       requestAnimationFrame(() => {
         const ta = getTextarea();
         if (!ta) return;
@@ -406,7 +389,6 @@ export function FormulaEditor({
     [onChange, getTextarea, getTokenAtCursor],
   );
 
-  // Update showSuggestions when filteredSuggestions changes
   useEffect(() => {
     if (filteredSuggestions.length === 0) {
       setShowSuggestions(false);
@@ -415,7 +397,6 @@ export function FormulaEditor({
     }
   }, [filteredSuggestions, cursorToken]);
 
-  // Insert a suggestion at the cursor position
   const applySuggestion = useCallback(
     (suggestion: Suggestion) => {
       const textarea = getTextarea();
@@ -445,7 +426,6 @@ export function FormulaEditor({
     [value, onChange, getTokenAtCursor, getTextarea],
   );
 
-  // Handle keyboard navigation in the suggestions list
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showSuggestions || filteredSuggestions.length === 0) return;
 
