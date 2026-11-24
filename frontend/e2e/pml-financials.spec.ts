@@ -206,10 +206,18 @@ test("tracks invoices through the budget hierarchy, Initiative, portfolio and pr
       })
       .toEqual([4000, -500, 6500, 3500, 6500, 10000]);
     const tree = page.getByRole("region", { name: t("ppm:financeTree.item") });
-    const platform = tree.getByRole("row").filter({ hasText: "Platform" });
+    const platform = tree.getByRole("row").filter({
+      has: page.getByRole("button", {
+        name: t("ppm:financeTree.editBudget", { name: "Platform" }),
+      }),
+    });
     await expect(platform).toContainText(/6[,.]500/);
     await expect(platform).toContainText(/3[,.]500/);
-    const supportRow = tree.getByRole("row").filter({ hasText: "Support" });
+    const supportRow = tree.getByRole("table", { name: t("ppm:costItems") }).getByRole("row").filter({
+      has: page.getByRole("button", {
+        name: t("ppm:financeTree.editCost", { name: "Support" }),
+      }),
+    });
     await expect(supportRow).toContainText(/-.*500/);
 
     await gotoApp(page, "/ppm/" + card.id + "?tab=details");
