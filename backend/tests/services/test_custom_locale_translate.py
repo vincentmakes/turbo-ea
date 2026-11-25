@@ -243,9 +243,7 @@ class TestSelectWork:
 class TestHelpers:
     def test_accept_answer(self):
         chunk = items(("common", "a"), ("common", "b"))
-        translations, expected, failed = tr.accept_answer(
-            chunk, {"1": "Appel", "2": "Hallo"}
-        )
+        translations, expected, failed = tr.accept_answer(chunk, {"1": "Appel", "2": "Hallo"})
         assert translations == {"a": "Appel"}
         assert expected == {"a": None}
         assert failed == 1

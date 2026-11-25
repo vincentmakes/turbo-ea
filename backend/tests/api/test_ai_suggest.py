@@ -376,6 +376,51 @@ class TestSuggestionLanguage:
         assert "- Write the description in English." in system
         assert "tlh" not in system and "tlh" not in prompts[0][1]["content"]
 
+    async def test_a_custom_locale_is_named_by_its_stored_english_name(
+        self, client, db, env, fakes
+    ):
+        from app.models.custom_locale import CustomLocale
+
+        db.add(CustomLocale(code="nl", name="Nederlands", english_name="Dutch", enabled=True))
+        await ai_settings(db)
+        resp = await self._suggest(client, env["member"], locale="nl")
+        assert resp.status_code == 200, resp.text
+        eol = await client.post(
+            self.EOL, json={"name": "Acme ERP", "locale": "nl"}, headers=auth_headers(env["member"])
+        )
+        assert eol.status_code == 200, eol.text
+        assert [(c["locale"], c["language"]) for c in fakes.suggest_calls] == [
+            ("nl", "Dutch"),
+            ("nl", "Dutch"),
+        ]
+
+    async def test_a_built_in_locale_has_no_stored_language(self, client, db, env, fakes):
+        await ai_settings(db)
+        resp = await self._suggest(client, env["member"], locale="de")
+        assert resp.status_code == 200, resp.text
+        assert fakes.suggest_calls[0]["language"] is None
+
+    async def test_the_custom_language_reaches_the_prompt(self, client, db, env, monkeypatch):
+        from app.models.custom_locale import CustomLocale
+        from app.services import ai_service
+
+        prompts: list[list[dict]] = []
+
+        async def no_search(*args, **kwargs):
+            return []
+
+        async def call_llm(provider_url, model, messages, **kwargs):
+            prompts.append(messages)
+            return {"description": {"value": "Een CRM.", "confidence": 0.7}}
+
+        monkeypatch.setattr(ai_service, "web_search", no_search)
+        monkeypatch.setattr(ai_service, "call_llm", call_llm)
+        db.add(CustomLocale(code="nl", name="Nederlands", english_name="Dutch"))
+        await ai_settings(db)
+        resp = await self._suggest(client, env["member"], locale="nl")
+        assert resp.status_code == 200, resp.text
+        assert "- Write the description in Dutch." in prompts[0][0]["content"]
+
 
 class TestPortfolioInsights:
     async def _post(self, client, user):

@@ -1368,3 +1368,131 @@ class TestRemoveWithADescriptionSection:
             {"section": "Ops", "fields": []},
         ]
         assert ct.section_config == {"__order": ["description", "custom:0", "relations"]}
+
+
+# ---------------------------------------------------------------------------
+# A re-apply keeps the locales the manifest does not carry (custom languages)
+# ---------------------------------------------------------------------------
+
+from app.services.extensions.field_contributions import (  # noqa: E402
+    keep_stored_locales,
+    merge_group_locales,
+    merge_locales,
+)
+
+
+class TestLocaleMerge:
+    def test_merge_locales(self):
+        assert merge_locales({"nl": "a", "de": "old"}, {"de": "new"}) == {"nl": "a", "de": "new"}
+        assert merge_locales({"nl": "a"}, None) == {"nl": "a"}
+        assert merge_locales({}, {"de": "x"}) == {"de": "x"}
+        assert merge_locales(None, None) is None
+
+    def test_merge_group_locales(self):
+        assert merge_group_locales(
+            {"G": {"nl": "groep", "de": "alt"}, "Old": {"nl": "oud"}},
+            {"G": {"de": "Gruppe"}, "H": {"de": "Hah"}},
+        ) == {"G": {"nl": "groep", "de": "Gruppe"}, "Old": {"nl": "oud"}, "H": {"de": "Hah"}}
+        assert merge_group_locales(None, {"G": {"de": "x"}}) == {"G": {"de": "x"}}
+
+    def test_keep_stored_locales(self):
+        stored = {
+            "key": "f",
+            "translations": {"nl": "veld", "de": "alt"},
+            "helpTranslations": {"nl": "hulp"},
+            "options": [{"key": "a", "translations": {"nl": "A-nl"}}, "junk"],
+        }
+        fresh = {
+            "key": "f",
+            "translations": {"de": "Feld"},
+            "options": [{"key": "a", "label": "A"}, {"key": "b", "label": "B"}, "x"],
+        }
+        assert keep_stored_locales(stored, fresh) == {
+            "key": "f",
+            "translations": {"nl": "veld", "de": "Feld"},
+            "helpTranslations": {"nl": "hulp"},
+            "options": [
+                {"key": "a", "label": "A", "translations": {"nl": "A-nl"}},
+                {"key": "b", "label": "B"},
+                "x",
+            ],
+        }
+        assert keep_stored_locales(None, fresh) is fresh
+
+
+class TestReapplyKeepsCustomLocales:
+    def _contrib(self, de: str):
+        contrib = contribution(
+            fields=[
+                {
+                    "key": "esgRating",
+                    "label": "ESG Rating",
+                    "type": "single_select",
+                    "group": "Scores",
+                    "help": "How green",
+                    "translations": {"de": de},
+                    "options": [{"key": "a", "label": "A", "translations": {"de": "A-de"}}],
+                }
+            ]
+        )
+        contrib["translations"] = {"de": de}
+        contrib["groupTranslations"] = {"Scores": {"de": de}}
+        return contrib
+
+    async def test_a_manifest_update_keeps_a_custom_code(self, db):
+        ct = await create_card_type(db, key="Application", label="Application")
+        await apply_field_contributions(db, EXT, manifest_with([self._contrib("v1")]))
+        schema = json.loads(json.dumps(ct.fields_schema))
+        sec = next(s for s in schema if s.get("ext") == EXT)
+        sec["translations"]["nl"] = "ESG NL"
+        sec["groupTranslations"]["Scores"]["nl"] = "Scores NL"
+        field = sec["fields"][0]
+        field["translations"]["nl"] = "Rating NL"
+        field["helpTranslations"] = {"nl": "Hoe groen"}
+        field["options"][0]["translations"]["nl"] = "A NL"
+        ct.fields_schema = schema
+        await db.flush()
+
+        await apply_field_contributions(db, EXT, manifest_with([self._contrib("v2")]))
+        sec = section_named(ct, "ESG Metrics")
+        assert sec["translations"] == {"de": "v2", "nl": "ESG NL"}
+        assert sec["groupTranslations"] == {"Scores": {"de": "v2", "nl": "Scores NL"}}
+        field = sec["fields"][0]
+        assert field["translations"] == {"de": "v2", "nl": "Rating NL"}
+        assert field["helpTranslations"] == {"nl": "Hoe groen"}
+        assert field["options"][0]["translations"] == {"de": "A-de", "nl": "A NL"}
+
+    async def test_a_field_moved_elsewhere_keeps_a_custom_code(self, db):
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[{"section": "Admin's", "fields": []}],
+        )
+        await apply_field_contributions(db, EXT, manifest_with([self._contrib("v1")]))
+        schema = json.loads(json.dumps(ct.fields_schema))
+        own = next(s for s in schema if s.get("ext") == EXT)
+        moved = own["fields"].pop(0)
+        moved["translations"]["nl"] = "Rating NL"
+        schema[0]["fields"].append(moved)
+        ct.fields_schema = schema
+        await db.flush()
+
+        await apply_field_contributions(db, EXT, manifest_with([self._contrib("v2")]))
+        field = section_named(ct, "Admin's")["fields"][0]
+        assert field["key"] == "esgRating"
+        assert field["translations"] == {"de": "v2", "nl": "Rating NL"}
+        assert field["group"] == "Scores"
+
+    async def test_a_subtype_keeps_a_custom_code(self, db):
+        ct = await create_card_type(db, key="Organization", label="Organization")
+        await apply_subtype_contributions(db, EXT, subtype_manifest())
+        subtypes = json.loads(json.dumps(ct.subtypes))
+        subtypes[0]["translations"]["nl"] = "Filiaal"
+        ct.subtypes = subtypes
+        await db.flush()
+        updated = subtype_manifest(
+            subtypes=[{"key": "branch", "label": "Branch", "translations": {"de": "Filiale"}}]
+        )
+        await apply_subtype_contributions(db, EXT, updated)
+        assert ct.subtypes[0]["translations"] == {"de": "Filiale", "nl": "Filiaal"}

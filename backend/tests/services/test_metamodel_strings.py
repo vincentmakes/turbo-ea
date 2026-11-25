@@ -167,9 +167,10 @@ class TestSlots:
         assert mm.dashboard_slots({"key": None, "name": "x"}) == []
         assert mm.dashboard_slots({"key": "home", "name": "Home"})[0].path == ()
         assert mm.regulation_slots({"key": "gdpr", "label": "GDPR"})[0].key == "regulation.gdpr"
-        assert mm.resource_slots({"kind": "link_type", "key": "wiki", "label": "Wiki"})[
-            0
-        ].key == "resource.link_type.wiki"
+        assert (
+            mm.resource_slots({"kind": "link_type", "key": "wiki", "label": "Wiki"})[0].key
+            == "resource.link_type.wiki"
+        )
 
 
 class TestLifecycle:
@@ -390,8 +391,10 @@ class TestRoundTrip:
         assert after != before
 
         ct = records["ct"]
-        assert ct.translations == {"label": {"en": "Widget EN", "de": "Dings", "nl": "וידג'ט"},
-                                   "description": {"nl": "एक विजेट"}}
+        assert ct.translations == {
+            "label": {"en": "Widget EN", "de": "Dings", "nl": "וידג'ט"},
+            "description": {"nl": "एक विजेट"},
+        }
         assert ct.subtypes[0]["translations"] == {"de": "Klein", "nl": "เล็ก"}
         assert ct.hierarchy_labels[0]["translations"] == {"nl": "Deel van"}
         section = ct.fields_schema[1]
@@ -401,9 +404,7 @@ class TestRoundTrip:
         assert field["helpTranslations"] == {"de": "Alle Kosten", "nl": "Alle kosten"}
         assert field["badgeTranslations"] == {"nl": "Nieuw"}
         assert section["fields"][1]["options"][0]["translations"]["nl"] == "Goud"
-        assert records["rel"].attributes_schema[0]["options"][0]["translations"] == {
-            "nl": "Lezen"
-        }
+        assert records["rel"].attributes_schema[0]["options"][0]["translations"] == {"nl": "Lezen"}
         assert records["rel"].attributes_schema[0]["built_in"] is True
         assert records["cat"].translations == {"de": "Deutsch", "nl": "A en B"}
         assert records["dash"].translations == {"nl": "Start"}

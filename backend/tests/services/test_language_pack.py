@@ -118,7 +118,9 @@ class TestRealCatalogue:
 
 
 class TestCodes:
-    @pytest.mark.parametrize("code", ["nl", "he", "hi", "th", "fil", "pt-BR", "zh-Hant", "zh-Hant-TW"])
+    @pytest.mark.parametrize(
+        "code", ["nl", "he", "hi", "th", "fil", "pt-BR", "zh-Hant", "zh-Hant-TW"]
+    )
     def test_accepted(self, code):
         assert lp.code_error(code, ["en", "de"]) is None
 
@@ -205,12 +207,10 @@ class TestValidator:
         assert lp.validate_value(english, "Löschen <strong>{{name}}</strong>?") is None
         assert lp.validate_value(english, "Löschen {{name}}?") is None
         assert (
-            lp.validate_value(english, '<img src=x onerror=alert(1)> {{name}}')
+            lp.validate_value(english, "<img src=x onerror=alert(1)> {{name}}")
             == lp.MARKUP_NOT_IN_SOURCE
         )
-        assert (
-            lp.validate_value("Text {{name}}", "<b>{{name}}</b>") == lp.MARKUP_NOT_IN_SOURCE
-        )
+        assert lp.validate_value("Text {{name}}", "<b>{{name}}</b>") == lp.MARKUP_NOT_IN_SOURCE
         assert lp.validate_value("<1>x</1>", "<1>y</1>") is None
         assert lp.validate_value("<1>x</1>", "<2>y</2>") == lp.MARKUP_NOT_IN_SOURCE
 
@@ -342,9 +342,7 @@ class TestStatus:
         assert rows[2]["value"] is None and rows[2]["origin"] is None
         untranslated = lp.list_entries(self.ns, strings, meta, status="untranslated")
         assert [r["key"] for r in untranslated] == ["b", "c"]
-        assert [r["key"] for r in lp.list_entries(self.ns, strings, meta, search="BANANE")] == [
-            "b"
-        ]
+        assert [r["key"] for r in lp.list_entries(self.ns, strings, meta, search="BANANE")] == ["b"]
         assert [r["key"] for r in lp.list_entries(self.ns, strings, meta, search="cher")] == ["c"]
         assert [r["key"] for r in lp.list_entries(self.ns, strings, meta, search=" a ")] == [
             "a",

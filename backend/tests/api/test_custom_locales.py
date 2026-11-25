@@ -199,7 +199,11 @@ class TestUpdateAndDelete:
         resp = await client.delete(f"{BASE}/nl", headers=auth_headers(env["admin"]))
         assert resp.status_code == 204
         locales = dict(
-            (await db.execute(select(User.email, User.locale).execution_options(populate_existing=True))).all()
+            (
+                await db.execute(
+                    select(User.email, User.locale).execution_options(populate_existing=True)
+                )
+            ).all()
         )
         assert locales == {"admin@test.com": "de", "viewer@test.com": "en"}
         assert (await db.execute(select(CustomLocale))).first() is None
@@ -240,7 +244,9 @@ class TestStrings:
             "unknown": 3,
         }
         row = (
-            await db.execute(select(CustomLocaleString).where(CustomLocaleString.locale_id == loc.id))
+            await db.execute(
+                select(CustomLocaleString).where(CustomLocaleString.locale_id == loc.id)
+            )
         ).scalar_one()
         assert row.namespace == "common"
         assert row.strings["actions.save"] == "Opslaan"
@@ -331,11 +337,11 @@ class TestStrings:
             headers=headers,
         )
         assert "actions.save" in [i["key"] for i in found.json()["items"]]
-        assert all("actions.save" in i["key"].lower() or "actions.save" in i["source"].lower()
-                   for i in found.json()["items"])
-        bad = await client.get(
-            f"{BASE}/nl/strings", params={"namespace": "nope"}, headers=headers
+        assert all(
+            "actions.save" in i["key"].lower() or "actions.save" in i["source"].lower()
+            for i in found.json()["items"]
         )
+        bad = await client.get(f"{BASE}/nl/strings", params={"namespace": "nope"}, headers=headers)
         assert bad.status_code == 400 and bad.json()["detail"] == "unknown_namespace"
         too_many = await client.get(f"{BASE}/nl/strings", params={"limit": 501}, headers=headers)
         assert too_many.status_code == 422
@@ -599,9 +605,7 @@ class TestTranslate:
         assert resp.json()["job"]["status"] == "cancelled"
         assert resp.json()["job"]["total"] == 3
         assert len(await _audit(db, "admin.custom_locale.translation_cancelled")) == 1
-        again = await client.post(
-            f"{BASE}/nl/translate/cancel", headers=auth_headers(env["admin"])
-        )
+        again = await client.post(f"{BASE}/nl/translate/cancel", headers=auth_headers(env["admin"]))
         assert again.json()["job"]["status"] == "cancelled"
         assert len(await _audit(db, "admin.custom_locale.translation_cancelled")) == 1
 
@@ -641,7 +645,9 @@ class TestBundle:
         assert resp.headers["etag"] == f'"{body["hash"]}"'
         assert resp.headers["cache-control"] == "no-cache"
 
-        cached = await client.get(f"{BASE}/he/bundle", headers={"If-None-Match": f'"{body["hash"]}"'})
+        cached = await client.get(
+            f"{BASE}/he/bundle", headers={"If-None-Match": f'"{body["hash"]}"'}
+        )
         assert cached.status_code == 304
         assert cached.headers["etag"] == f'"{body["hash"]}"'
         stale = await client.get(f"{BASE}/he/bundle", headers={"If-None-Match": '"other"'})

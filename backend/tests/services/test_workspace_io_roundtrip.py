@@ -3456,3 +3456,65 @@ async def test_an_older_bundle_dates_only_the_signed_decisions_it_created_in_utc
         "ADR-842": (None, None),
         "ADR-843": (None, None),
     }
+
+
+async def test_custom_languages_roundtrip(db):
+    """A custom language and its strings survive export → delete → import:
+    the two blobs travel as JSON assets (they are far over a cell's 32 767
+    characters), the transient AI-job state does not travel, and a second
+    import of the same bundle changes nothing."""
+    import json
+
+    from app.models.custom_locale import CustomLocale, CustomLocaleString
+
+    user = await create_user(db, email="lang-ws@test.com", role="admin")
+    loc = CustomLocale(
+        code="he",
+        name="עברית",
+        english_name="Hebrew",
+        rtl=True,
+        enabled=True,
+        translate_job={"status": "running", "total": 3},
+    )
+    db.add(loc)
+    await db.flush()
+    strings = {f"k{i}": "שָׁלוֹם " * 20 for i in range(400)}
+    meta = {k: {"h": "0123456789ab", "o": "ai"} for k in strings}
+    db.add(CustomLocaleString(locale_id=loc.id, namespace="common", strings=strings, meta=meta))
+    await db.flush()
+    assert len(json.dumps(strings, ensure_ascii=False)) > 32767
+
+    raw = await build_bundle(db)
+    _, _, assets = bundle_io.unpack(raw)
+    assert any(k.startswith("CustomLocaleStrings/") for k in assets)
+    rows = parse_bundle(raw).rows("CustomLocales")
+    assert [r["code"] for r in rows] == ["he"]
+    assert "translate_job" not in rows[0]
+
+    await db.execute(delete(CustomLocaleString))
+    await db.execute(delete(CustomLocale))
+    await db.flush()
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(CustomLocale))).scalar_one()
+    await db.refresh(restored)
+    assert (restored.id, restored.code, restored.name, restored.rtl, restored.enabled) == (
+        loc.id,
+        "he",
+        "עברית",
+        True,
+        True,
+    )
+    assert restored.translate_job is None
+    row = (await db.execute(select(CustomLocaleString))).scalar_one()
+    await db.refresh(row)
+    assert (row.namespace, row.locale_id) == ("common", loc.id)
+    assert row.strings == strings
+    assert row.meta == meta
+
+    again = await apply_bundle(db, parse_bundle(raw), user)
+    by_sheet = {s.sheet: s for s in again.sections}
+    assert by_sheet["CustomLocales"].created == 0
+    assert by_sheet["CustomLocaleStrings"].created == 0
+    assert by_sheet["CustomLocaleStrings"].skipped == 1

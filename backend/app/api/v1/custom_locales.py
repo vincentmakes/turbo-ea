@@ -35,7 +35,6 @@ from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/custom-locales", tags=["Custom languages"])
 
-PERMISSION = "admin.settings"
 _CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
@@ -107,7 +106,7 @@ class TranslateRequest(BaseModel):
 
 
 async def _require_admin(db: AsyncSession, user: User) -> None:
-    await PermissionService.require_permission(db, user, PERMISSION)
+    await PermissionService.require_permission(db, user, "admin.settings")
 
 
 async def _locale_or_404(db: AsyncSession, code: str) -> CustomLocale:
@@ -440,7 +439,7 @@ async def get_custom_locale_bundle(
     if locale is None:
         raise HTTPException(404, "locale_not_found")
     if not locale.enabled and (
-        user is None or not await PermissionService.check_permission(db, user, PERMISSION)
+        user is None or not await PermissionService.check_permission(db, user, "admin.settings")
     ):
         raise HTTPException(404, "locale_not_found")
     cat = store.catalog()
