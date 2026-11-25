@@ -87,7 +87,7 @@ class TestLocaleProblem:
             "'zh-Hant', at most 10 characters (see list_custom_languages)."
         )
 
-    @pytest.mark.parametrize("code", ["nl\n", "nl-BR\n", "zh-Hant\n", "xnl", "nl-BR-x"])
+    @pytest.mark.parametrize("code", ["nl\n", "nl-BR\n", "zh-Hant\n", "x", "-nl", "nl-", "nl-BR-x"])
     def test_the_whole_code_must_match(self, code):
         assert server._locale_problem(code)["error"] == "invalid_locale"
 

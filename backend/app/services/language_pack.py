@@ -41,7 +41,6 @@ PACK_FORMAT_VERSION = 1
 #: language with more categories adds ``<base>_few`` and so on beside the
 #: ``<base>_other`` key English has.
 PLURAL_CATEGORIES = ("zero", "one", "two", "few", "many", "other")
-_PLURAL_KEY = re.compile(r"(?P<base>.+)_(?P<cat>zero|one|two|few|many|other)")
 
 #: Base codes of the languages whose CLDR plural rules have a ``zero``
 #: category (Arabic, Najdi Arabic, Welsh, Colognian, Langi, Latvian, Old
@@ -50,6 +49,21 @@ _PLURAL_KEY = re.compile(r"(?P<base>.+)_(?P<cat>zero|one|two|few|many|other)")
 #: would override its own rule (Hindi and Brazilian Portuguese say "0" with the
 #: ``one`` form); it is filled only for these.
 ZERO_CATEGORY_LANGUAGES = frozenset({"ar", "ars", "cy", "ksh", "lag", "lv", "prg", "kw", "blo"})
+
+
+def plural_parts(key: str) -> tuple[str, str] | None:
+    """``(base, category)`` when ``key`` is ``<base>_<category>`` with a CLDR
+    plural category and a non-empty one-line base (``items_few`` →
+    ``("items", "few")``), else ``None`` (``_other``, ``items_few\n``).
+
+    A split on the last underscore, not a regular expression: ``key`` comes
+    from the caller, and a pattern with an unbounded group before ``_`` backtracks
+    polynomially on a long hostile key."""
+    base, sep, category = key.rpartition("_")
+    if not sep or not base or "\n" in base or category not in PLURAL_CATEGORIES:
+        return None
+    return base, category
+
 
 STATUS_MISSING = "missing"
 STATUS_STALE = "stale"
@@ -88,7 +102,7 @@ _TAG_OPEN = re.compile(r"<[A-Za-z/!?]")
 _URL_CHARS = r"[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]"
 _URL = re.compile(
     rf"(?:(?:https?://|www\.){_URL_CHARS}*"
-    rf"|(?<![:/\w])//[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+{_URL_CHARS}*)",
+    rf"|(?<![:/\w])//[A-Za-z0-9\-]+\.[A-Za-z0-9\-]{_URL_CHARS}*)",
     re.IGNORECASE,
 )
 _URL_TRAILING = ".,;:!?)]'\""
@@ -210,9 +224,9 @@ class Namespace:
         needs it — and is translated (and validated) from that sibling."""
         if key in self.strings:
             return key
-        match = _PLURAL_KEY.fullmatch(key)
-        if match:
-            other = f"{match.group('base')}_other"
+        parts = plural_parts(key)
+        if parts is not None:
+            other = f"{parts[0]}_other"
             if other in self.strings:
                 return other
         return None
@@ -221,10 +235,10 @@ class Namespace:
         """Whether ``key`` is a plural form other than ``_other`` (``_one``,
         ``_two`` …) of a key this namespace knows: such a form may name no
         number, so it may drop ``{{count}}``."""
-        match = _PLURAL_KEY.fullmatch(key)
-        if match is None:
+        parts = plural_parts(key)
+        if parts is None:
             return False
-        return match.group("cat") != "other" and self.source_key(key) is not None
+        return parts[1] != "other" and self.source_key(key) is not None
 
     def source_text(self, key: str) -> str | None:
         source = self.source_key(key)
@@ -449,7 +463,7 @@ def validate_value(english: str, value: Any, *, plural: bool = False) -> str | N
 
 
 def is_plural_key(key: str) -> bool:
-    return bool(_PLURAL_KEY.fullmatch(key))
+    return plural_parts(key) is not None
 
 
 def validate_entry(ns: Namespace, key: str, value: Any) -> str | None:

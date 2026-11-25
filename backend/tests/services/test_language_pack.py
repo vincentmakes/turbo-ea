@@ -394,6 +394,29 @@ class TestPlurals:
         assert lp.validate_value("{{count}} items", "פריטים") == lp.PLACEHOLDER_MISMATCH
         assert lp.validate_value("{{count, number}} items", "x", plural=True) is None
 
+    @pytest.mark.parametrize(
+        ("key", "parts"),
+        [
+            ("items_few", ("items", "few")),
+            ("items_one", ("items", "one")),
+            ("a_b_zero", ("a_b", "zero")),
+            ("x.y_other", ("x.y", "other")),
+            ("_other", None),
+            ("items_few\n", None),
+            ("a\nb_few", None),
+            ("items_lots", None),
+            ("items_", None),
+            ("items", None),
+            ("", None),
+        ],
+    )
+    def test_plural_parts(self, key, parts):
+        assert lp.plural_parts(key) == parts
+
+    def test_a_long_hostile_key_is_split_in_linear_time(self):
+        assert lp.plural_parts("_" * 200_000 + "x") is None
+        assert lp.plural_parts("a" * 200_000 + "_few") == ("a" * 200_000, "few")
+
     def test_plural_keys_are_matched_whole(self):
         ns = tiny(PLURAL)
         assert ns.source_key("items_few\n") is None
