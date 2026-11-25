@@ -23,6 +23,8 @@ Click **Add language** and fill in:
 
 Any script works: Latin, Cyrillic, Hebrew, Arabic, Devanagari, Thai and others, including the joining characters and marks those scripts need. With **Right-to-left script** on, the whole application is laid out from right to left for users who pick the language, as it is for Arabic.
 
+A regional language is a language of its own: `pt-BR` does not borrow from the built-in Portuguese, and `zh-Hant` does not borrow from the built-in Chinese. Until a string is translated, it is shown in English.
+
 A new language starts switched off: users do not see it until you offer it. Each language in the list shows a progress bar with how many strings are translated, and two counts:
 
 - **Missing** — strings that have no translation yet.
@@ -43,7 +45,7 @@ Use whichever suits you; they can be combined, and the result is the same.
 - **Current translations (to share)** — the translations you already have, including the names in your own metamodel. Use it as a backup or to move the language to another installation of your own.
 - **Share (community pack)** — the translations you already have, but only what is the same in every Turbo EA installation: the interface text and the names of the built-in metamodel as Turbo EA ships them. Anything specific to your installation is left out — card types, fields and options you created, built-in names you renamed, your dashboards and categories. This is the file to share with other Turbo EA users.
 
-Translate the file anywhere — a translation agency, a translation tool, or an AI chat — then **Import language pack**. The import checks the file, saves the strings one section at a time, and shows a report: how many strings were applied, unchanged or cleared, and which were rejected and why.
+Translate the file anywhere — a translation agency, a translation tool, or an AI chat — then **Import language pack**. The import checks the file, saves the strings one section at a time, and shows a report: how many strings were applied, unchanged or cleared, which were rejected and why, and which keys are not in this version.
 
 ### 2. Translate with your AI provider
 
@@ -64,7 +66,7 @@ An AI assistant connected through the [MCP integration](mcp.md) can translate th
 - `get_untranslated_strings` — the English strings still to translate, page by page, with the translation instructions.
 - `submit_translations` — sends the translations back. It previews first and saves on confirmation, like every MCP write tool.
 
-Ask the assistant, for example: *"Translate the missing strings of our Dutch custom language, starting with the metamodel names."* The assistant works with your own permissions, and every call it makes is recorded in the audit log.
+Ask the assistant, for example: *"Translate the missing strings of our Dutch custom language, starting with the metamodel names."* The assistant works with your own permissions, and every change it makes is recorded in the audit log.
 
 ## The language-pack file
 
@@ -104,10 +106,10 @@ A language pack is a JSON file like this:
 - **strings** holds the text to translate, grouped by section (`metamodel`, `common`, `admin`, `cards`, …). Translate the **values** only; never change the keys.
 - The **metamodel** section holds the names of card types, fields, options, relations and the other labels stored in your database. They are short labels the rest of the interface refers to: translate them first and use the same words for them everywhere else.
 - Keep everything in double curly braces, such as `{{count}}` or `{{name}}`, exactly as it is: the application fills in a value there. Keep tags such as `<1>` and `</1>` and references such as `$t(common:actions.save)` too.
-- **source_hashes** records which English text each string was made from. Leave it in the file: on import it tells Turbo EA whether the English has changed since the file was exported.
+- **source_hashes** records which English text each string was made from. Leave it in the file: on import it tells Turbo EA whether the English has changed since the file was exported. For the **metamodel** section it is required — an entry without its hash is refused — because it is what keeps a translation off a name that was renamed in the meantime.
 - **instructions** repeats these rules in plain words, so you can hand the file to a translator or an AI chat as it is.
 
-When you import, each string is checked on its own. A string is rejected when its key is unknown, when it is empty or much longer than the English, when it loses or adds a placeholder or a `$t(...)` reference, or when it brings in a tag or a link that the English text does not have. In the **metamodel** section a translation is also skipped when the name it was made from has been changed since the file was exported — a translation of "Application" never lands on a card type someone has renamed. A rejected string never stops the others from being saved.
+When you import, each string is checked on its own. A key this version of Turbo EA does not have — from a pack made for another version — is counted as not in this version and named in the report. A string is rejected when it is empty or much longer than the English, when it loses or adds a placeholder or a `$t(...)` reference, or when it brings in a tag or a link that the English text does not have. In the **metamodel** section a translation is also refused when it carries no hash, and skipped when the name it was made from has been changed since the file was exported — a translation of "Application" never lands on a card type someone has renamed. A translation identical to the one already stored is reported as unchanged. A rejected string never stops the others from being saved.
 
 A file exported for another language code can still be imported; you are asked to confirm first.
 
@@ -125,5 +127,5 @@ Corrections you made by hand are kept. An AI run over **Everything** leaves them
 
 - **The documentation site is not covered.** This manual stays in the built-in languages.
 - **Surveys keep the labels they were built with.** A survey created before a field's options were translated keeps the option labels it was built with.
-- **Plural forms.** English has two plural forms (*one card*, *2 cards*). A language with more — such as Polish, Russian or Arabic — can add its extra forms (`_few`, `_many`, …) beside the English ones in an imported file. A form the pack does not carry falls back to the language's own general form (the `_other` translation), never to English. The AI translation and the review screen work on the English forms only.
-- Deleting a custom language removes all its translations. Users who had chosen it are switched back to English.
+- **Plural forms.** English has two plural forms (*one card*, *2 cards*). A language with more — such as Polish, Russian or Arabic — can add its extra forms (`_few`, `_many`, …) beside the English ones in an imported file. A form the pack does not carry falls back to the language's own general form (the `_other` translation), never to English. The AI translation and the review screen also work on the extra forms already stored, but they do not create new ones: add those through a file.
+- Deleting a custom language removes all its translations, the names of card types, fields and the other metamodel labels included. Users who had chosen it are switched back to English.

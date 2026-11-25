@@ -7744,7 +7744,7 @@ _LOCALE_CODE_MAX = 10
 _UNTRANSLATED_LIMIT_MAX = 500
 _TRANSLATIONS_NOT_REVERSIBLE = (
     "Translations are language data, not card changes, so rollback_batch cannot "
-    "undo them; correct a string in Admin → Settings → Custom languages."
+    "undo them; correct a string in Admin → Settings → Custom Languages."
 )
 
 
@@ -7984,7 +7984,7 @@ async def submit_translations(
 
     Requires ``admin.settings``. NOT reversible by ``rollback_batch``:
     translations are language data, not card changes — a wrong string is
-    corrected in Admin → Settings → Custom languages (or by submitting it
+    corrected in Admin → Settings → Custom Languages (or by submitting it
     again).
 
     Args:

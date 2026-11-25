@@ -75,6 +75,7 @@ class TestLocaleProblem:
             "zh-Hantx",
             "zh-BR-Hant",
             "he-IL-x",
+            "abc-Abcd-AB",
         ],
     )
     def test_anything_else_is_refused_and_echoed(self, code):
@@ -83,11 +84,20 @@ class TestLocaleProblem:
         assert problem["locale"] == code
         assert problem["message"] == (
             "locale must be a custom language code such as 'nl', 'pt-BR' or "
-            "'zh-Hant' (see list_custom_languages)."
+            "'zh-Hant', at most 10 characters (see list_custom_languages)."
         )
 
     @pytest.mark.parametrize("code", ["nl\n", "nl-BR\n", "zh-Hant\n", "xnl", "nl-BR-x"])
     def test_the_whole_code_must_match(self, code):
+        assert server._locale_problem(code)["error"] == "invalid_locale"
+
+    def test_ten_characters_pass_and_eleven_do_not(self):
+        # The pattern itself allows 11 (``abc-Abcd-AB``); the column holds 10.
+        assert server._locale_problem("ab-Abcd-AB") is None
+        assert server._locale_problem("abc-Abcd-AB")["error"] == "invalid_locale"
+
+    @pytest.mark.parametrize("code", ["nl\n", "zh-Hant\n"])
+    def test_a_trailing_newline_is_refused(self, code):
         # ``$`` would accept a trailing newline; ``fullmatch`` does not.
         assert server._locale_problem(code)["error"] == "invalid_locale"
 
@@ -152,6 +162,18 @@ class TestAcceptedKeys:
             "unknown": [{"namespace": "admin", "key": "x"}],
         }
         assert server._accepted_keys(translations, body) == {"common": ["a", "b"]}
+
+    def test_unknown_keys_are_left_out(self):
+        translations = {"common": {"a": "1", "gone": "2"}, "metamodel": {"type.X.label": "3"}}
+        body = {
+            "rejected": [],
+            "unknown": 2,
+            "unknown_keys": [
+                {"namespace": "common", "key": "gone"},
+                {"namespace": "metamodel", "key": "type.X.label"},
+            ],
+        }
+        assert server._accepted_keys(translations, body) == {"common": ["a"]}
 
     def test_a_count_for_unknown_is_ignored(self):
         # The backend answers ``unknown`` as an integer count.
@@ -234,6 +256,7 @@ class TestGetUntranslatedStrings:
                         "namespace": "common",
                         "key": "actions.save",
                         "source": "Save",
+                        "source_hash": "aaaaaaaaaaaa",
                         "value": None,
                         "status": "missing",
                     },
@@ -241,6 +264,7 @@ class TestGetUntranslatedStrings:
                         "namespace": "common",
                         "key": "actions.close",
                         "source": "Close window",
+                        "source_hash": "bbbbbbbbbbbb",
                         "value": "Sluiten",
                         "status": "stale",
                     },
@@ -257,7 +281,7 @@ class TestGetUntranslatedStrings:
         out = await reads.run(locale="nl")
         assert reads.calls == [
             ("/custom-locales/nl", None),
-            ("/custom-locales/nl/strings", {"status": "untranslated", "limit": 100}),
+            ("/custom-locales/nl/strings", {"status": "untranslated", "limit": 100, "offset": 0}),
         ]
         assert out == {
             "locale": "nl",
@@ -269,8 +293,12 @@ class TestGetUntranslatedStrings:
                 "common": {"actions.save": "Save", "actions.close": "Close window"},
                 "admin": {"title": "Admin"},
             },
+            "source_hashes": {
+                "common": {"actions.save": "aaaaaaaaaaaa", "actions.close": "bbbbbbbbbbbb"}
+            },
             "returned": 3,
             "remaining": 2,
+            "next_offset": 3,
             "previous_translations": {"common": {"actions.close": "Sluiten"}},
         }
 
@@ -280,8 +308,46 @@ class TestGetUntranslatedStrings:
         await reads.run(locale="pt-BR", namespace="admin", include_stale=False, limit=20)
         assert reads.calls[1] == (
             "/custom-locales/pt-BR/strings",
-            {"status": "missing", "namespace": "admin", "limit": 20},
+            {"status": "missing", "namespace": "admin", "limit": 20, "offset": 0},
         )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("asked", "sent"), [(0, 0), (-3, 0), (40, 40)])
+    async def test_the_offset_is_forwarded_and_never_negative(self, fake_token, asked, sent):
+        reads = _Reads()
+        await reads.run(locale="nl", offset=asked)
+        assert reads.calls[1][1]["offset"] == sent
+
+    @pytest.mark.asyncio
+    async def test_remaining_and_next_offset_count_the_strings_skipped(self, fake_token):
+        items = [
+            {"namespace": "c", "key": f"k{i}", "source": "S", "status": "missing"} for i in range(3)
+        ]
+        out = await _Reads(page={"total": 10, "items": items}).run(locale="nl", offset=4)
+        assert out["returned"] == 3
+        assert out["remaining"] == 3
+        assert out["next_offset"] == 7
+
+    @pytest.mark.asyncio
+    async def test_the_last_page_has_no_next_offset(self, fake_token):
+        items = [{"namespace": "c", "key": "k", "source": "S", "status": "missing"}]
+        out = await _Reads(page={"total": 5, "items": items}).run(locale="nl", offset=4)
+        assert out["remaining"] == 0
+        assert "next_offset" not in out
+        # An offset past the end never reports a negative remainder.
+        out = await _Reads(page={"total": 5, "items": items}).run(locale="nl", offset=9)
+        assert out["remaining"] == 0
+        assert "next_offset" not in out
+
+    @pytest.mark.asyncio
+    async def test_a_hash_that_is_not_text_is_left_out(self, fake_token):
+        items = [
+            {"namespace": "c", "key": "a", "source": "A", "source_hash": None},
+            {"namespace": "c", "key": "b", "source": "B", "source_hash": 5},
+            {"namespace": "c", "key": "d", "source": "D", "source_hash": "dddddddddddd"},
+        ]
+        out = await _Reads(page={"total": 3, "items": items}).run(locale="nl")
+        assert out["source_hashes"] == {"c": {"d": "dddddddddddd"}}
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -297,8 +363,10 @@ class TestGetUntranslatedStrings:
         item = {"namespace": "c", "key": "k", "source": "S", "value": "V", "status": "missing"}
         out = await _Reads(page={"total": 1, "items": [item, "junk"]}).run(locale="nl")
         assert out["strings"] == {"c": {"k": "S"}}
+        assert out["source_hashes"] == {}
         assert out["returned"] == 1
         assert out["remaining"] == 0
+        assert "next_offset" not in out
         assert "previous_translations" not in out
 
     @pytest.mark.asyncio
@@ -429,6 +497,7 @@ class TestSubmitTranslations:
             "unchanged": 0,
             "rejected": REPORT["rejected"],
             "unknown": 0,
+            "unknown_keys": [],
             "accepted": {"common": ["actions.save"]},
             "reversible": False,
             "note": server._TRANSLATIONS_NOT_REVERSIBLE,
@@ -457,16 +526,42 @@ class TestSubmitTranslations:
             "metamodel": {"type.Application.label": "יישום"},
             "common": {"actions.save": "שמור"},
         }
-        backend = _Backend(answer={"applied": 2, "unchanged": 0, "rejected": [], "unknown": 1})
-        out = await backend.run(locale="he", translations=strings, dry_run=False)
+        gone = [{"namespace": "common", "key": "actions.gone"}]
+        backend = _Backend(
+            answer={
+                "applied": 2,
+                "unchanged": 0,
+                "rejected": [],
+                "unknown": 1,
+                "unknown_keys": gone,
+            }
+        )
+        strings_with_gone = {**strings, "common": {**strings["common"], "actions.gone": "x"}}
+        out = await backend.run(locale="he", translations=strings_with_gone, dry_run=False)
         assert backend.writes() == [
-            ("/custom-locales/he/strings?dry_run=false", {"strings": strings, "origin": "mcp"})
+            (
+                "/custom-locales/he/strings?dry_run=false",
+                {"strings": strings_with_gone, "origin": "mcp"},
+            )
         ]
         assert out["unknown"] == 1
+        assert out["unknown_keys"] == gone
         assert out["accepted"] == {
             "metamodel": ["type.Application.label"],
             "common": ["actions.save"],
         }
+
+    @pytest.mark.asyncio
+    async def test_source_hashes_are_forwarded(self, fake_token):
+        hashes = {"common": {"actions.save": "aaaaaaaaaaaa"}}
+        backend = _Backend()
+        await backend.run(locale="nl", translations=TWO, source_hashes=hashes, dry_run=False)
+        assert backend.writes() == [
+            (
+                "/custom-locales/nl/strings?dry_run=false",
+                {"strings": TWO, "source_hashes": hashes, "origin": "mcp"},
+            )
+        ]
 
     @pytest.mark.asyncio
     async def test_a_non_object_answer_reports_zero(self, fake_token):
@@ -474,6 +569,7 @@ class TestSubmitTranslations:
         out = await backend.run(locale="nl", translations=TWO, dry_run=False)
         assert (out["applied"], out["unchanged"], out["rejected"]) == (0, 0, [])
         assert out["unknown"] is None
+        assert out["unknown_keys"] == []
         assert out["accepted"] == {"common": ["actions.close", "actions.save"]}
         assert backend.closed_summary() == {"rows": 2, "applied": 0, "rejected": 0}
 

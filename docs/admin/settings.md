@@ -63,7 +63,7 @@ Toggle which languages are available to users in their language selector. All ei
 
 At least one language must remain enabled at all times.
 
-A language that is not in this list can be added as a [custom language](custom-languages.md): you create it under **Custom languages**, just below, and fill its translations from a file, with your AI provider or through an AI assistant.
+A language that is not in this list can be added as a [custom language](custom-languages.md): you create it under **Custom Languages**, just below, and fill its translations from a file, with your AI provider or through an AI assistant.
 
 ### Fiscal Year Start
 
