@@ -1716,6 +1716,54 @@ def test_pml_settings_rewrite_remaps_card_defaults_and_nested_rules():
     assert tally.counts[remap.REMAPPED] == 2
 
 
+def test_pml_formula_provider_constants_are_remapped_without_editing_expression():
+    from app.services.workspace_io import remap
+
+    source, target = str(uuid.uuid4()), str(uuid.uuid4())
+    unrelated = str(uuid.uuid4())
+    ctx = remap.RemapContext()
+    ctx.ids.record(remap.CARDS, source, target)
+    formula = 'IF(provider == aruba, "Internal", "Other")'
+    config = {
+        "fields": [
+            {
+                "key": "classification",
+                "kind": "calculated",
+                "calculation": {
+                    "inputs": {"provider": "provider.effective"},
+                    "provider_constants": {"aruba": source, "external": source},
+                    "expression": formula,
+                    "fallback": unrelated,
+                },
+            }
+        ],
+    }
+
+    rewritten, tally = remap.rewrite_pml_field_configuration(config, ctx)
+    calculation = rewritten["fields"][0]["calculation"]
+    assert calculation["provider_constants"] == {"aruba": target, "external": target}
+    assert calculation["expression"] == formula
+    assert calculation["fallback"] == unrelated
+    assert config["fields"][0]["calculation"]["provider_constants"]["aruba"] == source
+    assert tally.counts[remap.REMAPPED] == 2
+
+
+def test_pml_formula_rejects_unresolved_provider_constant():
+    from app.services.workspace_io import remap
+
+    config = {
+        "fields": [
+            {
+                "key": "classification",
+                "kind": "calculated",
+                "calculation": {"provider_constants": {"provider": str(uuid.uuid4())}},
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="unresolved"):
+        remap.rewrite_pml_field_configuration(config, remap.RemapContext())
+
+
 def test_pml_settings_rewrite_rejects_unresolved_reference():
     from app.services.workspace_io import remap
 
@@ -1786,9 +1834,20 @@ async def test_pml_wipe_restore_remaps_provider_and_preserves_invoice(db):
                     ],
                     "fallback": "Other",
                 },
-            }
+            },
+            {
+                "key": "formula_classification",
+                "label": "Formula classification",
+                "kind": "calculated",
+                "calculation": {
+                    "result_type": "text",
+                    "formula_engine": "core",
+                    "provider_constants": {"supplier": str(provider_id)},
+                    "expression": 'IF(data.budget.provider == supplier, "Internal", "Other")',
+                },
+            },
         ],
-        "visible_columns": ["classification"],
+        "visible_columns": ["classification", "formula_classification"],
         "provider_source": {"budget_field_key": "origin", "allow_child_selection": False},
     }
     db.add(
@@ -1856,6 +1915,14 @@ async def test_pml_wipe_restore_remaps_provider_and_preserves_invoice(db):
         "calculation"
     ]["rules"][0]["when"]
     assert condition["value"] == str(restored_provider.id)
+    restored_formula = settings.general_settings["pml.financial_fields.cost_item"]["fields"][1][
+        "calculation"
+    ]
+    assert restored_formula["provider_constants"] == {"supplier": str(restored_provider.id)}
+    assert restored_formula["formula_engine"] == "core"
+    assert restored_formula["expression"] == (
+        'IF(data.budget.provider == supplier, "Internal", "Other")'
+    )
     restored_cost = await db.get(PpmCostLine, cost)
     restored_invoice = await db.get(PpmInvoice, invoice)
     assert restored_cost.initiative_id == restored_init.id
@@ -1877,3 +1944,31 @@ def test_pml_historical_id_survives_reexport_and_repeated_restore():
     unrelated = str(uuid.uuid4())
     with pytest.raises(ValueError, match="unresolved"):
         remap.pml_card_id(unrelated, reexport_ctx, remap.RewriteTally())
+
+
+def test_pml_budget_provider_condition_rewrites_reference():
+    from app.services.workspace_io import remap
+
+    source, target = str(uuid.uuid4()), str(uuid.uuid4())
+    ctx = remap.RemapContext()
+    ctx.ids.record(remap.CARDS, source, target)
+    config = {
+        "fields": [
+            {
+                "key": "result",
+                "kind": "calculated",
+                "calculation": {
+                    "inputs": {"source": "budget.provider"},
+                    "rules": [
+                        {
+                            "when": {"input": "source", "op": "eq", "value": source},
+                            "then": "internal",
+                        }
+                    ],
+                },
+            }
+        ]
+    }
+    rewritten, tally = remap.rewrite_pml_field_configuration(config, ctx)
+    assert rewritten["fields"][0]["calculation"]["rules"][0]["when"]["value"] == target
+    assert tally.counts[remap.REMAPPED] == 1

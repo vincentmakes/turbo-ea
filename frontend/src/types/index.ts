@@ -2706,6 +2706,7 @@ export interface PmlRowFields {
 export interface PpmFinancialTotals {
   amount: string;
   total_cost_items: string;
+  remaining_budget?: string;
   total_invoiced?: string | null;
   remaining_to_invoice?: string | null;
 }

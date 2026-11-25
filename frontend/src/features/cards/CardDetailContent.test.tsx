@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { api } from "@/api/client";
 import { MemoryRouter } from "react-router";
 import React from "react";
@@ -22,7 +22,7 @@ vi.mock("@/hooks/useCalculatedFields", () => ({
 vi.mock("@/hooks/useCurrency", () => ({
   useCurrency: () => ({ fmt: { format: (v: number) => "$" + v }, fmtShort: (v: number) => `$${v}`, symbol: "$" }),
 }));
-const pml = vi.hoisted(() => ({ enabled: false, canView: true }));
+const pml = vi.hoisted(() => ({ enabled: false, canView: true, canManage: true }));
 vi.mock("@/hooks/usePpmEnabled", () => ({ usePpmEnabled: () => ({ ppmEnabled: pml.enabled }) }));
 vi.mock("@/hooks/useGrcEnabled", () => ({ useGrcEnabled: () => ({ grcEnabled: false }) }));
 vi.mock("@/hooks/useCardTabActivity", () => ({
@@ -32,10 +32,13 @@ vi.mock("@/hooks/AuthContext", () => ({
   useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: { id: "u1", permissions: { "*": true } } }),
 }));
-vi.mock("@/hooks/usePermissions", () => ({ usePermissions: () => ({ can: (permission: string) => permission !== "ppm.view" || pml.canView }) }));
+vi.mock("@/hooks/usePermissions", () => ({ usePermissions: () => ({ can: (permission: string) => permission === "ppm.view" ? pml.canView : permission === "ppm.manage" ? pml.canManage : true }) }));
 
 vi.mock("@/features/ppm/PpmInitiativeFinancials", () => ({ default: ({ data }: { data?: { actual_invoiced?: string } }) => <span data-testid="initiative-financials">{data?.actual_invoiced}</span> }));
 vi.mock("@/features/ppm/PpmInitiativeTimeline", () => ({ default: ({ schedule }: { schedule?: { start_date?: string; actual_start_date?: string } }) => <span data-testid="initiative-timeline">{schedule?.start_date} {schedule?.actual_start_date}</span> }));
+vi.mock("@/features/ppm/PpmCostTab", () => ({ default: () => <div>Cost tab content</div> }));
+vi.mock("@/features/ppm/PpmGanttTab", () => ({ default: () => <div>Gantt tab content</div> }));
+vi.mock("@/features/ppm/PpmReportsTab", () => ({ default: ({ reports, onRefresh }: { reports: unknown[]; onRefresh: () => void }) => <div>Reports tab content {reports.length}<button onClick={onRefresh}>Refresh reports</button></div> }));
 vi.mock("@/components/EolLinkSection", () => ({ default: () => null }));
 vi.mock("@/features/bpm/ProcessFlowTab", () => ({ default: () => null }));
 vi.mock("@/features/bpm/ProcessAssessmentPanel", () => ({ default: () => null }));
@@ -138,6 +141,7 @@ beforeEach(() => {
   resetExtensionHost();
   pml.enabled = false;
   pml.canView = true;
+  pml.canManage = true;
   vi.mocked(api.get).mockReset().mockResolvedValue([]);
   vi.mocked(useMetamodel).mockReturnValue({
     types: [APP_TYPE],
@@ -286,7 +290,7 @@ describe("CardDetailContent extension header slot", () => {
 });
 
 describe("CardDetailContent Initiative summaries", () => {
-  function initiative(summaryConfig = {}, canViewCosts = true) {
+  function initiative(summaryConfig = {}, canViewCosts = true, schedule = {}) {
     const type = {
       ...APP_TYPE, key: "Initiative",
       fields_schema: [{
@@ -307,7 +311,7 @@ describe("CardDetailContent Initiative summaries", () => {
     vi.mocked(api.get).mockImplementation(async (path) => path.endsWith("/financials")
       ? { initiative_id: card.id, actual_invoiced: "30.11" }
       : path.endsWith("/schedule")
-        ? { initiative_id: card.id, start_date: "2026-04-01", actual_start_date: "2026-05-15" }
+        ? { initiative_id: card.id, start_date: "2026-04-01", actual_start_date: "2026-05-15", ...schedule }
         : []);
     const record = { ...card, type: "Initiative", attributes: {
       costBudget: 100, costActual: 70, startDate: "2026-04-01", actualStart: "2026-05-15",
@@ -324,11 +328,81 @@ describe("CardDetailContent Initiative summaries", () => {
     const summary = screen.getByRole("button", { name: /cost & timeline/i }).closest(".MuiAccordion-root");
     expect(summary).toContainElement(await screen.findByTestId("initiative-financials"));
     expect(summary).toContainElement(await screen.findByTestId("initiative-timeline"));
-    const group = screen.getByText("Cost", { exact: true }).parentElement;
+    const group = screen.getByText("Cost", { exact: true }).parentElement?.parentElement;
     expect(group).toContainElement(screen.getByTestId("initiative-financials"));
-    expect(screen.getByText("Timeline", { exact: true }).parentElement).toContainElement(
+    expect(screen.getByText("Timeline", { exact: true }).parentElement?.parentElement).toContainElement(
       screen.getByTestId("initiative-timeline"),
     );
+  });
+
+  it("offers Cost, Timeline and Health Summary management for the initiative", async () => {
+    pml.enabled = true;
+    initiative();
+    const summary = screen.getByRole("button", { name: /cost & timeline/i }).closest(".MuiAccordion-root")!;
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /manage/i })).toHaveLength(3));
+    const manage = screen.getAllByRole("button", { name: /manage/i });
+    expect(summary).toContainElement(screen.getByText("Health Summary"));
+    const costHeading = screen.getByText("Cost", { exact: true });
+    const timelineHeading = screen.getByText("Timeline", { exact: true });
+    expect(screen.getByRole("button", { name: /manage budget & costs/i }).parentElement).toBe(costHeading.parentElement);
+    expect(screen.getByRole("button", { name: /manage timeline/i }).parentElement).toBe(timelineHeading.parentElement);
+    fireEvent.click(manage[0]);
+    expect(await screen.findByRole("dialog", { name: /budget & costs/i })).toBeInTheDocument();
+    expect(await screen.findByText("Cost tab content")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /manage timeline/i }));
+    expect(await screen.findByRole("dialog", { name: /gantt/i })).toBeInTheDocument();
+    expect(await screen.findByText("Gantt tab content")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /manage health summary/i }));
+    const dialog = await screen.findByRole("dialog", { name: /status reports/i });
+    expect(await within(dialog).findByText("Reports tab content 0")).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith(expect.stringMatching(/\/reports$/), expect.anything());
+    const reportReads = vi.mocked(api.get).mock.calls.filter(([path]) => path.endsWith("/reports")).length;
+    fireEvent.click(within(dialog).getByRole("button", { name: "Refresh reports" }));
+    await waitFor(() => expect(vi.mocked(api.get).mock.calls.filter(([path]) => path.endsWith("/reports")).length).toBeGreaterThan(reportReads));
+  });
+
+  it("keeps initiative summaries visible without offering management to viewers", async () => {
+    pml.enabled = true;
+    pml.canManage = false;
+    initiative();
+    expect(await screen.findByTestId("initiative-timeline")).toBeInTheDocument();
+    expect(screen.getByText("Health Summary")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /manage timeline/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /manage health summary/i })).not.toBeInTheDocument();
+  });
+
+  it("shows cost health even when the other health values are missing", async () => {
+    pml.enabled = true;
+    initiative({}, true, { cost_health: "atRisk" });
+    expect(await screen.findByText("Cost", { selector: ".MuiTypography-body2" })).toBeInTheDocument();
+    expect(screen.queryByText("No status reports yet")).not.toBeInTheDocument();
+  });
+
+  it("closes an open management dialog when the initiative changes", async () => {
+    pml.enabled = true;
+    const view = initiative();
+    fireEvent.click(await screen.findByRole("button", { name: /manage timeline/i }));
+    expect(await screen.findByRole("dialog", { name: /gantt/i })).toBeInTheDocument();
+    const other = { ...card, id: "other-initiative", type: "Initiative" };
+    view.rerender(<MemoryRouter><CardDetailContent card={other} perms={perms}
+      onCardUpdate={() => {}} showLdvSection={false} showPpmTab={false} /></MemoryRouter>);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("closes an open management dialog when PML permission is lost", async () => {
+    pml.enabled = true;
+    const view = initiative();
+    fireEvent.click(await screen.findByRole("button", { name: /manage timeline/i }));
+    expect(await screen.findByRole("dialog", { name: /gantt/i })).toBeInTheDocument();
+    pml.canView = false;
+    const record = { ...card, type: "Initiative" };
+    view.rerender(<MemoryRouter><CardDetailContent card={record} perms={perms}
+      onCardUpdate={() => {}} showLdvSection={false} showPpmTab={false} /></MemoryRouter>);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("keeps ordinary Metamodel fields when PML is disabled", () => {

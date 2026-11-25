@@ -5,7 +5,9 @@ These tests do NOT require a database — they test the pure evaluation logic on
 
 from __future__ import annotations
 
+import ast
 import math
+from decimal import Decimal
 
 import pytest
 
@@ -27,6 +29,7 @@ from app.services.calculation_engine import (
     _ROUND,
     _SUM,
     _UPPER,
+    _DecimalIfEval,
     _DotDict,
     _evaluate_formula,
     base_context_roots,
@@ -311,6 +314,30 @@ class TestDotDict:
 # ---------------------------------------------------------------------------
 # _evaluate_formula
 # ---------------------------------------------------------------------------
+
+
+class TestDecimalFormulaBoundaries:
+    def test_decimal_literals_keep_underscores_and_precision(self):
+        assert _evaluate_formula("1_000.50 + 0.01", {}, decimal_numbers=True) == Decimal("1000.51")
+
+    def test_missing_source_for_decimal_literal_has_clear_error(self):
+        evaluator = _DecimalIfEval()
+        evaluator.expr = "1.5"
+        node = ast.Constant(value=1.5)
+        with pytest.raises(ValueError, match="^Invalid decimal literal$"):
+            evaluator._eval_constant(node)
+
+    @pytest.mark.parametrize(
+        "formula, expected", [("float(1.1) / 2", 0.55), ("2 / float(1.0)", 2.0)]
+    )
+    def test_float_division_preserves_float_results(self, formula, expected):
+        result = _evaluate_formula(formula, {}, decimal_numbers=True)
+        assert isinstance(result, float)
+        assert result == expected
+
+    @pytest.mark.parametrize("formula", ["LN(0)", "LN(-1)", 'LN("bad")'])
+    def test_decimal_logarithm_rejects_nonpositive_and_nonnumeric_values(self, formula):
+        assert _evaluate_formula(formula, {}, decimal_numbers=True) is None
 
 
 class TestEvaluateFormula:

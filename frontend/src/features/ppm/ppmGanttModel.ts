@@ -86,6 +86,35 @@ export function geometryFor(mode: ViewMode): { colWidth: number; daysPerCol: num
   }
 }
 
+/**
+ * Distance from the start of the library's highlighted calendar column to
+ * the current day. The library paints the entire column in every zoom mode.
+ */
+export function todayOffsetInColumn(mode: ViewMode, now: Date): number {
+  if (mode === ViewMode.Day) return 0;
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const date = now.getDate();
+  let start: number;
+  let end: number;
+  const today = Date.UTC(year, month, date);
+  if (mode === ViewMode.Month) {
+    start = Date.UTC(year, month, 1);
+    end = Date.UTC(year, month + 1, 1);
+  } else if (mode === ViewMode.QuarterYear) {
+    const quarterMonth = Math.floor(month / 3) * 3;
+    start = Date.UTC(year, quarterMonth, 1);
+    end = Date.UTC(year, quarterMonth + 3, 1);
+  } else if (mode === ViewMode.Year) {
+    start = Date.UTC(year, 0, 1);
+    end = Date.UTC(year + 1, 0, 1);
+  } else {
+    start = today - now.getDay() * DAY_MS;
+    end = start + 7 * DAY_MS;
+  }
+  return geometryFor(mode).colWidth * ((today - start) / (end - start));
+}
+
 /** The date at a pixel, interpolated from one bar whose position and date are known. */
 export function dateAtPixel(ref: { x: number; date: Date }, px: number, mode: ViewMode): Date {
   const { colWidth, daysPerCol } = geometryFor(mode);

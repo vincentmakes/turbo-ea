@@ -83,6 +83,7 @@ function AttributeSection({
   expandOn,
   editOn,
   renderAfterFields,
+  renderGroupAction,
 }: {
   section: SectionDef & { defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
@@ -99,6 +100,7 @@ function AttributeSection({
   /** A data-quality jump: open in edit mode, focused on its field. */
   editOn?: SectionEditRequest;
   renderAfterFields?: (fieldKeys: string[]) => ReactNode;
+  renderGroupAction?: (fieldKeys: string[]) => ReactNode;
 }) {
   const { t } = useTranslation(["cards", "common", "validation"]);
   const { fmt, symbol } = useCurrency();
@@ -406,9 +408,12 @@ function AttributeSection({
         if (item.kind === "group") {
           return (
             <Box key={`group-${item.name}`} sx={{ mb: 1.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.secondary", borderBottom: 1, borderColor: "divider", pb: 0.5, mb: 1, mt: i > 0 ? 1 : 0 }}>
-                {rl(item.name, section.groupTranslations?.[item.name])}
-              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: 1, borderColor: "divider", pb: 0.5, mb: 1, mt: i > 0 ? 1 : 0 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.secondary" }}>
+                  {rl(item.name, section.groupTranslations?.[item.name])}
+                </Typography>
+                {!isEdit && expanded && renderGroupAction?.(item.fields.map((field) => field.key))}
+              </Box>
               {isEdit ? renderEditFields(item.fields) : renderReadGrid(item.fields)}
               {!isEdit && expanded && renderAfterFields?.(item.fields.map((field) => field.key))}
             </Box>

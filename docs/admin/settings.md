@@ -179,6 +179,19 @@ In **Admin → Settings → PML → Budget & Costs**, choose **Planned Budget**,
 
 For a calculated field, select **Calculated**, set the result type and add the input aliases and their source fields. Choose **Formula** for an expression or **Ordered rules** for conditions evaluated from top to bottom. The first matching rule supplies the result and **Fallback result** is used when no rule matches. Conditions can combine comparisons with AND, OR and NOT. Enter sample values and select **Preview** before saving. These settings calculate fields on financial rows. [Metamodel Calculations](calculations.md) calculates fields on cards.
 
+The **Formula** mode uses the editor and formula language from **Metamodel → Calculations**. Use `data.fieldKey` for a field on the current financial row. A single-select field supplies the selected option ID. On a Cost Item, `data.providerEffective` supplies the Provider used on that item and `data.providerBudget` supplies the Provider selected on its budget. Follow the link to the Planned Budget using `data.budget.amount`, `data.budget.fiscal_year`, `data.budget.category`, `data.budget.description` and `data.budget.provider`. Use `data.budget.initiative.name`, `data.budget.initiative.id` or `data.budget.initiative.type` for the linked Initiative. Use **Preview** to test the result with sample values.
+
+Existing PML formulas keep their original evaluator. To convert one, choose **Formula engine → Core calculations**. Preview the updated formula before saving. **Ordered rules** remain available.
+
+For example, to classify a Cost Item, add Provider constants named `arubaSpa`, `arubaPec`, `actalis` and `external`. Select the corresponding Provider card for each. In this example, the choice **Licenze** in `otherServiceType` has option ID `licencing`. Use these two lines:
+
+```text
+internal = data.providerEffective == arubaSpa or data.providerEffective == arubaPec or data.providerEffective == actalis
+IF(data.providerEffective == None, None, IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", "Licenze", IF(data.providerEffective == external, "Servizi Esterni", "Servizi Intercompany"))))
+```
+
+The formula leaves items without a Provider empty. Aruba Spa, Aruba PEC and Actalis are classified as internal even for a licence purchase. Other Provider cards use the service type to distinguish licences. Provider constants follow the selected cards when they are renamed or transferred with the workspace.
+
 A **Card reference** selects a card of the configured type. You can select a compatible relation to link the referenced card to the Initiative. On **Cost Items**, choose a **Provider field on Planned Budget** to inherit the Provider and optionally enable **Allow direct child Providers on Cost Items**. Use **Actual Invoiced** for its own text, list, date, reference or calculated fields. The Provider belongs to the budget and its Cost Items.
 
 #### Example configuration for Aruba

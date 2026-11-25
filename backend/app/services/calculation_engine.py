@@ -13,6 +13,7 @@ import math
 import re
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from simpleeval import (
@@ -63,23 +64,23 @@ def _IF(condition: Any, true_val: Any, false_val: Any) -> Any:  # noqa: N802
 def _SUM(values: list | None) -> float:  # noqa: N802
     if not values:
         return 0
-    return sum(v for v in values if isinstance(v, (int, float)))
+    return sum(v for v in values if isinstance(v, (int, float, Decimal)))
 
 
 def _AVG(values: list | None) -> float | None:  # noqa: N802
     if not values:
         return None
-    nums = [v for v in values if isinstance(v, (int, float))]
+    nums = [v for v in values if isinstance(v, (int, float, Decimal))]
     return sum(nums) / len(nums) if nums else None
 
 
 def _MIN(values: list | None) -> float | None:  # noqa: N802
-    nums = [v for v in (values or []) if isinstance(v, (int, float))]
+    nums = [v for v in (values or []) if isinstance(v, (int, float, Decimal))]
     return min(nums) if nums else None
 
 
 def _MAX(values: list | None) -> float | None:  # noqa: N802
-    nums = [v for v in (values or []) if isinstance(v, (int, float))]
+    nums = [v for v in (values or []) if isinstance(v, (int, float, Decimal))]
     return max(nums) if nums else None
 
 
@@ -519,11 +520,24 @@ NULL_SAFE_OPERATORS = {
 }
 
 
+class _DecimalIfEval(_LazyIfEval):
+    """Keep decimal source literals exact in financial contexts."""
+
+    def _eval_constant(self, node):  # type: ignore[override]
+        if isinstance(node.value, float):
+            literal = ast.get_source_segment(self.expr, node)
+            if literal is None:
+                raise ValueError("Invalid decimal literal")
+            return Decimal(literal)
+        return super()._eval_constant(node)
+
+
 def _evaluate_formula(
     formula: str,
     context: dict[str, Any],
     *,
     blanks_as_zero: bool = False,
+    decimal_numbers: bool = False,
 ) -> Any:
     """Evaluate a formula string in a sandboxed environment.
 
@@ -549,10 +563,27 @@ def _evaluate_formula(
     if not lines:
         raise ValueError("Empty formula")
 
-    evaluator = _LazyIfEval(
+    operators = NULL_SAFE_OPERATORS if blanks_as_zero else DEFAULT_OPERATORS
+    functions = SAFE_FUNCTIONS
+    if decimal_numbers:
+        divide = operators[ast.Div]
+
+        def decimal_divide(left, right):
+            if isinstance(left, int) and isinstance(right, int):
+                left = Decimal(left)
+            return divide(left, right)
+
+        def decimal_ln(value):
+            if not isinstance(value, (int, float, Decimal)) or value <= 0:
+                return None
+            return Decimal(str(value)).ln()
+
+        operators = {**operators, ast.Div: decimal_divide}
+        functions = {**functions, "LN": decimal_ln}
+    evaluator = (_DecimalIfEval if decimal_numbers else _LazyIfEval)(
         names=dict(context),  # copy — assignments mutate this
-        functions=SAFE_FUNCTIONS,
-        operators=NULL_SAFE_OPERATORS if blanks_as_zero else None,  # None → defaults
+        functions=functions,
+        operators=operators,
     )
 
     # `lines` is not empty, so the loop always binds `result`.

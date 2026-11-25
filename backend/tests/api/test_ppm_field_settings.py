@@ -972,3 +972,296 @@ async def test_report_history_masks_cost_health_without_cost_visibility(client, 
     editor_report = next(row for row in visible.json() if row["id"] == editor_created.json()["id"])
     assert editor_report["cost_health"] == "onTrack"
     assert editor_report["summary"] == "New report"
+
+
+async def test_provider_constants_preview_and_visibility(client, db, ppm_env):
+    await create_role(
+        db,
+        key="pml_provider_scoped",
+        permissions={
+            "admin.settings": True,
+            "inventory.view": True,
+            "ppm.view": True,
+            "ppm.manage": True,
+        },
+    )
+    await create_card_type(
+        db,
+        key="Provider",
+        label="Provider",
+        role_permissions={"pml_provider_scoped": {"inventory.view": False}},
+    )
+    await create_card_type(db, key="Organization", label="Organization")
+    provider = await create_card(db, card_type="Provider", name="Visible to admin")
+    wrong_type = await create_card(db, card_type="Organization", name="Wrong type")
+    scoped = await create_user(db, role="pml_provider_scoped", email="provider-scoped@example.test")
+    admin_headers = auth_headers(ppm_env["admin"])
+    scoped_headers = auth_headers(scoped)
+    classification = _field(
+        "classification",
+        "calculated",
+        calculation={
+            "result_type": "text",
+            "inputs": {"provider": "provider.effective"},
+            "provider_constants": {"partner": str(provider.id)},
+            "expression": (
+                'IF(provider == None, None, IF(provider == partner, "Internal", "Other"))'
+            ),
+        },
+    )
+    derived = _field(
+        "derived",
+        "calculated",
+        calculation={
+            "result_type": "text",
+            "inputs": {"source": "classification"},
+            "expression": "source",
+        },
+    )
+    config = _config(classification, derived)
+    wrong = _config(
+        {
+            **classification,
+            "calculation": {
+                **classification["calculation"],
+                "provider_constants": {"partner": str(wrong_type.id)},
+            },
+        }
+    )
+    rejected = await client.put(f"{SETTINGS}/cost_item", json=wrong, headers=admin_headers)
+    assert rejected.status_code == 422
+    denied_save = await client.put(f"{SETTINGS}/cost_item", json=config, headers=scoped_headers)
+    assert denied_save.status_code == 422
+    saved = await client.put(f"{SETTINGS}/cost_item", json=config, headers=admin_headers)
+    assert saved.status_code == 200, saved.text
+    preview = await client.post(
+        f"{SETTINGS}/cost_item/preview",
+        json={
+            "configuration": config,
+            "field_key": "classification",
+            "sample_values": {"provider.effective": str(provider.id)},
+        },
+        headers=admin_headers,
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json() == {"value": "Internal", "errors": {}}
+
+    settings = await client.get(SETTINGS, headers=scoped_headers)
+    assert settings.status_code == 200
+    assert str(provider.id) not in settings.text
+    fields = settings.json()["cost_item"]["fields"]
+    assert next(field for field in fields if field["key"] == "classification")["protected"] is True
+    denied = await client.post(
+        f"{SETTINGS}/cost_item/preview",
+        json={"configuration": config, "field_key": "classification", "sample_values": {}},
+        headers=scoped_headers,
+    )
+    assert denied.status_code == 403
+    base = f"/api/v1/ppm/initiatives/{ppm_env['initiative'].id}"
+    budget = await client.post(
+        f"{base}/budgets",
+        json={"fiscal_year": 2026, "category": "opex", "amount": 100},
+        headers=admin_headers,
+    )
+    assert budget.status_code == 200
+    cost = await client.post(
+        f"{base}/costs",
+        json={"budget_line_id": budget.json()["id"], "description": "Cost", "category": "opex"},
+        headers=admin_headers,
+    )
+    assert cost.status_code == 200, cost.text
+    listing = await client.get(f"{base}/costs", headers=scoped_headers)
+    assert listing.status_code == 200, listing.text
+    assert "classification" not in listing.json()[0]["calculated_values"]
+    assert "derived" not in listing.json()[0]["calculated_values"]
+    assert str(provider.id) not in listing.text
+
+    scoped_cost = await client.post(
+        f"{base}/costs",
+        json={"budget_line_id": budget.json()["id"], "description": "Scoped", "category": "opex"},
+        headers=scoped_headers,
+    )
+    assert scoped_cost.status_code == 200, scoped_cost.text
+    assert "classification" not in scoped_cost.json()["calculated_values"]
+    assert "derived" not in scoped_cost.json()["calculated_values"]
+    assert str(provider.id) not in scoped_cost.text
+
+
+async def test_provider_constant_formula_uses_inherited_budget_provider(client, db, ppm_env):
+    headers = auth_headers(ppm_env["admin"])
+    await create_card_type(db, key="Provider", has_hierarchy=True, built_in=True)
+    provider = await create_card(db, card_type="Provider", name="Budget Provider")
+    budget_config = _config(_field("origin", "card_reference", card_type="Provider"))
+    cost_config = {
+        **_config(
+            _field(
+                "aggregate",
+                "calculated",
+                calculation={
+                    "result_type": "text",
+                    "inputs": {"provider": "provider.effective"},
+                    "provider_constants": {"partner": str(provider.id)},
+                    "expression": 'IF(provider == partner, "Internal", "Other")',
+                },
+            )
+        ),
+        "provider_source": {"budget_field_key": "origin", "allow_child_selection": True},
+    }
+    for section, config in (("budget", budget_config), ("cost_item", cost_config)):
+        result = await client.put(f"{SETTINGS}/{section}", json=config, headers=headers)
+        assert result.status_code == 200, result.text
+    base = f"/api/v1/ppm/initiatives/{ppm_env['initiative'].id}"
+    budget = await client.post(
+        f"{base}/budgets",
+        json={
+            "fiscal_year": 2026,
+            "category": "opex",
+            "amount": 100,
+            "field_values": {"origin": str(provider.id)},
+        },
+        headers=headers,
+    )
+    assert budget.status_code == 200, budget.text
+    cost = await client.post(
+        f"{base}/costs",
+        json={"budget_line_id": budget.json()["id"], "description": "Cost", "category": "opex"},
+        headers=headers,
+    )
+    assert cost.status_code == 200, cost.text
+    assert cost.json()["calculated_values"]["aggregate"] == "Internal"
+    listing = await client.get(f"{base}/financials", headers=headers)
+    assert listing.status_code == 200, listing.text
+    assert listing.json()["cost_items"][0]["calculated_values"]["aggregate"] == "Internal"
+
+
+async def test_core_formula_preview_accepts_direct_select_and_provider(client, db, ppm_env):
+    headers = auth_headers(ppm_env["admin"])
+    await create_card_type(db, key="Provider", has_hierarchy=True, built_in=True)
+    provider = await create_card(db, card_type="Provider", name="Internal provider")
+    config = _config(
+        _field("otherServiceType", "select", options=[{"id": "licencing", "label": "Licenze"}]),
+        _field(
+            "aggregate",
+            "calculated",
+            calculation={
+                "result_type": "text",
+                "formula_engine": "core",
+                "inputs": {},
+                "provider_constants": {"internal": str(provider.id)},
+                "expression": 'IF(data.providerEffective == internal, "Servizi interni", '
+                'IF(data.otherServiceType == "licencing", "Licenze", "Altro"))',
+            },
+        ),
+    )
+    saved = await client.put(f"{SETTINGS}/cost_item", json=config, headers=headers)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["fields"][1]["calculation"]["formula_engine"] == "core"
+    for current_provider, expected in ((str(provider.id), "Servizi interni"), (None, "Licenze")):
+        response = await client.post(
+            f"{SETTINGS}/cost_item/preview",
+            json={
+                "configuration": config,
+                "field_key": "aggregate",
+                "sample_values": {
+                    "provider.effective": current_provider,
+                    "otherServiceType": "licencing",
+                },
+            },
+            headers=headers,
+        )
+        assert response.status_code == 200, response.text
+        assert response.json() == {"value": expected, "errors": {}}
+
+
+async def test_budget_provider_rule_reference_is_protected(client, db, ppm_env):
+    await create_role(
+        db,
+        key="budget_provider_hidden",
+        permissions={"admin.settings": True, "inventory.view": True},
+    )
+    await create_card_type(
+        db,
+        key="Provider",
+        label="Provider",
+        role_permissions={"budget_provider_hidden": {"inventory.view": False}},
+    )
+    provider = await create_card(db, card_type="Provider", name="Restricted Provider")
+    scoped = await create_user(
+        db, role="budget_provider_hidden", email="budget-provider-hidden@example.test"
+    )
+    config = _config(
+        _field(
+            "classification",
+            "calculated",
+            calculation={
+                "result_type": "text",
+                "inputs": {"source": "budget.provider"},
+                "rules": [
+                    {
+                        "when": {"input": "source", "op": "eq", "value": str(provider.id)},
+                        "then": "internal",
+                    }
+                ],
+                "fallback": "other",
+            },
+        )
+    )
+    admin_headers = auth_headers(ppm_env["admin"])
+    scoped_headers = auth_headers(scoped)
+    denied = await client.put(f"{SETTINGS}/cost_item", json=config, headers=scoped_headers)
+    assert denied.status_code == 422
+    saved = await client.put(f"{SETTINGS}/cost_item", json=config, headers=admin_headers)
+    assert saved.status_code == 200, saved.text
+    fetched = await client.get(SETTINGS, headers=scoped_headers)
+    assert fetched.status_code == 200
+    assert str(provider.id) not in fetched.text
+    assert fetched.json()["cost_item"]["fields"][0]["protected"] is True
+
+
+async def test_decimal_core_formula_preview_matches_budget_projection(client, ppm_env):
+    from decimal import Decimal
+
+    headers = auth_headers(ppm_env["admin"])
+    config = _config(
+        _field(
+            "half",
+            "calculated",
+            calculation={
+                "result_type": "number",
+                "inputs": {},
+                "formula_engine": "core",
+                "expression": "data.amount * (1 / 2) + LN(1)",
+            },
+        )
+    )
+    preview = await client.post(
+        f"{SETTINGS}/budget/preview",
+        json={
+            "configuration": config,
+            "field_key": "half",
+            "sample_values": {"amount": "10.20"},
+        },
+        headers=headers,
+    )
+    assert preview.status_code == 200, preview.text
+    assert not preview.json()["errors"]
+    assert Decimal(preview.json()["value"]) == Decimal("5.10")
+    saved = await client.put(f"{SETTINGS}/budget", json=config, headers=headers)
+    assert saved.status_code == 200, saved.text
+    base = f"/api/v1/ppm/initiatives/{ppm_env['initiative'].id}"
+    budget = await client.post(
+        f"{base}/budgets",
+        json={
+            "fiscal_year": 2026,
+            "category": "opex",
+            "amount": "10.20",
+        },
+        headers=headers,
+    )
+    assert budget.status_code == 200, budget.text
+    financials = await client.get(f"{base}/financials", headers=headers)
+    assert financials.status_code == 200, financials.text
+    entry = next(
+        row for row in financials.json()["budget_lines"] if row["id"] == budget.json()["id"]
+    )
+    assert Decimal(entry["calculated_values"]["half"]) == Decimal("5.10")

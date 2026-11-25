@@ -506,6 +506,41 @@ async def test_invalid_provider_pair_preserves_both_previous_definitions(db, pml
     assert result.total_conflict > 0
 
 
+async def test_provider_constant_cannot_reference_an_initiative_on_restore(db, pml_workspace):
+    user, _, settings = pml_workspace
+    card = await create_card(db, card_type="Initiative", name="Wrong reference type")
+    key = "pml.financial_fields.cost_item"
+    previous = {"fields": []}
+    settings.general_settings = {**settings.general_settings, key: previous}
+    await db.flush()
+    candidate = {
+        "fields": [
+            {
+                "key": "classification",
+                "label": "Classification",
+                "kind": "calculated",
+                "calculation": {
+                    "result_type": "text",
+                    "inputs": {},
+                    "provider_constants": {"supplier": str(card.id)},
+                    "expression": 'IF(supplier == supplier, "yes", "no")',
+                },
+            }
+        ],
+    }
+    source = workspace({schema.SHEET_SETTINGS: [settings_row({key: candidate})]})
+
+    result = await applier._run(
+        db, source, user, dry_run=False, sheets={schema.SHEET_SETTINGS}, commit=False
+    )
+
+    await db.refresh(settings)
+    assert result.total_conflict > 0
+    assert settings.general_settings[key] == previous
+    errors = [error for section in result.sections for error in section.errors]
+    assert any("Unresolved Provider reference" in error for error in errors)
+
+
 async def test_selected_settings_ignore_unselected_malformed_type_row(db, pml_workspace):
     user, _, settings = pml_workspace
     source = workspace(

@@ -24,4 +24,25 @@ describe("PpmInitiativeTimeline", () => {
     expect(screen.getByTestId("actual-marker")).toBeInTheDocument();
     expect(screen.getByText(/Q2.*26/)).toBeInTheDocument();
   });
+  it("shows today on both tracks and leaves health indicators to Health Summary", () => {
+    render(
+      <PpmInitiativeTimeline
+        name="Example"
+        schedule={{
+          initiative_id: "i1",
+          plan_start_date: "2026-04-01",
+          plan_end_date: "2026-09-30",
+          plan_derived: false,
+          schedule_health: "offTrack",
+          cost_health: "atRisk",
+          scope_health: "atRisk",
+        }}
+        now={new Date(2026, 6, 1)}
+      />,
+    );
+    expect(screen.getAllByTestId("today-marker")).toHaveLength(2);
+    expect(screen.queryByText("On Time")).not.toBeInTheDocument();
+    expect(screen.queryByText("On Cost")).not.toBeInTheDocument();
+    expect(screen.queryByText("On Scope")).not.toBeInTheDocument();
+  });
 });

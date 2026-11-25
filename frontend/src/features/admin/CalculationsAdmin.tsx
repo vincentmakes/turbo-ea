@@ -1,53 +1,51 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import LinkifiedText from "@/components/LinkifiedText";
+import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import Alert from "@mui/material/Alert";
-import TextField from "@mui/material/TextField";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
+import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
+import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
+import InputLabel from "@mui/material/InputLabel";
+import Link from "@mui/material/Link";
+import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
+import Switch from "@mui/material/Switch";
+import { useTheme } from "@mui/material/styles";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import Switch from "@mui/material/Switch";
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
-import CircularProgress from "@mui/material/CircularProgress";
-import Divider from "@mui/material/Divider";
-import Link from "@mui/material/Link";
-import Paper from "@mui/material/Paper";
-import Popper from "@mui/material/Popper";
-import Autocomplete from "@mui/material/Autocomplete";
-import CodeEditor from "react-simple-code-editor";
-import MaterialSymbol from "@/components/MaterialSymbol";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
+import LinkifiedText from "@/components/LinkifiedText";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
-import { useAbortableEffect } from "@/hooks/useLatestRequest";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
-import { useTypeLabel, useRelationLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useFieldLabel, useRelationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { STATUS_COLORS } from "@/theme";
-import { formatRunReport } from "./calculationRunReport";
 import type {
   Calculation,
   CalculationRunReport,
@@ -56,532 +54,9 @@ import type {
   FieldDef,
   RelationType,
 } from "@/types";
-import { useTheme } from "@mui/material/styles";
-
-// ── Suggestion types ───────────────────────────────────────────────
-
-interface Suggestion {
-  insert: string;     // text to insert
-  label: string;      // display label
-  detail?: string;    // secondary text (type, description)
-  category: string;   // grouping label
-}
-
-// ── Syntax highlighting ───────────────────────────────────────────
-
-const FORMULA_FUNCTIONS = new Set([
-  "IF", "SUM", "AVG", "MIN", "MAX", "COUNT", "ROUND", "ABS", "LN",
-  "COALESCE", "LOWER", "UPPER", "CONCAT", "CONTAINS", "PLUCK",
-  "FILTER", "MAP_SCORE",
-]);
-const FORMULA_BUILTINS = new Set([
-  "len", "str", "int", "float", "bool", "abs", "round", "min", "max", "sum",
-]);
-const FORMULA_KEYWORDS = new Set(["is", "not", "or", "and", "in"]);
-const FORMULA_CONSTANTS = new Set(["None", "True", "False"]);
-
-function escapeHtml(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-/** Simple tokenizer that produces syntax-highlighted HTML. */
-function highlightFormula(code: string): string {
-  // Process line by line to handle # comments
-  return code.split("\n").map((line) => {
-    const commentIdx = findCommentStart(line);
-    if (commentIdx === 0) return `<span class="hl-comment">${escapeHtml(line)}</span>`;
-    const codePart = commentIdx >= 0 ? line.slice(0, commentIdx) : line;
-    const commentPart = commentIdx >= 0 ? line.slice(commentIdx) : "";
-    return highlightLine(codePart) +
-      (commentPart ? `<span class="hl-comment">${escapeHtml(commentPart)}</span>` : "");
-  }).join("\n");
-}
-
-/** Find the start of a # comment (not inside a string). */
-function findCommentStart(line: string): number {
-  let inStr: string | null = null;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inStr) {
-      if (ch === inStr && line[i - 1] !== "\\") inStr = null;
-    } else if (ch === '"' || ch === "'") {
-      inStr = ch;
-    } else if (ch === "#") {
-      return i;
-    }
-  }
-  return -1;
-}
-
-/** Highlight a single line of code (no comments). */
-function highlightLine(line: string): string {
-  // Regex that matches tokens in order of priority
-  const rx = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\b\d+(?:\.\d+)?\b)|(\.?\b[a-zA-Z_]\w*\b)|([>=<!]=|[+\-*/%<>=,(){}:[\]])/g;
-  let result = "";
-  let lastIdx = 0;
-  let m;
-  while ((m = rx.exec(line)) !== null) {
-    if (m.index > lastIdx) result += escapeHtml(line.slice(lastIdx, m.index));
-    if (m[1]) { // string
-      result += `<span class="hl-string">${escapeHtml(m[1])}</span>`;
-    } else if (m[2]) { // number
-      result += `<span class="hl-number">${escapeHtml(m[2])}</span>`;
-    } else if (m[3]) { // word
-      const word = m[3];
-      if (word.startsWith(".")) {
-        // .property access — highlight the dot as punctuation, word as property
-        result += `<span class="hl-punct">.</span><span class="hl-property">${escapeHtml(word.slice(1))}</span>`;
-      } else if (FORMULA_FUNCTIONS.has(word)) {
-        result += `<span class="hl-function">${escapeHtml(word)}</span>`;
-      } else if (FORMULA_BUILTINS.has(word)) {
-        result += `<span class="hl-builtin">${escapeHtml(word)}</span>`;
-      } else if (FORMULA_CONSTANTS.has(word)) {
-        result += `<span class="hl-constant">${escapeHtml(word)}</span>`;
-      } else if (FORMULA_KEYWORDS.has(word)) {
-        result += `<span class="hl-keyword">${escapeHtml(word)}</span>`;
-      } else if (word === "data" || word === "relations" || word === "relation_count" || word === "children" || word === "children_count" || word === "parent" || word === "hierarchy_level") {
-        result += `<span class="hl-context">${escapeHtml(word)}</span>`;
-      } else {
-        result += escapeHtml(word);
-      }
-    } else if (m[4]) { // operator / punctuation
-      result += `<span class="hl-punct">${escapeHtml(m[4])}</span>`;
-    }
-    lastIdx = rx.lastIndex;
-  }
-  if (lastIdx < line.length) result += escapeHtml(line.slice(lastIdx));
-  return result;
-}
-
-/** CSS for syntax highlighting classes. */
-const HL_STYLES = `
-  .hl-comment { color: #6a737d; font-style: italic; }
-  .hl-string { color: #b31d28; }
-  .hl-number { color: #005cc5; }
-  .hl-function { color: #6f42c1; }
-  .hl-builtin { color: #6f42c1; opacity: 0.85; }
-  .hl-keyword { color: #d73a49; }
-  .hl-constant { color: #005cc5; }
-  .hl-context { color: #22863a; }
-  .hl-property { color: #005cc5; }
-  .hl-punct { color: #6a737d; }
-`;
-
-// ── FormulaEditor with autocomplete ────────────────────────────────
-
-interface FormulaEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  cardType: CardType | null;
-  relationTypes: RelationType[];
-}
-
-const TEXTAREA_ID = "formula-editor-textarea";
-
-function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEditorProps) {
-  const { t } = useTranslation(["admin"]);
-  const fieldLabel = useFieldLabel();
-  const relLabel = useRelationLabel();
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [selectedIdx, setSelectedIdx] = useState(0);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [cursorToken, setCursorToken] = useState({ prefix: "", token: "" });
-
-  const getTextarea = useCallback(
-    () => document.getElementById(TEXTAREA_ID) as HTMLTextAreaElement | null,
-    [],
-  );
-
-  // Build the full suggestion catalog based on selected card type
-  const allSuggestions = useMemo(() => {
-    const items: Suggestion[] = [];
-
-    // Top-level context variables
-    items.push(
-      { insert: "data", label: "data", detail: "Card fields object", category: "Context" },
-      { insert: "relations", label: "relations", detail: "Related cards by type", category: "Context" },
-      { insert: "relation_count", label: "relation_count", detail: "Relation counts by type", category: "Context" },
-      { insert: "children", label: "children", detail: "Child cards list", category: "Context" },
-      { insert: "children_count", label: "children_count", detail: "Number of children", category: "Context" },
-      { insert: "parent", label: "parent", detail: "Parent card object (or None)", category: "Context" },
-      { insert: "hierarchy_level", label: "hierarchy_level", detail: "Depth in hierarchy (1 = root)", category: "Context" },
-      { insert: "ppm", label: "ppm", detail: t("calculations.ctxPpm"), category: "Context" },
-      { insert: "None", label: "None", detail: "Null value", category: "Constants" },
-      { insert: "True", label: "True", detail: "Boolean true", category: "Constants" },
-      { insert: "False", label: "False", detail: "Boolean false", category: "Constants" },
-    );
-
-    // Functions
-    const fns: [string, string, string][] = [
-      ["IF", "IF(cond, true_val, false_val)", "Conditional"],
-      ["SUM", "SUM(list)", "Sum numbers"],
-      ["AVG", "AVG(list)", "Average"],
-      ["MIN", "MIN(list)", "Minimum"],
-      ["MAX", "MAX(list)", "Maximum"],
-      ["COUNT", "COUNT(list)", "List length"],
-      ["ROUND", "ROUND(num, decimals)", "Round number"],
-      ["ABS", "ABS(num)", "Absolute value"],
-      ["LN", "LN(num)", "Natural log (null for \u2264 0)"],
-      ["COALESCE", "COALESCE(v1, v2, ...)", "First non-null"],
-      ["LOWER", "LOWER(s)", "Lowercase"],
-      ["UPPER", "UPPER(s)", "Uppercase"],
-      ["CONCAT", "CONCAT(s1, s2, ...)", "Join strings"],
-      ["CONTAINS", "CONTAINS(s, sub)", "Substring check"],
-      ["PLUCK", "PLUCK(list, key)", "Extract field"],
-      ["FILTER", "FILTER(list, key, val)", "Filter list"],
-      ["MAP_SCORE", 'MAP_SCORE(val, {"a":1,...})', "Map to score"],
-    ];
-    for (const [name, sig, desc] of fns) {
-      items.push({ insert: name + "(", label: name, detail: `${sig} — ${desc}`, category: "Functions" });
-    }
-
-    // Python builtins
-    for (const b of ["len(", "str(", "int(", "float(", "bool(", "abs(", "round(", "min(", "max(", "sum("]) {
-      const name = b.replace("(", "");
-      items.push({ insert: b, label: name, detail: `Python ${name}()`, category: "Built-ins" });
-    }
-
-    return items;
-  }, [t]);
-
-  // PPM budget/cost measures (used after "ppm.")
-  const ppmFieldSuggestions = useMemo<Suggestion[]>(() => {
-    const items: Suggestion[] = [];
-    for (const measure of ["Budget", "Planned", "Actual"]) {
-      for (const bucket of ["capex", "opex", "total"]) {
-        items.push({
-          insert: `${bucket}${measure}`,
-          label: `${bucket}${measure}`,
-          detail: t(`calculations.ppm${measure}`, { bucket }),
-          category: t("common:modules.ppm"),
-        });
-      }
-    }
-    items.push({ insert: "byYear", label: "byYear", detail: t("calculations.ppmByYear"), category: t("common:modules.ppm") });
-    items.push({ insert: "currentFiscalYear", label: "currentFiscalYear", detail: t("calculations.ppmCurrentFy"), category: t("common:modules.ppm") });
-    items.push({ insert: "unscheduledPlanned", label: "unscheduledPlanned", detail: t("calculations.ppmUnscheduled"), category: t("common:modules.ppm") });
-    items.push({ insert: "unscheduledActual", label: "unscheduledActual", detail: t("calculations.ppmUnscheduled"), category: t("common:modules.ppm") });
-    items.push({ insert: "unscheduledCapexActual", label: "unscheduledCapexActual", detail: t("calculations.ppmUnscheduled"), category: t("common:modules.ppm") });
-    items.push({ insert: "unscheduledOpexActual", label: "unscheduledOpexActual", detail: t("calculations.ppmUnscheduled"), category: t("common:modules.ppm") });
-    // Delivery figures (#1111): progress, tasks, risks, the latest status report.
-    items.push({ insert: "completion", label: "completion", detail: t("calculations.ppmCompletion"), category: t("common:modules.ppm") });
-    items.push({ insert: "wbsCount", label: "wbsCount", detail: t("calculations.ppmWbsCount"), category: t("common:modules.ppm") });
-    items.push({ insert: "milestoneCount", label: "milestoneCount", detail: t("calculations.ppmMilestoneCount"), category: t("common:modules.ppm") });
-    for (const key of ["taskCount", "tasksTodo", "tasksInProgress", "tasksDone", "tasksBlocked"]) {
-      items.push({ insert: key, label: key, detail: t("calculations.ppmTaskCounts"), category: t("common:modules.ppm") });
-    }
-    items.push({ insert: "tasksOverdue", label: "tasksOverdue", detail: t("calculations.ppmTasksOverdue"), category: t("common:modules.ppm") });
-    for (const key of ["riskCount", "risksOpen", "riskScoreMax"]) {
-      items.push({ insert: key, label: key, detail: t("calculations.ppmRisks"), category: t("common:modules.ppm") });
-    }
-    for (const key of ["reportCount", "reportDate", "scheduleHealth", "costHealth", "scopeHealth"]) {
-      items.push({ insert: key, label: key, detail: t("calculations.ppmReport"), category: t("common:modules.ppm") });
-    }
-    return items;
-  }, [t]);
-
-  // Data fields for the selected card type (used after "data.")
-  const dataFieldSuggestions = useMemo(() => {
-    const items: Suggestion[] = [
-      { insert: "name", label: "name", detail: "Card name (text)", category: "Card Fields" },
-      { insert: "description", label: "description", detail: "Description (text)", category: "Card Fields" },
-      { insert: "status", label: "status", detail: "ACTIVE / ARCHIVED", category: "Card Fields" },
-      { insert: "subtype", label: "subtype", detail: "Card subtype", category: "Card Fields" },
-      { insert: "approval_status", label: "approval_status", detail: "DRAFT / APPROVED / ...", category: "Card Fields" },
-      { insert: "lifecycle", label: "lifecycle", detail: "Lifecycle dates object", category: "Card Fields" },
-    ];
-    if (cardType) {
-      for (const section of cardType.fields_schema || []) {
-        for (const f of section.fields) {
-          items.push({
-            insert: f.key,
-            label: f.key,
-            detail: `${fieldLabel(f)} (${f.type})`,
-            category: section.section,
-          });
-        }
-      }
-    }
-    return items;
-  }, [cardType]);
-
-  // Relation type keys (used after "relations." and "relation_count.")
-  const relationKeySuggestions = useMemo(() => {
-    if (!cardType) return [];
-    return relationTypes
-      .filter((rt) => rt.source_type_key === cardType.key || rt.target_type_key === cardType.key)
-      .map((rt) => ({
-        insert: rt.key,
-        label: rt.key,
-        detail: `${relLabel(rt)} (${rt.source_type_key} → ${rt.target_type_key})`,
-        category: "Relation Types",
-      }));
-  }, [cardType, relationTypes]);
-
-  // Extract the token being typed at cursor position
-  const getTokenAtCursor = useCallback((text: string, pos: number) => {
-    // Walk backwards to find token start
-    const before = text.slice(0, pos);
-    // Match the last word-like token, possibly with dots (e.g. "data.bus", "relation_count.rel")
-    const match = before.match(/([\w.]+)$/);
-    if (!match) return { prefix: "", token: "" };
-    const full = match[1];
-    // Split by last dot to determine prefix context
-    const dotIdx = full.lastIndexOf(".");
-    if (dotIdx >= 0) {
-      return { prefix: full.slice(0, dotIdx), token: full.slice(dotIdx + 1) };
-    }
-    return { prefix: "", token: full };
-  }, []);
-
-  // Compute filtered suggestions based on current token
-  const filteredSuggestions = useMemo(() => {
-    const { prefix, token } = cursorToken;
-    const lower = token.toLowerCase();
-
-    let pool: Suggestion[];
-    if (prefix === "data") {
-      pool = dataFieldSuggestions;
-    } else if (prefix === "relations" || prefix === "relation_count") {
-      pool = relationKeySuggestions;
-    } else if (prefix === "ppm") {
-      pool = ppmFieldSuggestions;
-    } else if (prefix) {
-      // Nested access like "relations.relAppToITC." — no suggestions for deeper nesting
-      return [];
-    } else {
-      pool = allSuggestions;
-    }
-
-    if (!lower) return prefix ? pool.slice(0, 20) : []; // Show all after dot, nothing without typing
-    return pool.filter((s) => s.label.toLowerCase().includes(lower)).slice(0, 12);
-  }, [cursorToken, allSuggestions, dataFieldSuggestions, relationKeySuggestions, ppmFieldSuggestions]);
-
-  // Handle value change from the code editor
-  const handleValueChange = useCallback(
-    (newValue: string) => {
-      onChange(newValue);
-      // Read cursor position after the editor updates
-      requestAnimationFrame(() => {
-        const ta = getTextarea();
-        if (!ta) return;
-        const pos = ta.selectionStart ?? newValue.length;
-        const tokenInfo = getTokenAtCursor(newValue, pos);
-        setCursorToken(tokenInfo);
-        setSelectedIdx(0);
-        const shouldShow = tokenInfo.prefix ? true : tokenInfo.token.length >= 2;
-        setShowSuggestions(shouldShow);
-      });
-    },
-    [onChange, getTextarea, getTokenAtCursor],
-  );
-
-  // Update showSuggestions when filteredSuggestions changes
-  useEffect(() => {
-    if (filteredSuggestions.length === 0) {
-      setShowSuggestions(false);
-    } else if (cursorToken.prefix || cursorToken.token.length >= 2) {
-      setShowSuggestions(true);
-    }
-  }, [filteredSuggestions, cursorToken]);
-
-  // Insert a suggestion at the cursor position
-  const applySuggestion = useCallback((suggestion: Suggestion) => {
-    const textarea = getTextarea();
-    if (!textarea) return;
-
-    const pos = textarea.selectionStart ?? value.length;
-    const tokenInfo = getTokenAtCursor(value, pos);
-    const tokenLen = tokenInfo.token.length;
-
-    const before = value.slice(0, pos - tokenLen);
-    const after = value.slice(pos);
-    const newValue = before + suggestion.insert + after;
-    const newCursorPos = before.length + suggestion.insert.length;
-
-    // No "ignore the echo" flag here: the editor reports only real input
-    // events, so a flag set now would swallow the user's NEXT keystroke —
-    // typing `.` straight after accepting `data` opened no field list.
-    onChange(newValue);
-    setShowSuggestions(false);
-    setCursorToken({ prefix: "", token: "" });
-
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(newCursorPos, newCursorPos);
-    });
-  }, [value, onChange, getTokenAtCursor, getTextarea]);
-
-  // Handle keyboard navigation in the suggestions list
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showSuggestions || filteredSuggestions.length === 0) return;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelectedIdx((prev) => Math.min(prev + 1, filteredSuggestions.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelectedIdx((prev) => Math.max(prev - 1, 0));
-    } else if (e.key === "Tab" || e.key === "Enter") {
-      if (showSuggestions && filteredSuggestions[selectedIdx]) {
-        e.preventDefault();
-        applySuggestion(filteredSuggestions[selectedIdx]);
-      }
-    } else if (e.key === "Escape") {
-      // Only the suggestion list closes: without stopping the event here, MUI's
-      // Dialog treated the same keydown as escapeKeyDown and unmounted the
-      // whole edit dialog, discarding the form.
-      e.preventDefault();
-      e.stopPropagation();
-      setShowSuggestions(false);
-    }
-  };
-
-  const lineCount = (value || "\n").split("\n").length;
-
-  return (
-    <Box sx={{ position: "relative" }} ref={containerRef}>
-      <style>{HL_STYLES}</style>
-      <Typography variant="caption" sx={{ color: "text.secondary", mb: 0.5, display: "block" }}>
-        {t("calculations.formula")}
-      </Typography>
-      <Box
-        sx={{
-          display: "flex",
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: 1,
-          bgcolor: "action.hover",
-          overflow: "hidden",
-          "&:focus-within": { borderColor: "primary.main", boxShadow: (t) => `0 0 0 1px ${t.palette.primary.main}` },
-        }}
-      >
-        {/* Line numbers gutter */}
-        <Box
-          sx={{
-            py: "10px",
-            px: 1,
-            bgcolor: "action.selected",
-            borderRight: 1,
-            borderColor: "divider",
-            userSelect: "none",
-            flexShrink: 0,
-            fontFamily: "monospace",
-            fontSize: "0.82rem",
-            lineHeight: "1.5",
-            color: "text.secondary",
-            textAlign: "right",
-            minWidth: 36,
-          }}
-          aria-hidden
-        >
-          {Array.from({ length: lineCount }, (_, i) => (
-            <div key={i}>{i + 1}</div>
-          ))}
-        </Box>
-
-        {/* Code editor */}
-        <Box sx={{ flex: 1, minHeight: 160, overflow: "auto" }}>
-          <CodeEditor
-            value={value}
-            onValueChange={handleValueChange}
-            highlight={highlightFormula}
-            onKeyDown={handleKeyDown}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            textareaId={TEXTAREA_ID}
-            placeholder={t("calculations.formulaPlaceholder")}
-            padding={10}
-            style={{
-              fontFamily: "monospace",
-              fontSize: "0.82rem",
-              lineHeight: "1.5",
-              minHeight: 160,
-              color: "#24292e",
-              caretColor: "#24292e",
-            }}
-          />
-        </Box>
-      </Box>
-      <Popper
-        open={showSuggestions && filteredSuggestions.length > 0}
-        anchorEl={containerRef.current}
-        placement="bottom-start"
-        sx={{ zIndex: 1500, width: containerRef.current?.offsetWidth || 400 }}
-        modifiers={[{ name: "offset", options: { offset: [0, 4] } }]}
-      >
-        <Paper
-          elevation={8}
-          sx={{
-            maxHeight: 240,
-            overflow: "auto",
-            border: "1px solid",
-            borderColor: "divider",
-            py: 0.5,
-          }}
-        >
-          {filteredSuggestions.map((s, i) => (
-            <Box
-              key={s.insert + s.category}
-              onMouseDown={(e) => {
-                e.preventDefault(); // prevent blur
-                applySuggestion(s);
-              }}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                px: 1.5,
-                py: 0.5,
-                cursor: "pointer",
-                bgcolor: i === selectedIdx ? "action.selected" : "transparent",
-                "&:hover": { bgcolor: "action.hover" },
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{
-                  fontFamily: "monospace",
-                  fontSize: "0.8rem",
-                  fontWeight: i === selectedIdx ? 600 : 400,
-                  minWidth: 0,
-                  flexShrink: 0,
-                }}
-              >
-                {s.label}
-              </Typography>
-              {s.detail && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  noWrap
-                  sx={{ flexShrink: 1, minWidth: 0 }}
-                >
-                  {s.detail}
-                </Typography>
-              )}
-              <Typography
-                variant="caption"
-                sx={{
-                  ml: "auto",
-                  flexShrink: 0,
-                  color: "text.disabled",
-                  fontSize: "0.65rem",
-                }}
-              >
-                {s.category}
-              </Typography>
-            </Box>
-          ))}
-          <Box sx={{ px: 1.5, pt: 0.5, borderTop: "1px solid", borderColor: "divider" }}>
-            <Typography variant="caption" color="text.disabled">
-              {t("calculations.insertHint")}
-            </Typography>
-          </Box>
-        </Paper>
-      </Popper>
-    </Box>
-  );
-}
+import { formatRunReport } from "./calculationRunReport";
+import { FormulaEditor } from "./FormulaEditor";
+import { HL_STYLES, highlightFormula } from "./formulaHighlight";
 
 // ── Highlighted Code Block (read-only, with line numbers) ─────────
 

@@ -245,6 +245,7 @@ export default function PpmFinancialRowForm({
   return (
     <Dialog
       open
+      disableRestoreFocus
       onClose={() => !submit.busy && onClose()}
       fullScreen={fullScreen}
       fullWidth

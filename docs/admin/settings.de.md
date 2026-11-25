@@ -179,6 +179,19 @@ Nutzen Sie **Projektstammliste (PML)** unter **Allgemein**, um das Modul zu akti
 
 Wählen Sie bei einem **berechneten Feld** den Ergebnistyp, Eingabealiasnamen und Quellen. Verwenden Sie eine Formel oder geordnete Regeln. Die erste passende Regel gilt; ohne Treffer gilt der Ersatzwert. Vergleiche können Sie mit AND, OR und NOT kombinieren. Prüfen Sie Beispielwerte mit der **Vorschau**. [Metamodellberechnungen](calculations.md) gelten für Kartenfelder.
 
+Der Modus **Formel** verwendet den Editor und die Formelsprache aus **Metamodell → Berechnungen**. Verwenden Sie `data.fieldKey` für ein Feld der aktuellen Finanzzeile. Ein Einzelauswahlfeld liefert die ID der ausgewählten Option. Bei einer Kostenposition enthält `data.providerEffective` den dafür verwendeten Provider und `data.providerBudget` den im Budget ausgewählten Provider. Auf das verknüpfte geplante Budget greifen Sie über `data.budget.amount`, `data.budget.fiscal_year`, `data.budget.category`, `data.budget.description` und `data.budget.provider` zu. Für die verknüpfte Initiative verwenden Sie `data.budget.initiative.name`, `data.budget.initiative.id` oder `data.budget.initiative.type`. Prüfen Sie das Ergebnis mit Beispieldaten in der **Vorschau**.
+
+Bestehende PML-Formeln behalten ihren bisherigen Auswerter. Um eine Formel umzustellen, wählen Sie **Formel-Engine → Kernberechnungen**. Prüfen Sie die aktualisierte Formel vor dem Speichern in der Vorschau. **Geordnete Regeln** bleiben verfügbar.
+
+Um beispielsweise eine Kostenposition zu klassifizieren, legen Sie Provider-Konstanten namens `arubaSpa`, `arubaPec`, `actalis` und `external` an. Wählen Sie für jede die entsprechende Provider-Karte aus. In diesem Beispiel hat die Auswahl **Licenze** in `otherServiceType` die Options-ID `licencing`. Verwenden Sie diese zwei Zeilen:
+
+```text
+internal = data.providerEffective == arubaSpa or data.providerEffective == arubaPec or data.providerEffective == actalis
+IF(data.providerEffective == None, None, IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", "Licenze", IF(data.providerEffective == external, "Servizi Esterni", "Servizi Intercompany"))))
+```
+
+Bei Kostenpositionen ohne Provider bleibt das Ergebnis leer. Aruba Spa, Aruba PEC und Actalis werden auch bei einem Lizenzkauf als intern eingestuft. Bei anderen Providern unterscheidet der Leistungstyp zwischen Lizenzen und anderen Kosten. Die Provider-Konstanten folgen den ausgewählten Karten, wenn diese umbenannt oder mit dem Workspace übertragen werden.
+
 Ein Kartenverweis beschränkt die Auswahl auf einen Kartentyp. Eine kompatible Beziehung kann die ausgewählte Karte mit der Initiative verbinden. Unter Kostenpositionen wählen Sie das Anbieterfeld des Budgets und erlauben bei Bedarf direkt untergeordnete Anbieter. Rechnungen haben eigene Felder.
 
 #### Konfigurationsbeispiel für Aruba

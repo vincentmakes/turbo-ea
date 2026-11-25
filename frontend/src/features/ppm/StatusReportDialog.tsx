@@ -147,6 +147,7 @@ export default function StatusReportDialog({
   return (
     <Dialog
       open
+      disableRestoreFocus
       onClose={onClose}
       maxWidth="md"
       fullWidth

@@ -4,13 +4,9 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
 import LinearProgress from "@mui/material/LinearProgress";
-import Chip from "@mui/material/Chip";
-import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import PpmInitiativeTimeline from "./PpmInitiativeTimeline";
@@ -19,7 +15,8 @@ import { KPI_VALUE_SX } from "./ppmStyles";
 import DerivedValue from "./DerivedValue";
 import { financialTotals } from "./derivedFinancials";
 import { compactAmount } from "./ppmPortfolioFormat";
-import { BudgetBar, CompletionRing, HealthDot } from "./ppmVisuals";
+import { BudgetBar, CompletionRing } from "./ppmVisuals";
+import PpmHealthSummary from "./PpmHealthSummary";
 import type {
   Card,
   PpmStatusReport,
@@ -52,12 +49,8 @@ export default function PpmOverviewTab({
   const { fmt, currency } = useCurrency();
   // The KPI figures read in k / M so the derived glyph beside them cannot wrap them.
   const kpiAmount = (n: number) => compactAmount(n, currency, fmt.format);
-  const { getType } = useMetamodel();
-  const rl = useResolveLabel();
-  const subtypeLabel = useCardSubtypeLabel();
   const { formatDate } = useDateFormat();
   const schedule = usePpmSchedule(card.id);
-  const attrs = card.attributes || {};
   const budgetBarColor = theme.palette.primary.main;
   const overBudgetColor = theme.palette.error.dark;
 
@@ -87,23 +80,6 @@ export default function PpmOverviewTab({
   const varianceTip = [budgetTip, actualTip].filter(Boolean).join(" \u00b7 ") || undefined;
   const variance = totals.budget.total - totals.actual.total;
 
-  const typeConfig = getType(card.type);
-
-  // Resolve a select field value to its translated label
-  const resolveOption = (fieldKey: string, value: unknown): string => {
-    if (!value || typeof value !== "string") return "\u2014";
-    for (const section of typeConfig?.fields_schema || []) {
-      for (const field of section.fields || []) {
-        if (field.key === fieldKey && field.options) {
-          const opt = field.options.find((o: { key: string }) => o.key === value);
-          if (opt) return rl(opt.label, opt.translations);
-        }
-      }
-    }
-    return value;
-  };
-
-
   return (
     <Box
       sx={{
@@ -117,26 +93,10 @@ export default function PpmOverviewTab({
         <Typography variant="subtitle1" fontWeight={600} mb={2}>
           {t("healthSummary")}
         </Typography>
-        {latestReport ? (
-          <Box display="flex" gap={{ xs: 1.5, sm: 4 }} flexWrap="wrap">
-            <HealthDot
-              value={latestReport.schedule_health}
-              label={t("health_schedule")}
-            />
-            {schedule.data?.cost_health && <HealthDot
-              value={schedule.data.cost_health}
-              label={t("health_cost")}
-            />}
-            <HealthDot
-              value={latestReport.scope_health}
-              label={t("health_scope")}
-            />
-          </Box>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            {t("noReportsYet")}
-          </Typography>
-        )}
+        <PpmHealthSummary
+          report={latestReport}
+          costHealth={schedule.data?.cost_health}
+        />
       </Paper>
 
       {/* Completion KPI */}
@@ -275,15 +235,6 @@ export default function PpmOverviewTab({
           {t("timeline")}
         </Typography>
         <PpmInitiativeTimeline schedule={schedule.data} name={card.name} />
-        {card.subtype && <Box mt={2}><Typography variant="caption" color="text.secondary">{t("subtype")}</Typography><Box mt={0.5}><Chip label={subtypeLabel(card.type, card.subtype)} size="small" variant="outlined" /></Box></Box>}
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            {t("initiativeStatus")}
-          </Typography>
-          <Typography variant="body2">
-            {resolveOption("initiativeStatus", attrs.initiativeStatus)}
-          </Typography>
-        </Box>
       </Paper>
 
       {/* Description */}

@@ -179,6 +179,19 @@ Abra **Administración → Configuración → PML → Presupuesto y costes** y s
 
 Para un campo **Calculado**, elija el tipo de resultado, los alias y las fuentes. Seleccione una fórmula o reglas ordenadas. Se usa la primera regla que coincida o el resultado alternativo si no hay coincidencia. Puede combinar comparaciones con AND, OR y NOT. Use valores de ejemplo y **Vista previa** antes de guardar. Los [cálculos del metamodelo](calculations.md) son para campos de tarjeta.
 
+El modo **Fórmula** utiliza el editor y el lenguaje de fórmulas de **Metamodelo → Cálculos**. Use `data.fieldKey` para un campo de la fila financiera actual. Un campo de selección única proporciona el ID de la opción seleccionada. En una partida de coste, `data.providerEffective` contiene el Provider utilizado en esa partida y `data.providerBudget` el Provider seleccionado en su presupuesto. Acceda al presupuesto planificado vinculado mediante `data.budget.amount`, `data.budget.fiscal_year`, `data.budget.category`, `data.budget.description` y `data.budget.provider`. Para la iniciativa vinculada, use `data.budget.initiative.name`, `data.budget.initiative.id` o `data.budget.initiative.type`. Use **Vista previa** para probar el resultado con valores de ejemplo.
+
+Las fórmulas PML existentes mantienen su evaluador original. Para convertir una, elija **Motor de fórmulas → Cálculos principales**. Use la vista previa para comprobar la fórmula actualizada antes de guardarla. **Reglas ordenadas** sigue disponible.
+
+Por ejemplo, para clasificar una partida de coste, añada las constantes Provider `arubaSpa`, `arubaPec`, `actalis` y `external`, y seleccione la tarjeta Provider correspondiente para cada una. En este ejemplo, la opción **Licenze** de `otherServiceType` tiene el ID `licencing`. Use estas dos líneas:
+
+```text
+internal = data.providerEffective == arubaSpa or data.providerEffective == arubaPec or data.providerEffective == actalis
+IF(data.providerEffective == None, None, IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", "Licenze", IF(data.providerEffective == external, "Servizi Esterni", "Servizi Intercompany"))))
+```
+
+Las partidas sin Provider quedan sin resultado. Aruba Spa, Aruba PEC y Actalis se clasifican como internos incluso cuando se compra una licencia. Para los demás Provider, el tipo de servicio distingue las licencias. Las constantes Provider siguen las tarjetas seleccionadas si se renombran o se transfieren con el espacio de trabajo.
+
 Una referencia a tarjeta limita el tipo elegido. Puede configurar una relación compatible para vincular la tarjeta a la iniciativa. En Partidas de coste, elija el campo de proveedor del presupuesto y permita opcionalmente hijos directos. La facturación tiene campos propios.
 
 #### Ejemplo de configuración para Aruba

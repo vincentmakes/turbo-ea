@@ -16,6 +16,17 @@
 
 import type { ArchimateLayer } from "@/features/archimate/taxonomy/elements";
 
+// GitHub Light syntax colors used by the shared formula editor.
+export const FORMULA_SYNTAX_COLORS = {
+  text: "#24292e",
+  comment: "#6a737d",
+  string: "#b31d28",
+  number: "#005cc5",
+  function: "#6f42c1",
+  keyword: "#d73a49",
+  context: "#22863a",
+} as const;
+
 // ── Brand & surface ─────────────────────────────────────────────────────
 
 export const brand = {

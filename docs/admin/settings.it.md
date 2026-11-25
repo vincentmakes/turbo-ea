@@ -179,6 +179,19 @@ Apri **Amministrazione → Impostazioni → PML → Budget e costi** e scegli **
 
 Per un campo **Calcolato**, scegli il tipo di risultato, aggiungi alias e fonti e scegli una formula o regole ordinate. Vale la prima regola che corrisponde, altrimenti si usa il valore di fallback. Puoi combinare confronti con AND, OR e NOT. Prova dei valori con **Anteprima** prima di salvare. I [calcoli del Metamodel](calculations.md) riguardano invece le schede.
 
+La modalità **Formula** usa l'editor e il linguaggio delle formule di **Metamodel → Calcoli**. Usa `data.fieldKey` per un campo della riga finanziaria corrente. Un campo a selezione singola restituisce l'ID dell'opzione selezionata. In un Cost Item, `data.providerEffective` contiene il Provider usato per quella voce e `data.providerBudget` il Provider selezionato nel relativo budget. Accedi al Planned Budget collegato con `data.budget.amount`, `data.budget.fiscal_year`, `data.budget.category`, `data.budget.description` e `data.budget.provider`. Per l'Initiative collegata, usa `data.budget.initiative.name`, `data.budget.initiative.id` o `data.budget.initiative.type`. Usa **Anteprima** per provare il risultato con valori di esempio.
+
+Le formule PML esistenti mantengono il valutatore originale. Per convertirne una, scegli **Motore delle formule → Calcoli principali**. Prima di salvare, controlla la formula aggiornata con l'anteprima. Le **Regole ordinate** restano disponibili.
+
+Per esempio, per classificare un Cost Item, aggiungi le costanti Provider `arubaSpa`, `arubaPec`, `actalis` ed `external`, selezionando per ciascuna la scheda Provider corrispondente. In questo esempio, l'opzione **Licenze** di `otherServiceType` ha ID `licencing`. Usa queste due righe:
+
+```text
+internal = data.providerEffective == arubaSpa or data.providerEffective == arubaPec or data.providerEffective == actalis
+IF(data.providerEffective == None, None, IF(internal, "Servizi interni", IF(data.otherServiceType == "licencing", "Licenze", IF(data.providerEffective == external, "Servizi Esterni", "Servizi Intercompany"))))
+```
+
+Le voci senza Provider non restituiscono un risultato. Aruba Spa, Aruba PEC e Actalis sono classificati come interni anche per l'acquisto di una licenza. Per gli altri Provider, il tipo di servizio distingue le licenze. Le costanti Provider seguono le schede selezionate quando vengono rinominate o trasferite con il workspace.
+
 Un riferimento a scheda limita la scelta al tipo indicato. Puoi selezionare una relazione compatibile per collegare la scheda all'iniziativa. In **Voci di costo**, indica il campo Provider sul budget e scegli se consentire i figli diretti. Il fatturato ha campi propri.
 
 #### Configurazione di esempio per Aruba

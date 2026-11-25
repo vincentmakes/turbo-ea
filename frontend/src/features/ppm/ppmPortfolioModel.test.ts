@@ -1612,8 +1612,9 @@ describe("filterItems — anchored groups", () => {
     expect(ids(filterItems(rows, "", "project", null))).toEqual(["p", "a", "u"]);
   });
 
-  it("does not match the subtype against the anchor itself", () => {
-    expect(ids(filterItems(rows, "", "program", null))).toEqual([]);
+  it("matches the selected subtype against anchors", () => {
+    expect(ids(filterItems(rows, "", "program", null))).toEqual(["p", "q"]);
+    expect(ids(filterItems(rows, "quiet", "program", null))).toEqual(["q"]);
   });
 
   it("combines both filters for the rows that decide an anchor", () => {
@@ -1621,9 +1622,9 @@ describe("filterItems — anchored groups", () => {
     expect(ids(filterItems(rows, "be", "epic", null))).toEqual(["q", "b"]);
   });
 
-  it("drops an anchor with no rows once a filter is set", () => {
+  it("keeps a matching anchor without rows for a subtype filter", () => {
     expect(ids(filterItems([rows[0]], "x", "", null))).toEqual([]);
-    expect(ids(filterItems([rows[0]], "", "program", null))).toEqual([]);
+    expect(ids(filterItems([rows[0]], "", "program", null))).toEqual(["p"]);
   });
 });
 

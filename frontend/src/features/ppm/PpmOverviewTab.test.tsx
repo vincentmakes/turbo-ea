@@ -213,6 +213,15 @@ describe("PpmOverviewTab — completion", () => {
 });
 
 describe("PpmOverviewTab — timeline", () => {
+  it("does not repeat subtype or initiative status under the timeline", async () => {
+    renderTab({ ...CARD, subtype: "project", attributes: { initiativeStatus: "active" } } as unknown as Card);
+    await screen.findByText("Start Date");
+    const timeline = screen.getByText("Timeline", { selector: ".MuiTypography-subtitle1" }).closest(".MuiPaper-root")!;
+    expect(within(timeline).queryByText("Subtype")).not.toBeInTheDocument();
+    expect(within(timeline).queryByText("Initiative Status")).not.toBeInTheDocument();
+    expect(within(timeline).queryByText("Project")).not.toBeInTheDocument();
+  });
+
   it("shows the start and end dates in the workspace date format", async () => {
     hookState.dateFormat = "DD/MM/YYYY";
     mockApi.on("get", "/ppm/initiatives/i1/schedule", { initiative_id: "i1", start_date: "2026-03-01", end_date: "2026-11-30", plan_start_date: "2026-03-01", plan_end_date: "2026-11-30", actual_start_date: "2026-04-12", actual_start_label: "Aruba Actual Start", plan_derived: false });

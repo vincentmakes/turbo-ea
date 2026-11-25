@@ -416,13 +416,36 @@ async def _invoice_out(db: AsyncSession, user: User, row: PpmInvoice) -> PpmInvo
 # ── Cost Lines ─────────────────────────────────────────────────────
 
 
-async def _provider_projection(db, user, config, costs, budgets=None):
+async def _provider_projection(db, user, config, costs, budgets=None, initiative=None):
     if budgets is None:
         budget_ids = {row.budget_line_id for row in costs if row.budget_line_id is not None}
         budgets = list(
             (await db.scalars(select(PpmBudgetLine).where(PpmBudgetLine.id.in_(budget_ids)))).all()
         )
-    return await ppm_providers.project_providers(db, user, config, budgets, costs)
+    projections = await ppm_providers.project_providers(db, user, config, budgets, costs)
+    budget_map = {(budget.initiative_id, budget.id): budget for budget in budgets}
+    for cost in costs:
+        budget = budget_map.get((cost.initiative_id, cost.budget_line_id))
+        projections[cost.id]["budget_context"] = _budget_standard(
+            budget, initiative, projections[cost.id]["budget_provider_context"]
+        )
+    return projections
+
+
+def _budget_standard(budget, initiative, provider):
+    visible_initiative = (
+        initiative if budget and initiative and budget.initiative_id == initiative.id else None
+    )
+    return {
+        "budget.amount": budget.amount if budget else None,
+        "budget.fiscal_year": budget.fiscal_year if budget else None,
+        "budget.category": budget.category if budget else None,
+        "budget.description": budget.description if budget else None,
+        "budget.provider": provider if budget else None,
+        "budget.initiative.id": str(visible_initiative.id) if visible_initiative else None,
+        "budget.initiative.name": visible_initiative.name if visible_initiative else None,
+        "budget.initiative.type": visible_initiative.type if visible_initiative else None,
+    }
 
 
 def _provider_lock_ids(budget, config, child_id):
@@ -467,12 +490,15 @@ async def _cost_relation_inputs(db, config, old_values, new_values, old_child, n
     return relation_config, values_before, values_after
 
 
-async def _cost_line_out(db: AsyncSession, user: User, cl: PpmCostLine) -> PpmCostLineOut:
+async def _cost_line_out(
+    db: AsyncSession, user: User, cl: PpmCostLine, initiative: Card
+) -> PpmCostLineOut:
     config = await load_section(db, "cost_item")
-    providers = await _provider_projection(db, user, config, [cl])
+    providers = await _provider_projection(db, user, config, [cl], initiative=initiative)
     provider = providers[cl.id]
     standard = {
         **_financial_standard(cl),
+        **provider["budget_context"],
         "provider.effective": provider["effective_provider_context"],
         "provider.budget": provider["budget_provider_context"],
     }
@@ -512,7 +538,7 @@ async def list_cost_lines(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
-    await _get_initiative_or_404(db, initiative_id, user)
+    card = await _get_initiative_or_404(db, initiative_id, user)
     result = await db.execute(
         select(PpmCostLine)
         .where(PpmCostLine.initiative_id == initiative_id)
@@ -520,7 +546,7 @@ async def list_cost_lines(
     )
     rows = list(result.scalars().all())
     config = await load_section(db, "cost_item")
-    providers = await _provider_projection(db, user, config, rows)
+    providers = await _provider_projection(db, user, config, rows, initiative=card)
     values = await ppm_field_values.project_many(
         db,
         user,
@@ -530,6 +556,7 @@ async def list_cost_lines(
                 row.field_values or {},
                 {
                     **_financial_standard(row),
+                    **providers[row.id]["budget_context"],
                     "provider.effective": providers[row.id]["effective_provider_context"],
                     "provider.budget": providers[row.id]["budget_provider_context"],
                 },
@@ -612,7 +639,7 @@ async def create_cost_line(
     for message in messages:
         event_bus.fanout(message)
     await db.refresh(cl)
-    return await _cost_line_out(db, user, cl)
+    return await _cost_line_out(db, user, cl, card)
 
 
 @router.patch("/costs/{cost_id}", response_model=PpmCostLineOut)
@@ -724,7 +751,7 @@ async def update_cost_line(
     for message in messages:
         event_bus.fanout(message)
     await db.refresh(cl)
-    return await _cost_line_out(db, user, cl)
+    return await _cost_line_out(db, user, cl, card)
 
 
 @router.delete("/costs/{cost_id}", status_code=204)
@@ -1064,6 +1091,7 @@ async def get_financials(
         source_rows["cost_item"],
         budget_projection=budget_providers,
     )
+    budget_map = {(budget.initiative_id, budget.id): budget for budget in source_rows["budget"]}
     for section, key in sections:
         if section == "invoice" and not result["invoice_access"]:
             continue
@@ -1086,6 +1114,11 @@ async def get_financials(
                 provider = providers[source.id]
                 standard.update(
                     {
+                        **_budget_standard(
+                            budget_map.get((source.initiative_id, source.budget_line_id)),
+                            card,
+                            provider["budget_provider_context"],
+                        ),
                         "provider.effective": provider["effective_provider_context"],
                         "provider.budget": provider["budget_provider_context"],
                     }

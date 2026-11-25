@@ -6,6 +6,8 @@ import CardContent from "@mui/material/CardContent";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Badge from "@mui/material/Badge";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import { missingRequiredFields } from "@/features/cards/sections/cardDetailUtils";
@@ -157,7 +159,11 @@ export default function CardDetailContent({
   const { user } = useAuthContext();
   const { can } = usePermissions(user);
   const [scheduleRevision, setScheduleRevision] = useState(0);
+  const [manageTab, setManageTab] = useState<{ cardId: string; tab: "cost" | "gantt" | "reports" } | null>(null);
   const showInitiativeSummaries = !boScoped && card.type === "Initiative" && ppmEnabled && can("ppm.view");
+  const canShowManage = !!manageTab && manageTab.cardId === card.id && showInitiativeSummaries
+    && (manageTab.tab === "cost" ? perms.can_view_costs : can("ppm.manage"));
+  if (manageTab && !canShowManage) setManageTab(null);
 
   // Card-scoped Risks / Compliance counts. `null` = still loading → render the
   // tab optimistically so we don't flash it on for cards that DO have items.
@@ -602,13 +608,31 @@ export default function CardDetailContent({
           <AttributeSection
             section={summaryAnchors ? initiativeSummaryGroups(section, t("ppm:summaryCost"), t("ppm:summaryTimeline")) : section}
             card={card}
+            renderGroupAction={summaryAnchors ? (keys) => (
+              <>
+                {perms.can_view_costs && summaryAnchors.financial && keys.includes(summaryAnchors.financial) && (
+                  <Button size="small" aria-label={t("ppm:manageSection", { section: t("ppm:budgetAndCosts") })} onClick={() => setManageTab({ cardId: card.id, tab: "cost" })}>
+                    {t("ppm:manage")}
+                  </Button>
+                )}
+                {can("ppm.manage") && summaryAnchors.schedule && keys.includes(summaryAnchors.schedule) && (
+                  <Button size="small" aria-label={t("ppm:manageSection", { section: t("ppm:summaryTimeline") })} onClick={() => setManageTab({ cardId: card.id, tab: "gantt" })}>
+                    {t("ppm:manage")}
+                  </Button>
+                )}
+              </>
+            ) : undefined}
             renderAfterFields={summaryAnchors ? (keys) => (
               <>
                 {perms.can_view_costs && summaryAnchors.financial && keys.includes(summaryAnchors.financial) && (
-                  <InitiativeFinancialSummary key={card.id} initiativeId={card.id} />
+                  <Box key="financial-summary">
+                    <InitiativeFinancialSummary initiativeId={card.id} revision={scheduleRevision} />
+                  </Box>
                 )}
                 {summaryAnchors.schedule && keys.includes(summaryAnchors.schedule) && (
-                  <InitiativeTimelineSummary key={card.id} card={card} revision={scheduleRevision} />
+                  <Box key="schedule-summary">
+                    <InitiativeTimelineSummary card={card} revision={scheduleRevision} onManage={can("ppm.manage") ? () => setManageTab({ cardId: card.id, tab: "reports" }) : undefined} />
+                  </Box>
                 )}
               </>
             ) : undefined}
@@ -905,6 +929,23 @@ export default function CardDetailContent({
           </ExtensionBoundary>
         ) : null,
       )}
+      {canShowManage && manageTab && (
+        <Suspense fallback={null}>
+          <PpmManageDialog
+            card={card}
+            tab={manageTab.tab}
+            onChanged={() => {
+              setScheduleRevision((revision) => revision + 1);
+              void refreshCard(customSectionAnchor("Cost & Timeline")).catch(() => {});
+            }}
+            onClose={() => {
+              setManageTab(null);
+              setScheduleRevision((revision) => revision + 1);
+              void refreshCard(customSectionAnchor("Cost & Timeline")).catch(() => {});
+            }}
+          />
+        </Suspense>
+      )}
     </>
   );
 }
@@ -913,12 +954,31 @@ export default function CardDetailContent({
 const PpmInitiativeFinancials = lazy(() => import("@/features/ppm/PpmInitiativeFinancials"));
 const PpmInitiativeTimeline = lazy(() => import("@/features/ppm/PpmInitiativeTimeline"));
 
-function InitiativeFinancialSummary({ initiativeId }: { initiativeId: string }) {
-  const { data } = usePpmFinancials(initiativeId);
+const PpmHealthSummary = lazy(() => import("@/features/ppm/PpmHealthSummary"));
+const PpmManageDialog = lazy(() => import("@/features/ppm/PpmManageDialog"));
+
+function InitiativeFinancialSummary({ initiativeId, revision }: { initiativeId: string; revision: number }) {
+  const { data } = usePpmFinancials(initiativeId, revision);
   return data ? <Suspense fallback={null}><PpmInitiativeFinancials data={data} /></Suspense> : null;
 }
 
-function InitiativeTimelineSummary({ card, revision }: { card: Card; revision: number }) {
+function InitiativeTimelineSummary({ card, revision, onManage }: { card: Card; revision: number; onManage?: () => void }) {
+  const { t: tPpm } = useTranslation("ppm");
   const { data } = usePpmSchedule(card.id, revision);
-  return data ? <Suspense fallback={null}><PpmInitiativeTimeline schedule={data} name={card.name} showDates={false} /></Suspense> : null;
+  if (!data) return null;
+  const report = data.schedule_health || data.scope_health || data.cost_health ? data : null;
+  return (
+    <Suspense fallback={null}>
+      <PpmInitiativeTimeline schedule={data} name={card.name} showDates={false} />
+      <Box sx={{ mt: 2 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ borderBottom: 1, borderColor: "divider", pb: 0.5, mb: 1 }}>
+          <Typography variant="subtitle2" fontWeight={600}>{tPpm("healthSummary")}</Typography>
+          {onManage && <Button size="small" aria-label={tPpm("manageSection", { section: tPpm("healthSummary") })} onClick={onManage}>
+            {tPpm("manage")}
+          </Button>}
+        </Box>
+        <PpmHealthSummary report={report} costHealth={data.cost_health} />
+      </Box>
+    </Suspense>
+  );
 }

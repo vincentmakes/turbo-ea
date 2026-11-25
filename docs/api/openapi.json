@@ -12766,7 +12766,7 @@
           "expression": {
             "anyOf": [
               {
-                "maxLength": 2000,
+                "maxLength": 5000,
                 "type": "string"
               },
               {
@@ -12778,12 +12778,29 @@
           "fallback": {
             "title": "Fallback"
           },
+          "formula_engine": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "core"
+            ],
+            "title": "Formula Engine",
+            "type": "string"
+          },
           "inputs": {
             "additionalProperties": {
               "type": "string"
             },
             "maxProperties": 30,
             "title": "Inputs",
+            "type": "object"
+          },
+          "provider_constants": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 30,
+            "title": "Provider Constants",
             "type": "object"
           },
           "result_type": {
@@ -14061,6 +14078,10 @@
             "title": "Reference Display",
             "type": "object"
           },
+          "remaining_budget": {
+            "title": "Remaining Budget",
+            "type": "string"
+          },
           "remaining_to_invoice": {
             "anyOf": [
               {
@@ -14094,7 +14115,8 @@
           "category",
           "description",
           "amount",
-          "total_cost_items"
+          "total_cost_items",
+          "remaining_budget"
         ],
         "title": "PpmFinancialBudgetOut",
         "type": "object"
@@ -14281,6 +14303,10 @@
             "title": "Fiscal Year",
             "type": "integer"
           },
+          "remaining_budget": {
+            "title": "Remaining Budget",
+            "type": "string"
+          },
           "remaining_to_invoice": {
             "anyOf": [
               {
@@ -14311,6 +14337,7 @@
         "required": [
           "amount",
           "total_cost_items",
+          "remaining_budget",
           "fiscal_year",
           "category"
         ],
@@ -14321,6 +14348,10 @@
         "properties": {
           "amount": {
             "title": "Amount",
+            "type": "string"
+          },
+          "remaining_budget": {
+            "title": "Remaining Budget",
             "type": "string"
           },
           "remaining_to_invoice": {
@@ -14352,7 +14383,8 @@
         },
         "required": [
           "amount",
-          "total_cost_items"
+          "total_cost_items",
+          "remaining_budget"
         ],
         "title": "PpmFinancialTotalsOut",
         "type": "object"

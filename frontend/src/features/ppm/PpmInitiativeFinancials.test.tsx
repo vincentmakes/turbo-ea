@@ -18,12 +18,13 @@ const data = {
 } as PpmFinancials;
 
 describe("PpmInitiativeFinancials", () => {
-  it("renders exact invoiced and accessible budget and actual values", () => {
+  it("shows the comparison without repeating summary totals", () => {
     render(<PpmInitiativeFinancials data={data} />);
+    expect(screen.getByRole("img", { name: /Financials.*Total.*11.*12.*CapEx.*3.*0.*OpEx.*8.*12/i })).toBeInTheDocument();
     expect(screen.getByText(/30[.,]11/)).toBeInTheDocument();
-    expect(screen.getByText(/92%/)).toBeInTheDocument();
-    expect(screen.getByText(/1[.,]?000/)).toBeInTheDocument();
-    expect(screen.getByText(/3[.,]?000/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Total:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^CapEx:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^OpEx:/)).not.toBeInTheDocument();
   });
 
   it("only renders an authorized comparison and omits invoice when unavailable", () => {
@@ -37,25 +38,4 @@ describe("PpmInitiativeFinancials", () => {
     expect(screen.queryByText(/30[.,]11/)).not.toBeInTheDocument();
   });
 
-  it("renders exact variance when the server serializes Decimal with an exponent", () => {
-    const comparison = data.card_comparison!;
-    render(
-      <PpmInitiativeFinancials
-        data={{
-          ...data,
-          card_comparison: {
-            budget: { ...comparison.budget, total: "2E-7" },
-            actual: { ...comparison.actual, total: "1E-7" },
-          },
-        }}
-      />,
-    );
-    expect(screen.getByText(/Total:.*50%/)).toHaveTextContent(/0[.,]0000001/);
-  });
-  it("shows negative variance and no ratio for zero budget", () => {
-    render(<PpmInitiativeFinancials data={data} />);
-    expect(screen.getByText(/CapEx:.*-.*3[.,]?000/)).toBeInTheDocument();
-    expect(screen.getByText(/Total:.*92%/)).toBeInTheDocument();
-    expect(screen.getByText(/CapEx:/)).not.toHaveTextContent("%");
-  });
 });
