@@ -49,6 +49,7 @@ import {
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { useNavbarStyle } from "@/hooks/useNavbarStyle";
 import NavbarStyleCard from "./NavbarStyleCard";
+import CustomLocalesSection from "./customLocales/CustomLocalesSection";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
@@ -1366,6 +1367,8 @@ function GeneralTab() {
           {savingLocales ? t("common:labels.loading") : t("common:actions.save")}
         </Button>
       </Paper>
+
+      <CustomLocalesSection />
 
       {/* File Uploads Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>

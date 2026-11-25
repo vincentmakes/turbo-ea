@@ -1,6 +1,7 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
+import { getCustomLocale } from "./customLocaleRegistry";
 
 // English namespace files
 import commonEn from "./locales/en/common.json";
@@ -197,9 +198,16 @@ export const LOCALE_LABELS: Record<SupportedLocale, string> = {
  */
 export const RTL_LOCALES: ReadonlySet<string> = new Set(["ar"]);
 
-/** Whether the given locale renders right-to-left. */
+/**
+ * Whether the given locale renders right-to-left. A custom (admin-added)
+ * language answers from its own `rtl` flag in the registry
+ * (`./customLocaleRegistry`); a built-in one from `RTL_LOCALES`.
+ */
 export function isRtlLocale(locale: string | undefined | null): boolean {
-  return locale ? RTL_LOCALES.has(locale.split("-")[0]) : false;
+  if (!locale) return false;
+  const custom = getCustomLocale(locale);
+  if (custom) return custom.rtl;
+  return RTL_LOCALES.has(locale.split("-")[0]);
 }
 
 /** Text direction (`"rtl"` | `"ltr"`) for the given locale. */

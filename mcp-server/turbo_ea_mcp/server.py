@@ -7738,7 +7738,7 @@ async def call_extension_write(
 # every submitted value per key (placeholders, tags, $t() references, URLs,
 # length) — that validator is the one gate, so the tools only check shape.
 
-_LOCALE_CODE_RE = re.compile(r"[a-z]{2,3}(-[A-Z]{2})?")
+_LOCALE_CODE_RE = re.compile(r"[a-z]{2,3}(-[A-Z][a-z]{3})?(-[A-Z]{2})?")
 _UNTRANSLATED_LIMIT_MAX = 500
 _TRANSLATIONS_NOT_REVERSIBLE = (
     "Translations are language data, not card changes, so rollback_batch cannot "
@@ -7753,8 +7753,8 @@ def _locale_problem(locale: object) -> dict | None:
     return {
         "error": "invalid_locale",
         "message": (
-            "locale must be a custom language code such as 'nl' or 'pt-BR' "
-            "(see list_custom_languages)."
+            "locale must be a custom language code such as 'nl', 'pt-BR' or "
+            "'zh-Hant' (see list_custom_languages)."
         ),
         "locale": locale,
     }
@@ -7771,8 +7771,11 @@ def _translation_instructions(language: str) -> str:
         "Keep the keys, the {{placeholders}}, any <tags> and $t(...) references "
         "exactly as they are, and add no markup or links of your own. Keep product "
         "terms (card, inventory, stakeholder, metamodel, relation, lifecycle) "
-        "consistent with the earlier translations. Leave out a string you cannot "
-        "translate rather than returning the English text."
+        'consistent with the earlier translations. The "metamodel" namespace holds '
+        "the names of card types, fields, options and relations: short labels, "
+        "translate them first and use the same words for them in every other "
+        "string. Leave out a string you cannot translate rather than returning "
+        "the English text."
     )
 
 
@@ -7817,9 +7820,15 @@ async def get_untranslated_strings(
     same ``{namespace: {key: text}}`` shape. ``remaining`` says how many more
     are waiting after this page; call again once they are submitted.
 
+    The ``metamodel`` namespace holds the names of card types, fields, options
+    and relations (keys such as ``type.Application.label``). They are short
+    labels the rest of the UI refers to: translate that namespace first, then
+    use the same words for them in the UI strings.
+
     Args:
         locale: The custom language code (from ``list_custom_languages``).
-        namespace: Only this UI area (e.g. "common", "admin"); empty = all.
+        namespace: Only this area (e.g. "metamodel", "common", "admin");
+            empty = all.
         limit: Strings per page, 1 to 500 (default 100).
         include_stale: Also return strings whose English text changed since
             they were translated (default True); False = missing ones only.
@@ -7907,7 +7916,10 @@ def _translation_count(translations: object) -> tuple[int, dict | None]:
 
 
 def _refused_keys(body: dict) -> set[tuple[object, object]]:
-    """``(namespace, key)`` of every row the backend rejected or did not know."""
+    """``(namespace, key)`` of every row the backend rejected or did not know.
+
+    The backend reports ``unknown`` as a count, which names no key; a list of
+    ``{namespace, key}`` rows is still honoured."""
     refused = set()
     for field in ("rejected", "unknown"):
         entries = body.get(field)
@@ -7934,7 +7946,7 @@ async def submit_translations(
     dry_run: bool = True,
     confirm_token: str = "",
 ) -> str:
-    """Save translated UI strings into a custom language.
+    """Save translated strings into a custom language.
 
     ``translations`` is ``{namespace: {key: translated text}}`` — the keys and
     namespaces ``get_untranslated_strings`` returned. Each string is checked
@@ -7942,6 +7954,8 @@ async def submit_translations(
     ``$t(...)`` reference of the English text, add no tag or link the English
     does not have and stay a sensible length. A rejected string is reported
     with its reason and never blocks the others; it stays untranslated.
+    ``metamodel`` keys (card-type, field, option and relation names) are
+    submitted the same way, as one more namespace.
 
     Requires ``admin.settings``. NOT reversible by ``rollback_batch``:
     translations are language data, not card changes — a wrong string is
@@ -7957,8 +7971,9 @@ async def submit_translations(
             (counted in strings), the token the dry run returned.
 
     Returns: JSON with ``would_apply`` / ``applied``, ``unchanged``,
-    ``rejected[]`` (``namespace``, ``key``, ``reason``), ``unknown``,
-    ``accepted`` (per namespace, the keys taken), ``dry_run`` and ``batch_id``.
+    ``rejected[]`` (``namespace``, ``key``, ``reason``), ``unknown`` (the
+    number of keys the backend did not recognise), ``accepted`` (per
+    namespace, the keys taken), ``dry_run`` and ``batch_id``.
     """
     token = await _get_current_token()
     if not token:

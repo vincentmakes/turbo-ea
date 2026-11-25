@@ -254,16 +254,21 @@ export default function App() {
   // Track the active language reactively so direction (and the emotion cache)
   // updates whenever the locale changes — covers initial load, login
   // (useAuth) and the in-app language picker (AppLayout).
+  // The direction is its own state, read on every language event: a custom
+  // language's right-to-left flag can change while it stays the active
+  // language (the admin edits it, `refreshCustomLocale` re-emits the event).
   const [language, setLanguage] = useState(i18n.language);
+  const [dir, setDir] = useState(() => dirForLocale(i18n.language));
   useEffect(() => {
-    const onChange = (lng: string) => setLanguage(lng);
+    const onChange = (lng: string) => {
+      setLanguage(lng);
+      setDir(dirForLocale(lng));
+    };
     i18n.on("languageChanged", onChange);
     return () => {
       i18n.off("languageChanged", onChange);
     };
   }, []);
-
-  const dir = dirForLocale(language);
 
   // Keep the document direction/lang in sync for native RTL behaviour
   // (scrollbars, text alignment, screen readers).

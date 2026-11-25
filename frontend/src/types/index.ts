@@ -3607,3 +3607,123 @@ export type PublicDiagramLegend =
       }>;
       types: CardType[];
     };
+
+// ---------------------------------------------------------------------------
+// Custom languages (admin-added UI languages, `/custom-locales`)
+// ---------------------------------------------------------------------------
+
+/** An enabled custom language as `/settings/bootstrap` lists it. */
+export interface CustomLocaleInfo {
+  code: string;
+  /** Native name shown in the language pickers ("Nederlands"). */
+  name: string;
+  rtl: boolean;
+  /** Hash of the served bundle; a change means the strings changed. */
+  hash: string;
+}
+
+export type CustomLocaleJobStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "interrupted";
+
+export type CustomLocaleTranslateMode = "missing" | "all";
+
+/** The AI translation job of one custom language. */
+export interface CustomLocaleJob {
+  status: CustomLocaleJobStatus;
+  mode: CustomLocaleTranslateMode;
+  total: number;
+  done: number;
+  failed: number;
+  started_at?: string | null;
+  finished_at?: string | null;
+  error?: string | null;
+}
+
+export interface CustomLocaleStats {
+  total: number;
+  translated: number;
+  missing: number;
+  stale: number;
+}
+
+/** One row of `GET /custom-locales`. */
+export interface CustomLocale {
+  code: string;
+  name: string;
+  /** Language name used in AI prompts ("Dutch"). */
+  english_name: string;
+  rtl: boolean;
+  enabled: boolean;
+  updated_at?: string | null;
+  stats: CustomLocaleStats;
+  job: CustomLocaleJob | null;
+}
+
+export interface CustomLocaleNamespaceStats extends CustomLocaleStats {
+  namespace: string;
+}
+
+/** `GET /custom-locales/{code}`. */
+export interface CustomLocaleDetail extends CustomLocale {
+  namespaces: CustomLocaleNamespaceStats[];
+}
+
+export type CustomLocaleStringStatus = "missing" | "stale" | "translated";
+
+/** One row of `GET /custom-locales/{code}/strings`. */
+export interface CustomLocaleString {
+  namespace: string;
+  key: string;
+  /** The current English text. */
+  source: string;
+  value: string | null;
+  status: CustomLocaleStringStatus;
+  origin: string | null;
+}
+
+export interface CustomLocaleStringsPage {
+  total: number;
+  items: CustomLocaleString[];
+}
+
+/** `GET /custom-locales/{code}/bundle`: i18next resources per namespace. */
+export interface CustomLocaleBundle {
+  code: string;
+  name: string;
+  rtl: boolean;
+  hash: string;
+  resources: Record<string, Record<string, unknown>>;
+}
+
+export type LanguagePackMode = "missing" | "all" | "current";
+
+/** The `turbo-ea-language-pack` file (export and import). */
+export interface LanguagePack {
+  format: "turbo-ea-language-pack";
+  format_version: number;
+  app_version?: string;
+  locale: { code: string; name?: string; english_name?: string; rtl?: boolean };
+  mode?: LanguagePackMode;
+  instructions?: string;
+  strings: Record<string, Record<string, unknown>>;
+  source_hashes?: Record<string, Record<string, string>>;
+}
+
+export interface CustomLocaleRejectedString {
+  namespace: string;
+  key: string;
+  reason: string;
+}
+
+/** `POST /custom-locales/{code}/strings`. */
+export interface CustomLocaleWriteResult {
+  applied: number;
+  unchanged: number;
+  cleared: number;
+  rejected: CustomLocaleRejectedString[];
+  unknown: number;
+}

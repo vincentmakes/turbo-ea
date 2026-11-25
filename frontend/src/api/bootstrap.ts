@@ -36,12 +36,14 @@ import { invalidateFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { invalidateLifecyclePhaseHelp } from "@/hooks/useLifecyclePhaseHelp";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
+import { invalidateCustomLocales, sanitizeCustomLocales } from "@/hooks/useCustomLocales";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { invalidateNavbarStyle } from "@/hooks/useNavbarStyle";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n";
 import type {
   CardTypeCategory,
   ComplianceRegulation,
+  CustomLocaleInfo,
   LifecyclePhaseHelp,
   ResourceType,
 } from "@/types";
@@ -60,6 +62,8 @@ type BootstrapResponse = {
   gamification_enabled: boolean;
   file_uploads_enabled: boolean;
   enabled_locales: string[];
+  /** The enabled custom (admin-added) languages. */
+  custom_locales?: CustomLocaleInfo[];
   fiscal_year_start: number;
   /** Absent on a backend older than editable lifecycle phase help. */
   lifecycle_phase_help?: LifecyclePhaseHelp;
@@ -151,6 +155,9 @@ export function primeBootstrap(): Promise<void> {
         validLocales.length > 0 ? validLocales : [...SUPPORTED_LOCALES],
       );
 
+      // Also registers each language's name and direction for the pickers.
+      invalidateCustomLocales(sanitizeCustomLocales(r.custom_locales));
+
       invalidateComplianceRegulations(
         Array.isArray(r.compliance_regulations) ? r.compliance_regulations : [],
       );
@@ -182,6 +189,19 @@ export function primeBootstrap(): Promise<void> {
     }
   })();
   return _inflight;
+}
+
+/**
+ * Read `/settings/bootstrap` again and re-prime every cache, after a change
+ * made outside the per-setting admin pages moved values it carries (a
+ * custom-language import or AI run writes category, regulation, resource-type
+ * and lifecycle-help translations). Waits for a read already in flight first,
+ * so the fresh one cannot be answered by data from before the change.
+ */
+export async function refreshBootstrap(): Promise<void> {
+  if (_inflight) await _inflight;
+  _primed = false;
+  return primeBootstrap();
 }
 
 /** Reset for tests + after logout so the next session re-primes. */

@@ -293,6 +293,11 @@ class Settings:
     AI_SEARCH_URL: str = os.getenv("AI_SEARCH_URL", "")
     AI_AUTO_CONFIGURE: bool = os.getenv("AI_AUTO_CONFIGURE", "").lower() in ("1", "true", "yes")
 
+    # Custom languages: where the English UI strings are read from. Empty means
+    # the image's /app/i18n/en, else the frontend sources in a checkout
+    # (services/language_pack.py).
+    I18N_EN_DIR: str = os.getenv("I18N_EN_DIR", "")
+
     @property
     def database_url(self) -> str:
         # Percent-encode the credentials: managed-database consoles generate

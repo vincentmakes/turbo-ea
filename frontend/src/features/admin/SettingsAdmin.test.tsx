@@ -108,6 +108,10 @@ vi.mock("./TurboLensAdmin", () => ({ default: () => <div data-testid="tab-turbol
 vi.mock("./MigrationHub", () => ({ default: () => <div data-testid="tab-migration" /> }));
 vi.mock("./AuditLogAdmin", () => ({ default: () => <div data-testid="tab-audit-log" /> }));
 vi.mock("./ResourcesAdmin", () => ({ default: () => <div data-testid="tab-resources" /> }));
+// The custom-languages section has its own tests; here it is a marker.
+vi.mock("./customLocales/CustomLocalesSection", () => ({
+  default: () => <div data-testid="custom-locales-section" />,
+}));
 vi.mock("./NavbarStyleCard", () => ({
   default: ({ onSaved }: { onSaved: (m: string) => void }) => (
     <button type="button" data-testid="navbar-style-card" onClick={() => onSaved("navbar saved")} />
@@ -278,6 +282,11 @@ describe("SettingsAdmin — initial load", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByTestId("navbar-style-card")).toBeInTheDocument();
+    // The custom-languages section sits right after the enabled-languages paper.
+    const languages = screen
+      .getByRole("heading", { name: t("settings.locales.title") })
+      .closest(".MuiPaper-root");
+    expect(languages?.nextElementSibling).toBe(screen.getByTestId("custom-locales-section"));
   });
 
   it("shows a spinner until the reads land", () => {
