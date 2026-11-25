@@ -186,11 +186,13 @@ def build_views(
     out: dict[str, View] = {}
     if snap is not None and (wanted is None or METAMODEL in wanted):
         out[METAMODEL] = metamodel_view(snap, code, rows)
-    for name in cat.names if cat is not None else []:
+    if cat is None:
+        return out
+    for name, ns in cat.namespaces.items():
         if wanted is not None and name not in wanted:
             continue
         strings, meta = _stored(rows, name)
-        out[name] = View(ns=cat.namespaces[name], strings=strings, meta=meta)
+        out[name] = View(ns=ns, strings=strings, meta=meta)
     return out
 
 

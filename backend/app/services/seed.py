@@ -6309,7 +6309,7 @@ _APP_ROLES: list[dict[str, Any]] = _DEFAULT_ROLES + [
 # Built-in compliance regulations and resource types. Module-level so the
 # custom-language share filter (``metamodel_strings.seed_english``) can read
 # their keys and labels; ``seed_metamodel`` inserts them insert-only.
-BUILTIN_REGULATIONS = [
+BUILTIN_REGULATIONS: list[dict[str, Any]] = [
     {
         "key": "eu_ai_act",
         "label": "EU AI Act (Regulation (EU) 2024/1689)",
@@ -6386,7 +6386,7 @@ BUILTIN_REGULATIONS = [
     },
 ]
 
-BUILTIN_RESOURCE_TYPES = [
+BUILTIN_RESOURCE_TYPES: list[dict[str, Any]] = [
     # Link types — `icon` is a Material Symbol name.
     {
         "kind": "link_type",

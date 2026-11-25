@@ -222,7 +222,9 @@ class Namespace:
         ``_two`` …) of a key this namespace knows: such a form may name no
         number, so it may drop ``{{count}}``."""
         match = _PLURAL_KEY.fullmatch(key)
-        return bool(match) and match.group("cat") != "other" and self.source_key(key) is not None
+        if match is None:
+            return False
+        return match.group("cat") != "other" and self.source_key(key) is not None
 
     def source_text(self, key: str) -> str | None:
         source = self.source_key(key)

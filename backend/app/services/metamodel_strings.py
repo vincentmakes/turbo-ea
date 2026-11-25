@@ -198,7 +198,8 @@ def card_type_slots(rec: Mapping[str, Any]) -> list[Slot]:
                     (si, "translations"),
                 )
             )
-        fields = section.get("fields") if isinstance(section.get("fields"), list) else []
+        raw_fields = section.get("fields")
+        fields: list[Any] = raw_fields if isinstance(raw_fields, list) else []
         # A group is addressed by its raw name: the card page looks up
         # ``groupTranslations[field.group]`` exactly as stored.
         groups: list[str] = []
@@ -616,11 +617,12 @@ def seed_english() -> dict[str, str]:
         for slot in slots:
             out.setdefault(slot.key, slot.english)
 
-    types = copy.deepcopy(seed.TYPES)
+    types: list[dict[str, Any]] = copy.deepcopy(seed.TYPES)
     for t in types:
         seed._inject_hierarchy_level_into_type(t)
         seed._inject_english_translations_type(t)
         add(card_type_slots(t))
+        roles: list[dict[str, Any]]
         if "stakeholder_roles" in t:
             roles = t["stakeholder_roles"]
         elif t["key"] == "Application":

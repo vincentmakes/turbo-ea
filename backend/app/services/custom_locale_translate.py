@@ -176,7 +176,7 @@ async def _update_job(code: str, **changes: Any) -> bool:
 def type_name_pairs(view: store.View, limit: int = lp.MAX_REFERENCE_PAIRS) -> list[tuple[str, str]]:
     """``(English, translation)`` of the translated card-type names — the
     terminology every UI string about a card type should reuse."""
-    pairs = []
+    pairs: list[tuple[str, str]] = []
     for key, english in view.ns.strings.items():
         if len(pairs) >= limit:
             break
