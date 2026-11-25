@@ -209,7 +209,7 @@ services:
     # still dropped, no host port is published and only the backend talks
     # to it. OLLAMA_MODELS keeps the volume path the patched image used, so
     # models pulled before 2.155.0 stay in place.
-    image: ollama/ollama:0.40.16
+    image: ollama/ollama:0.40.17
     profiles:
       - ai
     restart: unless-stopped
