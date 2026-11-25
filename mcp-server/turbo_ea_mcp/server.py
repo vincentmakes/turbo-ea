@@ -7739,6 +7739,8 @@ async def call_extension_write(
 # length) — that validator is the one gate, so the tools only check shape.
 
 _LOCALE_CODE_RE = re.compile(r"[a-z]{2,3}(-[A-Z][a-z]{3})?(-[A-Z]{2})?")
+# The pattern allows 11 characters (``abc-Abcd-AB``); the column holds 10.
+_LOCALE_CODE_MAX = 10
 _UNTRANSLATED_LIMIT_MAX = 500
 _TRANSLATIONS_NOT_REVERSIBLE = (
     "Translations are language data, not card changes, so rollback_batch cannot "
@@ -7748,13 +7750,17 @@ _TRANSLATIONS_NOT_REVERSIBLE = (
 
 def _locale_problem(locale: object) -> dict | None:
     """Refuse a language code the backend could never hold, before any call."""
-    if isinstance(locale, str) and _LOCALE_CODE_RE.fullmatch(locale):
+    if (
+        isinstance(locale, str)
+        and len(locale) <= _LOCALE_CODE_MAX
+        and _LOCALE_CODE_RE.fullmatch(locale)
+    ):
         return None
     return {
         "error": "invalid_locale",
         "message": (
             "locale must be a custom language code such as 'nl', 'pt-BR' or "
-            "'zh-Hant' (see list_custom_languages)."
+            "'zh-Hant', at most 10 characters (see list_custom_languages)."
         ),
         "locale": locale,
     }
@@ -7812,13 +7818,20 @@ async def get_untranslated_strings(
     namespace: str = "",
     limit: int = 100,
     include_stale: bool = True,
+    offset: int = 0,
 ) -> str:
     """Get English UI strings a custom language still needs, to translate them.
 
     Translate each value of ``strings`` into ``language`` following
     ``instructions``, then send them back with ``submit_translations`` in the
-    same ``{namespace: {key: text}}`` shape. ``remaining`` says how many more
-    are waiting after this page; call again once they are submitted.
+    same ``{namespace: {key: text}}`` shape, passing ``source_hashes`` back
+    as well. ``remaining`` says how many more are waiting after this page.
+
+    Paging: a string that is accepted leaves this list, so after submitting
+    call again with ``offset=0``. ``offset`` is the number of strings you are
+    skipping — the ones you left out or that were rejected — not a page
+    number; ``next_offset`` (present while more remain) is this call's
+    ``offset`` plus the strings returned, for when you submitted none of them.
 
     The ``metamodel`` namespace holds the names of card types, fields, options
     and relations (keys such as ``type.Application.label``). They are short
@@ -7832,10 +7845,13 @@ async def get_untranslated_strings(
         limit: Strings per page, 1 to 500 (default 100).
         include_stale: Also return strings whose English text changed since
             they were translated (default True); False = missing ones only.
+        offset: Strings to skip from the start of the list (default 0).
 
     Returns: JSON with ``locale``, ``language`` (English name), ``native_name``,
-    ``rtl``, ``instructions``, ``strings``, ``returned``, ``remaining`` and,
-    for stale strings, the old wording under ``previous_translations``.
+    ``rtl``, ``instructions``, ``strings``, ``source_hashes`` (the English
+    each string was taken from, to pass to ``submit_translations``),
+    ``returned``, ``remaining``, ``next_offset`` while more remain and, for
+    stale strings, the old wording under ``previous_translations``.
     Requires ``admin.settings``.
     """
     token = await _get_current_token()
@@ -7843,11 +7859,13 @@ async def get_untranslated_strings(
         return "Error: Not authenticated. Please reconnect."
     if (problem := _locale_problem(locale)) is not None:
         return _fmt(problem)
+    offset = max(offset, 0)
     params = _compact(
         {
             "status": "untranslated" if include_stale else "missing",
             "namespace": namespace,
             "limit": max(1, min(limit, _UNTRANSLATED_LIMIT_MAX)),
+            "offset": offset,
         }
     )
     client = TurboEAClient(token)
@@ -7860,10 +7878,13 @@ async def get_untranslated_strings(
     body = page if isinstance(page, dict) else {}
     items = [item for item in body.get("items") or [] if isinstance(item, dict)]
     strings: dict[str, dict] = {}
+    hashes: dict[str, dict] = {}
     previous: dict[str, dict] = {}
     for item in items:
         namespace_key, key = item.get("namespace"), item.get("key")
         strings.setdefault(namespace_key, {})[key] = item.get("source")
+        if isinstance(item.get("source_hash"), str):
+            hashes.setdefault(namespace_key, {})[key] = item["source_hash"]
         if item.get("status") == "stale" and item.get("value"):
             previous.setdefault(namespace_key, {})[key] = item["value"]
     total = body.get("total")
@@ -7877,9 +7898,12 @@ async def get_untranslated_strings(
         "rtl": info.get("rtl") is True,
         "instructions": _translation_instructions(language),
         "strings": strings,
+        "source_hashes": hashes,
         "returned": len(items),
-        "remaining": max(total - len(items), 0),
+        "remaining": max(total - offset - len(items), 0),
     }
+    if out["remaining"] > 0:
+        out["next_offset"] = offset + len(items)
     if previous:
         out["previous_translations"] = previous
     return _fmt(out)
@@ -7918,10 +7942,10 @@ def _translation_count(translations: object) -> tuple[int, dict | None]:
 def _refused_keys(body: dict) -> set[tuple[object, object]]:
     """``(namespace, key)`` of every row the backend rejected or did not know.
 
-    The backend reports ``unknown`` as a count, which names no key; a list of
-    ``{namespace, key}`` rows is still honoured."""
+    The backend names unknown keys in ``unknown_keys`` (at most 200; the
+    ``unknown`` count stays exact); an older ``unknown`` list is honoured."""
     refused = set()
-    for field in ("rejected", "unknown"):
+    for field in ("rejected", "unknown_keys", "unknown"):
         entries = body.get(field)
         for entry in entries if isinstance(entries, list) else []:
             if isinstance(entry, dict):
@@ -7943,6 +7967,7 @@ def _accepted_keys(translations: dict, body: dict) -> dict[str, list[str]]:
 async def submit_translations(
     locale: str,
     translations: dict,
+    source_hashes: dict | None = None,
     dry_run: bool = True,
     confirm_token: str = "",
 ) -> str:
@@ -7965,6 +7990,10 @@ async def submit_translations(
     Args:
         locale: The custom language code (from ``list_custom_languages``).
         translations: The strings, at most ``MCP_MAX_TRANSLATIONS_PER_CALL``.
+        source_hashes: The ``source_hashes`` ``get_untranslated_strings``
+            returned, ``{namespace: {key: hash}}``. Pass them: a ``metamodel``
+            name renamed since you read it is then skipped as
+            ``source_changed`` instead of landing on the new name.
         dry_run: When True (default), the backend validates every string and
             stores nothing, so the preview's report is what a commit would do.
         confirm_token: For commits above the per-call confirmation threshold
@@ -7972,7 +8001,8 @@ async def submit_translations(
 
     Returns: JSON with ``would_apply`` / ``applied``, ``unchanged``,
     ``rejected[]`` (``namespace``, ``key``, ``reason``), ``unknown`` (the
-    number of keys the backend did not recognise), ``accepted`` (per
+    number of keys the backend did not recognise), ``unknown_keys`` (the
+    first 200 of them, ``namespace`` and ``key``), ``accepted`` (per
     namespace, the keys taken), ``dry_run`` and ``batch_id``.
     """
     token = await _get_current_token()
@@ -8012,7 +8042,9 @@ async def submit_translations(
         try:
             data = await batch.client().post(
                 _locale_path(locale, f"/strings?dry_run={_bool_param(dry_run)}"),
-                json={"strings": translations, "origin": "mcp"},
+                json=_compact(
+                    {"strings": translations, "source_hashes": source_hashes, "origin": "mcp"}
+                ),
             )
         except httpx.HTTPStatusError as exc:
             batch.summary = {"rows": rows, "status": "refused"}
@@ -8034,6 +8066,7 @@ async def submit_translations(
                 "unchanged": body.get("unchanged", 0),
                 "rejected": rejected,
                 "unknown": body.get("unknown"),
+                "unknown_keys": body.get("unknown_keys") or [],
                 "accepted": _accepted_keys(translations, body),
                 "reversible": False,
                 "note": _TRANSLATIONS_NOT_REVERSIBLE,
