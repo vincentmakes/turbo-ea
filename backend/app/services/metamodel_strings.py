@@ -514,8 +514,11 @@ def _write_slot(obj: Any, slot: Slot, code: str, value: str | None) -> bool:
     if data is None:
         data = {}
     node: Any = data
-    for part in slot.path:
-        if isinstance(part, int):
+    for depth, part in enumerate(slot.path):
+        leads_to_index = depth + 1 < len(slot.path) and isinstance(slot.path[depth + 1], int)
+        if isinstance(part, int) or leads_to_index:
+            # A list element, or the list holding it (a section's ``fields``,
+            # a field's ``options``): it exists, the slot was built from it.
             node = node[part]
             continue
         child = node.get(part)

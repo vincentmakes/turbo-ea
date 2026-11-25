@@ -173,6 +173,47 @@ class TestSlots:
         )
 
 
+class TestWriteSlot:
+    """``_write_slot`` on unsaved records: every slot kind, including the ones
+    whose path runs through a list (a section's ``fields``, a field's
+    ``options``), is written and cleared again without touching anything else."""
+
+    def test_every_card_type_slot_round_trips(self):
+        record = widget_record()
+        ct = CardType(**{k: copy.deepcopy(v) for k, v in record.items()})
+        before = copy.deepcopy(mm.record_view(ct))
+        slots = mm.card_type_slots(mm.record_view(ct))
+        assert len(slots) == 11
+        for slot in slots:
+            assert mm._write_slot(ct, slot, "nl", f"nl:{slot.key}") is True
+        for slot in slots:
+            assert mm.locale_map(ct, slot)["nl"] == f"nl:{slot.key}"
+        assert mm._write_slot(ct, slots[0], "nl", f"nl:{slots[0].key}") is False
+        for slot in slots:
+            assert mm._write_slot(ct, slot, "nl", None) is True
+        assert mm.record_view(ct) == before
+
+    def test_relation_attribute_options_round_trip(self):
+        rt = RelationType(
+            key="r",
+            label="uses",
+            reverse_label=None,
+            translations={},
+            attributes_schema=[{"key": "a", "label": "A", "options": [{"key": "x", "label": "X"}]}],
+        )
+        for slot in mm.relation_slots(mm.record_view(rt)):
+            mm._write_slot(rt, slot, "nl", "v")
+        assert rt.attributes_schema == [
+            {
+                "key": "a",
+                "label": "A",
+                "translations": {"nl": "v"},
+                "options": [{"key": "x", "label": "X", "translations": {"nl": "v"}}],
+            }
+        ]
+        assert rt.translations == {"label": {"nl": "v"}}
+
+
 class TestLifecycle:
     def test_defaults_give_every_phase(self):
         english = mm.lifecycle_english({})
