@@ -300,10 +300,15 @@ async def _run(
         # decisions exist before the entity pass, so only the ones it creates
         # are given their links and dates afterwards.
         adr_ids_before = await _legacy_adr_baseline(db, bundle) if _wanted(SHEET_ADRS) else None
+        # Rows matched by natural key (and refused rows), by sheet, for the
+        # sections below them.
+        matched: dict[str, dict] = {}
         for ent in wanted_entity_sections:
             sr = SectionResult(sheet=ent.sheet)
             result.sections.append(sr)
-            await apply_entity_section(db, ent, bundle, sr, ent_resolver, email_to_id, remap_ctx)
+            await apply_entity_section(
+                db, ent, bundle, sr, ent_resolver, email_to_id, remap_ctx, matched
+            )
         if adr_ids_before is not None:
             await _apply_legacy_decisions(db, bundle, result, adr_ids_before)
 

@@ -9,8 +9,10 @@ and updates the progress``.
 Chunks carry numeric ids, never keys, and every value the model returns goes
 through ``language_pack.validate_value`` like any other untrusted value; a
 rejected or missing id counts as ``failed`` and stays untranslated (the next
-"missing" run retries it). A chunk whose call raises is retried once; three
-failed chunks in a row end the job ``failed``. A cancelled job ends
+"missing" run retries it). A call that raises is retried once after a short
+delay; an answer that is empty or misses most ids is retried as two halves,
+down to single strings; three chunks in a row whose calls failed end the job
+``failed`` with the provider's reason. A cancelled job ends
 ``cancelled``; a job still ``running`` at startup is marked ``interrupted``
 (``custom_locale_store.mark_interrupted_jobs``).
 """
@@ -181,7 +183,7 @@ def type_name_pairs(view: store.View, limit: int = lp.MAX_REFERENCE_PAIRS) -> li
         parts = mm.split_key(key)
         if len(parts) == 3 and parts[0] == "type" and parts[2] == "label":
             value = view.strings.get(key)
-            if isinstance(value, str) and value:
+            if isinstance(value, str) and value and len(value) <= lp.REFERENCE_MAX_CHARS:
                 pairs.append((english, value))
     return pairs
 
@@ -205,11 +207,16 @@ async def _references(code: str, namespace: str, exclude: list[str]) -> list[tup
 
 
 async def _merge(code: str, chunk: list[WorkItem], translations, expected) -> bool:
-    """Merge one chunk's translations (origin ``ai``) in a short session."""
+    """Merge one chunk's translations (origin ``ai``) in a short session.
+
+    Each key carries the hash of the English the job translated, so a label
+    renamed while the job ran is refused as ``source_changed`` rather than
+    given a translation of its old name."""
     cat = store.catalog()
     if cat is None or not translations:
         return True
     namespace = chunk[0].namespace
+    hashes = {item.key: lp.source_hash(item.english) for item in chunk if item.key in translations}
     async with _session() as db:
         locale = await store.get_locale(db, code)
         if locale is None:
@@ -220,6 +227,7 @@ async def _merge(code: str, chunk: list[WorkItem], translations, expected) -> bo
             cat,
             {namespace: translations},
             origin="ai",
+            source_hashes={namespace: hashes},
             expected={namespace: expected},
         )
         await db.commit()
@@ -237,6 +245,79 @@ async def _call(ai_cfg: Mapping[str, Any], messages: list[dict[str, str]]) -> An
     )
 
 
+#: Seconds before a failed call is retried (a 429 burst needs a moment).
+RETRY_DELAY = 2.0
+
+
+class ProviderFailedError(Exception):
+    """Both attempts of one call raised; ``cause`` is the last error."""
+
+    def __init__(self, cause: Exception):
+        super().__init__(str(cause))
+        self.cause = cause
+
+
+def failure_detail(exc: Exception) -> str:
+    """A readable reason for the job's ``error``: the provider's own answer
+    where it gave one (``ai_suggest.provider_failure_detail``, which never
+    echoes a key), otherwise the kind of error."""
+    import httpx
+
+    from app.api.v1.ai_suggest import provider_failure_detail
+
+    if isinstance(exc, httpx.HTTPError):
+        return provider_failure_detail(exc)
+    return f"Unexpected error ({type(exc).__name__})."
+
+
+async def _ask(ai_cfg: Mapping[str, Any], messages: list[dict[str, str]]) -> Any:
+    """One call, retried once after :data:`RETRY_DELAY`; :class:`ProviderFailedError`
+    when both raise."""
+    last: Exception | None = None
+    for attempt in range(ATTEMPTS_PER_CHUNK):
+        if attempt:
+            await asyncio.sleep(RETRY_DELAY)
+        try:
+            return await _call(ai_cfg, messages)
+        except Exception as exc:  # a provider error of any kind
+            last = exc
+            logger.warning("Translation call failed: %s", exc)
+    raise ProviderFailedError(last)  # type: ignore[arg-type]
+
+
+def answer_is_unusable(chunk: list[WorkItem], answer: Any) -> bool:
+    """An answer that is empty or misses most ids — unparsable or cut off at
+    the provider's output limit — rather than a few refused strings."""
+    ids = [str(i) for i in range(1, len(chunk) + 1)]
+    answers = lp.answer_map(answer, ids)
+    present = sum(1 for i in ids if isinstance(answers.get(i), str))
+    return present * 2 < len(chunk) or not answers
+
+
+async def translate_chunk(
+    language: str,
+    chunk: list[WorkItem],
+    references: list[tuple[str, str]],
+    ai_cfg: Mapping[str, Any],
+) -> tuple[dict[str, str], dict[str, str | None], int]:
+    """``(translations, expected, failed)`` for one chunk. An unusable answer
+    (:func:`answer_is_unusable`) is retried as two halves, down to single
+    strings, so one long or odd string cannot fail its neighbours.
+    :class:`ProviderFailedError` propagates."""
+    sources = {str(i): item.english for i, item in enumerate(chunk, start=1)}
+    answer = await _ask(ai_cfg, lp.translation_messages(language, sources, references))
+    if len(chunk) > 1 and answer_is_unusable(chunk, answer):
+        half = len(chunk) // 2
+        first = await translate_chunk(language, chunk[:half], references, ai_cfg)
+        second = await translate_chunk(language, chunk[half:], references, ai_cfg)
+        return (
+            {**first[0], **second[0]},
+            {**first[1], **second[1]},
+            first[2] + second[2],
+        )
+    return accept_answer(chunk, answer)
+
+
 async def run_job(
     code: str, language: str, items: list[WorkItem], ai_cfg: Mapping[str, Any]
 ) -> None:
@@ -248,22 +329,14 @@ async def run_job(
     try:
         for chunk in chunks_of(items):
             references = await _references(code, chunk[0].namespace, [i.key for i in chunk])
-            sources = {str(i): item.english for i, item in enumerate(chunk, start=1)}
-            messages = lp.translation_messages(language, sources, references)
-            answer: Any = None
-            error: Exception | None = None
-            for _attempt in range(ATTEMPTS_PER_CHUNK):
-                try:
-                    answer = await _call(ai_cfg, messages)
-                    error = None
-                    break
-                except Exception as exc:  # a provider error of any kind
-                    error = exc
-                    logger.warning("Translation chunk for %s failed: %s", code, exc)
-            done += len(chunk)
-            if error is not None:
-                consecutive += 1
+            try:
+                translations, expected, chunk_failed = await translate_chunk(
+                    language, chunk, references, ai_cfg
+                )
+            except ProviderFailedError as exc:
+                done += len(chunk)
                 failed += len(chunk)
+                consecutive += 1
                 if consecutive >= MAX_CONSECUTIVE_FAILURES:
                     await _update_job(
                         code,
@@ -273,7 +346,7 @@ async def run_job(
                         finished_at=_now(),
                         error=(
                             f"The AI provider failed {MAX_CONSECUTIVE_FAILURES} times in a "
-                            f"row; the last error was: {type(error).__name__}"
+                            f"row. {failure_detail(exc.cause)}"
                         ),
                     )
                     return
@@ -281,7 +354,7 @@ async def run_job(
                     return
                 continue
             consecutive = 0
-            translations, expected, chunk_failed = accept_answer(chunk, answer)
+            done += len(chunk)
             failed += chunk_failed
             if not await _merge(code, chunk, translations, expected):
                 return
@@ -301,17 +374,21 @@ async def run_job(
             code,
             status="failed",
             finished_at=_now(),
-            error=f"Unexpected error: {type(exc).__name__}",
+            error=failure_detail(exc),
         )
     finally:
-        _CANCELLED.discard(code)
         if _TASKS.get(code) is asyncio.current_task():
             _TASKS.pop(code, None)
+            _CANCELLED.discard(code)
 
 
 def launch(code: str, language: str, items: list[WorkItem], ai_cfg: Mapping[str, Any]):
     """Start the job task for ``code`` (the caller has committed the
-    ``running`` job state first)."""
+    ``running`` job state first, under the locale's row lock). ``None`` when a
+    task for the code is still alive: the first one keeps running and is never
+    orphaned."""
+    if is_running(code):
+        return None
     task = asyncio.create_task(run_job(code, language, items, dict(ai_cfg)))
     _TASKS[code] = task
     return task

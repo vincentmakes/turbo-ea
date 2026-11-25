@@ -945,12 +945,10 @@ async def update_user(
 
     if "locale" in data:
         # A built-in locale, or a custom language an admin added and enabled.
-        if data[
-            "locale"
-        ] not in SUPPORTED_LOCALES and not await custom_locale_store.is_enabled_code(
-            db, data["locale"]
-        ):
-            raise HTTPException(400, f"Unsupported locale '{data['locale']}'")
+        locale = data["locale"]
+        built_in = locale in SUPPORTED_LOCALES
+        if not built_in and not await custom_locale_store.is_enabled_code(db, locale):
+            raise HTTPException(400, f"Unsupported locale '{locale}'")
 
     if "auth_provider" in data:
         new_provider = data.pop("auth_provider")

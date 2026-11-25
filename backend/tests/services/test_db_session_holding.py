@@ -538,11 +538,14 @@ def test_the_translate_route_commits_before_the_job_starts():
 
 @pytest.mark.source_scan
 def test_the_translation_job_calls_the_llm_outside_any_session():
-    body = _function_source("app/services/custom_locale_translate.py", "run_job")
-    assert "_session()" not in body and "async_session" not in body
-    call_at = body.find("await _call(")
-    assert call_at != -1, "run_job no longer calls the LLM through _call — update this guard"
+    module = "app/services/custom_locale_translate.py"
+    for caller in ("run_job", "translate_chunk", "_ask"):
+        body = _function_source(module, caller)
+        assert "_session()" not in body and "async_session" not in body, caller
+    assert "await _call(" in _function_source(module, "_ask"), (
+        "_ask no longer calls the LLM through _call — update this guard"
+    )
     for helper in ("_update_job", "_references", "_merge"):
-        source = _function_source("app/services/custom_locale_translate.py", helper)
+        source = _function_source(module, helper)
         assert "async with _session() as db:" in source, helper
         assert "call_llm" not in source and "_call(" not in source, helper

@@ -137,6 +137,18 @@ def code_error(code: str, built_in: Iterable[str]) -> str | None:
     return None
 
 
+def is_valid_native_name(name: str) -> bool:
+    """Whether ``name`` may be a language's native name (shown in pickers):
+    not blank, one line, and no character the string validator refuses."""
+    return (
+        isinstance(name, str)
+        and not is_blank(name)
+        and "\n" not in name
+        and "\t" not in name
+        and not has_forbidden_chars(name)
+    )
+
+
 def is_valid_english_name(name: str) -> bool:
     """Whether ``name`` may stand in an LLM prompt as a language name."""
     return isinstance(name, str) and bool(_ENGLISH_NAME.fullmatch(name))
@@ -347,12 +359,18 @@ def _placeholder_name(token: str) -> str:
     return token.split(",")[0]
 
 
-def _braces_balanced(text: str) -> bool:
-    """Every ``{{`` and ``}}`` belongs to one matched placeholder — so
-    ``{{email}x}}`` or ``{{{name}}}`` cannot read one way here and another in
-    i18next."""
+def _braces_balanced(english: str, text: str) -> bool:
+    """Every ``{{`` and ``}}`` belongs to one matched placeholder, and no
+    other brace appears that English does not have — so ``{{email}x}}`` or
+    ``{{{name}}}`` cannot read one way here and another in i18next."""
     matched = len(_PLACEHOLDER.findall(text))
-    return text.count("{{") == matched and text.count("}}") == matched
+    if text.count("{{") != matched or text.count("}}") != matched:
+        return False
+    english_matched = len(_PLACEHOLDER.findall(english))
+    return all(
+        text.count(brace) - 2 * matched == english.count(brace) - 2 * english_matched
+        for brace in "{}"
+    )
 
 
 def _nestings(text: str) -> Counter[str]:
@@ -384,7 +402,7 @@ def placeholders_match(english: str, value: str, *, plural: bool = False) -> boo
     """The same ``{{placeholders}}`` as English (a multiset, inner whitespace
     ignored), with balanced braces. A plural-category key may drop
     ``{{count}}``: a dual or zero form names no number ("two items")."""
-    if not _braces_balanced(value):
+    if not _braces_balanced(english, value):
         return False
     found = _placeholders(value)
     expected = _placeholders(english)
@@ -402,9 +420,9 @@ def validate_value(english: str, value: Any, *, plural: bool = False) -> str | N
     The checks, in order: a string; at most ``4 × len(english) + 200`` code
     points (measured before anything scans it); not blank (whitespace and
     invisible characters only); no control character other than newline and
-    tab, no lone surrogate and no bidi override; the same ``{{placeholders}}``
-    with balanced braces (a plural-category key may drop ``{{count}}``); the
-    same number of ``$t(`` and the same ``$t(...)`` references; no markup
+    tab, no lone surrogate and no bidi override; the same number of ``$t(``
+    and the same ``$t(...)`` references; the same ``{{placeholders}}`` with
+    balanced braces (a plural-category key may drop ``{{count}}``); no markup
     English does not have (:func:`_introduces_markup`); and only URLs English
     also has. ``\r\n`` is read as ``\n``.
     """
@@ -417,10 +435,10 @@ def validate_value(english: str, value: Any, *, plural: bool = False) -> str | N
         return EMPTY
     if has_forbidden_chars(value):
         return CONTROL_CHARS
-    if not placeholders_match(english, value, plural=plural):
-        return PLACEHOLDER_MISMATCH
     if value.count("$t(") != english.count("$t(") or _nestings(value) != _nestings(english):
         return NESTING_MISMATCH
+    if not placeholders_match(english, value, plural=plural):
+        return PLACEHOLDER_MISMATCH
     if _introduces_markup(english, value):
         return MARKUP_NOT_IN_SOURCE
     if not _url_set(value) <= _url_set(english):
@@ -505,7 +523,8 @@ def list_entries(
 ) -> list[dict[str, Any]]:
     """The review rows of one namespace, English file order first and the
     extra plural keys after: ``{namespace, key, source, value, status,
-    origin}``. ``search`` matches the key, the English text or the
+    origin, source_hash}`` (``source_hash`` is the current English's, to send
+    back with a translation). ``search`` matches the key, the English text or the
     translation, case-insensitively."""
     wanted = LIST_FILTERS[status]
     needle = search.strip().casefold()
@@ -529,6 +548,7 @@ def list_entries(
                 "value": value if isinstance(value, str) else None,
                 "status": state,
                 "origin": entry.get("o") if isinstance(entry, Mapping) else None,
+                "source_hash": ns.current_hash(key),
             }
         )
     return rows
@@ -1088,8 +1108,8 @@ def validate_pack(pack: Any, cat: Catalog) -> list[dict[str, str]]:
 
 def main(argv: list[str] | None = None) -> int:
     """``validate <pack.json> --english <dir>``: exit 0 when the pack is clean,
-    1 when it has problems (one tab-separated line each, the key JSON-quoted so
-    no key can forge a line), 2 when the files cannot be read."""
+    1 when it has problems (one tab-separated line each, namespace and key
+    JSON-quoted so no key can forge a line), 2 when the files cannot be read."""
     parser = argparse.ArgumentParser(prog="language_pack.py", description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
     check = sub.add_parser("validate", help="check a language-pack file against English")
@@ -1106,8 +1126,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     problems = validate_pack(pack, read_catalog(args.english))
     for problem in problems:
+        namespace = json.dumps(problem["namespace"], ensure_ascii=True)
         key = json.dumps(problem["key"], ensure_ascii=True)
-        print(f"{problem['namespace']!s:.60}\t{key}\t{problem['reason']}")
+        print(f"{namespace}\t{key}\t{problem['reason']}")
     strings = pack.get("strings") if isinstance(pack, Mapping) else None
     total = (
         sum(len(v) for v in strings.values() if isinstance(v, Mapping))

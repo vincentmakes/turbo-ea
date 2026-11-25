@@ -11,12 +11,12 @@ in ``services/custom_locale_store.py`` / ``language_pack.py`` /
 from __future__ import annotations
 
 import json
-import re
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_optional_user
@@ -30,17 +30,16 @@ from app.services import audit_log
 from app.services import custom_locale_store as store
 from app.services import custom_locale_translate as translate
 from app.services import language_pack as lp
+from app.services import metamodel_strings as mm
 from app.services.ai_service import ai_config_from_settings, provider_usable
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/custom-locales", tags=["Custom languages"])
 
-_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
-
 
 def _clean_name(value: str) -> str:
     value = value.strip()
-    if not value or _CONTROL.search(value):
+    if not lp.is_valid_native_name(value):
         raise ValueError("must be a non-empty name without control characters")
     return value
 
@@ -55,7 +54,8 @@ def _clean_english_name(value: str) -> str:
 
 
 class CustomLocaleCreate(BaseModel):
-    code: str = Field(max_length=10)
+    # Longer than 10 is answered by ``lp.code_error`` (400 invalid_code).
+    code: str = Field(max_length=64)
     name: str = Field(max_length=100)
     english_name: str = Field(max_length=100)
     rtl: bool = False
@@ -93,6 +93,13 @@ class StringsWrite(BaseModel):
     source_hashes: dict[str, dict[str, Any]] | None = None
     origin: Literal["manual", "import", "mcp"] = "manual"
 
+    @model_validator(mode="after")
+    def _bounded(self) -> StringsWrite:
+        problem = store.payload_problem(self.strings)
+        if problem is not None:
+            raise ValueError(problem)
+        return self
+
 
 class TranslateRequest(BaseModel):
     mode: Literal["missing", "all"] = "missing"
@@ -109,8 +116,8 @@ async def _require_admin(db: AsyncSession, user: User) -> None:
     await PermissionService.require_permission(db, user, "admin.settings")
 
 
-async def _locale_or_404(db: AsyncSession, code: str) -> CustomLocale:
-    locale = await store.get_locale(db, code)
+async def _locale_or_404(db: AsyncSession, code: str, *, lock: bool = False) -> CustomLocale:
+    locale = await store.get_locale(db, code, lock=lock)
     if locale is None:
         raise HTTPException(404, "locale_not_found")
     return locale
@@ -168,8 +175,14 @@ async def create_custom_locale(
         rtl=body.rtl,
         enabled=False,
     )
-    db.add(locale)
-    await db.flush()
+    try:
+        # A savepoint: a concurrent create of the same code (the check above
+        # passed for both) is a 409, not a 500, and leaves the session usable.
+        async with db.begin_nested():
+            db.add(locale)
+            await db.flush()
+    except IntegrityError as exc:
+        raise HTTPException(409, "locale_exists") from exc
     await audit_log.record(
         db,
         action="admin.custom_locale.created",
@@ -235,10 +248,12 @@ async def delete_custom_locale(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Delete a locale and its strings; its users go back to English."""
+    """Delete a locale, its strings and its translations of the database
+    labels; its users go back to English."""
     await _require_admin(db, user)
     locale = await _locale_or_404(db, code)
     translate.cancel(code)
+    await mm.clear_code(db, locale.code)
     users_reset = await store.reset_users(db, code)
     await audit_log.record(
         db,
@@ -342,7 +357,8 @@ async def write_custom_locale_strings(
             context={
                 "code": locale.code,
                 "origin": body.origin,
-                "namespaces": sorted(body.strings),
+                # Only names the instance knows: the payload is the caller's.
+                "namespaces": sorted(n for n in body.strings if store.known_namespace(cat, n)),
                 "applied": report["applied"],
                 "cleared": report["cleared"],
                 "rejected": len(report["rejected"]),
@@ -362,9 +378,11 @@ async def translate_custom_locale(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Start the AI translation job (one per locale)."""
+    """Start the AI translation job (one per locale). The locale's row is read
+    ``FOR UPDATE`` until the commit, so two concurrent starts cannot both pass
+    the running check."""
     await _require_admin(db, user)
-    locale = await _locale_or_404(db, code)
+    locale = await _locale_or_404(db, code, lock=True)
     cat = _catalog_or_503()
     job = locale.translate_job if isinstance(locale.translate_job, dict) else {}
     if translate.is_running(code) or job.get("status") == "running":
@@ -404,7 +422,9 @@ async def cancel_custom_locale_translation(
     user: User = Depends(get_current_user),
 ):
     await _require_admin(db, user)
-    locale = await _locale_or_404(db, code)
+    # Read under the row lock the job's own writes take, so a job that has
+    # just finished is not overwritten as cancelled.
+    locale = await _locale_or_404(db, code, lock=True)
     was_running = isinstance(locale.translate_job, dict) and (
         locale.translate_job.get("status") == "running"
     )
@@ -424,6 +444,7 @@ async def cancel_custom_locale_translation(
 
 
 @router.get("/{code}/bundle")
+@limiter.limit("600/minute")
 async def get_custom_locale_bundle(
     code: str,
     request: Request,
@@ -448,16 +469,16 @@ async def get_custom_locale_bundle(
     headers = {"ETag": f'"{tag}"', "Cache-Control": "no-cache"}
     if store.etag_matches(request.headers.get("if-none-match"), tag):
         return Response(status_code=304, headers=headers)
-    rows = await store.load_rows(db, [locale.id])
-    payload = {
-        "code": locale.code,
-        "name": locale.name,
-        "rtl": bool(locale.rtl),
-        "hash": tag,
-        "resources": store.bundle_resources(cat, rows[locale.id]),
-    }
+    body = store.BUNDLE_CACHE.get(locale.code, tag)
+    if body is None:
+        rows = await store.load_rows(db, [locale.id])
+        body = store.bundle_body(locale, tag, cat, rows[locale.id])
+        store.BUNDLE_CACHE.put(locale.code, tag, body)
     return Response(
-        content=json.dumps(payload, ensure_ascii=False),
+        content=body,
         headers=headers,
+        # The charset suffix is deliberate: a public bundle read is not a bulk
+        # export and is not audited, and the audit guard matches the exact
+        # media type "application/json". Do not "normalise" it.
         media_type="application/json; charset=utf-8",
     )

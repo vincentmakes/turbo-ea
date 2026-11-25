@@ -43,6 +43,7 @@ def test_the_parser_reads_the_real_block():
         "backend/**",
         "scripts/dump_openapi.py",
         "scripts/guard_ratchet.py",
+        "frontend/src/i18n/locales/en/**",
     ]
     assert filters["ci"] == [".github/workflows/**", "scripts/ci/**"]
     assert "!deploy/terraform/**" in filters["deploy"]

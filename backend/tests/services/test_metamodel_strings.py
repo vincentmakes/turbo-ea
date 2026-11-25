@@ -218,9 +218,19 @@ class TestSeedShareMap:
         assert seed["lifecycle.plan"].startswith("Planned")
         assert any(k.startswith("type.Objective.field.objectiveType.option.") for k in seed)
 
-    def test_regulations_and_resource_types_are_not(self):
+    def test_regulations_and_resource_types_are_in_it(self):
+        from app.services import seed as seed_module
+
         seed = mm.seed_english()
-        assert not any(k.startswith(("regulation.", "resource.")) for k in seed)
+        assert seed["regulation.gdpr"] == next(
+            r["label"] for r in seed_module.BUILTIN_REGULATIONS if r["key"] == "gdpr"
+        )
+        assert seed["resource.link_type.documentation"] == "Documentation"
+
+    def test_every_seed_key_fits_the_pack_key_grammar(self):
+        keys = list(mm.seed_english())
+        assert len(keys) > 500
+        assert [k for k in keys if not lp.METAMODEL_KEY.fullmatch(k)] == []
 
 
 class TestNamespace:
@@ -427,6 +437,91 @@ class TestRoundTrip:
         assert found["category.A & B"] is None
         assert found["regulation.gdpr"] == "AVG"
         assert {e.key: e.value for e in await mm.collect(db, "he")}["regulation.gdpr"] is None
+
+    @pytest.mark.parametrize("code", ["de", "en", "ar", "NL", "nl\n", "iw"])
+    async def test_a_built_in_or_invalid_code_writes_nothing(self, db, records, code):
+        before = _snapshot(records)
+        rest = await mm.apply(db, code, {"category.A & B": "X", "lifecycle.plan": "Y"})
+        assert rest == {}
+        assert _snapshot(records) == before
+
+    async def test_clear_code_removes_the_language_everywhere(self, db, records):
+        await mm.apply(
+            db,
+            "nl",
+            {
+                "type.Widget.label": "Ding",
+                "type.Widget.subtype.small": "Klein NL",
+                "category.A & B": "A en B",
+                "relation.relWidget.attr.mode.option.r": "Lezen",
+                "lifecycle.plan": "Gepland",
+            },
+        )
+        await mm.apply(db, "he", {"type.Widget.label": "וידג'ט"})
+        assert await mm.clear_code(db, "nl") == 4
+        for obj in records.values():
+            await db.refresh(obj)
+        found = {e.key: e.value for e in await mm.collect(db, "nl")}
+        assert all(value is None for value in found.values())
+        ct = records["ct"]
+        assert ct.translations["label"] == {"en": "Widget EN", "de": "Dings", "he": "וידג'ט"}
+        assert ct.subtypes[0]["translations"] == {"de": "Klein"}
+        assert records["cat"].translations == {"de": "Deutsch"}
+        assert "translations" not in records["rel"].attributes_schema[0]["options"][0]
+        assert await mm.clear_code(db, "nl") == 0
+
+    async def test_a_cleared_map_is_removed_not_left_empty(self, db, records):
+        sec = mm.make_key("type", "Widget", "section", "Cost v1.0 & more")
+        group_key = f"{sec}.group.Run 50%25"
+        await mm.apply(
+            db,
+            "nl",
+            {"type.Widget.hierarchy.part": "Deel", group_key: "Draaien", "dashboard.home": "x"},
+        )
+        await mm.apply(
+            db,
+            "nl",
+            {"type.Widget.hierarchy.part": None, group_key: None, "dashboard.home": None},
+        )
+        ct = records["ct"]
+        await db.refresh(ct)
+        assert "translations" not in ct.hierarchy_labels[0]
+        assert ct.fields_schema[1]["groupTranslations"] == {"Run 50%": {"de": "Betrieb"}}
+        await db.refresh(records["dash"])
+        assert records["dash"].translations == {}
+
+    async def test_a_group_is_written_under_its_raw_name(self, db):
+        ct = await create_card_type(
+            db,
+            key="Spaced",
+            label="Spaced",
+            fields_schema=[
+                {
+                    "section": "S",
+                    "fields": [{"key": "f", "label": "F", "type": "text", "group": " Run "}],
+                }
+            ],
+        )
+        key = mm.make_key("type", "Spaced", "section", "S", "group", " Run ")
+        found = {e.key: e for e in await mm.collect(db, "nl")}
+        assert found[key].english == "Run"
+        await mm.apply(db, "nl", {key: "Draaien"})
+        await db.refresh(ct)
+        assert ct.fields_schema[0]["groupTranslations"] == {" Run ": {"nl": "Draaien"}}
+
+    async def test_apply_rereads_the_rows_it_rewrites(self, db, records):
+        """A record changed behind the snapshot's back (another request) is
+        re-read under the lock, so its change is not overwritten."""
+        snap = await mm.load(db)
+        cat = records["cat"]
+        await db.execute(
+            CardTypeCategory.__table__.update()
+            .where(CardTypeCategory.id == cat.id)
+            .values(translations={"de": "Deutsch", "fr": "Français"})
+        )
+        await mm.apply(db, "nl", {"category.A & B": "A en B"}, snap)
+        await db.refresh(cat)
+        assert cat.translations == {"de": "Deutsch", "fr": "Français", "nl": "A en B"}
 
     async def test_an_unknown_key_writes_nothing(self, db, records):
         before = _snapshot(records)

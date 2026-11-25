@@ -101,6 +101,9 @@ jobs:
               - 'scripts/dump_openapi.py'
               # Tested by backend/tests/core/test_guard_ratchet.py.
               - 'scripts/guard_ratchet.py'
+              # The English UI strings: custom languages diff, validate and
+              # export against them, and backend tests read them.
+              - 'frontend/src/i18n/locales/en/**'
             frontend:
               - 'frontend/**'
               - '.github/audit-ci.jsonc'

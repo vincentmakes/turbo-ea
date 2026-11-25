@@ -337,6 +337,8 @@ async def quiet_lifespan(monkeypatch):
     monkeypatch.setattr(main, "_migrate_and_seed", AsyncMock(return_value=[ext_task]))
     monkeypatch.setattr(main, "_ensure_initial_kpi_snapshot", AsyncMock())
     monkeypatch.setattr(main, "_auto_configure_ai", AsyncMock())
+    mark_interrupted = AsyncMock()
+    monkeypatch.setattr(main, "_mark_interrupted_translation_jobs", mark_interrupted)
     for name in (
         "_purge_archived_cards_loop",
         "_purge_mutation_batches_loop",
@@ -357,10 +359,19 @@ async def quiet_lifespan(monkeypatch):
     }
     for name, mock in one_shots.items():
         monkeypatch.setattr(main, name, mock)
-    return SimpleNamespace(cancelled=cancelled, one_shots=one_shots, mp=monkeypatch)
+    return SimpleNamespace(
+        cancelled=cancelled,
+        one_shots=one_shots,
+        mp=monkeypatch,
+        mark_interrupted=mark_interrupted,
+    )
 
 
 class TestLifespan:
+    async def test_marks_interrupted_translation_jobs_once_at_startup(self, quiet_lifespan):
+        async with main.lifespan(main.app):
+            quiet_lifespan.mark_interrupted.assert_awaited_once_with()
+
     async def test_starts_every_task_and_cancels_them_on_shutdown(self, quiet_lifespan):
         async with main.lifespan(main.app):
             await asyncio.sleep(0)  # let the one-shot tasks run

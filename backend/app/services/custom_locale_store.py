@@ -14,7 +14,10 @@ listing, export and merge then runs the same ``language_pack`` code on either.
 
 from __future__ import annotations
 
+import json
+import re
 import uuid
+from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -31,7 +34,11 @@ from app.services import language_pack as lp
 from app.services import metamodel_strings as mm
 
 METAMODEL = mm.NAMESPACE
+#: What a value served without an English source to check against may not
+#: hold: anything that could open a tag, nest a translation or interpolate.
+_UNCHECKABLE = re.compile(r"[<{}]|\$t\(")
 SOURCE_CHANGED = "source_changed"
+SOURCE_HASH_MISSING = "source_hash_missing"
 
 
 def catalog() -> lp.Catalog | None:
@@ -48,10 +55,47 @@ def known_namespace(cat: lp.Catalog, name: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-async def get_locale(db: AsyncSession, code: str) -> CustomLocale | None:
-    return (
-        await db.execute(select(CustomLocale).where(CustomLocale.code == code))
-    ).scalar_one_or_none()
+async def get_locale(db: AsyncSession, code: str, *, lock: bool = False) -> CustomLocale | None:
+    """The locale ``code``; with ``lock`` its row is read ``FOR UPDATE`` (and
+    refreshed), so a decision taken on it holds until the commit."""
+    stmt = select(CustomLocale).where(CustomLocale.code == code)
+    if lock:
+        stmt = stmt.with_for_update().execution_options(populate_existing=True)
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+def transfer_problem(row: Mapping[str, Any]) -> str | None:
+    """Why a workspace bundle's ``CustomLocales`` row must not land: the same
+    checks as the create route (a built-in or malformed code, an English name
+    unfit for a prompt or a header, a native name with forbidden characters).
+    ``metamodel_strings.apply`` refuses a built-in code as well."""
+    code = row.get("code")
+    error = lp.code_error(code, mm.built_in_locales())  # type: ignore[arg-type]
+    if error is not None:
+        return f"language code {code!r}: {error}"
+    if not lp.is_valid_english_name(row.get("english_name")):  # type: ignore[arg-type]
+        return f"language {code!r}: invalid English name"
+    if not lp.is_valid_native_name(row.get("name")):  # type: ignore[arg-type]
+        return f"language {code!r}: invalid name"
+    return None
+
+
+#: Bounds of one ``POST …/strings``: keys across all namespaces, and the
+#: longest value accepted before the validator even looks at it.
+MAX_KEYS_PER_WRITE = 10_000
+
+
+def payload_problem(strings: Mapping[str, Mapping[str, Any]]) -> str | None:
+    """Why a write's ``strings`` is too large to look at, or ``None``."""
+    total = 0
+    for entries in strings.values():
+        total += len(entries)
+        if total > MAX_KEYS_PER_WRITE:
+            return f"at most {MAX_KEYS_PER_WRITE} strings per request"
+        for value in entries.values():
+            if isinstance(value, str) and len(value) > lp.MAX_VALUE_LENGTH:
+                return f"a value is longer than {lp.MAX_VALUE_LENGTH} characters"
+    return None
 
 
 async def list_locales(db: AsyncSession) -> list[CustomLocale]:
@@ -108,12 +152,23 @@ class View:
 
 
 def metamodel_view(snap: mm.Snapshot, code: str, rows: Mapping[str, CustomLocaleString]) -> View:
+    """The ``metamodel`` namespace of ``code``. A label that holds a value
+    under the code but has no ``meta`` entry was written by someone else (the
+    field editor, an extension manifest, a workspace import): it reads as a
+    current manual translation — never as stale, or the next AI run would
+    overwrite it — and that meta is stored on the next write."""
     pack_strings, meta = _stored(rows, METAMODEL)
     items = mm.entries(snap, code, pack_strings)
+    ns = mm.namespace_of(items)
+    strings = mm.values_of(items)
+    full_meta = dict(meta)
+    for key in strings:
+        if not isinstance(full_meta.get(key), Mapping):
+            full_meta[key] = {"h": ns.hashes[key], "o": "manual"}
     return View(
-        ns=mm.namespace_of(items),
-        strings=mm.values_of(items),
-        meta=meta,
+        ns=ns,
+        strings=strings,
+        meta=full_meta,
         shareable=frozenset(e.key for e in items if e.built_in),
     )
 
@@ -232,7 +287,8 @@ def export_parts(views: Mapping[str, View], mode: str) -> dict[str, tuple[dict, 
 
     ``share`` is the community pack: every UI namespace as ``current``, and of
     ``metamodel`` only the entries whose key and English are the built-in
-    seed's — nothing an installation made up, renamed or added."""
+    seed's and whose translation was made from that English — nothing an
+    installation made up, renamed or added."""
     parts: dict[str, tuple[dict, dict]] = {}
     for name, v in views.items():
         if mode != "share":
@@ -240,7 +296,13 @@ def export_parts(views: Mapping[str, View], mode: str) -> dict[str, tuple[dict, 
             continue
         strings, hashes = lp.export_namespace(v.ns, v.strings, v.meta, "current")
         if name == METAMODEL:
-            strings = {k: s for k, s in strings.items() if k in v.shareable}
+            # Built-in key and English, and translated from that English: a
+            # label renamed, translated and renamed back is not shareable.
+            strings = {
+                k: text
+                for k, text in strings.items()
+                if k in v.shareable and hashes.get(k) == v.ns.hashes.get(k)
+            }
             hashes = {k: h for k, h in hashes.items() if k in strings}
         parts[name] = (strings, hashes)
     return parts
@@ -294,7 +356,9 @@ def locale_hash(
     locale: CustomLocale, digests: Iterable[tuple[str, str]], cat: lp.Catalog | None
 ) -> str:
     fingerprint = cat.fingerprint if cat is not None else "no-catalog"
-    return lp.bundle_hash(fingerprint, locale.code, locale.name, bool(locale.rtl), digests)
+    return lp.bundle_hash(
+        fingerprint, locale.code, locale.name, bool(locale.rtl), digests, APP_VERSION
+    )
 
 
 async def enabled_locales(db: AsyncSession) -> list[CustomLocale]:
@@ -309,14 +373,44 @@ async def enabled_locales(db: AsyncSession) -> list[CustomLocale]:
     )
 
 
-async def bootstrap_entries(db: AsyncSession) -> list[dict[str, Any]]:
-    """``[{code, name, rtl, hash}]`` of the enabled custom locales."""
+async def bootstrap_payload(
+    db: AsyncSession, phase_help: Mapping[str, Mapping[str, str]]
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, str]]]:
+    """``(custom_locales, lifecycle_phase_help)`` for ``/settings/bootstrap``,
+    in one read of the enabled locales and one of their rows.
+
+    ``custom_locales`` is ``[{code, name, rtl, hash}]`` of the enabled custom
+    locales; the phase help gets every enabled locale's phase texts laid over
+    it (``metamodel_strings.overlay_phase_help``)."""
     locales = await enabled_locales(db)
     if not locales:
-        return []
-    digests = await namespace_digests(db, [loc.id for loc in locales])
+        return [], {phase: dict(texts) for phase, texts in phase_help.items()}
+    by_id = {loc.id: loc for loc in locales}
+    rows = await db.execute(
+        select(
+            CustomLocaleString.locale_id,
+            CustomLocaleString.namespace,
+            func.md5(cast(CustomLocaleString.strings, Text)),
+        ).where(CustomLocaleString.locale_id.in_(list(by_id)))
+    )
+    digests: dict[uuid.UUID, list[tuple[str, str]]] = {i: [] for i in by_id}
+    with_help: list[uuid.UUID] = []
+    for locale_id, namespace, digest in rows.all():
+        if namespace == METAMODEL:
+            with_help.append(locale_id)
+        else:
+            digests[locale_id].append((namespace, digest))
+    per_locale: dict[str, Any] = {}
+    if with_help:
+        help_rows = await db.execute(
+            select(CustomLocaleString.locale_id, CustomLocaleString.strings).where(
+                CustomLocaleString.locale_id.in_(with_help),
+                CustomLocaleString.namespace == METAMODEL,
+            )
+        )
+        per_locale = {by_id[i].code: strings or {} for i, strings in help_rows.all()}
     cat = catalog()
-    return [
+    entries = [
         {
             "code": loc.code,
             "name": loc.name,
@@ -325,44 +419,78 @@ async def bootstrap_entries(db: AsyncSession) -> list[dict[str, Any]]:
         }
         for loc in locales
     ]
-
-
-async def phase_help_with_custom_locales(
-    db: AsyncSession, phase_help: Mapping[str, Mapping[str, str]]
-) -> dict[str, dict[str, str]]:
-    """The bootstrap ``lifecycle_phase_help`` with every enabled custom
-    locale's phase texts laid over it (``metamodel_strings.overlay_phase_help``)."""
-    locales = await enabled_locales(db)
-    if not locales:
-        return {phase: dict(texts) for phase, texts in phase_help.items()}
-    by_id = {loc.id: loc.code for loc in locales}
-    rows = await db.execute(
-        select(CustomLocaleString.locale_id, CustomLocaleString.strings).where(
-            CustomLocaleString.locale_id.in_(list(by_id)),
-            CustomLocaleString.namespace == METAMODEL,
-        )
-    )
-    per_locale = {by_id[locale_id]: strings or {} for locale_id, strings in rows.all()}
-    return mm.overlay_phase_help(phase_help, per_locale)
+    return entries, mm.overlay_phase_help(phase_help, per_locale)
 
 
 def bundle_resources(
-    cat: lp.Catalog | None, rows: Mapping[str, CustomLocaleString]
+    cat: lp.Catalog | None, rows: Mapping[str, CustomLocaleString], code: str = ""
 ) -> dict[str, dict[str, Any]]:
-    """``{namespace: resource}`` of the UI namespaces. Without the English
-    catalogue the stored strings are served flat (i18next resolves a dotted
-    flat key all the same)."""
+    """``{namespace: resource}`` of the UI namespaces, every value re-checked
+    by the validator (``language_pack.servable``). Without the English
+    catalogue nothing can be checked, so nothing that could carry markup is
+    served: the stored strings go out flat (i18next resolves a dotted flat key
+    all the same) only when they hold no ``<``, ``$t(`` or brace."""
     if cat is None:
         return {
-            name: dict(row.strings or {}) for name, row in sorted(rows.items()) if name != METAMODEL
+            name: {
+                key: value
+                for key, value in (row.strings or {}).items()
+                if isinstance(value, str) and not _UNCHECKABLE.search(value)
+            }
+            for name, row in sorted(rows.items())
+            if name != METAMODEL
         }
     out: dict[str, dict[str, Any]] = {}
     for name, ns in cat.namespaces.items():
         strings, _meta = _stored(rows, name)
-        tree = lp.build_namespace_bundle(ns, strings)
+        tree = lp.build_namespace_bundle(ns, strings, code)
         if tree:
             out[name] = tree
     return out
+
+
+def bundle_body(
+    locale: CustomLocale, tag: str, cat: lp.Catalog | None, rows: Mapping[str, CustomLocaleString]
+) -> bytes:
+    """The serialised bundle response: ``{code, name, rtl, hash, resources}``."""
+    payload = {
+        "code": locale.code,
+        "name": locale.name,
+        "rtl": bool(locale.rtl),
+        "hash": tag,
+        "resources": bundle_resources(cat, rows, locale.code),
+    }
+    return json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+
+class BundleCache:
+    """The last few serialised bundles, keyed by ``(code, hash)``: the hash
+    changes with every stored string, the English catalogue, the locale's name
+    and direction and the app version, so an entry is never stale — a bundle
+    is built (and every value re-validated) once per version, not per
+    request."""
+
+    def __init__(self, size: int = 16):
+        self.size = size
+        self._entries: OrderedDict[tuple[str, str], bytes] = OrderedDict()
+
+    def get(self, code: str, tag: str) -> bytes | None:
+        body = self._entries.get((code, tag))
+        if body is not None:
+            self._entries.move_to_end((code, tag))
+        return body
+
+    def put(self, code: str, tag: str, body: bytes) -> None:
+        self._entries[(code, tag)] = body
+        self._entries.move_to_end((code, tag))
+        while len(self._entries) > self.size:
+            self._entries.popitem(last=False)
+
+    def clear(self) -> None:
+        self._entries.clear()
+
+
+BUNDLE_CACHE = BundleCache()
 
 
 def etag_matches(header: str | None, tag: str) -> bool:
@@ -385,11 +513,19 @@ def etag_matches(header: str | None, tag: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
+async def lock_locale(db: AsyncSession, locale: CustomLocale) -> None:
+    """Lock the locale's row (``SELECT … FOR UPDATE``): every write to its
+    strings takes it first, so two first writes to a namespace that has no row
+    yet cannot both insert one."""
+    await db.execute(select(CustomLocale.id).where(CustomLocale.id == locale.id).with_for_update())
+
+
 async def locked_row(
     db: AsyncSession, locale: CustomLocale, namespace: str, *, create: bool
 ) -> CustomLocaleString | None:
     """The namespace row, locked for the merge (``SELECT … FOR UPDATE``);
-    created (and flushed) when missing and ``create`` is true."""
+    created (and flushed) when missing and ``create`` is true. The caller
+    holds the locale's lock (:func:`lock_locale`)."""
     row = (
         await db.execute(
             select(CustomLocaleString)
@@ -407,23 +543,54 @@ async def locked_row(
     return row
 
 
+@dataclass
+class MetamodelSplit:
+    """``incoming`` for the ``metamodel`` namespace, sorted by
+    :func:`source_changed`."""
+
+    kept: dict[str, Any] = field(default_factory=dict)
+    refused: list[dict[str, str]] = field(default_factory=list)
+    unchanged: int = 0
+
+
 def source_changed(
-    ns: lp.Namespace, incoming: Mapping[str, Any], hashes: Mapping[str, Any] | None
-) -> tuple[dict[str, Any], list[dict[str, str]]]:
-    """Split ``incoming`` for the ``metamodel`` namespace: a key whose given
-    source hash is not the current English hash was translated from a label
-    that has changed since (an admin renamed the type), so it is refused as
-    ``source_changed`` rather than stored."""
-    kept: dict[str, Any] = {}
-    refused: list[dict[str, str]] = []
+    view: View,
+    incoming: Mapping[str, Any],
+    hashes: Mapping[str, Any] | None,
+    *,
+    origin: str,
+) -> MetamodelSplit:
+    """Sort ``incoming`` for the ``metamodel`` namespace into what may be
+    merged, what is refused and what is unchanged.
+
+    * A value equal to the stored one that comes with a hash, or from an
+      import, is ``unchanged`` — never refused: re-importing a ``current``
+      export does not report every stale label.
+    * A given source hash that is not the current English hash means the value
+      was translated from a label that has changed since (an admin renamed the
+      type): ``source_changed``.
+    * An import must carry the hash of every ``metamodel`` value (every export
+      writes one): ``source_hash_missing``.
+    * A manual or MCP write without a hash, a clear (``None``) and a key the
+      namespace does not have (the merge counts it unknown) pass through."""
+    split = MetamodelSplit()
     for key, value in incoming.items():
         given = (hashes or {}).get(key)
-        current = ns.current_hash(key)
-        if value is not None and lp.is_source_hash(given) and current and given != current:
-            refused.append({"namespace": ns.name, "key": key, "reason": SOURCE_CHANGED})
+        current = view.ns.current_hash(key)
+        has_hash = lp.is_source_hash(given)
+        if value is None or current is None:
+            split.kept[key] = value
+        elif view.strings.get(key) == value and (has_hash or origin == "import"):
+            split.unchanged += 1
+        elif has_hash and given != current:
+            split.refused.append({"namespace": METAMODEL, "key": key, "reason": SOURCE_CHANGED})
+        elif origin == "import" and not has_hash:
+            split.refused.append(
+                {"namespace": METAMODEL, "key": key, "reason": SOURCE_HASH_MISSING}
+            )
         else:
-            kept[key] = value
-    return kept, refused
+            split.kept[key] = value
+    return split
 
 
 def label_changes(before: Mapping[str, Any], after: Mapping[str, Any]) -> dict[str, str | None]:
@@ -449,17 +616,18 @@ async def _merge_metamodel(
     snap = await mm.load(db)
     rows = {METAMODEL: row} if row is not None else {}
     view = metamodel_view(snap, locale.code, rows)
-    kept, refused = source_changed(view.ns, entries, hashes)
+    split = source_changed(view, entries, hashes, origin=origin)
     merged = lp.merge_strings(
         view.ns,
         view.strings,
         view.meta,
-        kept,
+        split.kept,
         origin=origin,
         source_hashes=hashes,
         expected=expected,
     )
-    merged.rejected = [*refused, *(merged.rejected or [])]
+    merged.rejected = [*split.refused, *merged.rejected]
+    merged.unchanged += split.unchanged
     if not dry_run and row is not None:
         await mm.apply(db, locale.code, label_changes(view.strings, merged.strings), snap)
         pack_strings = {k: v for k, v in merged.strings.items() if k in snap.lifecycle}
@@ -468,6 +636,14 @@ async def _merge_metamodel(
         if merged.meta != (row.meta or {}):
             row.meta = merged.meta
     return merged
+
+
+def _unknown_namespace(namespace: str, entries: Any) -> lp.MergeResult:
+    """A namespace English does not have: every key in it is unknown."""
+    result = lp.MergeResult(strings={}, meta={})
+    for key in entries if isinstance(entries, Mapping) else ():
+        result.add_unknown(namespace, key)
+    return result
 
 
 async def apply_strings(
@@ -482,24 +658,25 @@ async def apply_strings(
     expected: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Merge ``payload`` (``{namespace: {key: value | None}}``) into the stored
-    strings, namespace by namespace, and return the summed report
-    ``{applied, unchanged, cleared, rejected, unknown}`` (``unknown`` is a
-    count). With ``dry_run`` nothing is written. ``expected`` makes each
-    namespace's write conditional (see ``language_pack.merge_strings``)."""
-    totals = lp.MergeResult(strings={}, meta={}, rejected=[])
+    strings and return the summed report ``{applied, unchanged, cleared,
+    rejected, unknown, unknown_keys}``. With ``dry_run`` nothing is written.
+    ``expected`` makes each namespace's write conditional (see
+    ``language_pack.merge_strings``).
+
+    The locale's row is locked first and the namespaces are merged in sorted
+    order, so two writers can neither both create a namespace row nor lock
+    two rows in opposite orders."""
+    totals = lp.MergeResult(strings={}, meta={})
     hashes = source_hashes or {}
-    for namespace, entries in payload.items():
+    await lock_locale(db, locale)
+    for namespace in sorted(payload):
+        entries = payload[namespace]
         ns_hashes = hashes.get(namespace)
         ns_hashes = ns_hashes if isinstance(ns_hashes, Mapping) else None
         ns_expected = expected.get(namespace) if expected is not None else None
         ns = cat.namespace(namespace)
         if not isinstance(entries, Mapping) or (ns is None and namespace != METAMODEL):
-            merged = lp.MergeResult(
-                strings={},
-                meta={},
-                unknown=len(entries) if isinstance(entries, Mapping) else 0,
-                rejected=[],
-            )
+            merged = _unknown_namespace(namespace, entries)
         elif namespace == METAMODEL:
             merged = await _merge_metamodel(
                 db,
@@ -528,11 +705,7 @@ async def apply_strings(
                     row.strings = merged.strings
                 if merged.meta != meta:
                     row.meta = merged.meta
-        totals.applied += merged.applied
-        totals.unchanged += merged.unchanged
-        totals.cleared += merged.cleared
-        totals.unknown += merged.unknown
-        totals.rejected.extend(merged.rejected or [])  # type: ignore[union-attr]
+        totals.add(merged)
     if not dry_run:
         await db.flush()
     return totals.report()

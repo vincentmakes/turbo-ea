@@ -92,6 +92,8 @@ async def _job(db, loc):
 
 @pytest.fixture
 def run(monkeypatch, patched_async_session, tiny_catalog):
+    monkeypatch.setattr(tr, "RETRY_DELAY", 0)
+
     def install(fake):
         monkeypatch.setattr(tr, "call_llm", fake)
         return fake
@@ -128,7 +130,7 @@ class TestRunJob:
         assert len(fake.calls) == 1
         system, user = fake.calls[0]
         assert "into Dutch" in system["content"]
-        assert json.loads(user["content"]) == {"1": "Apple", "2": "Hello {{name}}"}
+        assert json.loads(user["content"]) == {"translate": {"1": "Apple", "2": "Hello {{name}}"}}
 
     async def test_rejected_and_missing_ids_fail(self, db, locale, run):
         run(FakeLlm({"1": "<b>Appel</b>"}))
@@ -152,7 +154,8 @@ class TestRunJob:
         job = await _job(db, locale)
         assert job["status"] == "failed"
         assert (job["done"], job["failed"]) == (3, 3)
-        assert "3 times in a row" in job["error"] and "ConnectError" in job["error"]
+        assert "3 times in a row" in job["error"]
+        assert "Could not reach the AI provider" in job["error"]
 
     async def test_two_failures_then_a_success_continue(self, db, locale, run):
         down = httpx.ConnectError("down")
@@ -191,6 +194,8 @@ class TestRunJob:
     async def test_cancel_ends_the_job_cancelled(self, db, locale, run):
         task = await _launch_hanging(run)
         assert tr.is_running("nl")
+        assert tr.launch("nl", "Dutch", items(("nav", "home")), AI) is None
+        assert tr._TASKS["nl"] is task
         assert tr.cancel("nl") is True
         with pytest.raises(asyncio.CancelledError):
             await task
@@ -204,6 +209,116 @@ class TestRunJob:
         with pytest.raises(asyncio.CancelledError):
             await task
         assert (await _job(db, locale))["status"] == "interrupted"
+
+
+class TestUnusableAnswers:
+    async def test_an_empty_answer_is_retried_in_halves(self, db, locale, run):
+        fake = run(FakeLlm({}, {"1": "Appel"}, {"1": "Hallo {{name}}"}))
+        await tr.run_job("nl", "Dutch", items(("common", "a"), ("common", "b")), AI)
+        assert len(fake.calls) == 3
+        assert json.loads(fake.calls[1][1]["content"])["translate"] == {"1": "Apple"}
+        assert json.loads(fake.calls[2][1]["content"])["translate"] == {"1": "Hello {{name}}"}
+        assert (await _row(db, locale, "common")).strings == {
+            "a": "Appel",
+            "b": "Hallo {{name}}",
+        }
+        assert (await _job(db, locale))["failed"] == 0
+
+    async def test_a_single_string_is_not_split_further(self, db, locale, run):
+        fake = run(FakeLlm({}))
+        await tr.run_job("nl", "Dutch", items(("common", "a")), AI)
+        assert len(fake.calls) == 1
+        job = await _job(db, locale)
+        assert (job["status"], job["failed"]) == ("completed", 1)
+
+    def test_what_counts_as_unusable(self):
+        chunk = items(("common", "a"), ("common", "b"), ("nav", "home"))
+        assert tr.answer_is_unusable(chunk, {})
+        assert tr.answer_is_unusable(chunk, "garbage")
+        assert tr.answer_is_unusable(chunk, {"1": "x"})
+        assert tr.answer_is_unusable(chunk, {"1": "x", "2": 5, "zz": "y"})
+        assert not tr.answer_is_unusable(chunk, {"1": "x", "2": "y"})
+        assert not tr.answer_is_unusable(chunk, {"translations": {"1": "x", "3": "z"}})
+
+    async def test_a_retry_waits_first(self, db, locale, run, monkeypatch):
+        slept: list[float] = []
+
+        async def sleep(seconds):
+            slept.append(seconds)
+
+        monkeypatch.setattr(tr, "RETRY_DELAY", 1.5)
+        monkeypatch.setattr(tr.asyncio, "sleep", sleep)
+        run(FakeLlm(httpx.ConnectError("down"), {"1": "Appel"}))
+        await tr.run_job("nl", "Dutch", items(("common", "a")), AI)
+        assert slept == [1.5]
+
+
+class TestJobEdges:
+    async def test_an_unexpected_error_fails_the_job_readably(self, db, locale, run, monkeypatch):
+        async def broken(*args, **kwargs):
+            raise RuntimeError("secret detail")
+
+        monkeypatch.setattr(tr, "_references", broken)
+        run(FakeLlm({"1": "Appel"}))
+        await tr.run_job("nl", "Dutch", items(("common", "a")), AI)
+        job = await _job(db, locale)
+        assert job["status"] == "failed"
+        assert job["error"] == "Unexpected error (RuntimeError)."
+        assert job["finished_at"]
+
+    async def test_a_language_deleted_mid_job_stops_it(self, db, locale, run):
+        fake = run(FakeLlm({"1": "Appel"}))
+        await tr.run_job("zz", "Dutch", items(("common", "a"), ("nav", "home")), AI)
+        assert len(fake.calls) == 1
+        assert await _row(db, locale, "common") is None
+        assert await tr._references("zz", "common", []) == []
+
+    async def test_a_label_renamed_while_the_job_ran_is_refused(self, db, locale, run):
+        from tests.conftest import create_card_type
+
+        ct = await create_card_type(db, key="Widget", label="Widget")
+        work = [tr.WorkItem("metamodel", "type.Widget.label", "Widget", None)]
+
+        async def rename_then_answer(*args, **kwargs):
+            ct.label = "Gadget"
+            await db.flush()
+            return {"1": "Ding"}
+
+        run(rename_then_answer)
+        await tr.run_job("nl", "Dutch", work, AI)
+        await db.refresh(ct)
+        assert ct.translations == {}
+
+    async def test_an_unrenamed_label_is_written(self, db, locale, run):
+        from tests.conftest import create_card_type
+
+        ct = await create_card_type(db, key="Widget", label="Widget")
+        run(FakeLlm({"1": "Ding"}))
+        await tr.run_job(
+            "nl", "Dutch", [tr.WorkItem("metamodel", "type.Widget.label", "Widget", None)], AI
+        )
+        await db.refresh(ct)
+        assert ct.translations == {"label": {"nl": "Ding"}}
+
+    def test_failure_detail(self):
+        request = httpx.Request("POST", "https://llm.test")
+        refused = httpx.HTTPStatusError(
+            "x", request=request, response=httpx.Response(401, request=request)
+        )
+        assert "check the API key" in tr.failure_detail(refused)
+        assert tr.failure_detail(httpx.ConnectError("x")).startswith("Could not reach")
+        assert tr.failure_detail(ValueError("sk-123")) == "Unexpected error (ValueError)."
+
+    async def test_ui_chunks_get_the_translated_type_names(self, db, locale, run):
+        from tests.conftest import create_card_type
+
+        await create_card_type(
+            db, key="Widget", label="Widget", translations={"label": {"nl": "Ding"}}
+        )
+        fake = run(FakeLlm({"1": "Appel"}))
+        await tr.run_job("nl", "Dutch", items(("common", "a")), AI)
+        payload = json.loads(fake.calls[0][1]["content"])
+        assert payload["reference"] == {"Widget": "Ding"}
 
 
 class TestSelectWork:

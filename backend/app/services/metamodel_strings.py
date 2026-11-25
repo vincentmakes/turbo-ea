@@ -28,7 +28,11 @@ in :func:`card_type_slots` and its siblings). Every segment is escaped with
 :func:`escape_segment` — ``%`` becomes ``%25`` and ``.`` becomes ``%2E`` — so a
 free-text segment (a section name, a group name, a category key such as
 ``Strategy & Transformation``) can never split a key, and
-:func:`split_key` parses a key back unambiguously.
+:func:`split_key` parses a key back unambiguously. A field group is written
+under its raw name (the card page reads ``groupTranslations[field.group]``).
+Two sections of one card type with the same name share one key: the listing
+shows the first, :func:`apply` writes all of them. A built-in locale code is
+never written (:func:`apply` refuses it).
 
 **English** is ``translations["en"]`` where the seed writes one (card types,
 relation types, subtypes, sections, fields, options), else the column.
@@ -195,19 +199,21 @@ def card_type_slots(rec: Mapping[str, Any]) -> list[Slot]:
                 )
             )
         fields = section.get("fields") if isinstance(section.get("fields"), list) else []
+        # A group is addressed by its raw name: the card page looks up
+        # ``groupTranslations[field.group]`` exactly as stored.
         groups: list[str] = []
         for f in fields:
-            group = _text(_get(f, "group"))
-            if group and group not in groups:
+            group = _get(f, "group")
+            if isinstance(group, str) and group.strip() and group not in groups:
                 groups.append(group)
         for group in _get(section, "groupTranslations") or {}:
-            if _text(group) and group not in groups:
+            if isinstance(group, str) and group.strip() and group not in groups:
                 groups.append(group)
         for group in groups:
             slots.append(
                 Slot(
                     make_key("type", t, "section", name, "group", group),
-                    group,
+                    group.strip(),
                     "fields_schema",
                     (si, "groupTranslations", group),
                 )
@@ -477,10 +483,28 @@ def values_of(items: Iterable[Entry]) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
+def _prune_empty(data: Any, path: tuple[Any, ...]) -> None:
+    """Remove the maps along ``path`` that a clear left empty, deepest first
+    (an emptied ``translations`` / ``groupTranslations`` entry is dropped, not
+    left behind as ``{}``). A list element and the column itself stay."""
+    for depth in range(len(path), 0, -1):
+        part = path[depth - 1]
+        if isinstance(part, int):
+            return
+        parent: Any = data
+        for step in path[: depth - 1]:
+            parent = parent[step]
+        child = parent.get(part) if isinstance(parent, dict) else None
+        if not (isinstance(child, dict) and not child):
+            return
+        del parent[part]
+
+
 def _write_slot(obj: Any, slot: Slot, code: str, value: str | None) -> bool:
     """Set (or with ``None`` remove) ``code`` in the slot's locale map,
     reassigning the column as a new object so the change is flushed. Every
-    other key of the JSON stays as it was. ``False`` when nothing changed."""
+    other key of the JSON stays as it was; a map a clear empties is removed.
+    ``False`` when nothing changed."""
     current = locale_map(obj, slot)
     before = current.get(code) if current is not None else None
     if before == value:
@@ -500,10 +524,31 @@ def _write_slot(obj: Any, slot: Slot, code: str, value: str | None) -> bool:
         node = child
     if value is None:
         node.pop(code, None)
+        _prune_empty(data, slot.path)
     else:
         node[code] = value
     setattr(obj, slot.column, data)
     return True
+
+
+def built_in_locales() -> tuple[str, ...]:
+    """The locales the app ships (``settings.SUPPORTED_LOCALES``)."""
+    from app.api.v1.settings import SUPPORTED_LOCALES
+
+    return tuple(SUPPORTED_LOCALES)
+
+
+async def _lock(db: AsyncSession, objs: Iterable[Any]) -> None:
+    """Re-read the rows about to be rewritten ``FOR UPDATE``, so a concurrent
+    admin edit of the same record cannot be lost between read and write."""
+    for obj in objs:
+        model = type(obj)
+        await db.execute(
+            select(model)
+            .where(model.id == obj.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
 
 
 async def apply(
@@ -513,20 +558,42 @@ async def apply(
     snapshot: Snapshot | None = None,
 ) -> dict[str, str | None]:
     """Write ``changes`` (``{key: translation | None}``) under ``code`` into
-    every record slot of each key, through the ORM; never commits. Returns the
-    lifecycle changes, which live in the pack row (the caller stores them).
-    Keys that are neither are ignored — the caller validated them."""
+    every record slot of each key, through the ORM; never commits. Two
+    sections of one card type with the same name share one key: the listing
+    shows the first, this writes all of them.
+
+    The rows touched are locked and re-read first, and their slots rebuilt
+    from what they hold now. A built-in code (or anything that is not a valid
+    custom code) writes nothing: a custom language must never overwrite the
+    text of a language the app ships. Returns the lifecycle changes, which
+    live in the pack row (the caller stores them). Keys that are neither are
+    ignored — the caller validated them."""
+    if lp.code_error(code, built_in_locales()) is not None:
+        return {}
     snap = snapshot or await load(db)
     lifecycle = {k: v for k, v in changes.items() if k in snap.lifecycle}
     wanted = {k: v for k, v in changes.items() if k not in lifecycle}
+    if not wanted:
+        return lifecycle
+    targets = {id(obj): obj for obj, slot in snap.slots() if slot.key in wanted}
+    await _lock(db, targets.values())
     touched = False
-    if wanted:
-        for obj, slot in snap.slots():
+    for obj in targets.values():
+        for slot in _SLOTS[type(obj)](record_view(obj)):
             if slot.key in wanted:
                 touched |= _write_slot(obj, slot, code, wanted[slot.key])
     if touched:
         await db.flush()
     return lifecycle
+
+
+async def clear_code(db: AsyncSession, code: str) -> int:
+    """Remove ``code`` from every record's locale maps (a custom language is
+    being deleted). Returns how many labels held a translation."""
+    snap = await load(db)
+    held = [e.key for e in entries(snap, code) if e.value and e.key not in snap.lifecycle]
+    await apply(db, code, dict.fromkeys(held), snap)
+    return len(held)
 
 
 # ---------------------------------------------------------------------------
@@ -539,9 +606,8 @@ def seed_english() -> dict[str, str]:
     """``{key: English}`` of every label the built-in seed creates, built with
     the same key builders from the ``seed.py`` constants (no database).
 
-    Compliance regulations and resource types are seeded from lists local to
-    ``seed_metamodel`` and are therefore not here: they never go into a share
-    pack."""
+    Compliance regulations and resource types come from
+    ``seed.BUILTIN_REGULATIONS`` / ``seed.BUILTIN_RESOURCE_TYPES``."""
     from app.services import seed
 
     out: dict[str, str] = {}
@@ -566,6 +632,10 @@ def seed_english() -> dict[str, str]:
     for r in copy.deepcopy(seed.RELATIONS):
         seed._inject_english_translations_relation(r)
         add(relation_slots(r))
+    for reg in seed.BUILTIN_REGULATIONS:
+        add(regulation_slots(reg))
+    for res in seed.BUILTIN_RESOURCE_TYPES:
+        add(resource_slots(res))
     for c in seed.CARD_TYPE_CATEGORIES:
         add(category_slots(c))
     for d in seed.DASHBOARD_NAMES:

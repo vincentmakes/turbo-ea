@@ -370,6 +370,13 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
 
     card_type_category_rows = await card_type_categories.list_categories(db)
 
+    # Enabled custom languages ({code, name, rtl, hash}; the hash versions
+    # ``GET /custom-locales/{code}/bundle``) and the lifecycle phase help with
+    # their phase texts laid over it — one read for both.
+    custom_locales, phase_help = await custom_locale_store.bootstrap_payload(
+        db, lifecycle_phase_help.read_phase_help(general)
+    )
+
     email_settings = (row.email_settings if row else None) or {}
     email_configured = _email_configured(email_settings)
 
@@ -391,15 +398,9 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "extension_notices_enabled": general.get("extensionNoticesEnabled", True),
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
-        # Admin-added languages users may choose ({code, name, rtl, hash}); the
-        # hash versions ``GET /custom-locales/{code}/bundle``.
-        "custom_locales": await custom_locale_store.bootstrap_entries(db),
+        "custom_locales": custom_locales,
         "fiscal_year_start": general.get("fiscalYearStart", 1),
-        # Enabled custom languages' phase texts are laid over the stored /
-        # default help (they live in the language's ``metamodel`` pack row).
-        "lifecycle_phase_help": await custom_locale_store.phase_help_with_custom_locales(
-            db, lifecycle_phase_help.read_phase_help(general)
-        ),
+        "lifecycle_phase_help": phase_help,
         "archive_retention_days": general.get(
             "archiveRetentionDays", DEFAULT_ARCHIVE_RETENTION_DAYS
         ),

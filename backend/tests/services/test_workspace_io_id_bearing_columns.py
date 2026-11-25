@@ -93,8 +93,13 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("Surveys", "message"): PROSE,
     ("Surveys", "target_roles"): KEYS,
     ("Surveys", "fields"): KEYS,
-    ("CustomLocaleStrings", "strings"): "translated UI strings keyed by i18n key",
-    ("CustomLocaleStrings", "meta"): "source-text hashes and origins keyed by i18n key",
+    ("CustomLocaleStrings", "strings"): (
+        "translations keyed by i18n key or metamodel label key (type / field / dashboard keys, "
+        "no ids)"
+    ),
+    ("CustomLocaleStrings", "meta"): (
+        "source-text hashes and origins keyed by i18n key or metamodel label key (no ids)"
+    ),
 }
 
 
