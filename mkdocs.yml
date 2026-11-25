@@ -758,6 +758,7 @@ nav:
   - Administration:
       - admin/index.md
       - General Settings: admin/settings.md
+      - Custom Languages: admin/custom-languages.md
       - Metamodel: admin/metamodel.md
       - Calculations: admin/calculations.md
       - Tags: admin/tags.md

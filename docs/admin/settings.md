@@ -63,6 +63,8 @@ Toggle which languages are available to users in their language selector. All ei
 
 At least one language must remain enabled at all times.
 
+A language that is not in this list can be added as a [custom language](custom-languages.md): you create it under **Custom languages**, just below, and fill its translations from a file, with your AI provider or through an AI assistant.
+
 ### Fiscal Year Start
 
 Select the month that begins your organization's fiscal year (January through December). This setting affects how **budget lines** in the PPM module are grouped by fiscal year. For example, if the fiscal year starts in April, a budget line dated June 2026 belongs to FY 2026–2027. It also decides which fiscal year the [Cost Report](../guide/reports.md#cost-report) shows.

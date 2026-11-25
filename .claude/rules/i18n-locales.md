@@ -22,6 +22,8 @@ paths:
 
 #### Adding a New Language
 
+> **A custom language is not this recipe.** An admin-added language (Settings → Custom languages, `custom_locales` table) is data: no locale files, no `SUPPORTED_LOCALES` entry, no seed or docs change — see `.claude/rules/custom-locales.md`. This recipe is only for a language that ships bundled with the app.
+
 The locale code is the ISO 639-1 two-letter code throughout (`da`, not `da-DK`). The recipe touches code in three layers (frontend, backend, docs) plus a one-shot data migration. PR [#623](https://github.com/vincentmakes/turbo-ea/pull/623) (Danish) is the canonical worked example.
 
 1. **Frontend locale files**: copy `frontend/src/i18n/locales/en/` to `frontend/src/i18n/locales/{code}/` and translate the values in all 14 JSON files. Keys, placeholders, and `_one`/`_other` plural variants must match the English source exactly — verify with the JSON-parity check below.
