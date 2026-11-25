@@ -72,8 +72,12 @@ function renderDialog() {
   );
 }
 
+/**
+ * The table row showing `text` in a cell paragraph — never a tooltip, which an
+ * action button with the same label (Save, Cancel) pops up on hover.
+ */
 function rowOf(text: string): HTMLElement {
-  const row = screen.getByText(text).closest("tr");
+  const row = screen.getByText(text, { selector: "td p" }).closest("tr");
   if (!row) throw new Error(`no row for ${text}`);
   return row as HTMLElement;
 }

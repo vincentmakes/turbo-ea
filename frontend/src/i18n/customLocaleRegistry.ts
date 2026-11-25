@@ -7,7 +7,13 @@
  * loader and the public helpers live in `./customLocales`, which re-exports
  * these functions.
  */
-import type { CustomLocaleInfo } from "@/types";
+/**
+ * One registered language. Structurally `CustomLocaleInfo` from `@/types`, but
+ * spelled out here: `./index` imports this module and the test setup imports
+ * `./index`, so an import of `@/types` would put the whole types file on the
+ * path every test run starts from (`scripts/pr-test-scope.test.ts`).
+ */
+type CustomLocaleInfo = { code: string; name: string; rtl: boolean; hash: string };
 
 const _registry = new Map<string, CustomLocaleInfo>();
 
