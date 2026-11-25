@@ -7,6 +7,8 @@ paths:
   - "backend/app/models/ppm_*.py"
   - "backend/app/schemas/ppm*.py"
   - "frontend/src/features/admin/Pml*Settings*"
+  - "frontend/src/features/cards/CardDetailContent.tsx"
+  - "frontend/e2e/pml-financials.spec.ts"
   - "backend/alembic/versions/*_pml_*.py"
   - "backend/alembic/versions/201_initiative_actual_dates.py"
 ---
@@ -34,7 +36,8 @@ Project Master List (PML) is the user-facing name. Keep the existing `/ppm` rout
 - **Notifications**: Task assignment sends a `task_assigned` notification
 - **Permissions**: `ppm.view` (read: admin, bpm_admin, member, viewer) and `ppm.manage` (write: admin, bpm_admin, member)
 - **Financial access and locking.** Apply Initiative card visibility to financial routes. Invoice rows and totals also require per-Initiative cost visibility. Invoice writes require `ppm.view` and `ppm.manage`. Budget, Cost Item and invoice creates and updates take the shared `AppSettings` lock before reading field definitions or acquiring Initiative or Provider locks.
-- **Financial totals.** Actual cost comes from Cost Items. Invoice totals and residuals stay separate from `costActual`.
+- **Financial totals.** Actual cost comes from Cost Items. Remaining Budget is the budgeted amount minus the actual cost of linked Cost Items and can be negative. Invoice totals and Remaining to Invoice stay separate from Remaining Budget and `costActual`.
+- **Financial formulas.** The PML reuses the Core formula editor. The UI defaults new expressions to Core. Saved definitions without an engine use Legacy. Core financial expressions use `Decimal`. Apply Provider validation and visibility to previews and projections.
 - **Private timeline.** Schedule, Gantt and filter-data share date visibility. Respect subtype and section-layout hidden fields and tolerate sections with no fields.
 
 ### Frontend Components
@@ -43,9 +46,10 @@ Project Master List (PML) is the user-facing name. Keep the existing `/ppm` rout
 - **`PpmTaskBoard.tsx`** — Kanban board with @dnd-kit drag-drop (todo/in_progress/done/blocked columns)
 - **`PpmRiskTab.tsx`** — risk grid (`PpmRiskGrid`) with filter sidebar, Excel import/export (`PpmRiskImportDialog`, `ppmRiskSpreadsheet.ts`) and a 5×5 matrix (`PpmRiskMatrix`, on the shared `grc/risk/RiskMatrix`)
 - **`PpmProjectReport.tsx`** — printable Initiative report at `/ppm/:id/report` (`ppm.view`)
-- `PpmCostTab.tsx` renders Budget → Cost Items → Invoices through `PpmFinanceTree`. The printable report uses the same tree in read-only mode.
+- `PpmCostTab.tsx` renders Budget → Cost Items → Invoices as nested tables through `PpmFinanceTree`. The printable report expands the same tables in read-only mode. Initiative summaries require `ppm.view`. Cost Manage also requires per-Initiative cost visibility. Timeline and Health Manage require `ppm.manage`.
 - **`PpmHome.tsx`** — `/ppm` tabs: Portfolio and EA Delivery (offered only when the role may open `/reports/ea-delivery`)
 - **`PpmGanttTab.tsx`** — timeline of WBS items with milestones, dependencies and completion bars; the task list sorts by column header (`ppmGanttModel.ts`)
+- **Browser verification.** Run `frontend/e2e/pml-financials.spec.ts` after changes to the financial hierarchy, Manage dialogs or printable report. Use an isolated demo stack. When setting `E2E_BASE_URL`, set `E2E_PML_DISPOSABLE=1` for the scenario that writes data.
 
 ### Demo Data
 `seed_demo_ppm.py` populates PPM data for 6 Initiative cards when `SEED_DEMO=true` or `SEED_PPM=true`. Includes status reports, WBS hierarchies, tasks, budget/cost lines, and risks with varied project health stories.

@@ -51,6 +51,8 @@ back. The session that called you owns git: **you never commit, push, tag, label
 
 ## Conventions that always apply
 
+- **Comments.** Remove comments that repeat the code. Keep the reason for a real constraint in the shortest wording that remains clear.
+
 `material-ui-styling` and `material-ui-theming` (the official MUI skills) are preloaded above. The repo is
 on MUI 6 and its design tokens (`frontend/src/theme/tokens.ts`, `UI_GUIDELINES.md`) win over them: no hex
 colour in code, whatever an example in the skill shows. Their `reference.md` files are read on demand.
