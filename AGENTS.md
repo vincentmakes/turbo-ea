@@ -4,11 +4,9 @@
 > **(1) ask the user**, **(2) say exactly which lines you want to change and WHY**, **(3) wait for a clear yes.**
 > Never add, reword or remove on your own initiative.
 
-# REGOLA OBBLIGATORIA — AMBIENTI SEPARATI
+## Separate environments
 
-**CLAUDE CODE LAVORA SOLO IN `claude-work`. CODEX LAVORA SOLO IN `chatgpt-work`.**
-
-Ogni assistente usa esclusivamente gli strumenti, le sessioni e le credenziali del proprio ambiente. È vietato avviare, contattare o delegare lavoro all’altro assistente, anche per prove, review o come ripiego. Se uno strumento del proprio ambiente blocca il lavoro, segnalare il blocco all’utente e attendere istruzioni.
+Claude Code works only in `claude-work`; Codex works only in `chatgpt-work`. Each assistant uses only the tools, sessions and credentials of its own environment. Never start, contact or hand work to the other assistant, not for tests, reviews or as a fallback. If a tool of your own environment blocks the work, report the block to the user and wait for instructions.
 
 # Turbo EA
 

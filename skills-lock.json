@@ -26,8 +26,8 @@
       "source": "mui/material-ui",
       "sourceType": "github",
       "skillPath": "skills/material-ui-theming/SKILL.md",
-      "computedHash": "2a469402c1c4b95866e4527eef5dc3389ab88bbc7f6585cac6698de91f2852a4",
-      "commit": "80739f32f3ee8fb4e1a6cd29ccb35bac78e28cdf"
+      "computedHash": "b3180bb67516fd055dc1c53536e95ee14f16e73bf400e5d08ceddacff3dff3c1",
+      "commit": "05feccdf03ceca4daae2e6809db26bf006eedbce"
     },
     "python-anti-patterns": {
       "source": "wshobson/agents",
