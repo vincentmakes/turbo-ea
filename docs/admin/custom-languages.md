@@ -42,7 +42,7 @@ Use whichever suits you; they can be combined, and the result is the same.
 
 - **New and changed strings (to translate)** — the English text of every string that is missing or changed. Use this for the first translation and after each upgrade.
 - **All strings in English (to translate)** — the English text of every string, to translate everything again.
-- **Current translations (to share)** — the translations you already have, including the names in your own metamodel. Use it as a backup or to move the language to another installation of your own.
+- **Current translations (includes this installation's own labels)** — the translations you already have, including the names in your own metamodel. Use it as a backup or to move the language to another installation of your own.
 - **Share (community pack)** — the translations you already have, but only what is the same in every Turbo EA installation: the interface text and the names of the built-in metamodel as Turbo EA ships them. Anything specific to your installation is left out — card types, fields and options you created, built-in names you renamed, your dashboards and categories. This is the file to share with other Turbo EA users.
 
 Translate the file anywhere — a translation agency, a translation tool, or an AI chat — then **Import language pack**. The import checks the file, saves the strings one section at a time, and shows a report: how many strings were applied, unchanged or cleared, which were rejected and why, and which keys are not in this version.
