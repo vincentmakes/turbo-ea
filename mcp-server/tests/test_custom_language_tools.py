@@ -36,8 +36,11 @@ INSTRUCTIONS_DUTCH = (
     "Keep the keys, the {{placeholders}}, any <tags> and $t(...) references "
     "exactly as they are, and add no markup or links of your own. Keep product "
     "terms (card, inventory, stakeholder, metamodel, relation, lifecycle) "
-    "consistent with the earlier translations. Leave out a string you cannot "
-    "translate rather than returning the English text."
+    'consistent with the earlier translations. The "metamodel" namespace holds '
+    "the names of card types, fields, options and relations: short labels, "
+    "translate them first and use the same words for them in every other "
+    "string. Leave out a string you cannot translate rather than returning "
+    "the English text."
 )
 
 
@@ -45,23 +48,45 @@ INSTRUCTIONS_DUTCH = (
 
 
 class TestLocaleProblem:
-    @pytest.mark.parametrize("code", ["nl", "fil", "pt-BR", "zh-TW"])
+    @pytest.mark.parametrize(
+        "code", ["nl", "fil", "he", "hi", "th", "pt-BR", "zh-TW", "zh-Hant", "sr-Latn-RS"]
+    )
     def test_a_well_formed_code_passes(self, code):
         assert server._locale_problem(code) is None
 
     @pytest.mark.parametrize(
-        "code", ["", "n", "NL", "abcd", "pt-br", "pt_BR", "nl-BRA", "nl/x", "../nl", " nl", 7, None]
+        "code",
+        [
+            "",
+            "n",
+            "NL",
+            "abcd",
+            "pt-br",
+            "pt_BR",
+            "nl-BRA",
+            "nl/x",
+            "../nl",
+            " nl",
+            7,
+            None,
+            "zh-hant",
+            "zh-HANT",
+            "zh-Han",
+            "zh-Hantx",
+            "zh-BR-Hant",
+            "he-IL-x",
+        ],
     )
     def test_anything_else_is_refused_and_echoed(self, code):
         problem = server._locale_problem(code)
         assert problem["error"] == "invalid_locale"
         assert problem["locale"] == code
         assert problem["message"] == (
-            "locale must be a custom language code such as 'nl' or 'pt-BR' "
-            "(see list_custom_languages)."
+            "locale must be a custom language code such as 'nl', 'pt-BR' or "
+            "'zh-Hant' (see list_custom_languages)."
         )
 
-    @pytest.mark.parametrize("code", ["nl\n", "nl-BR\n", "xnl", "nl-BR-x"])
+    @pytest.mark.parametrize("code", ["nl\n", "nl-BR\n", "zh-Hant\n", "xnl", "nl-BR-x"])
     def test_the_whole_code_must_match(self, code):
         # ``$`` would accept a trailing newline; ``fullmatch`` does not.
         assert server._locale_problem(code)["error"] == "invalid_locale"
@@ -129,6 +154,7 @@ class TestAcceptedKeys:
         assert server._accepted_keys(translations, body) == {"common": ["a", "b"]}
 
     def test_a_count_for_unknown_is_ignored(self):
+        # The backend answers ``unknown`` as an integer count.
         body = {"rejected": None, "unknown": 2}
         assert server._accepted_keys({"common": {"a": "1"}}, body) == {"common": ["a"]}
 
@@ -334,7 +360,7 @@ REPORT = {
     "unchanged": 0,
     "cleared": 0,
     "rejected": [{"namespace": "common", "key": "actions.close", "reason": "placeholder_mismatch"}],
-    "unknown": [],
+    "unknown": 0,
 }
 
 
@@ -402,7 +428,7 @@ class TestSubmitTranslations:
             "would_apply": 1,
             "unchanged": 0,
             "rejected": REPORT["rejected"],
-            "unknown": [],
+            "unknown": 0,
             "accepted": {"common": ["actions.save"]},
             "reversible": False,
             "note": server._TRANSLATIONS_NOT_REVERSIBLE,
@@ -424,6 +450,23 @@ class TestSubmitTranslations:
         assert "would_apply" not in out
         assert out["batch_id"] == "B-1"
         assert "confirm_token" not in out
+
+    @pytest.mark.asyncio
+    async def test_metamodel_labels_in_another_script_go_up_as_one_more_namespace(self, fake_token):
+        strings = {
+            "metamodel": {"type.Application.label": "יישום"},
+            "common": {"actions.save": "שמור"},
+        }
+        backend = _Backend(answer={"applied": 2, "unchanged": 0, "rejected": [], "unknown": 1})
+        out = await backend.run(locale="he", translations=strings, dry_run=False)
+        assert backend.writes() == [
+            ("/custom-locales/he/strings?dry_run=false", {"strings": strings, "origin": "mcp"})
+        ]
+        assert out["unknown"] == 1
+        assert out["accepted"] == {
+            "metamodel": ["type.Application.label"],
+            "common": ["actions.save"],
+        }
 
     @pytest.mark.asyncio
     async def test_a_non_object_answer_reports_zero(self, fake_token):
