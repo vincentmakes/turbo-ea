@@ -20,6 +20,8 @@ export const KNOWN_ERROR_CODES = [
   "job_running",
   "ai_not_configured",
   "catalog_unavailable",
+  "locale_not_found",
+  "unknown_namespace",
 ] as const;
 
 /** Reasons `POST …/strings` rejects a string with. */
@@ -34,10 +36,32 @@ export const REJECT_REASONS = [
   "control_chars",
   "not_a_string",
   "source_changed",
+  "source_hash_missing",
 ] as const;
 
 /** Mirrors the backend's code rule: `nl`, `fil`, `pt-BR`, `zh-Hant`, `sr-Latn-RS`. */
 export const LOCALE_CODE_PATTERN = /^[a-z]{2,3}(-[A-Z][a-z]{3})?(-[A-Z]{2})?$/;
+/** The longest code the backend stores (the column is `String(10)`). */
+export const MAX_LOCALE_CODE_LENGTH = 10;
+
+/**
+ * The canonical form of a language tag (`iw` → `he`, `in` → `id`), or `null`
+ * when the browser cannot read it. A code that is not its own canonical form
+ * would never be matched when the language is shown.
+ */
+export function canonicalLocale(code: string): string | null {
+  try {
+    return Intl.getCanonicalLocales(code)[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The largest pack file the import reads (mirrors the upload cap). */
+export const MAX_PACK_BYTES = 20 * 1024 * 1024;
+
+/** Statuses after which the next namespace's request would fail the same way. */
+export const FATAL_IMPORT_STATUSES: ReadonlySet<number> = new Set([401, 403, 404, 503]);
 
 /** Base codes of languages usually written right to left (a hint, never applied on its own). */
 export const USUALLY_RTL_CODES: ReadonlySet<string> = new Set([
@@ -68,7 +92,14 @@ export const ENGLISH_NAME_PATTERN = /^[A-Za-z][A-Za-z ()-]{1,59}$/;
 export type PackParseError = "invalid_json" | "not_a_pack" | "unsupported_version" | "no_strings";
 
 export type PackParseResult =
-  | { ok: true; pack: LanguagePack; namespaces: string[]; stringCount: number }
+  | {
+      ok: true;
+      pack: LanguagePack;
+      namespaces: string[];
+      stringCount: number;
+      /** Values that are not text (`null` among them) — never sent, so never a clear. */
+      skipped: number;
+    }
   | { ok: false; error: PackParseError };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -78,7 +109,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /**
  * Parse the text of a language-pack file. Refuses anything that is not a
  * `turbo-ea-language-pack` of a version this client understands, or that
- * carries no strings. Namespaces whose value is not an object are dropped.
+ * carries no strings. Namespaces whose value is not an object are dropped, and
+ * so is every value that is not text: a `null` in a pack must not clear a
+ * stored translation (clearing is done by hand in the review dialog).
  */
 export function parseLanguagePack(text: string): PackParseResult {
   let raw: unknown;
@@ -100,11 +133,17 @@ export function parseLanguagePack(text: string): PackParseResult {
 
   const strings: Record<string, Record<string, unknown>> = {};
   let stringCount = 0;
+  let skipped = 0;
   for (const [ns, values] of Object.entries(raw.strings)) {
     if (!isPlainObject(values)) continue;
-    const count = Object.keys(values).length;
+    const kept: Record<string, string> = {};
+    for (const [key, value] of Object.entries(values)) {
+      if (typeof value === "string") kept[key] = value;
+      else skipped += 1;
+    }
+    const count = Object.keys(kept).length;
     if (count === 0) continue;
-    strings[ns] = values;
+    strings[ns] = kept;
     stringCount += count;
   }
   const namespaces = Object.keys(strings).sort();
@@ -114,7 +153,7 @@ export function parseLanguagePack(text: string): PackParseResult {
     ? (raw.source_hashes as LanguagePack["source_hashes"])
     : undefined;
   const pack = { ...(raw as unknown as LanguagePack), strings, source_hashes: hashes };
-  return { ok: true, pack, namespaces, stringCount };
+  return { ok: true, pack, namespaces, stringCount, skipped };
 }
 
 /** The `POST …/strings` body importing one namespace of a pack. */
@@ -148,6 +187,11 @@ export function downloadJson(filename: string, data: unknown): void {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/** The HTTP status of an API error, or `null` for any other failure. */
+export function apiErrorStatus(err: unknown): number | null {
+  return err instanceof ApiError ? err.status : null;
 }
 
 /** The machine-readable code of an API error (`detail` as a string or `{code}`). */

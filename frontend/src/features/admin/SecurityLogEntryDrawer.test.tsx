@@ -7,6 +7,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import i18n from "@/i18n";
+import { registerCustomLocale } from "@/i18n/customLocaleRegistry";
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
 
@@ -627,6 +628,15 @@ describe("SecurityLogEntryDrawer — formatted cells", () => {
     expect(within(ctx).getByText("image/png")).toBeInTheDocument();
     expect(within(ctx).getByText('{"a":1}')).toBeInTheDocument();
     expect(mockApi.calls).toHaveLength(0);
+  });
+});
+
+describe("SecurityLogEntryDrawer — custom languages", () => {
+  it("names a custom language by its native name and an unknown code as sent", () => {
+    registerCustomLocale({ code: "he", name: "עברית", rtl: true, hash: "" });
+    renderDrawer(entry({ details: { context: { locales: ["he", "xq", "de"] } } }));
+    const ctx = screen.getByTestId("security-details-context");
+    expect(within(ctx).getByText("עברית, xq, Deutsch")).toBeInTheDocument();
   });
 });
 

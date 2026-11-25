@@ -10,9 +10,9 @@ vi.mock("@/hooks/useEnabledLocales", () => ({
   useEnabledLocales: () => ({ enabledLocales: enabledLocalesMock.value }),
 }));
 
-const invalidateMock = vi.hoisted(() => vi.fn());
-vi.mock("@/hooks/useLifecyclePhaseHelp", () => ({
-  invalidateLifecyclePhaseHelp: invalidateMock,
+const invalidateMock = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@/api/bootstrap", () => ({
+  refreshBootstrap: invalidateMock,
 }));
 
 import LifecyclePhaseHelpPanel from "./LifecyclePhaseHelpPanel";
@@ -76,7 +76,9 @@ describe("LifecyclePhaseHelpPanel", () => {
         phaseOut: { en: "Being replaced.", de: "Wird abgelöst." },
       },
     });
-    expect(invalidateMock).toHaveBeenCalledWith(stored);
+    // Bootstrap carries the help with every enabled custom language overlaid.
+    expect(invalidateMock).toHaveBeenCalledTimes(1);
+    expect(invalidateMock).toHaveBeenCalledWith();
     expect(await screen.findByText("Lifecycle phase help saved")).toBeInTheDocument();
   });
 
@@ -237,7 +239,7 @@ describe("LifecyclePhaseHelpPanel", () => {
     expect(
       screen.queryByText("Could not save the lifecycle phase help. Please try again."),
     ).not.toBeInTheDocument();
-    expect(invalidateMock).toHaveBeenCalledWith({ active: { en: "Trimmed." } });
+    expect(invalidateMock).toHaveBeenCalledTimes(1);
   });
 
   it("dismisses the saved notice", async () => {

@@ -44,8 +44,10 @@ function _set(v: CustomLocaleInfo[]) {
 function _fetch(): Promise<CustomLocaleInfo[]> {
   if (_cache) return Promise.resolve(_cache);
   if (_inflight) return _inflight;
-  _inflight = api
-    .get<{ custom_locales?: unknown }>("/settings/bootstrap")
+  // Started inside a promise chain, so a test double that returns nothing
+  // cannot throw inside the effect that called it.
+  _inflight = Promise.resolve()
+    .then(() => api.get<{ custom_locales?: unknown }>("/settings/bootstrap"))
     .then((r) => sanitizeCustomLocales(r?.custom_locales))
     .catch(() => [] as CustomLocaleInfo[])
     .then((v) => {
@@ -59,16 +61,12 @@ function _fetch(): Promise<CustomLocaleInfo[]> {
 }
 
 /**
- * Prime the cache (bootstrap, or the admin after a change) with `v`, or drop
- * it and read it again when called without a value.
+ * Prime the cache with `v` — from `primeBootstrap()`. After an admin change,
+ * call `refreshBootstrap()`, which waits for a read in flight and re-primes
+ * this list from a read made after the change.
  */
-export function invalidateCustomLocales(v?: CustomLocaleInfo[]): void {
-  if (v) {
-    _set(v);
-    return;
-  }
-  _cache = null;
-  void _fetch();
+export function invalidateCustomLocales(v: CustomLocaleInfo[]): void {
+  _set(v);
 }
 
 /** The enabled custom languages; empty until known. */

@@ -3,14 +3,16 @@
  * app, added and filled by an admin (file export/import, the configured AI
  * provider, MCP, or by hand in the review dialog).
  *
- * After any change the enabled list behind the language menu is re-read
- * (`invalidateCustomLocales`) and the changed language's bundle is dropped, and
- * reloaded at once when it is the active language (`refreshCustomLocale`), so
- * the admin sees the result without a page reload. An import, a finished AI
- * run or a manual edit of a database label also re-reads the metamodel and the
- * bootstrap-primed caches (`refreshLabels`).
+ * After any change the list is re-read, bootstrap is re-read
+ * (`refreshBootstrap`: the enabled list behind the language menu, category,
+ * regulation and resource-type labels, lifecycle help) and the changed
+ * language's bundle is dropped, and reloaded at once when it is the active
+ * language (`refreshCustomLocale`), so the admin sees the result without a page
+ * reload. An import, a finished AI run or a manual edit of a database label
+ * also re-reads the metamodel. While any language's AI job runs, the list is
+ * polled, so a job finishing after its dialog closed still refreshes all that.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Paper from "@mui/material/Paper";
 import Box from "@mui/material/Box";
@@ -36,30 +38,30 @@ import { api } from "@/api/client";
 import { refreshBootstrap } from "@/api/bootstrap";
 import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
 import { useApiQuery } from "@/hooks/useApiQuery";
-import { invalidateCustomLocales } from "@/hooks/useCustomLocales";
 import i18n from "@/i18n";
-import {
-  forgetCustomLocale,
-  refreshCustomLocale,
-  setAppLanguage,
-} from "@/i18n/customLocales";
+import { forgetLoadedLocale, refreshCustomLocale, setAppLanguage } from "@/i18n/customLocales";
 import type { CustomLocale, LanguagePack, LanguagePackMode } from "@/types";
 import CustomLocaleFormDialog from "./CustomLocaleFormDialog";
 import ImportPackDialog from "./ImportPackDialog";
-import TranslateDialog from "./TranslateDialog";
+import TranslateDialog, { POLL_INTERVAL_MS } from "./TranslateDialog";
 import ReviewStringsDialog from "./ReviewStringsDialog";
 import { METAMODEL_NAMESPACE, downloadJson, errorMessage, percent } from "./customLocaleUtils";
 
 const EXPORT_MODES: LanguagePackMode[] = ["missing", "all", "current", "share"];
 
 /**
- * Database labels (card types, fields, categories, lifecycle help …) live in
- * the metamodel and the bootstrap-primed caches: re-read both after a change
- * that can have translated them.
+ * Refresh what a change to a custom language can have moved: bootstrap (the
+ * enabled list, the database labels it primes), the language's own bundle and,
+ * when database labels may have changed, the metamodel.
  */
-function refreshLabels(): void {
-  void invalidateMetamodel();
+function refreshAfterChange(code: string | undefined, labels: boolean): void {
   void refreshBootstrap();
+  if (code) void refreshCustomLocale(code);
+  if (labels) invalidateMetamodel().catch(() => {});
+}
+
+function isRunning(locale: CustomLocale): boolean {
+  return locale.job?.status === "running";
 }
 
 type DialogState =
@@ -79,15 +81,34 @@ export default function CustomLocalesSection() {
   );
   const [error, setError] = useState("");
 
-  /** Re-read the list and the menu's enabled list; reload `code` if it is active. */
+  /** Re-read the list, then everything the change can have moved. */
   const afterChange = useCallback(
-    (code?: string) => {
+    (code?: string, labels = false) => {
       refetch();
-      invalidateCustomLocales();
-      if (code) void refreshCustomLocale(code);
+      refreshAfterChange(code, labels);
     },
     [refetch],
   );
+
+  // Poll the list while a job runs, one read at a time: the next one is
+  // armed only once the previous read settled.
+  const runningKey = locales.filter(isRunning).map((l) => l.code).join(",");
+  useEffect(() => {
+    if (!runningKey || loading) return;
+    const id = setTimeout(refetch, POLL_INTERVAL_MS);
+    return () => clearTimeout(id);
+  }, [runningKey, loading, data, refetch]);
+
+  // A job seen running that no longer is has finished: refresh what it wrote.
+  const seenRunning = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!Array.isArray(data)) return;
+    const now = new Set(data.filter(isRunning).map((l) => l.code));
+    for (const code of seenRunning.current) {
+      if (!now.has(code)) refreshAfterChange(code, true);
+    }
+    seenRunning.current = now;
+  }, [data]);
 
   const closeDialog = () => setDialog(null);
 
@@ -121,7 +142,7 @@ export default function CustomLocalesSection() {
     try {
       await api.delete(`/custom-locales/${encodeURIComponent(locale.code)}`);
       closeDialog();
-      forgetCustomLocale(locale.code);
+      forgetLoadedLocale(locale.code);
       if (i18n.language === locale.code) void setAppLanguage("en");
       afterChange();
     } catch (e) {
@@ -169,8 +190,10 @@ export default function CustomLocalesSection() {
       )}
 
       {locales.map((locale) => {
+        // No stats: the server has no English catalogue, so nothing can be
+        // counted, exported, reviewed or translated until it has.
         const { stats } = locale;
-        const running = locale.job?.status === "running";
+        const running = isRunning(locale);
         return (
           <Box
             key={locale.code}
@@ -193,19 +216,27 @@ export default function CustomLocalesSection() {
               </Typography>
             </Box>
             <Box sx={{ flex: 1, minWidth: 160 }}>
-              <LinearProgress
-                variant="determinate"
-                value={percent(stats.translated, stats.total)}
-                aria-label={t("customLocales.progressLabel", { name: locale.name })}
-              />
-              <Typography variant="caption" color="text.secondary">
-                {t("customLocales.progress", {
-                  translated: stats.translated,
-                  total: stats.total,
-                })}
-              </Typography>
+              {stats ? (
+                <>
+                  <LinearProgress
+                    variant="determinate"
+                    value={percent(stats.translated, stats.total)}
+                    aria-label={t("customLocales.progressLabel", { name: locale.name })}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    {t("customLocales.progress", {
+                      translated: stats.translated,
+                      total: stats.total,
+                    })}
+                  </Typography>
+                </>
+              ) : (
+                <Typography variant="caption" color="error">
+                  {t("customLocales.errors.catalog_unavailable")}
+                </Typography>
+              )}
             </Box>
-            {stats.missing > 0 && (
+            {stats && stats.missing > 0 && (
               <Chip
                 size="small"
                 color="error"
@@ -213,7 +244,7 @@ export default function CustomLocalesSection() {
                 label={t("customLocales.missingCount", { count: stats.missing })}
               />
             )}
-            {stats.stale > 0 && (
+            {stats && stats.stale > 0 && (
               <Chip
                 size="small"
                 color="warning"
@@ -240,31 +271,40 @@ export default function CustomLocalesSection() {
             </Tooltip>
             <Box sx={{ display: "flex", gap: 0.25 }}>
               <Tooltip title={t("customLocales.actions.review")}>
+                <span>
                 <IconButton
                   size="small"
                   aria-label={t("customLocales.actions.review")}
+                  disabled={!stats}
                   onClick={() => setDialog({ kind: "review", locale })}
                 >
                   <MaterialSymbol icon="rate_review" size={18} />
                 </IconButton>
+                </span>
               </Tooltip>
               <Tooltip title={t("customLocales.actions.translate")}>
+                <span>
                 <IconButton
                   size="small"
                   aria-label={t("customLocales.actions.translate")}
+                  disabled={!stats}
                   onClick={() => setDialog({ kind: "translate", locale })}
                 >
                   <MaterialSymbol icon="auto_awesome" size={18} />
                 </IconButton>
+                </span>
               </Tooltip>
               <Tooltip title={t("customLocales.actions.export")}>
+                <span>
                 <IconButton
                   size="small"
                   aria-label={t("customLocales.actions.export")}
+                  disabled={!stats}
                   onClick={(e) => setExportAnchor({ el: e.currentTarget, code: locale.code })}
                 >
                   <MaterialSymbol icon="download" size={18} />
                 </IconButton>
+                </span>
               </Tooltip>
               <Tooltip title={t("customLocales.actions.import")}>
                 <IconButton
@@ -330,19 +370,18 @@ export default function CustomLocalesSection() {
         <ImportPackDialog
           locale={dialog.locale}
           onClose={closeDialog}
-          onImported={() => {
-            afterChange(dialog.locale.code);
-            refreshLabels();
-          }}
+          onImported={() => afterChange(dialog.locale.code, true)}
         />
       )}
       {dialog?.kind === "translate" && (
         <TranslateDialog
           locale={dialog.locale}
           onClose={closeDialog}
+          onStarted={refetch}
           onFinished={() => {
-            afterChange(dialog.locale.code);
-            refreshLabels();
+            // The list may have seen it running too: refresh once, not twice.
+            seenRunning.current.delete(dialog.locale.code);
+            afterChange(dialog.locale.code, true);
           }}
         />
       )}
@@ -350,10 +389,9 @@ export default function CustomLocalesSection() {
         <ReviewStringsDialog
           locale={dialog.locale}
           onClose={closeDialog}
-          onChanged={(namespace) => {
-            afterChange(dialog.locale.code);
-            if (namespace === METAMODEL_NAMESPACE) refreshLabels();
-          }}
+          onChanged={(namespace) =>
+            afterChange(dialog.locale.code, namespace === METAMODEL_NAMESPACE)
+          }
         />
       )}
       {dialog?.kind === "delete" && (

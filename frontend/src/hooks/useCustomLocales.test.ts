@@ -130,14 +130,15 @@ describe("useCustomLocales", () => {
     expect(registry.localeLabel("th")).toBe("ไทย");
   });
 
-  it("reads the list again when invalidated without a value", async () => {
+  it("does not throw when the client answers nothing at all", async () => {
     const { hook } = await fresh();
-    hook.invalidateCustomLocales([HEBREW]);
+    vi.mocked(api.get).mockImplementationOnce((() => {
+      throw new Error("sync");
+    }) as never);
     const { result } = renderHook(() => hook.useCustomLocales());
-    vi.mocked(api.get).mockResolvedValueOnce({ custom_locales: [THAI] });
-    act(() => hook.invalidateCustomLocales());
-    await waitFor(() => expect(result.current.customLocales).toEqual([THAI]));
-    expect(api.get).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(result.current.customLocales).toEqual([]);
   });
 
   it("stops notifying a consumer once it unmounts", async () => {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -147,11 +147,15 @@ describe("ReviewStringsDialog", () => {
 
   it("searches on the server once typing settles, trimmed", async () => {
     serve([SAVED]);
-    const { user } = renderDialog();
+    renderDialog();
     await screen.findByText("שמור");
-    await user.type(screen.getByRole("textbox", { name: t("customLocales.review.search") }), " Sav ");
+    // One change event: the debounce settles once, whatever the machine's speed.
+    fireEvent.change(screen.getByRole("textbox", { name: t("customLocales.review.search") }), {
+      target: { value: " Sav " },
+    });
+    // Not before the debounce settles.
+    expect(stringReads().some((p) => p.has("search"))).toBe(false);
     await waitFor(() => expect(lastRead().search).toBe("Sav"));
-    // One read for the settled text, none per keystroke.
     expect(stringReads().filter((p) => p.has("search"))).toHaveLength(1);
   });
 
@@ -192,9 +196,6 @@ describe("ReviewStringsDialog", () => {
     const readsBefore = stringReads().length;
     await user.click(within(rowOf("Application")).getByRole("button", { name: /Edit/ }));
     const input = screen.getByRole("textbox", { name: t("customLocales.review.translation") });
-    // Starts from the English text when nothing is translated yet.
-    expect(input).toHaveValue("Application");
-    await user.clear(input);
     await user.type(input, "יישום");
     await user.click(screen.getByRole("button", { name: /Save/ }));
 
@@ -205,6 +206,66 @@ describe("ReviewStringsDialog", () => {
     });
     await waitFor(() => expect(stringReads().length).toBe(readsBefore + 1));
     expect(screen.queryByRole("textbox", { name: t("customLocales.review.translation") })).toBeNull();
+  });
+
+  it("starts an edit of an untranslated string empty, with the English as a hint", async () => {
+    serve([TYPE_LABEL]);
+    const { user } = renderDialog();
+    await screen.findByText("Application");
+    await user.click(within(rowOf("Application")).getByRole("button", { name: /Edit/ }));
+    const input = screen.getByRole("textbox", { name: t("customLocales.review.translation") });
+    expect(input).toHaveValue("");
+    expect(input).toHaveAttribute("placeholder", "Application");
+    // Saving it unchanged would store English: not offered.
+    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
+  });
+
+  it("shows and edits a right-to-left translation in its own direction and language", async () => {
+    serve([SAVED, TYPE_LABEL]);
+    const { user } = renderDialog();
+    const shown = await screen.findByText("שמור");
+    expect(shown).toHaveAttribute("dir", "rtl");
+    expect(shown).toHaveAttribute("lang", "he");
+    // The English stand-in for a missing string is not in the language.
+    const placeholder = within(rowOf("Application")).getByText(t("customLocales.review.noTranslation"));
+    expect(placeholder).not.toHaveAttribute("dir");
+    expect(placeholder).not.toHaveAttribute("lang");
+    await user.click(within(rowOf("Save")).getByRole("button", { name: /Edit/ }));
+    const input = screen.getByRole("textbox", { name: t("customLocales.review.translation") });
+    expect(input).toHaveAttribute("dir", "rtl");
+    expect(input).toHaveAttribute("lang", "he");
+  });
+
+  it("uses left to right for a left-to-right language", async () => {
+    mockApi.on("get", "/custom-locales/hi", { ...HEBREW, code: "hi", namespaces: [] });
+    mockApi.on("get", /^\/custom-locales\/hi\/strings\?/, { total: 1, items: [{ ...SAVED, value: "सहेजें" }] });
+    renderWithProviders(
+      <ReviewStringsDialog
+        locale={{ ...HEBREW, code: "hi", rtl: false }}
+        onClose={onClose}
+        onChanged={onChanged}
+      />,
+    );
+    const shown = await screen.findByText("सहेजें");
+    expect(shown).toHaveAttribute("dir", "ltr");
+    expect(shown).toHaveAttribute("lang", "hi");
+  });
+
+  it("steps back a page when the last row of the last page is translated away", async () => {
+    let total = 26;
+    mockApi.on("get", STRINGS, () => ({ total, items: total === 26 ? [SAVED] : [STALE] }));
+    const { user } = renderDialog();
+    await screen.findByText(t("customLocales.review.displayedRows", { from: 1, to: 25, total: 26 }));
+    await user.click(screen.getByRole("button", { name: t("customLocales.review.nextPage") }));
+    await waitFor(() => expect(lastRead().offset).toBe("25"));
+    total = 25;
+    mockApi.on("post", "/custom-locales/he/strings", {
+      applied: 0, unchanged: 0, cleared: 1, rejected: [], unknown: 0,
+    });
+    await user.click(await screen.findByRole("button", { name: t("customLocales.review.clear") }));
+    await waitFor(() => expect(lastRead().offset).toBe("0"));
+    expect(await screen.findByText("בטל")).toBeInTheDocument();
+    expect(screen.queryByText(t("customLocales.review.empty"))).toBeNull();
   });
 
   it("starts an edit from the current translation", async () => {

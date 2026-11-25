@@ -3659,7 +3659,8 @@ export interface CustomLocale {
   rtl: boolean;
   enabled: boolean;
   updated_at?: string | null;
-  stats: CustomLocaleStats;
+  /** `null` when the server has no English catalogue to count against. */
+  stats: CustomLocaleStats | null;
   job: CustomLocaleJob | null;
 }
 
@@ -3728,4 +3729,6 @@ export interface CustomLocaleWriteResult {
   rejected: CustomLocaleRejectedString[];
   /** How many keys of the request are not strings of this version. */
   unknown: number;
+  /** The first of those keys (the server caps the list at 200). */
+  unknown_keys?: { namespace: string; key: string }[];
 }

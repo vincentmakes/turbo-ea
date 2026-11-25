@@ -18,11 +18,11 @@ import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
+import { refreshBootstrap } from "@/api/bootstrap";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
-import { invalidateLifecyclePhaseHelp } from "@/hooks/useLifecyclePhaseHelp";
 import { LOCALE_LABELS, SUPPORTED_LOCALES } from "@/i18n";
 import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
@@ -65,7 +65,10 @@ export default function LifecyclePhaseHelpPanel() {
       });
       // The server trims and drops empty texts; show what it stored.
       setDraft(result.phases);
-      invalidateLifecyclePhaseHelp(result.phases);
+      // Re-read bootstrap rather than prime the hook with the stored map: the
+      // help users read also carries enabled custom languages' texts, which
+      // only bootstrap overlays.
+      void refreshBootstrap();
       setSaved(true);
     } catch {
       setError(t("metamodel.lifecycleHelp.saveFailed"));

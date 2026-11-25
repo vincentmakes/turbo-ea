@@ -36,11 +36,13 @@ export const POLL_INTERVAL_MS = 3000;
 interface Props {
   locale: CustomLocale;
   onClose: () => void;
+  /** Called once a job was started, so the caller can follow it too. */
+  onStarted?: () => void;
   /** Called when a job this dialog followed stops running. */
   onFinished: () => void;
 }
 
-export default function TranslateDialog({ locale, onClose, onFinished }: Props) {
+export default function TranslateDialog({ locale, onClose, onStarted, onFinished }: Props) {
   const { t } = useTranslation(["admin", "common"]);
   const { aiStatus, aiStatusLoaded } = useAiStatus();
   const [mode, setMode] = useState<CustomLocaleTranslateMode>("missing");
@@ -51,7 +53,7 @@ export default function TranslateDialog({ locale, onClose, onFinished }: Props) 
   const [error, setError] = useState("");
 
   const path = `/custom-locales/${encodeURIComponent(locale.code)}`;
-  const { data: detail } = useApiQuery<CustomLocaleDetail>(path, { refetchKey: tick });
+  const { data: detail, loading } = useApiQuery<CustomLocaleDetail>(path, { refetchKey: tick });
 
   useEffect(() => {
     if (detail) setJob(detail.job ?? null);
@@ -59,12 +61,14 @@ export default function TranslateDialog({ locale, onClose, onFinished }: Props) 
 
   const running = job?.status === "running";
 
-  // Poll while the job runs; the timer dies with the dialog.
+  // Poll while the job runs, one read at a time: the next read is armed only
+  // once the previous one settled (a read slower than the interval would
+  // otherwise be aborted by the next forever). The timer dies with the dialog.
   useEffect(() => {
-    if (!running) return;
+    if (!running || loading) return;
     const id = setTimeout(() => setTick((n) => n + 1), POLL_INTERVAL_MS);
     return () => clearTimeout(id);
-  }, [running, tick]);
+  }, [running, loading, detail]);
 
   // A job seen running that no longer is has finished: refresh the caller.
   const wasRunning = useRef(false);
@@ -73,8 +77,9 @@ export default function TranslateDialog({ locale, onClose, onFinished }: Props) 
     wasRunning.current = running;
   }, [running, onFinished]);
 
-  const stats = detail?.stats ?? locale.stats;
-  const toSend = mode === "missing" ? stats.missing + stats.stale : stats.total;
+  // No stats: the server has no English catalogue, so nothing can be sent.
+  const stats = detail ? detail.stats : locale.stats;
+  const toSend = !stats ? 0 : mode === "missing" ? stats.missing + stats.stale : stats.total;
   const configured = aiStatus.configured;
 
   const handleStart = async () => {
@@ -87,6 +92,7 @@ export default function TranslateDialog({ locale, onClose, onFinished }: Props) 
       });
       setJob(res.job);
       setTick((n) => n + 1);
+      onStarted?.();
     } catch (e) {
       setError(errorMessage(e, t, t("customLocales.translate.startFailed")));
     } finally {
@@ -119,6 +125,11 @@ export default function TranslateDialog({ locale, onClose, onFinished }: Props) 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
+          </Alert>
+        )}
+        {!stats && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {t("customLocales.errors.catalog_unavailable")}
           </Alert>
         )}
         <RadioGroup
@@ -176,7 +187,10 @@ export default function TranslateDialog({ locale, onClose, onFinished }: Props) 
             </Typography>
             {job.error && (
               <Alert severity="error" sx={{ mt: 1 }}>
-                {job.error}
+                <Typography variant="body2" fontWeight={600} component="span">
+                  {t("customLocales.translate.providerAnswered")}
+                </Typography>{" "}
+                <span data-testid="translate-job-error">{job.error}</span>
               </Alert>
             )}
           </Box>

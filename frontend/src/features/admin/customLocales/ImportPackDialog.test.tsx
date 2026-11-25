@@ -238,7 +238,7 @@ describe("ImportPackDialog", () => {
   });
 
   it("names a failed namespace by its label and the server's reason", async () => {
-    mockApi.fail("post", STRINGS_PATH, 503, "catalog_unavailable");
+    mockApi.fail("post", STRINGS_PATH, 400, "unknown_namespace");
     const { user } = renderDialog();
     pick(packText({ strings: { metamodel: { "type.Application.label": "יישום" } } }));
     await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 1, namespaces: 1 }));
@@ -247,9 +247,128 @@ describe("ImportPackDialog", () => {
       await screen.findByText(
         t("customLocales.import.namespaceFailed", {
           namespace: t("customLocales.namespaces.metamodel"),
-          message: t("customLocales.errors.catalog_unavailable"),
+          message: t("customLocales.errors.unknown_namespace"),
         }),
       ),
+    ).toBeInTheDocument();
+  });
+
+  it.each([401, 403, 404, 503])(
+    "stops at the first %i, which every other namespace would get too",
+    async (status) => {
+      mockApi.fail("post", STRINGS_PATH, status, "catalog_unavailable");
+      const { user } = renderDialog();
+      pick(packText());
+      await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 3, namespaces: 2 }));
+      await user.click(importButton());
+      const report = await screen.findByTestId("import-report");
+      expect(mockApi.callsOf("post", STRINGS_PATH)).toHaveLength(1);
+      expect(
+        within(report).getByText(
+          t("customLocales.import.stopped", { message: t("customLocales.errors.catalog_unavailable") }),
+        ),
+      ).toBeInTheDocument();
+      expect(within(report).getAllByRole("alert")[0]).toHaveClass("MuiAlert-standardWarning");
+      expect(within(report).queryByText(/was not imported/)).toBeNull();
+      expect(onImported).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("goes on after a failure that need not repeat (a 500)", async () => {
+    mockApi.fail("post", STRINGS_PATH, 500, "boom");
+    const { user } = renderDialog();
+    pick(packText());
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 3, namespaces: 2 }));
+    await user.click(importButton());
+    await screen.findByTestId("import-report");
+    expect(mockApi.callsOf("post", STRINGS_PATH)).toHaveLength(2);
+    expect(screen.queryByText(/The import stopped/)).toBeNull();
+  });
+
+  it("says the request failed when a rejection carries no message", async () => {
+    mockApi.on("post", STRINGS_PATH, () => Promise.reject("nope"));
+    const { user } = renderDialog();
+    pick(packText({ strings: { common: { a: "b" } } }));
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 1, namespaces: 1 }));
+    await user.click(importButton());
+    expect(
+      await screen.findByText(
+        t("customLocales.import.namespaceFailed", {
+          namespace: "common",
+          message: t("customLocales.import.requestFailed"),
+        }),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("names the first keys this version does not have", async () => {
+    const unknownKeys = Array.from({ length: 12 }, (_, i) => ({ namespace: "metamodel", key: `type.Gone${i}.label` }));
+    mockApi.on("post", STRINGS_PATH, result({ unknown: 12, unknown_keys: unknownKeys }));
+    const { user } = renderDialog();
+    pick(packText({ strings: { metamodel: { a: "b" } } }));
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 1, namespaces: 1 }));
+    await user.click(importButton());
+    const list = await screen.findByTestId("import-unknown-keys");
+    expect(within(list).getByText(t("customLocales.import.unknownTitle"))).toBeInTheDocument();
+    expect(within(list).getByText(`${t("customLocales.namespaces.metamodel")} · type.Gone9.label`)).toBeInTheDocument();
+    expect(within(list).queryByText(/type\.Gone10\.label/)).toBeNull();
+    expect(within(list).getAllByText(/type\.Gone\d+\.label/)).toHaveLength(10);
+  });
+
+  it("shows no unknown-key list when the server names none", async () => {
+    mockApi.on("post", STRINGS_PATH, result({ unknown: 2 }));
+    const { user } = renderDialog();
+    pick(packText({ strings: { common: { a: "b" } } }));
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 1, namespaces: 1 }));
+    await user.click(importButton());
+    await screen.findByTestId("import-report");
+    expect(screen.queryByTestId("import-unknown-keys")).toBeNull();
+  });
+
+  it("says how many values it will skip because they are not text, and never sends them", async () => {
+    mockApi.on("post", STRINGS_PATH, result({ applied: 1 }));
+    const { user } = renderDialog();
+    pick(packText({ strings: { common: { "actions.save": "שמור", "actions.cancel": null, x: 3 } } }));
+    expect(
+      await screen.findByText(t("customLocales.import.skippedNonText", { count: 2 })),
+    ).toBeInTheDocument();
+    await user.click(importButton());
+    await screen.findByTestId("import-report");
+    expect(mockApi.callsOf("post", STRINGS_PATH)[0].body).toMatchObject({
+      strings: { common: { "actions.save": "שמור" } },
+    });
+  });
+
+  it("does not mention skipped values when there are none", async () => {
+    renderDialog();
+    pick(packText());
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 3, namespaces: 2 }));
+    expect(screen.queryByText(/not text will be skipped/)).toBeNull();
+  });
+
+  it("refuses a file over 20 MB without reading it", async () => {
+    const read = vi.fn();
+    class SpyReader {
+      readAsText() {
+        read();
+      }
+    }
+    vi.stubGlobal("FileReader", SpyReader);
+    renderDialog();
+    const file = new File(["{}"], "huge.json", { type: "application/json" });
+    Object.defineProperty(file, "size", { value: 20 * 1024 * 1024 + 1 });
+    fireEvent.change(screen.getByTestId("language-pack-input"), { target: { files: [file] } });
+    expect(await screen.findByText(t("customLocales.import.tooLarge"))).toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("reads a file of exactly 20 MB", async () => {
+    renderDialog();
+    const file = new File([packText()], "he.json", { type: "application/json" });
+    Object.defineProperty(file, "size", { value: 20 * 1024 * 1024 });
+    fireEvent.change(screen.getByTestId("language-pack-input"), { target: { files: [file] } });
+    expect(
+      await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 3, namespaces: 2 })),
     ).toBeInTheDocument();
   });
 

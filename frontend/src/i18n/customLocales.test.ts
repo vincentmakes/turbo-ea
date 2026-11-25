@@ -20,6 +20,7 @@ import {
   PRELOAD_TIMEOUT_MS,
   ensureLocaleLoaded,
   forgetCustomLocale,
+  forgetLoadedLocale,
   getCustomLocale,
   isBuiltInLocale,
   localeLabel,
@@ -453,5 +454,128 @@ describe("preloadDetectedLocale", () => {
 
   it("waits three seconds by default", () => {
     expect(PRELOAD_TIMEOUT_MS).toBe(3000);
+  });
+});
+
+describe("the loader's gate", () => {
+  it("drops a string that could inject markup or nesting, so it shows in English", async () => {
+    mockApi.on("get", "/custom-locales/gate-x/bundle", {
+      ...bundle("gate-x"),
+      resources: {
+        cards: {
+          "detail.dialogs.archive.confirm":
+            "Are you sure you want to archive <img src=x onerror=alert(document.domain) <strong>{{name}}</strong>?",
+        },
+        common: {
+          "actions.save": '$t(nope, {"defaultValue": "<img src=x onerror=alert(1)>"}) שמור',
+          "actions.cancel": "ביטול",
+          "made.up.key": "x",
+        },
+      },
+    });
+    await expect(ensureLocaleLoaded("gate-x")).resolves.toBe(true);
+    expect(i18n.t("cards:detail.dialogs.archive.confirm", { lng: "gate-x", name: "N" })).toBe(
+      "Are you sure you want to archive <strong>N</strong>?",
+    );
+    expect(i18n.t("actions.save", { lng: "gate-x" })).toBe("Save");
+    expect(i18n.t("actions.cancel", { lng: "gate-x" })).toBe("ביטול");
+    expect(i18n.getResource("gate-x", "common", "made.up.key")).toBeUndefined();
+  });
+
+  it("keeps a safe string that uses English's own markup", async () => {
+    mockApi.on("get", "/custom-locales/gate-y/bundle", {
+      ...bundle("gate-y"),
+      resources: {
+        cards: { "detail.dialogs.archive.confirm": "האם להעביר לארכיון את <strong>{{name}}</strong>?" },
+      },
+    });
+    await ensureLocaleLoaded("gate-y");
+    expect(i18n.t("cards:detail.dialogs.archive.confirm", { lng: "gate-y", name: "N" })).toBe(
+      "האם להעביר לארכיון את <strong>N</strong>?",
+    );
+  });
+
+  it("gates a nested namespace path by path", async () => {
+    const english = i18n.getResourceBundle("en", "auth") as Record<string, unknown>;
+    const [branch, inner] = Object.entries(english).find(
+      ([, v]) => typeof v === "object" && v !== null,
+    ) as [string, Record<string, unknown>];
+    const [leaf] = Object.entries(inner).find(([, v]) => typeof v === "string") as [string, string];
+    mockApi.on("get", "/custom-locales/gate-z/bundle", {
+      ...bundle("gate-z"),
+      resources: { auth: { [branch]: { [leaf]: "<script>x</script>" } } },
+    });
+    await ensureLocaleLoaded("gate-z");
+    expect(i18n.hasResourceBundle("gate-z", "auth")).toBe(true);
+    expect(i18n.getResource("gate-z", "auth", `${branch}.${leaf}`)).toBeUndefined();
+  });
+
+  it("never lets a custom regional variant fall back to the built-in base language", async () => {
+    mockApi.on("get", "/custom-locales/pt-BR/bundle", {
+      ...bundle("pt-BR"),
+      resources: { common: { "actions.save": "Salvar" } },
+    });
+    await ensureLocaleLoaded("pt-BR");
+    expect(i18n.t("actions.save", { lng: "pt-BR" })).toBe("Salvar");
+    // Untranslated here: English, as the admin's counts say — not the built-in pt.
+    expect(i18n.t("actions.cancel", { lng: "pt-BR" })).toBe("Cancel");
+  });
+});
+
+describe("forgetLoadedLocale", () => {
+  it("drops the strings, the hash and the registry entry, so a re-created code starts clean", async () => {
+    mockApi.on("get", "/custom-locales/fg/bundle", {
+      ...bundle("fg"),
+      resources: { common: { "actions.save": "old" } },
+    });
+    await ensureLocaleLoaded("fg");
+    forgetLoadedLocale("fg");
+    expect(i18n.hasResourceBundle("fg", "common")).toBe(false);
+    expect(getCustomLocale("fg")).toBeUndefined();
+
+    mockApi.on("get", "/custom-locales/fg/bundle", { ...bundle("fg"), resources: { common: {} } });
+    await ensureLocaleLoaded("fg");
+    expect(bundleCalls("fg")).toHaveLength(2);
+    expect(i18n.t("actions.save", { lng: "fg" })).toBe("Save");
+  });
+
+  it("leaves a built-in language alone", () => {
+    forgetLoadedLocale("de");
+    expect(i18n.hasResourceBundle("de", "common")).toBe(true);
+  });
+});
+
+describe("setAppLanguage — two quick switches", () => {
+  it("lets the later pick win when the earlier bundle lands last", async () => {
+    const slow = deferred<unknown>();
+    mockApi.on("get", "/custom-locales/race-a/bundle", () => slow.promise);
+    mockApi.on("get", "/custom-locales/race-b/bundle", bundle("race-b"));
+    const first = setAppLanguage("race-a");
+    await expect(setAppLanguage("race-b")).resolves.toBe("race-b");
+    slow.resolve(bundle("race-a"));
+    await expect(first).resolves.toBe("race-b");
+    expect(i18n.language).toBe("race-b");
+  });
+
+  it("lets a later built-in pick win too", async () => {
+    const slow = deferred<unknown>();
+    mockApi.on("get", "/custom-locales/race-c/bundle", () => slow.promise);
+    const first = setAppLanguage("race-c");
+    await setAppLanguage("de");
+    slow.resolve(bundle("race-c"));
+    await first;
+    expect(i18n.language).toBe("de");
+  });
+});
+
+describe("preloadDetectedLocale — a slow load that then fails", () => {
+  it("falls back to English once the load gives up", async () => {
+    await i18n.changeLanguage("late-fail");
+    const reply = deferred<unknown>();
+    mockApi.on("get", "/custom-locales/late-fail/bundle", () => reply.promise);
+    await preloadDetectedLocale(5);
+    expect(i18n.language).toBe("late-fail");
+    reply.resolve(null);
+    await vi.waitFor(() => expect(i18n.language).toBe("en"));
   });
 });

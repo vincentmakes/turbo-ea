@@ -333,7 +333,7 @@ describe("refreshBootstrap", () => {
     const { boot } = await fresh();
     let release!: (v: unknown) => void;
     vi.mocked(api.get).mockReturnValueOnce(
-      new Promise((r) => {
+      new Promise<unknown>((r) => {
         release = r;
       }) as Promise<never>,
     );

@@ -6,7 +6,7 @@
  * filter lists each namespace with its progress, the database labels
  * (`metamodel`) under a readable name.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -99,6 +99,16 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
   );
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
+  // The translation is shown and edited in the language's own direction.
+  const textDir = locale.rtl ? "rtl" : "ltr";
+
+  // Saving the last row of the last page shrinks the total under the page:
+  // step back to the last page that still has rows.
+  useEffect(() => {
+    if (data && page > 0 && page * pageSize >= data.total) {
+      setPage(Math.max(0, Math.ceil(data.total / pageSize) - 1));
+    }
+  }, [data, page, pageSize]);
 
   const write = async (row: CustomLocaleString, value: string | null) => {
     setSaving(true);
@@ -229,14 +239,18 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
                         multiline
                         autoFocus
                         label={t("customLocales.review.translation")}
+                        placeholder={row.source}
                         value={editing.value}
                         onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                        inputProps={{ dir: textDir, lang: locale.code }}
                       />
                     ) : (
                       <Typography
                         variant="body2"
                         sx={{ whiteSpace: "pre-wrap" }}
                         color={row.value ? "text.primary" : "text.secondary"}
+                        dir={row.value ? textDir : undefined}
+                        lang={row.value ? locale.code : undefined}
                       >
                         {row.value || t("customLocales.review.noTranslation")}
                       </Typography>
@@ -284,7 +298,9 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
                               setEditing({
                                 namespace: row.namespace,
                                 key: row.key,
-                                value: row.value ?? row.source,
+                                // Empty, never the English: saving it unchanged
+                                // would store English as a translation.
+                                value: row.value ?? "",
                               })
                             }
                           >

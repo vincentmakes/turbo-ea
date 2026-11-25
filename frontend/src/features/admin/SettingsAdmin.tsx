@@ -339,7 +339,14 @@ function GeneralTab() {
   const [serviceAccountJson, setServiceAccountJson] = useState("");
   const [configured, setConfigured] = useState(false);
 
+  // Follow the cached list only when its content changes: a bootstrap
+  // refresh re-emits the same list as a new array, which must not wipe
+  // toggles the admin has not saved yet.
+  const lastCachedLocales = useRef<string | null>(null);
   useEffect(() => {
+    const key = cachedLocales.join(",");
+    if (key === lastCachedLocales.current) return;
+    lastCachedLocales.current = key;
     setEnabledLocales(cachedLocales);
   }, [cachedLocales]);
 

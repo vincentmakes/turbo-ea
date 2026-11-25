@@ -22,9 +22,25 @@ import type { CustomLocale } from "@/types";
 import {
   ENGLISH_NAME_PATTERN,
   LOCALE_CODE_PATTERN,
+  MAX_LOCALE_CODE_LENGTH,
+  canonicalLocale,
   errorMessage,
   usuallyRtl,
 } from "./customLocaleUtils";
+
+/** Why a new language's code cannot be used, or "" when it can. */
+function codeProblem(code: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (!code) return "";
+  if (!LOCALE_CODE_PATTERN.test(code)) return t("customLocales.form.codeInvalid");
+  if (code.length > MAX_LOCALE_CODE_LENGTH) {
+    return t("customLocales.form.codeTooLong", { max: MAX_LOCALE_CODE_LENGTH });
+  }
+  // A deprecated or non-canonical tag (`iw`) would never match when shown.
+  const canonical = canonicalLocale(code);
+  if (canonical !== code) return t("customLocales.form.codeNotCanonical", { canonical });
+  if (isBuiltInLocale(code)) return t("customLocales.errors.built_in_code");
+  return "";
+}
 
 interface Props {
   /** The language to edit; `null` adds a new one. */
@@ -45,13 +61,7 @@ export default function CustomLocaleFormDialog({ locale, onClose, onSaved }: Pro
   const [error, setError] = useState("");
 
   const trimmedCode = code.trim();
-  const codeError = editing
-    ? ""
-    : trimmedCode && !LOCALE_CODE_PATTERN.test(trimmedCode)
-      ? t("customLocales.form.codeInvalid")
-      : isBuiltInLocale(trimmedCode)
-        ? t("customLocales.errors.built_in_code")
-        : "";
+  const codeError = editing ? "" : codeProblem(trimmedCode, t);
   const englishNameError =
     englishName.trim() && !ENGLISH_NAME_PATTERN.test(englishName.trim())
       ? t("customLocales.form.englishNameInvalid")

@@ -419,7 +419,8 @@ describe("AppLayout — user menu", () => {
       await openUserMenu(user);
       await user.click(screen.getByRole("menuitem", { name: /Language/ }));
       await screen.findByRole("menuitem", { name: "עברית" });
-      const menu = screen.getAllByRole("menu").at(-1)!;
+      const menus = screen.getAllByRole("menu");
+      const menu = menus[menus.length - 1];
       expect(within(menu).getAllByRole("menuitem").map((m) => m.textContent)).toEqual([
         "English",
         "Deutsch",

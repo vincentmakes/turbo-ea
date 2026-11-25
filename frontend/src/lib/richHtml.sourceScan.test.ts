@@ -12,6 +12,10 @@
  *     HTML with a user-typed value interpolated — a card or role name — is
  *     script injection unless the call turns it back on. A card named
  *     `<img src=x onerror=…>` executed from the restore dialog that way.
+ *     The translation text itself is trusted only because it is gated: a
+ *     custom (admin-added) language's strings pass `isSafeTranslation`
+ *     (`i18n/translationGate.ts`) before i18next sees them, so no markup or
+ *     `$t(` nesting the English string lacks can reach these sites.
  * Parentheses, `as` casts and `??` / `||` fallbacks are looked through (the
  * main operand decides), and a `cond ? a : b` passes when both branches do.
  * Anything else needs an `UNSAFE_OK` entry with the reason it is safe.

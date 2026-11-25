@@ -121,6 +121,33 @@ describe("CustomLocaleFormDialog — add", () => {
     expect(saveButton()).toBeDisabled();
   });
 
+  it("refuses a code longer than the server stores", async () => {
+    const { user } = renderDialog();
+    await user.type(field("customLocales.form.code"), "abc-Abcd-AB");
+    await user.type(field("customLocales.form.name"), "x");
+    await user.type(field("customLocales.form.englishName"), "Abc");
+    expect(screen.getByText(t("customLocales.form.codeTooLong", { max: 10 }))).toBeInTheDocument();
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("accepts a code of exactly ten characters", async () => {
+    const { user } = renderDialog();
+    await user.type(field("customLocales.form.code"), "sr-Latn-RS");
+    expect(screen.queryByText(t("customLocales.form.codeTooLong", { max: 10 }))).toBeNull();
+    expect(screen.getByText(t("customLocales.form.codeHelp"))).toBeInTheDocument();
+  });
+
+  it("refuses a deprecated code and names the one to use", async () => {
+    const { user } = renderDialog();
+    await user.type(field("customLocales.form.code"), "iw");
+    await user.type(field("customLocales.form.name"), "עברית");
+    await user.type(field("customLocales.form.englishName"), "Hebrew");
+    expect(
+      screen.getByText(t("customLocales.form.codeNotCanonical", { canonical: "he" })),
+    ).toBeInTheDocument();
+    expect(saveButton()).toBeDisabled();
+  });
+
   it("refuses a code that ships with the app", async () => {
     const { user } = renderDialog();
     await user.type(field("customLocales.form.code"), "de");

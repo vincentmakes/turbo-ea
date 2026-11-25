@@ -48,10 +48,11 @@ function detail(over: Partial<CustomLocaleDetail> = {}): CustomLocaleDetail {
 
 const onClose = vi.fn();
 const onFinished = vi.fn();
+const onStarted = vi.fn();
 
 function renderDialog(locale: CustomLocale = HEBREW) {
   return renderWithProviders(
-    <TranslateDialog locale={locale} onClose={onClose} onFinished={onFinished} />,
+    <TranslateDialog locale={locale} onClose={onClose} onStarted={onStarted} onFinished={onFinished} />,
   );
 }
 
@@ -63,6 +64,7 @@ beforeEach(() => {
   mockApi.reset();
   onClose.mockReset();
   onFinished.mockReset();
+  onStarted.mockReset();
   ai.configured = true;
   ai.loaded = true;
   expect(api).toBe(mockApi.api);
@@ -121,6 +123,7 @@ describe("TranslateDialog", () => {
       mode: "missing",
       include_manual: false,
     });
+    expect(onStarted).toHaveBeenCalledTimes(1);
     // The started job shows at once, before the next read lands.
     expect(await screen.findByText(t("customLocales.jobStatus.running"))).toBeInTheDocument();
     expect(
@@ -212,6 +215,61 @@ describe("TranslateDialog", () => {
     expect(onFinished).toHaveBeenCalledTimes(1);
   });
 
+  it("never starts a read while the previous one is still out", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let reads = 0;
+    let release!: () => void;
+    mockApi.on("get", DETAIL_PATH, async () => {
+      reads += 1;
+      if (reads === 2) {
+        await new Promise<void>((r) => {
+          release = r;
+        });
+      }
+      return detail({ job: job({ done: reads }) });
+    });
+    renderDialog({ ...HEBREW, job: job() });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    });
+    expect(reads).toBe(2);
+    // The second read is slow: no third read is armed meanwhile.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
+    });
+    expect(reads).toBe(2);
+    await act(async () => {
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(
+      screen.getByText(t("customLocales.translate.progressText", { done: 2, total: 40, failed: 0 })),
+    ).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    });
+    expect(reads).toBe(3);
+  });
+
+  it("explains that nothing can be sent while the server has no English catalogue", async () => {
+    mockApi.on("get", DETAIL_PATH, detail({ stats: null }));
+    renderDialog({ ...HEBREW, stats: null });
+    expect(screen.getByText(t("customLocales.errors.catalog_unavailable"))).toBeInTheDocument();
+    expect(screen.getByText(t("customLocales.translate.count", { count: 0 }))).toBeInTheDocument();
+    await waitFor(() => expect(mockApi.callsOf("get", DETAIL_PATH)).toHaveLength(1));
+    expect(startButton()).toBeDisabled();
+  });
+
+  it("follows the fresh detail when it loses its stats", async () => {
+    mockApi.on("get", DETAIL_PATH, detail({ stats: null }));
+    renderDialog();
+    expect(await screen.findByText(t("customLocales.errors.catalog_unavailable"))).toBeInTheDocument();
+    expect(startButton()).toBeDisabled();
+  });
+
   it("stops polling when the dialog closes", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     let reads = 0;
@@ -255,7 +313,10 @@ describe("TranslateDialog", () => {
     mockApi.on("get", DETAIL_PATH, detail({ job: job({ status: "failed", error: "Provider timed out" }) }));
     renderDialog();
     expect(await screen.findByText(t("customLocales.jobStatus.failed"))).toBeInTheDocument();
-    expect(screen.getByText("Provider timed out")).toBeInTheDocument();
+    expect(screen.getByTestId("translate-job-error")).toHaveTextContent(/^Provider timed out$/);
+    expect(screen.getByTestId("translate-job-error").closest(".MuiAlert-root")).toHaveTextContent(
+      `${t("customLocales.translate.providerAnswered")} Provider timed out`,
+    );
     expect(onFinished).not.toHaveBeenCalled();
   });
 
@@ -327,6 +388,7 @@ describe("TranslateDialog", () => {
     await user.click(startButton());
     expect(await screen.findByText(t(key))).toBeInTheDocument();
     expect(startButton()).toBeEnabled();
+    expect(onStarted).not.toHaveBeenCalled();
     expect(screen.queryByTestId("translate-job")).not.toBeInTheDocument();
   });
 

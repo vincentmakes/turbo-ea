@@ -1,14 +1,19 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { ApiError } from "@/api/client";
 import {
   ENGLISH_NAME_PATTERN,
+  FATAL_IMPORT_STATUSES,
   KNOWN_ERROR_CODES,
   LOCALE_CODE_PATTERN,
+  MAX_LOCALE_CODE_LENGTH,
+  MAX_PACK_BYTES,
   METAMODEL_NAMESPACE,
   PACK_FORMAT,
   PACK_FORMAT_VERSION,
   REJECT_REASONS,
   apiErrorCode,
+  apiErrorStatus,
+  canonicalLocale,
   downloadJson,
   errorMessage,
   importBody,
@@ -56,6 +61,8 @@ describe("constants", () => {
       "job_running",
       "ai_not_configured",
       "catalog_unavailable",
+      "locale_not_found",
+      "unknown_namespace",
     ]);
     expect([...REJECT_REASONS]).toEqual([
       "unknown_key",
@@ -68,7 +75,11 @@ describe("constants", () => {
       "control_chars",
       "not_a_string",
       "source_changed",
+      "source_hash_missing",
     ]);
+    expect(MAX_LOCALE_CODE_LENGTH).toBe(10);
+    expect(MAX_PACK_BYTES).toBe(20 * 1024 * 1024);
+    expect([...FATAL_IMPORT_STATUSES].sort()).toEqual([401, 403, 404, 503]);
   });
 });
 
@@ -83,6 +94,24 @@ describe("LOCALE_CODE_PATTERN", () => {
       expect(LOCALE_CODE_PATTERN.test(code)).toBe(false);
     },
   );
+});
+
+describe("canonicalLocale", () => {
+  it.each([
+    ["he", "he"],
+    ["pt-BR", "pt-BR"],
+    ["zh-Hant", "zh-Hant"],
+    ["sr-Latn-RS", "sr-Latn-RS"],
+    ["iw", "he"],
+    ["in", "id"],
+  ])("canonicalises %s as %s", (code, canonical) => {
+    expect(canonicalLocale(code)).toBe(canonical);
+  });
+
+  it("answers null for a tag the browser cannot read", () => {
+    expect(canonicalLocale("not a tag!")).toBeNull();
+    expect(canonicalLocale("")).toBeNull();
+  });
 });
 
 describe("ENGLISH_NAME_PATTERN", () => {
@@ -118,9 +147,34 @@ describe("parseLanguagePack", () => {
     if (!result.ok) return;
     expect(result.namespaces).toEqual(["common", "metamodel"]);
     expect(result.stringCount).toBe(3);
+    expect(result.skipped).toBe(0);
     expect(result.pack.locale.code).toBe("he");
     expect(result.pack.strings.metamodel).toEqual({ "type.Application.label": "יישום" });
     expect(result.pack.source_hashes).toEqual({ common: { "actions.save": "abc" } });
+  });
+
+  it("keeps only text values, so a null in a pack never clears a translation", () => {
+    const result = parseLanguagePack(
+      pack({
+        strings: {
+          common: { "actions.save": "שמור", "actions.cancel": null, "actions.edit": 3 },
+          nav: { a: null },
+        },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.pack.strings).toEqual({ common: { "actions.save": "שמור" } });
+    expect(result.namespaces).toEqual(["common"]);
+    expect(result.stringCount).toBe(1);
+    expect(result.skipped).toBe(3);
+  });
+
+  it("refuses a pack whose every value is not text", () => {
+    expect(parseLanguagePack(pack({ strings: { common: { a: null } } }))).toEqual({
+      ok: false,
+      error: "no_strings",
+    });
   });
 
   it("drops namespaces that are not objects or are empty, and hashes that are not an object", () => {
@@ -203,7 +257,14 @@ describe("downloadJson", () => {
       return "blob:pack";
     });
     const revoke = vi.fn();
-    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke }));
+    // jsdom has no object URLs: define them for this test only.
+    const original = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+    URL.createObjectURL = create as unknown as typeof URL.createObjectURL;
+    URL.revokeObjectURL = revoke;
+    onTestFinished(() => {
+      URL.createObjectURL = original.create;
+      URL.revokeObjectURL = original.revoke;
+    });
     const clicked: HTMLAnchorElement[] = [];
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
       this: HTMLAnchorElement,
@@ -221,6 +282,14 @@ describe("downloadJson", () => {
     expect(revoke).toHaveBeenCalledWith("blob:pack");
     expect(blob!.type).toBe("application/json");
     await expect(readFileText(blob!)).resolves.toBe(JSON.stringify({ a: ["ב"] }, null, 2));
+  });
+});
+
+describe("apiErrorStatus", () => {
+  it("reads the status of an API error and nothing else", () => {
+    expect(apiErrorStatus(new ApiError("m", 503, "catalog_unavailable"))).toBe(503);
+    expect(apiErrorStatus(new Error("x"))).toBeNull();
+    expect(apiErrorStatus("x")).toBeNull();
   });
 });
 
@@ -261,6 +330,7 @@ describe("reasonLabel / namespaceLabel", () => {
     expect(reasonLabel("placeholder_mismatch", t)).toBe(
       "T:customLocales.reasons.placeholder_mismatch",
     );
+    expect(reasonLabel("source_hash_missing", t)).toBe("T:customLocales.reasons.source_hash_missing");
     expect(reasonLabel("new_reason", t)).toBe("new_reason");
   });
 
