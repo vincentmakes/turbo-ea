@@ -45,6 +45,7 @@ import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGroup
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
+import { escapeHtml } from "@/lib/escapeHtml";
 import type { PpmRisk } from "@/types";
 import PpmRiskFilterSidebar from "./PpmRiskFilterSidebar";
 import { RiskScoreChip, RiskStatusChip } from "./ppmRiskChips";
@@ -599,7 +600,7 @@ export default function PpmRiskGrid({
             onDragStopped={handleDragStopped}
             onFilterChanged={grouping.handleFilterChanged}
             onModelUpdated={grouping.handleModelUpdated}
-            overlayNoRowsTemplate={`<span>${t("noRisks")}</span>`}
+            overlayNoRowsTemplate={`<span>${escapeHtml(t("noRisks"))}</span>`}
             {...cellMenu.gridProps}
           />
           {grouping.stickyHeader}

@@ -29,6 +29,7 @@ import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
+import { escapeHtml } from "@/lib/escapeHtml";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -1289,7 +1290,7 @@ export default function UsersAdmin() {
                   const rows = e.api.getSelectedRows();
                   setSelectedIds(rows.map((r) => r.id));
                 }}
-                overlayNoRowsTemplate={`<span style="padding: 12px;">${t("users.noUsers")}</span>`}
+                overlayNoRowsTemplate={`<span style="padding: 12px;">${escapeHtml(t("users.noUsers"))}</span>`}
                 {...cellMenu.gridProps}
               />
             </Box>

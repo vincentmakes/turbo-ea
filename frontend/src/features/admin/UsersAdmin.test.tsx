@@ -293,6 +293,20 @@ describe("UsersAdmin — load", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
+  it("escapes the empty-grid text it hands the grid as HTML", async () => {
+    const original = i18n.t("admin:users.noUsers");
+    i18n.addResource("en", "admin", "users.noUsers", "<img src=x onerror=alert(1)> & co");
+    try {
+      renderPage();
+      await loaded();
+      expect(gridStub.lastProps().overlayNoRowsTemplate).toBe(
+        '<span style="padding: 12px;">&lt;img src=x onerror=alert(1)&gt; &amp; co</span>',
+      );
+    } finally {
+      i18n.addResource("en", "admin", "users.noUsers", original);
+    }
+  });
+
   it("builds the default column set with the name column frozen", async () => {
     renderPage();
     await loaded();

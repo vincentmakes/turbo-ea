@@ -42,6 +42,7 @@ vi.mock("./CustomEolProductPanel", () => ({
 
 import { mockApi } from "@/test/apiMock";
 import { gridStub } from "@/test/agGridStub";
+import i18n from "@/i18n";
 import { adminUser, renderWithProviders, userWith } from "@/test/render";
 import type { EolCustomCycle, EolCustomProduct } from "@/types";
 import CustomEolProductsGrid from "./CustomEolProductsGrid";
@@ -266,6 +267,18 @@ describe("rows", () => {
     mockApi.on("get", "/eol/custom-products", []);
     await renderGrid();
     expect(gridStub.lastProps().overlayNoRowsTemplate).toContain("No custom EOL products yet. Add one here");
+  });
+
+  it("escapes the empty text it hands the grid as HTML", async () => {
+    const original = i18n.t("admin:eol.custom.empty");
+    i18n.addResource("en", "admin", "eol.custom.empty", "<b>none</b>");
+    try {
+      mockApi.on("get", "/eol/custom-products", []);
+      await renderGrid();
+      expect(gridStub.lastProps().overlayNoRowsTemplate).toBe("<span>&lt;b&gt;none&lt;/b&gt;</span>");
+    } finally {
+      i18n.addResource("en", "admin", "eol.custom.empty", original);
+    }
   });
 
   it("tells a reader an EOL manager adds products, and offers no Add", async () => {

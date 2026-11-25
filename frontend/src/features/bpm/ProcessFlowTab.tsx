@@ -510,10 +510,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 <body>
   <div class="no-print" style="padding:12px;text-align:center;background:${PRINT_COLORS.panel};border-bottom:1px solid ${PRINT_COLORS.rule}">
     <button id="turbo-print-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:${brand.primary};color:${PRINT_COLORS.paper};border:none;border-radius:4px">
-      ${t("flowTab.printSaveAsPdf")}
+      ${escapeHtml(t("flowTab.printSaveAsPdf"))}
     </button>
     <button id="turbo-close-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:${PRINT_COLORS.paper};color:${PRINT_COLORS.text};border:1px solid ${PRINT_COLORS.control};border-radius:4px;margin-left:8px">
-      ${t("common:actions.close")}
+      ${escapeHtml(t("common:actions.close"))}
     </button>
   </div>
   <div class="header">
@@ -525,7 +525,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   </div>
   <div class="diagram">${svgContent}</div>
   <div class="footer">
-    <span>${t("flowTab.printedOn", { date: formatDate(new Date()) })}</span>
+    <span>${escapeHtml(t("flowTab.printedOn", { date: formatDate(new Date()) }))}</span>
     <span>${watermarkText}</span>
   </div>
 </body>

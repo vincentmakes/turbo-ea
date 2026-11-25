@@ -403,6 +403,19 @@ describe("row buttons", () => {
 });
 
 describe("grid", () => {
+  it("escapes the empty text it hands the grid as HTML", () => {
+    const original = i18n.t("ppm:noRisks");
+    i18n.addResource("en", "ppm", "noRisks", 'none <script>"x"</script>');
+    try {
+      renderGrid();
+      expect(gridStub.lastProps().overlayNoRowsTemplate).toBe(
+        "<span>none &lt;script&gt;&quot;x&quot;&lt;/script&gt;</span>",
+      );
+    } finally {
+      i18n.addResource("en", "ppm", "noRisks", original);
+    }
+  });
+
   it("hands over the rows by id, grows with them and says when there are none", () => {
     renderGrid();
     const p = gridStub.lastProps();

@@ -32,7 +32,6 @@ from app.services import metamodel_strings as mm
 
 METAMODEL = mm.NAMESPACE
 SOURCE_CHANGED = "source_changed"
-EXPORT_MODES = ("missing", "all", "current", "share")
 
 
 def catalog() -> lp.Catalog | None:

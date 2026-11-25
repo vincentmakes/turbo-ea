@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
+import i18n from "@/i18n";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -466,6 +467,30 @@ describe("ProcessFlowTab published actions", () => {
       expect(printWindow.print).toHaveBeenCalled();
       listeners["turbo-close-btn"]();
       expect(printWindow.close).toHaveBeenCalled();
+    });
+
+    it("escapes the translated button and footer text it writes into the page", async () => {
+      const originals = {
+        save: i18n.t("bpm:flowTab.printSaveAsPdf"),
+        printed: i18n.t("bpm:flowTab.printedOn"),
+        close: i18n.t("common:actions.close"),
+      };
+      i18n.addResource("en", "bpm", "flowTab.printSaveAsPdf", "<img src=x onerror=alert(1)>");
+      i18n.addResource("en", "bpm", "flowTab.printedOn", "<b>{{date}}</b>");
+      i18n.addResource("en", "common", "actions.close", 'Close "now"');
+      try {
+        const user = await renderPublished();
+        await user.click(screen.getByRole("button", { name: /Print \/ PDF/ }));
+        await waitFor(() => expect(written).toContain("<svg>generated</svg>"));
+        expect(written).toContain("&lt;img src=x onerror=alert(1)&gt;");
+        expect(written).not.toContain("<img src=x");
+        expect(written).toMatch(/<span>&lt;b&gt;.+&lt;\/b&gt;<\/span>/);
+        expect(written).toContain("Close &quot;now&quot;");
+      } finally {
+        i18n.addResource("en", "bpm", "flowTab.printSaveAsPdf", originals.save);
+        i18n.addResource("en", "bpm", "flowTab.printedOn", originals.printed);
+        i18n.addResource("en", "common", "actions.close", originals.close);
+      }
     });
 
     it("falls back to the stored thumbnail when the diagram cannot be rendered", async () => {

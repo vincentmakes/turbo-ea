@@ -34,7 +34,6 @@ from app.services.ai_service import call_llm
 
 logger = logging.getLogger("turboea.custom_locales")
 
-MODES = ("missing", "all")
 MAX_CONSECUTIVE_FAILURES = 3
 ATTEMPTS_PER_CHUNK = 2
 

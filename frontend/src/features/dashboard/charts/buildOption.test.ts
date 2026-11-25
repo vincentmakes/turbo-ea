@@ -518,6 +518,11 @@ describe("heatmap", () => {
     expect(o.tooltip.formatter({ value: [1, 0, 4] })).toBe("L:B · Y:p: 4");
   });
 
+  it("escapes the axis labels in its HTML tooltip", () => {
+    const o = opt("heatmap", CELLS, { labels: (k) => `<b>${k}`, labels2: (k) => `"${k}"&` });
+    expect(o.tooltip.formatter({ value: [1, 0, 4] })).toBe("&lt;b&gt;B · &quot;p&quot;&amp;: 4");
+  });
+
   it("keeps a usable scale with no cells", () => {
     const o = opt("heatmap", []);
     expect(o.visualMap.max).toBe(1);
@@ -582,6 +587,16 @@ describe("sankey", () => {
       "L:A → L:B: 2",
     );
     expect(o.tooltip.formatter({ dataType: "node", name: "s:A", value: 3 })).toBe("L:A: 3");
+  });
+
+  it("escapes the names in its HTML tooltip", () => {
+    const o = opt("sankey", FLOWS, { labels: (k) => `<img src=x onerror=${k}>` });
+    expect(o.tooltip.formatter({ dataType: "edge", value: 2, data: { source: "s:A", target: "t:B" } })).toBe(
+      "&lt;img src=x onerror=A&gt; → &lt;img src=x onerror=B&gt;: 2",
+    );
+    expect(o.tooltip.formatter({ dataType: "node", name: "t:B", value: 3 })).toBe(
+      "&lt;img src=x onerror=B&gt;: 3",
+    );
   });
 
   it("names and colours each side through its own resolver, and tells the sides apart for a click", () => {

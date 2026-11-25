@@ -382,6 +382,10 @@ i18n
       },
     },
     fallbackLng: "en",
+    // Every language resolves as [itself, English] — never through its base
+    // language: a custom pt-BR or zh-Hant must show English, not the built-in
+    // pt / zh, where it has no translation, as the admin's counts say it does.
+    load: "currentOnly",
     returnEmptyString: false, // treat "" as missing → fall back to English
     defaultNS: "common",
     interpolation: {

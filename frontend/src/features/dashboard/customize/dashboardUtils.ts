@@ -17,9 +17,14 @@ export function baseLocale(language: string | undefined): string {
   return (language || "en").split("-")[0].toLowerCase();
 }
 
-/** A dashboard's name in `locale`, falling back to its stored (English) name. */
+/**
+ * A dashboard's name in `locale` — the exact language first (a custom
+ * language such as `pt-BR` stores its own), then its base language — falling
+ * back to its stored (English) name.
+ */
 export function dashboardLabel(dashboard: Pick<Dashboard, "name" | "translations">, locale: string): string {
-  const translated = dashboard.translations?.[baseLocale(locale)];
+  const translated =
+    dashboard.translations?.[locale] ?? dashboard.translations?.[baseLocale(locale)];
   return translated && translated.trim() ? translated : dashboard.name;
 }
 

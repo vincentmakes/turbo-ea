@@ -39,6 +39,7 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
+import { escapeHtml } from "@/lib/escapeHtml";
 import { EOL_STATUSES, EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS } from "@/lib/eol";
 import { isValidEolLink } from "@/lib/eolCustom";
 import type { EolCustomProduct } from "@/types";
@@ -448,7 +449,7 @@ export default function CustomEolProductsGrid() {
             onRowClicked={handleRowClicked}
             onCellKeyDown={handleCellKeyDown}
             onDragStopped={handleDragStopped}
-            overlayNoRowsTemplate={`<span>${t(canManage ? "eol.custom.empty" : "eol.custom.emptyReadOnly")}</span>`}
+            overlayNoRowsTemplate={`<span>${escapeHtml(t(canManage ? "eol.custom.empty" : "eol.custom.emptyReadOnly"))}</span>`}
           />
         </Box>
       </Box>

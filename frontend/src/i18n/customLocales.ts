@@ -13,7 +13,8 @@
 import { api } from "@/api/client";
 import type { CustomLocaleBundle } from "@/types";
 import i18n, { LOCALE_LABELS, SUPPORTED_LOCALES, type SupportedLocale } from "./index";
-import { getCustomLocale, registerCustomLocale } from "./customLocaleRegistry";
+import { forgetCustomLocale, getCustomLocale, registerCustomLocale } from "./customLocaleRegistry";
+import { flattenStrings, gateResources } from "./translationGate";
 
 export {
   forgetCustomLocale,
@@ -63,13 +64,22 @@ async function loadBundle(code: string): Promise<boolean> {
   if (!isPlainObject(bundle) || !isPlainObject(bundle.resources)) return false;
 
   // Only the namespaces English has: a bundle cannot invent one.
-  const known = new Set(Object.keys(i18n.getDataByLanguage("en") ?? {}));
+  const english = i18n.getDataByLanguage("en") ?? {};
   // Replace, not merge: a string cleared since the last load must disappear.
-  for (const ns of _loadedNamespaces.get(code) ?? []) i18n.removeResourceBundle(code, ns);
+  dropBundles(code);
   const added: string[] = [];
   for (const [ns, resources] of Object.entries(bundle.resources)) {
-    if (!known.has(ns) || !isPlainObject(resources)) continue;
-    i18n.addResourceBundle(code, ns, resources, true, true);
+    if (!(ns in english) || !isPlainObject(resources)) continue;
+    // Every string is checked against its English source before i18next sees
+    // it (`./translationGate`): one that could inject markup or nesting is
+    // dropped and falls back to English.
+    i18n.addResourceBundle(
+      code,
+      ns,
+      gateResources(resources, flattenStrings(english[ns])),
+      true,
+      true,
+    );
     added.push(ns);
   }
   _loadedNamespaces.set(code, added);
@@ -82,6 +92,23 @@ async function loadBundle(code: string): Promise<boolean> {
     hash,
   });
   return true;
+}
+
+/** Remove a custom language's namespaces from i18next. */
+function dropBundles(code: string): void {
+  for (const ns of _loadedNamespaces.get(code) ?? []) i18n.removeResourceBundle(code, ns);
+  _loadedNamespaces.delete(code);
+}
+
+/**
+ * A custom language was deleted: forget its registry entry, its loaded strings
+ * and its hash, so a language re-created under the same code starts clean.
+ */
+export function forgetLoadedLocale(code: string): void {
+  if (isBuiltInLocale(code)) return;
+  dropBundles(code);
+  _loadedHash.delete(code);
+  forgetCustomLocale(code);
 }
 
 /**
@@ -113,18 +140,25 @@ export function ensureLocaleLoaded(
   return request;
 }
 
+/** Bumped by every `setAppLanguage` call, so only the latest one switches. */
+let _switchSeq = 0;
+
 /**
  * Switch the interface language. A custom language is loaded first; when it
- * cannot be loaded the interface falls back to English. Resolves to the
- * language actually applied.
+ * cannot be loaded the interface falls back to English. When another switch
+ * started while the bundle loaded, this one gives way and switches nothing.
+ * Resolves to the language applied, or to the current one when it gave way.
  */
 export async function setAppLanguage(code: string | null | undefined): Promise<string> {
+  const seq = ++_switchSeq;
   const target = code || "en";
   if (isBuiltInLocale(target)) {
     await i18n.changeLanguage(target);
     return target;
   }
-  const lang = (await ensureLocaleLoaded(target)) ? target : "en";
+  const loaded = await ensureLocaleLoaded(target);
+  if (seq !== _switchSeq) return i18n.language;
+  const lang = loaded ? target : "en";
   await i18n.changeLanguage(lang);
   return lang;
 }
@@ -163,7 +197,9 @@ export async function preloadDetectedLocale(timeoutMs = PRELOAD_TIMEOUT_MS): Pro
   clearTimeout(timer);
   if (outcome === "timeout") {
     void load.then((ok) => {
-      if (ok && i18n.language === lang) void i18n.changeLanguage(lang);
+      if (i18n.language !== lang) return;
+      // Applied when it lands; a load that failed late falls back to English.
+      void i18n.changeLanguage(ok ? lang : "en");
     });
     return;
   }
