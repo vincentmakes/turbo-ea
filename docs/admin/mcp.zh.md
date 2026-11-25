@@ -183,7 +183,7 @@ pip install ./mcp-server
 
 ## 可用功能
 
-MCP 服务器提供 **70 个工具**，分为两组：**42 个读取工具** 用于查询 EA 数据，**28 个写入工具**（21 个增量型、7 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。每个工具还会拒绝其未声明的参数：调用失败，错误信息会指出未知参数并列出有效参数，且不执行任何操作。（在 2.203.0 之前，此类参数会被静默忽略，因此调用可能报告成功，而所请求的部分内容却丢失了。） 此外还有用于标签的工具，以及用于运行已安装扩展所提供操作的工具（参见[扩展操作](#extension-operations)）。
+MCP 服务器提供 **73 个工具**，分为两组：**44 个读取工具** 用于查询 EA 数据，**29 个写入工具**（22 个增量型、7 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。每个工具还会拒绝其未声明的参数：调用失败，错误信息会指出未知参数并列出有效参数，且不执行任何操作。（在 2.203.0 之前，此类参数会被静默忽略，因此调用可能报告成功，而所请求的部分内容却丢失了。） 此外还有用于标签的工具，以及用于运行已安装扩展所提供操作的工具（参见[扩展操作](#extension-operations)）。
 
 ### 写入操作的演练安全机制
 
@@ -196,7 +196,7 @@ MCP 服务器提供 **70 个工具**，分为两组：**42 个读取工具** 用
 
 ### 读取工具
 
-服务器以十一个集群提供 42 个读取工具。
+服务器以十二个集群提供 44 个读取工具。
 
 **卡片与元模型**
 
@@ -295,13 +295,20 @@ MCP 服务器提供 **70 个工具**，分为两组：**42 个读取工具** 用
 | `list_extension_tools` | 列出已安装扩展向您提供的操作：仅限已安装、已启用且已获许可的扩展，且仅限您的权限所允许的操作，每项都带有其类型（读取、写入或破坏型）及所接受的参数——参见[扩展操作](#extension-operations) |
 | `call_extension_read` | 运行扩展提供的读取操作。会拒绝更改数据的操作、操作不接受的参数以及缺失的必填参数 |
 
+**自定义语言**
+
+| 工具 | 描述 |
+|------|------|
+| `list_custom_languages` | 列出管理员添加的[自定义语言](custom-languages.md)，以及各语言已翻译、缺失或过期的字符串数量 |
+| `get_untranslated_strings` | 自定义语言仍需翻译的英文字符串——缺失的，以及默认包含英文原文已更改的过期字符串——并附带翻译说明、过期字符串的旧文本，以及需要回传的 `source_hashes`。已保存的字符串会从列表中移除，因此下一次调用从 `offset` 0 重新开始；`offset` 跳过目前已被排除或被拒绝的字符串，只要还有剩余就会返回 `next_offset`。`metamodel` 分区包含卡片类型、字段、选项和关系的名称，应优先翻译。需要 `admin.settings` |
+
 所有工具都尊重已登录用户的 RBAC——查看者对其无权访问的范围只会得到空列表（或 403）；MCP 层无需任何按工具的配置。
 
 ### 写入工具
 
-服务器提供 28 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
+服务器提供 29 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
 
-**增量型（21 个）**
+**增量型（22 个）**
 
 | 工具 | 描述 |
 |------|------|
@@ -326,6 +333,7 @@ MCP 服务器提供 **70 个工具**，分为两组：**42 个读取工具** 用
 | `approve_process_flow` | 批准待审批的流程图，从而将其发布并归档先前发布的修订。需要审批权限（`bpm.approve_flows`，或流程负责人这一利益相关者角色），并遵循要求由另一位审批人审批的设置。被拒绝时会返回后端给出的原因。无法通过 `rollback_batch` 撤销：误发布的修订应在 Web 界面中撤回，它会保留记录并新开一个草稿。 |
 | `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Three ways to supply the image, one per row: a built-in `icon_slug` (resolved server-side, nothing transferred), an `image_url` the MCP server downloads for you from an allowlisted icon host, or `image_base64` from the agent's own context. The packs are a shortcut, not the source of truth — a dry run lists the slugs they do not carry under `unknown_icon_slugs` **and** fetches every `image_url`, so a missing brand or a dead link is reported before anything is written rather than left as a logo nobody could set. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 | `create_tag_groups` | 创建带标签的标签组，或向现有标签组（通过 `list_tag_groups` 中的 id）添加标签。标签组设定其描述、单选或多选、是否必填以及适用的卡片类型。名称会先与现有标签组和标签进行不区分大小写的比对：已存在的会被报告为 `exists` 而不再重复创建，因此重复调用是安全的。指向同一现有标签组的条目（无论按 id 还是按名称）会合并为一个结果，其中重复出现的标签只创建一次（重复项报告为 `duplicate`）。试运行会让后端检查它将创建的每个标签组以及将添加到现有标签组的每个标签（权限、选择模式、卡片类型）；新标签组的标签由 MCP 服务器检查。需要 `tags.manage`。无法通过 `rollback_batch` 回滚：请在**管理 → 标签**中删除不需要的标签组或标签。 |
+| `submit_translations` | 将翻译后的字符串保存到[自定义语言](custom-languages.md)中，格式为 `{namespace: {key: text}}`——界面文本和元模型名称均可——并附上来自 `get_untranslated_strings` 的 `source_hashes`，这样期间被重命名的名称会被跳过，而不会被错误翻译。每个字符串单独检查（占位符和 `$t(...)` 引用与英文一致，不含新的标签或链接）；被拒绝的会连同原因一并报告，此版本不认识的键列在 `unknown_keys` 下，其余字符串仍会保存。需要 `admin.settings`。无法通过 `rollback_batch` 回滚：请在**设置 → 自定义语言**中修正错误的字符串。 |
 
 **破坏型（7 个）**
 
@@ -483,7 +491,7 @@ BPMN 图与在 Web 界面中绘制的图走相同的审批工作流，每次一�
 - **每次调用的大小上限。** MCP 写入工具强制施加比底层 Excel 导入端点小得多的上限：`create_cards_bulk` 为 200 行，`upsert_relations_bulk` 为 500 次操作。足以应对任何实际的单一工件上传，又小到可以快速扫描演练预览。
 - **默认不允许删除关系。** `upsert_relations_bulk` 拒绝 `action: "delete"` 操作——若要删除关系，请使用 Web 界面，那里的操作会以用户身份被记录。运营者可通过设置 `MCP_ALLOW_RELATION_DELETE=true` 启用此功能。
 - **默认不允许破坏型扩展操作。** `call_extension_write` 会拒绝扩展标记为破坏型的操作。运维人员可通过设置 `MCP_ALLOW_EXTENSION_DESTRUCTIVE=true` 选择启用。
-- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 28 个写入工具。42 个读取工具继续工作。
+- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 29 个写入工具。44 个读取工具继续工作。
 - **徽标下载仅限白名单主机。** 内置图标包无法覆盖客户使用的每一款产品，而助手往往运行在无法访问外网的沙箱里，因此 `set_card_logos` 接受 `image_url`，由 MCP 服务器代为下载。仅限 `https`、仅限 `MCP_LOGO_FETCH_HOSTS` 中的主机、仅限公网地址，最多两次重定向（每次重新校验），最多以流式读取 1 MB，且字节必须带有真实的 PNG/JPEG/WebP/GIF 签名。下载发生在 MCP 边缘而非后端，随后图片经普通通道上传 —— 由大模型选定的 URL 永远不会抵达持有数据库的进程。`MCP_LOGO_FETCH_ENABLED=false` 可将其关闭。
 - **审计来源标记。** 来自 MCP 服务器的每个后端请求都携带 `X-Turbo-EA-Origin: mcp` 头。从这些请求发出的事件在审计日志载荷中被标记为 `origin: "mcp"`，以便管理员可以将 MCP 驱动的写入与 Web 界面操作分别从时间线中筛选出来。
 - **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。在决策或 SoAW 上发表的评论同样不可撤销：它可能已经被人阅读，因此应改为在讨论中将其删除。流程图的各个步骤同样如此：`rollback_batch` 会将提交或批准报告为不可撤销，且不做任何更改——待审批的修订由审批人驳回，已发布的修订则被撤回，两者都在 Web 界面中完成。由 `import_bpmn` 保存的草稿不可撤销，因为它不记录任何事件；应在「草稿」子标签页中将其删除。由 `link_process_flow_elements` 设置的步骤链接同样不记录任何事件；如需更改，请重新设置。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`、`set_card_tags`、`create_tag_groups`、`link_process_flow_elements`。 `set_card_tags` 为卡片添加或移除的标签，与其他卡片更改一样可以回滚，但 `create_tag_groups` 创建的标签组和标签属于管理记录，而非卡片更改：请在**管理 → 标签**中删除。使用 `call_extension_write` 对扩展发起的调用同样无法回滚：扩展将记录保存在自己的表中，因此请在扩展中撤销。
@@ -497,6 +505,7 @@ MCP 容器上的防护栏环境变量：
 | `MCP_MAX_CARDS_PER_CALL` | `200` | 每次请求中 `create_cards_bulk` / `update_cards_bulk` 的行数、`set_card_tags` 的操作数以及 `create_tag_groups` 的标签组与标签总数的硬性上限。 |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | 每次请求 `upsert_relations_bulk` 操作数的硬性上限。 |
 | `MCP_MAX_LOGOS_PER_CALL` | `50` | Hard cap on `set_card_logos` rows per request. Lower than the card cap because each logo is its own upload and carries image bytes. |
+| `MCP_MAX_TRANSLATIONS_PER_CALL` | `200` | 单次 `submit_translations` 调用向自定义语言发送的字符串数量的硬性上限。 |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | 当为 `true` 时，`upsert_relations_bulk` 接受 `action: "delete"` 操作。 |
 | `MCP_ALLOW_EXTENSION_DESTRUCTIVE` | `false` | 为 `true` 时，`call_extension_write` 会运行已安装扩展标记为破坏型的操作。 |
 | `MCP_LOGO_FETCH_ENABLED` | `true` | 为 `true` 时，`set_card_logos` 可接受 `image_url`：由 MCP 服务器下载图片，再经普通上传通道写入，因此权限、大小与格式校验一律照常执行。设为 `false` 则完全拒绝 URL 方式 —— 图标 slug 与直接粘贴的字节仍可使用。 |

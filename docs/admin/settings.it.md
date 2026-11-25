@@ -63,6 +63,8 @@ Attivate/disattivate quali lingue sono disponibili per gli utenti nel selettore 
 
 Almeno una lingua deve rimanere abilitata in ogni momento.
 
+Una lingua che non è in questo elenco può essere aggiunta come [lingua personalizzata](custom-languages.md): la crei in **Lingue personalizzate**, subito sotto, e ne compili le traduzioni da un file, con il tuo provider IA o tramite un assistente IA.
+
 ### Inizio dell'anno fiscale
 
 Selezionate il mese in cui inizia l'anno fiscale della vostra organizzazione (da gennaio a dicembre). Questa impostazione influisce sul raggruppamento delle **linee di budget** nel modulo PPM per anno fiscale. Ad esempio, se l'anno fiscale inizia ad aprile, una linea di budget di giugno 2026 appartiene all'AF 2026–2027. Determina inoltre quale anno fiscale mostra il [Report Costi](../guide/reports.md).

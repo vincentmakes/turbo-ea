@@ -99,6 +99,7 @@ plugins:
             Principles Catalogue: Catálogo de principios
             Administration: Administración
             General Settings: Configuración general
+            Custom Languages: Idiomas personalizados
             Metamodel: Metamodelo
             Calculations: Cálculos
             Tags: Etiquetas
@@ -169,6 +170,7 @@ plugins:
             Principles Catalogue: Prinzipienkatalog
             Administration: Administration
             General Settings: Allgemeine Einstellungen
+            Custom Languages: Benutzerdefinierte Sprachen
             Metamodel: Metamodell
             Calculations: Berechnungen
             Tags: Tags
@@ -239,6 +241,7 @@ plugins:
             Principles Catalogue: Catalogue de principes
             Administration: Administration
             General Settings: Paramètres généraux
+            Custom Languages: Langues personnalisées
             Metamodel: Métamodèle
             Calculations: Calculs
             Tags: Tags
@@ -309,6 +312,7 @@ plugins:
             Principles Catalogue: Catalogo dei principi
             Administration: Amministrazione
             General Settings: Impostazioni generali
+            Custom Languages: Lingue personalizzate
             Metamodel: Metamodello
             Calculations: Calcoli
             Tags: Tag
@@ -379,6 +383,7 @@ plugins:
             Principles Catalogue: Catálogo de princípios
             Administration: Administração
             General Settings: Configurações gerais
+            Custom Languages: Idiomas personalizados
             Metamodel: Metamodelo
             Calculations: Cálculos
             Tags: Tags
@@ -449,6 +454,7 @@ plugins:
             Principles Catalogue: 原则目录
             Administration: 管理
             General Settings: 常规设置
+            Custom Languages: 自定义语言
             Metamodel: 元模型
             Calculations: 计算
             Tags: 标签
@@ -519,6 +525,7 @@ plugins:
             Principles Catalogue: Каталог принципов
             Administration: Администрирование
             General Settings: Общие настройки
+            Custom Languages: Пользовательские языки
             Metamodel: Метамодель
             Calculations: Вычисления
             Tags: Теги
@@ -589,6 +596,7 @@ plugins:
             Principles Catalogue: Principkatalog
             Administration: Administration
             General Settings: Generelle indstillinger
+            Custom Languages: Brugerdefinerede sprog
             Metamodel: Metamodel
             Calculations: Beregninger
             Tags: Tags
@@ -659,6 +667,7 @@ plugins:
             Principles Catalogue: كتالوج المبادئ
             Administration: الإدارة
             General Settings: الإعدادات العامة
+            Custom Languages: اللغات المخصصة
             Metamodel: النموذج الفوقي
             Calculations: الحسابات
             Tags: الوسوم
