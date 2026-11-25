@@ -1,0 +1,355 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
+
+vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+
+const spies = vi.hoisted(() => ({
+  refreshBootstrap: vi.fn(async () => {}),
+  invalidateMetamodel: vi.fn(async () => {}),
+  invalidateCustomLocales: vi.fn(),
+  refreshCustomLocale: vi.fn(async () => true),
+  setAppLanguage: vi.fn(async () => "en"),
+  forgetCustomLocale: vi.fn(),
+  downloadJson: vi.fn(),
+}));
+
+vi.mock("@/api/bootstrap", () => ({ refreshBootstrap: spies.refreshBootstrap }));
+vi.mock("@/hooks/useMetamodel", () => ({ invalidateCache: spies.invalidateMetamodel }));
+vi.mock("@/hooks/useCustomLocales", () => ({
+  invalidateCustomLocales: spies.invalidateCustomLocales,
+}));
+vi.mock("@/i18n/customLocales", () => ({
+  refreshCustomLocale: spies.refreshCustomLocale,
+  setAppLanguage: spies.setAppLanguage,
+  forgetCustomLocale: spies.forgetCustomLocale,
+}));
+vi.mock("./customLocaleUtils", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./customLocaleUtils")>()),
+  downloadJson: spies.downloadJson,
+}));
+
+// The dialogs have their own tests; here they are markers that call back.
+vi.mock("./CustomLocaleFormDialog", () => ({
+  default: ({
+    locale,
+    onClose,
+    onSaved,
+  }: {
+    locale: { code: string } | null;
+    onClose: () => void;
+    onSaved: (code: string) => void;
+  }) => (
+    <div data-testid="form-dialog" data-locale={locale?.code ?? "new"}>
+      <button onClick={() => onSaved("nl")}>stub-saved</button>
+      <button onClick={onClose}>stub-close</button>
+    </div>
+  ),
+}));
+vi.mock("./ImportPackDialog", () => ({
+  default: ({ locale, onImported, onClose }: { locale: { code: string }; onImported: () => void; onClose: () => void }) => (
+    <div data-testid="import-dialog" data-locale={locale.code}>
+      <button onClick={onImported}>stub-imported</button>
+      <button onClick={onClose}>stub-close</button>
+    </div>
+  ),
+}));
+vi.mock("./TranslateDialog", () => ({
+  default: ({ locale, onFinished, onClose }: { locale: { code: string }; onFinished: () => void; onClose: () => void }) => (
+    <div data-testid="translate-dialog" data-locale={locale.code}>
+      <button onClick={onFinished}>stub-finished</button>
+      <button onClick={onClose}>stub-close</button>
+    </div>
+  ),
+}));
+vi.mock("./ReviewStringsDialog", () => ({
+  default: ({
+    locale,
+    onChanged,
+    onClose,
+  }: {
+    locale: { code: string };
+    onChanged: (ns: string) => void;
+    onClose: () => void;
+  }) => (
+    <div data-testid="review-dialog" data-locale={locale.code}>
+      <button onClick={() => onChanged("common")}>stub-changed-ui</button>
+      <button onClick={() => onChanged("metamodel")}>stub-changed-labels</button>
+      <button onClick={onClose}>stub-close</button>
+    </div>
+  ),
+}));
+
+import { api } from "@/api/client";
+import i18n from "@/i18n";
+import { mockApi } from "@/test/apiMock";
+import { renderWithProviders } from "@/test/render";
+import type { CustomLocale } from "@/types";
+import CustomLocalesSection from "./CustomLocalesSection";
+
+const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`admin:${key}`, opts) as string;
+const tc = (key: string) => i18n.t(`common:${key}`) as string;
+
+const HEBREW: CustomLocale = {
+  code: "he",
+  name: "עברית",
+  english_name: "Hebrew",
+  rtl: true,
+  enabled: true,
+  stats: { total: 200, translated: 150, missing: 30, stale: 20 },
+  job: null,
+};
+const HINDI: CustomLocale = {
+  code: "hi",
+  name: "हिन्दी",
+  english_name: "Hindi",
+  rtl: false,
+  enabled: false,
+  stats: { total: 200, translated: 200, missing: 0, stale: 0 },
+  job: { status: "running", mode: "all", total: 10, done: 2, failed: 0 },
+};
+
+function listReads() {
+  return mockApi.callsOf("get", "/custom-locales").length;
+}
+
+async function renderSection(list: CustomLocale[] = [HEBREW, HINDI]) {
+  mockApi.on("get", "/custom-locales", list);
+  const result = renderWithProviders(<CustomLocalesSection />);
+  if (list.length) await screen.findByText(list[0].name);
+  return result;
+}
+
+function row(code: string) {
+  return within(screen.getByTestId(`custom-locale-${code}`));
+}
+
+beforeEach(() => {
+  mockApi.reset();
+  for (const spy of Object.values(spies)) spy.mockClear();
+  expect(api).toBe(mockApi.api);
+});
+
+afterEach(async () => {
+  if (i18n.language !== "en") await i18n.changeLanguage("en");
+});
+
+describe("CustomLocalesSection — list", () => {
+  it("shows each language with its progress, open counts and state", async () => {
+    await renderSection();
+    expect(screen.getByRole("heading", { name: t("customLocales.title") })).toBeInTheDocument();
+
+    const he = row("he");
+    expect(he.getByText(`he · Hebrew · ${t("customLocales.rtlShort")}`)).toBeInTheDocument();
+    expect(he.getByText(t("customLocales.progress", { translated: 150, total: 200 }))).toBeInTheDocument();
+    expect(he.getByRole("progressbar", { name: t("customLocales.progressLabel", { name: "עברית" }) }))
+      .toHaveAttribute("aria-valuenow", "75");
+    expect(he.getByText(t("customLocales.missingCount", { count: 30 }))).toBeInTheDocument();
+    expect(he.getByText(t("customLocales.staleCount", { count: 20 }))).toBeInTheDocument();
+    expect(he.queryByText(t("customLocales.jobStatus.running"))).toBeNull();
+    expect(he.getByRole("checkbox", { name: t("customLocales.enabledLabel", { name: "עברית" }) })).toBeChecked();
+
+    const hi = row("hi");
+    expect(hi.getByText("hi · Hindi")).toBeInTheDocument();
+    expect(hi.queryByText(t("customLocales.missingCount", { count: 0 }))).toBeNull();
+    expect(hi.queryByText(t("customLocales.staleCount", { count: 0 }))).toBeNull();
+    expect(hi.getByText(t("customLocales.jobStatus.running"))).toBeInTheDocument();
+    expect(hi.getByRole("checkbox", { name: t("customLocales.enabledLabel", { name: "हिन्दी" }) })).not.toBeChecked();
+    expect(mockApi.callsOf("get", "/custom-locales")).toHaveLength(1);
+  });
+
+  it("says when there are no custom languages", async () => {
+    await renderSection([]);
+    expect(await screen.findByText(t("customLocales.empty"))).toBeInTheDocument();
+  });
+
+  it("says when the list cannot be loaded", async () => {
+    mockApi.fail("get", "/custom-locales", 500);
+    renderWithProviders(<CustomLocalesSection />);
+    expect(await screen.findByText(t("customLocales.errors.loadFailed"))).toBeInTheDocument();
+    expect(screen.queryByText(t("customLocales.empty"))).toBeNull();
+  });
+
+  it("names the server's reason when the catalogue is missing", async () => {
+    mockApi.fail("get", "/custom-locales", 503, "catalog_unavailable");
+    renderWithProviders(<CustomLocalesSection />);
+    expect(await screen.findByText(t("customLocales.errors.catalog_unavailable"))).toBeInTheDocument();
+  });
+});
+
+describe("CustomLocalesSection — enable", () => {
+  it("toggles a language and re-reads the list and the menu", async () => {
+    const { user } = await renderSection();
+    mockApi.on("patch", "/custom-locales/hi", {});
+    await user.click(row("hi").getByRole("checkbox"));
+    await waitFor(() => expect(listReads()).toBe(2));
+    expect(mockApi.callsOf("patch", "/custom-locales/hi")[0].body).toEqual({ enabled: true });
+    expect(spies.invalidateCustomLocales).toHaveBeenCalledWith();
+    expect(spies.refreshCustomLocale).not.toHaveBeenCalled();
+  });
+
+  it("turns an enabled language off", async () => {
+    const { user } = await renderSection();
+    mockApi.on("patch", "/custom-locales/he", {});
+    await user.click(row("he").getByRole("checkbox"));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/custom-locales/he")).toHaveLength(1));
+    expect(mockApi.callsOf("patch", "/custom-locales/he")[0].body).toEqual({ enabled: false });
+  });
+
+  it("reports a failed toggle and lets the alert be dismissed", async () => {
+    const { user } = await renderSection();
+    mockApi.fail("patch", "/custom-locales/he", 500);
+    await user.click(row("he").getByRole("checkbox"));
+    const alert = await screen.findByText(t("customLocales.errors.saveFailed"));
+    expect(spies.invalidateCustomLocales).not.toHaveBeenCalled();
+    await user.click(within(alert.closest(".MuiAlert-root") as HTMLElement).getByRole("button"));
+    expect(screen.queryByText(t("customLocales.errors.saveFailed"))).toBeNull();
+  });
+});
+
+describe("CustomLocalesSection — export", () => {
+  it("offers the four packs, the share one explained, and downloads the chosen one", async () => {
+    const pack = { format: "turbo-ea-language-pack", strings: {} };
+    mockApi.on("get", "/custom-locales/he/export?mode=share", pack);
+    const { user } = await renderSection();
+    await user.click(row("he").getByRole("button", { name: t("customLocales.actions.export") }));
+    const menu = await screen.findByRole("menu");
+    const items = within(menu).getAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual([
+      t("customLocales.export.missing"),
+      t("customLocales.export.all"),
+      t("customLocales.export.current"),
+      t("customLocales.export.share") + t("customLocales.export.shareHint"),
+    ]);
+    await user.click(items[3]);
+    await waitFor(() => expect(spies.downloadJson).toHaveBeenCalledWith("turbo-ea-he-share.json", pack));
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("exports the strings still to translate for the language picked", async () => {
+    mockApi.on("get", "/custom-locales/hi/export?mode=missing", { strings: {} });
+    const { user } = await renderSection();
+    await user.click(row("hi").getByRole("button", { name: t("customLocales.actions.export") }));
+    await user.click(await screen.findByRole("menuitem", { name: t("customLocales.export.missing") }));
+    await waitFor(() =>
+      expect(spies.downloadJson).toHaveBeenCalledWith("turbo-ea-hi-missing.json", { strings: {} }),
+    );
+  });
+
+  it("reports a failed export", async () => {
+    mockApi.fail("get", "/custom-locales/he/export?mode=all", 500);
+    const { user } = await renderSection();
+    await user.click(row("he").getByRole("button", { name: t("customLocales.actions.export") }));
+    await user.click(await screen.findByRole("menuitem", { name: t("customLocales.export.all") }));
+    expect(await screen.findByText(t("customLocales.errors.exportFailed"))).toBeInTheDocument();
+    expect(spies.downloadJson).not.toHaveBeenCalled();
+  });
+});
+
+describe("CustomLocalesSection — delete", () => {
+  it("asks first, then deletes and forgets the language", async () => {
+    mockApi.on("delete", "/custom-locales/he", {});
+    const { user } = await renderSection();
+    await user.click(row("he").getByRole("button", { name: tc("actions.delete") }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(t("customLocales.delete.confirm", { name: "עברית" }))).toBeInTheDocument();
+    expect(mockApi.callsOf("delete")).toHaveLength(0);
+
+    await user.click(within(dialog).getByRole("button", { name: tc("actions.delete") }));
+    await waitFor(() => expect(mockApi.callsOf("delete", "/custom-locales/he")).toHaveLength(1));
+    expect(spies.forgetCustomLocale).toHaveBeenCalledWith("he");
+    expect(spies.setAppLanguage).not.toHaveBeenCalled();
+    expect(spies.invalidateCustomLocales).toHaveBeenCalledWith();
+    await waitFor(() => expect(listReads()).toBe(2));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("switches to English when the deleted language is the active one", async () => {
+    mockApi.on("delete", "/custom-locales/he", {});
+    await act(() => i18n.changeLanguage("he"));
+    const { user } = await renderSection();
+    await user.click(row("he").getByRole("button", { name: tc("actions.delete") }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: tc("actions.delete") }));
+    await waitFor(() => expect(spies.setAppLanguage).toHaveBeenCalledWith("en"));
+  });
+
+  it("keeps the language when Cancel is chosen", async () => {
+    const { user } = await renderSection();
+    await user.click(row("he").getByRole("button", { name: tc("actions.delete") }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: tc("actions.cancel") }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mockApi.callsOf("delete")).toHaveLength(0);
+  });
+
+  it("reports a failed delete", async () => {
+    mockApi.fail("delete", "/custom-locales/he", 500);
+    const { user } = await renderSection();
+    await user.click(row("he").getByRole("button", { name: tc("actions.delete") }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: tc("actions.delete") }));
+    expect(await screen.findByText(t("customLocales.errors.deleteFailed"))).toBeInTheDocument();
+    expect(spies.forgetCustomLocale).not.toHaveBeenCalled();
+  });
+});
+
+describe("CustomLocalesSection — dialogs", () => {
+  it("opens the add dialog and, after a save, refreshes the list, the menu and the language", async () => {
+    const { user } = await renderSection();
+    await user.click(screen.getByRole("button", { name: new RegExp(`${t("customLocales.add")}$`) }));
+    expect(screen.getByTestId("form-dialog")).toHaveAttribute("data-locale", "new");
+    await user.click(screen.getByText("stub-saved"));
+    expect(screen.queryByTestId("form-dialog")).toBeNull();
+    await waitFor(() => expect(listReads()).toBe(2));
+    expect(spies.invalidateCustomLocales).toHaveBeenCalledWith();
+    expect(spies.refreshCustomLocale).toHaveBeenCalledWith("nl");
+    expect(spies.invalidateMetamodel).not.toHaveBeenCalled();
+    expect(spies.refreshBootstrap).not.toHaveBeenCalled();
+  });
+
+  it("opens the edit dialog for the row", async () => {
+    const { user } = await renderSection();
+    await user.click(row("hi").getByRole("button", { name: tc("actions.edit") }));
+    expect(screen.getByTestId("form-dialog")).toHaveAttribute("data-locale", "hi");
+    await user.click(screen.getByText("stub-close"));
+    expect(screen.queryByTestId("form-dialog")).toBeNull();
+    expect(listReads()).toBe(1);
+  });
+
+  it("after an import refreshes the language and the database labels", async () => {
+    const { user } = await renderSection();
+    await user.click(row("he").getByRole("button", { name: t("customLocales.actions.import") }));
+    expect(screen.getByTestId("import-dialog")).toHaveAttribute("data-locale", "he");
+    await user.click(screen.getByText("stub-imported"));
+    expect(spies.refreshCustomLocale).toHaveBeenCalledWith("he");
+    expect(spies.invalidateMetamodel).toHaveBeenCalledTimes(1);
+    expect(spies.refreshBootstrap).toHaveBeenCalledTimes(1);
+    // The dialog stays open to show its report.
+    expect(screen.getByTestId("import-dialog")).toBeInTheDocument();
+    await waitFor(() => expect(listReads()).toBe(2));
+  });
+
+  it("after an AI run refreshes the language and the database labels", async () => {
+    const { user } = await renderSection();
+    await user.click(row("hi").getByRole("button", { name: t("customLocales.actions.translate") }));
+    expect(screen.getByTestId("translate-dialog")).toHaveAttribute("data-locale", "hi");
+    await user.click(screen.getByText("stub-finished"));
+    expect(spies.refreshCustomLocale).toHaveBeenCalledWith("hi");
+    expect(spies.invalidateMetamodel).toHaveBeenCalledTimes(1);
+    expect(spies.refreshBootstrap).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByText("stub-close"));
+    expect(screen.queryByTestId("translate-dialog")).toBeNull();
+  });
+
+  it("refreshes the database labels only after a manual edit of one", async () => {
+    const { user } = await renderSection();
+    await user.click(row("he").getByRole("button", { name: t("customLocales.actions.review") }));
+    expect(screen.getByTestId("review-dialog")).toHaveAttribute("data-locale", "he");
+
+    await user.click(screen.getByText("stub-changed-ui"));
+    expect(spies.refreshCustomLocale).toHaveBeenCalledWith("he");
+    expect(spies.invalidateMetamodel).not.toHaveBeenCalled();
+    expect(spies.refreshBootstrap).not.toHaveBeenCalled();
+
+    await user.click(screen.getByText("stub-changed-labels"));
+    expect(spies.invalidateMetamodel).toHaveBeenCalledTimes(1);
+    expect(spies.refreshBootstrap).toHaveBeenCalledTimes(1);
+  });
+});

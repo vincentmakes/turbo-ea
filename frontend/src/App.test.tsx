@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -55,6 +55,8 @@ vi.mock("@/features/ppm/PpmHome", () => ({
 }));
 
 import { auth } from "@/api/client";
+import i18n from "@/i18n";
+import { registerCustomLocale } from "@/i18n/customLocaleRegistry";
 
 import App from "./App";
 
@@ -155,5 +157,43 @@ describe("pre-auth pages are code-split", () => {
     render(<App />);
 
     expect(await screen.findByText(/access_denied/)).toBeInTheDocument();
+  });
+});
+
+describe("document direction", () => {
+  it("follows a custom right-to-left language, and its flag when the admin changes it", async () => {
+    vi.mocked(auth.me).mockRejectedValue(new Error("Unauthorized"));
+    registerCustomLocale({ code: "he", name: "עברית", rtl: true, hash: "" });
+    try {
+      render(<App />);
+      await screen.findByLabelText(/email/i);
+      expect(document.documentElement.dir).toBe("ltr");
+
+      await act(() => i18n.changeLanguage("he"));
+      expect(document.documentElement.dir).toBe("rtl");
+      expect(document.documentElement.lang).toBe("he");
+
+      // The admin turned right-to-left off; the language event re-reads it.
+      registerCustomLocale({ code: "he", name: "עברית", rtl: false, hash: "" });
+      await act(() => i18n.changeLanguage("he"));
+      expect(document.documentElement.dir).toBe("ltr");
+    } finally {
+      await act(() => i18n.changeLanguage("en"));
+    }
+  });
+
+  it("keeps a custom left-to-right language left to right", async () => {
+    vi.mocked(auth.me).mockRejectedValue(new Error("Unauthorized"));
+    registerCustomLocale({ code: "hi", name: "हिन्दी", rtl: false, hash: "" });
+    try {
+      render(<App />);
+      await screen.findByLabelText(/email/i);
+      await act(() => i18n.changeLanguage("hi"));
+      expect(document.documentElement.dir).toBe("ltr");
+      await act(() => i18n.changeLanguage("ar"));
+      expect(document.documentElement.dir).toBe("rtl");
+    } finally {
+      await act(() => i18n.changeLanguage("en"));
+    }
   });
 });

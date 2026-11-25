@@ -83,7 +83,7 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
   // `metamodel` (the database labels).
   const base = `/custom-locales/${encodeURIComponent(locale.code)}`;
   const { data: detail } = useApiQuery<CustomLocaleDetail>(base, { refetchKey });
-  const namespaces = Array.isArray(detail?.namespaces) ? detail.namespaces : [];
+  const namespaces = detail?.namespaces ?? [];
 
   const params = new URLSearchParams({
     status,
@@ -332,6 +332,9 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
             resetPage();
           }}
           labelRowsPerPage={t("customLocales.review.rowsPerPage")}
+          getItemAriaLabel={(type) =>
+            type === "next" ? t("customLocales.review.nextPage") : t("customLocales.review.previousPage")
+          }
           labelDisplayedRows={({ from, to, count }) =>
             t("customLocales.review.displayedRows", { from, to, total: count })
           }

@@ -14,6 +14,7 @@
  * CURRENT behaviour, not desired behaviour (see the `blind spots` test);
  * they are reported, not fixed.
  */
+import { registerCustomLocale } from "@/i18n/customLocaleRegistry";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import * as XLSX from "xlsx";
 import { toPng } from "html-to-image";
@@ -1348,6 +1349,10 @@ describe("exportReportToPptx — section mode", () => {
   it("sets the slides' text right to left in Arabic, and only in section mode", async () => {
     expect(textDirection("ar")).toEqual({ align: "right", rtlMode: true });
     expect(textDirection("en")).toEqual({});
+    registerCustomLocale({ code: "he", name: "עברית", rtl: true, hash: "" });
+    registerCustomLocale({ code: "hi", name: "हिन्दी", rtl: false, hash: "" });
+    expect(textDirection("he")).toEqual({ align: "right", rtlMode: true });
+    expect(textDirection("hi")).toEqual({});
     const [a, b] = mountSections(["<p>a</p>", "<p>b</p>"], {}, [200, 200]);
     vi.mocked(toPng).mockResolvedValueOnce(CHART_PNG).mockRejectedValueOnce(new Error("x"));
     const previous = i18n.language;

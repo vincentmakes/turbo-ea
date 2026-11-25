@@ -3141,5 +3141,7 @@
   "customLocales.export.share": "Share (community pack)",
   "customLocales.export.shareHint": "Current translations with only the built-in labels, nothing specific to this installation",
   "customLocales.reasons.source_changed": "The English label changed since the pack was made",
-  "customLocales.review.namespaceOption": "{{name}} ({{translated}}/{{total}})"
+  "customLocales.review.namespaceOption": "{{name}} ({{translated}}/{{total}})",
+  "customLocales.review.nextPage": "Next page",
+  "customLocales.review.previousPage": "Previous page"
 }

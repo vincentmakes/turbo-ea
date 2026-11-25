@@ -12,6 +12,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { useIsRtl } from "./useIsRtl";
+import { registerCustomLocale } from "@/i18n/customLocaleRegistry";
 
 describe("useIsRtl", () => {
   it("is false for LTR locales", () => {
@@ -27,5 +28,14 @@ describe("useIsRtl", () => {
   it("handles a region suffix (ar-SA)", () => {
     state.lang = "ar-SA";
     expect(renderHook(() => useIsRtl()).result.current).toBe(true);
+  });
+
+  it("follows a custom language's own direction", () => {
+    registerCustomLocale({ code: "he", name: "עברית", rtl: true, hash: "" });
+    registerCustomLocale({ code: "th", name: "ไทย", rtl: false, hash: "" });
+    state.lang = "he";
+    expect(renderHook(() => useIsRtl()).result.current).toBe(true);
+    state.lang = "th";
+    expect(renderHook(() => useIsRtl()).result.current).toBe(false);
   });
 });

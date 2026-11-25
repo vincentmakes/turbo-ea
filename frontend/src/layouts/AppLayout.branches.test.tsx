@@ -82,6 +82,7 @@ vi.mock("@/components/CreateCardDialog", () => ({
 }));
 
 import i18n from "@/i18n";
+import { invalidateCustomLocales } from "@/hooks/useCustomLocales";
 import AppLayout from "./AppLayout";
 import { AuthProvider } from "@/hooks/AuthContext";
 import { mockApi } from "@/test/apiMock";
@@ -405,6 +406,62 @@ describe("AppLayout — user menu", () => {
     expect(mockApi.callsOf("patch", "/users/u1")[0].body).toEqual({ locale: "en" });
     expect(i18n.language).toBe("en");
     expect(screen.queryByText("Logout")).not.toBeInTheDocument();
+  });
+
+  it("lists enabled custom languages after the built-in ones, by native name", async () => {
+    invalidateCustomLocales([
+      { code: "he", name: "עברית", rtl: true, hash: "h" },
+      { code: "th", name: "ไทย", rtl: false, hash: "t" },
+    ]);
+    try {
+      const user = userEvent.setup();
+      renderLayout();
+      await openUserMenu(user);
+      await user.click(screen.getByRole("menuitem", { name: /Language/ }));
+      await screen.findByRole("menuitem", { name: "עברית" });
+      const menu = screen.getAllByRole("menu").at(-1)!;
+      expect(within(menu).getAllByRole("menuitem").map((m) => m.textContent)).toEqual([
+        "English",
+        "Deutsch",
+        "עברית",
+        "ไทย",
+      ]);
+      expect(within(menu).getByRole("menuitem", { name: "English" })).toHaveClass("Mui-selected");
+      expect(within(menu).getByRole("menuitem", { name: "עברית" })).not.toHaveClass("Mui-selected");
+    } finally {
+      invalidateCustomLocales([]);
+    }
+  });
+
+  it("loads a custom language on pick, persists it and names it in the menu", async () => {
+    invalidateCustomLocales([{ code: "he", name: "עברית", rtl: true, hash: "h" }]);
+    mockApi.on("patch", "/users/u1", {});
+    mockApi.on("get", "/custom-locales/he/bundle", {
+      code: "he",
+      name: "עברית",
+      rtl: true,
+      hash: "h",
+      resources: { nav: { "userMenu.language": "שפה" } },
+    });
+    try {
+      const user = userEvent.setup();
+      renderLayout();
+      await openUserMenu(user);
+      await user.click(screen.getByRole("menuitem", { name: /Language/ }));
+      await user.click(await screen.findByRole("menuitem", { name: "עברית" }));
+
+      await waitFor(() => expect(i18n.language).toBe("he"));
+      expect(mockApi.callsOf("get", "/custom-locales/he/bundle")).toHaveLength(1);
+      await waitFor(() => expect(mockApi.callsOf("patch", "/users/u1")).toHaveLength(1));
+      expect(mockApi.callsOf("patch", "/users/u1")[0].body).toEqual({ locale: "he" });
+
+      await user.click(screen.getByRole("button", { name: /account_circle/i }));
+      const language = await screen.findByRole("menuitem", { name: /שפה/ });
+      expect(language).toHaveTextContent(/עברית$/);
+    } finally {
+      invalidateCustomLocales([]);
+      await act(() => i18n.changeLanguage("en"));
+    }
   });
 
   it("treats a failed locale save as best-effort", async () => {
