@@ -67,6 +67,7 @@ def provider_usable(ai_cfg: dict) -> bool:
         return False
     return not (ai_cfg.get("provider_type") in KEYED_PROVIDERS and not ai_cfg.get("api_key"))
 
+
 # ---------------------------------------------------------------------------
 # Module-level HTTP clients (reused across requests)
 # ---------------------------------------------------------------------------

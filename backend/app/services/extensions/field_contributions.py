@@ -52,6 +52,7 @@ and remove, since contributed fields carry weights.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from collections.abc import Set as AbstractSet
 from typing import Any
 
@@ -83,6 +84,59 @@ _ALLOWED_FIELD_PROPS = (
     "badge",
     "badgeTranslations",
 )
+
+
+#: A field's locale maps (``{locale: text}``).
+_FIELD_LOCALE_MAPS = ("translations", "helpTranslations", "badgeTranslations")
+
+
+def merge_locales(stored: Any, manifest: Any) -> Any:
+    """A locale map re-synced from a manifest: the manifest wins for the
+    locales it carries, every other locale stored on the instance is kept — an
+    admin's custom language (``custom_locales``) is written into these maps and
+    a manifest that does not know it must not wipe it. ``None`` when neither
+    side has a map."""
+    if not isinstance(stored, Mapping) or not stored:
+        return manifest
+    if not isinstance(manifest, Mapping):
+        return dict(stored)
+    return {**stored, **manifest}
+
+
+def merge_group_locales(stored: Any, manifest: Any) -> Any:
+    """``groupTranslations`` (``{group: {locale: text}}``) merged per group."""
+    if not isinstance(stored, Mapping) or not stored:
+        return manifest
+    out = {group: dict(texts) for group, texts in stored.items() if isinstance(texts, Mapping)}
+    for group, texts in (manifest if isinstance(manifest, Mapping) else {}).items():
+        out[group] = merge_locales(out.get(group), texts)
+    return out
+
+
+def keep_stored_locales(
+    stored: Any, fresh: dict, maps: tuple[str, ...] = _FIELD_LOCALE_MAPS
+) -> dict:
+    """``fresh`` (a manifest definition) with the locales ``stored`` (the
+    definition on the instance) carries in its locale maps and ``fresh`` does
+    not; option labels are merged per option key the same way."""
+    if not isinstance(stored, Mapping):
+        return fresh
+    out = dict(fresh)
+    for prop in maps:
+        merged = merge_locales(stored.get(prop), fresh.get(prop))
+        if merged is not None:
+            out[prop] = merged
+    old_options = stored.get("options")
+    new_options = out.get("options")
+    if isinstance(old_options, list) and isinstance(new_options, list):
+        by_key = {o.get("key"): o for o in old_options if isinstance(o, Mapping)}
+        out["options"] = [
+            keep_stored_locales(by_key.get(o.get("key")), o, ("translations",))
+            if isinstance(o, dict)
+            else o
+            for o in new_options
+        ]
+    return out
 
 
 def contributions_from_manifest(manifest: dict[str, Any] | None) -> list[dict]:
@@ -251,7 +305,7 @@ def _resynced_at(current: dict, fresh: dict) -> dict:
     manifest's — the manifest's column and group name its own section."""
     out = {k: v for k, v in fresh.items() if k not in _LAYOUT_PROPS}
     out.update({k: current[k] for k in _LAYOUT_PROPS if k in current})
-    return out
+    return keep_stored_locales(current, out)
 
 
 def _manifest_field_keys(contributions: list, type_key: str) -> set[str]:
@@ -397,9 +451,13 @@ async def apply_field_contributions(
         if "columns" in contrib:
             target["columns"] = contrib["columns"]
         if "translations" in contrib:
-            target["translations"] = contrib["translations"]
+            target["translations"] = merge_locales(
+                target.get("translations"), contrib["translations"]
+            )
         if "groupTranslations" in contrib:
-            target["groupTranslations"] = contrib["groupTranslations"]
+            target["groupTranslations"] = merge_group_locales(
+                target.get("groupTranslations"), contrib["groupTranslations"]
+            )
         # Replace our fields; keep admin-added (unstamped) fields in place, and
         # a sibling contribution's field moved here (re-synced by that
         # contribution, before or after this one). Drop only this
@@ -410,6 +468,12 @@ async def apply_field_contributions(
             for f in target.get("fields", [])
             if isinstance(f, dict) and (f.get("ext") != ext_key or f.get("key") in sibling_keys)
         ]
+        stored_own = {
+            f.get("key"): f
+            for f in target.get("fields", [])
+            if isinstance(f, dict) and f.get("ext") == ext_key
+        }
+        own_fields = [keep_stored_locales(stored_own.get(f["key"]), f) for f in own_fields]
         target["fields"] = kept + own_fields
 
         ct.fields_schema = schema
@@ -483,7 +547,7 @@ def _merge_subtypes(existing: list, stamped: list[dict], ext_key: str) -> list:
         if fresh is None or fresh["key"] in placed:
             continue
         admin_props = {k: v for k, v in s.items() if k not in _ALLOWED_SUBTYPE_PROPS}
-        out.append({**fresh, **admin_props})
+        out.append(keep_stored_locales(s, {**fresh, **admin_props}, ("translations",)))
         placed.add(fresh["key"])
     out.extend(s for s in stamped if s["key"] not in placed)
     return out

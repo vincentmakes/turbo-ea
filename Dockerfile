@@ -20,6 +20,9 @@ COPY VERSION ./VERSION
 COPY CHANGELOG.md ./CHANGELOG.md
 COPY backend/ ./
 RUN pip install --no-cache-dir --no-deps --prefix=/install .
+# The English UI strings: custom languages (services/language_pack.py) diff,
+# validate and export against them, so the backend needs its own copy.
+COPY frontend/src/i18n/locales/en/ ./i18n/en/
 
 
 FROM python:3.12-alpine AS backend
@@ -35,6 +38,7 @@ WORKDIR /app
 COPY --from=backend-build /install /usr/local
 COPY --from=backend-build /app/VERSION ./VERSION
 COPY --from=backend-build /app/CHANGELOG.md ./CHANGELOG.md
+COPY --from=backend-build /app/i18n ./i18n
 COPY --from=backend-build /app/app ./app
 COPY --from=backend-build /app/alembic ./alembic
 COPY --from=backend-build /app/alembic.ini ./alembic.ini

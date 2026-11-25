@@ -28,7 +28,9 @@ class CustomLocale(Base, UUIDMixin, TimestampMixin):
     code: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     english_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    rtl: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    rtl: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )

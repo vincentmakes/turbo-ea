@@ -29,6 +29,7 @@ from sqlalchemy import select
 from app.models.custom_locale import CustomLocale
 from app.services import custom_locale_store as store
 from app.services import language_pack as lp
+from app.services import metamodel_strings as mm
 from app.services.ai_service import call_llm
 
 logger = logging.getLogger("turboea.custom_locales")
@@ -73,24 +74,21 @@ def is_running(code: str) -> bool:
 
 
 def select_work(
-    cat: lp.Catalog,
-    stored: Mapping[str, tuple[Mapping[str, Any], Mapping[str, Any]]],
+    views: Mapping[str, store.View],
     *,
     mode: str,
-    namespaces: list[str] | None,
     include_manual: bool,
 ) -> list[WorkItem]:
-    """What a job translates, in catalogue order.
+    """What a job translates, in view order (``metamodel`` first, so the UI
+    strings can be translated with the names it settles on).
 
     ``missing``: every missing or stale key (an extra plural key that went
     stale included). ``all``: every English key and every stored extra plural
     key, except a string an admin wrote by hand (origin ``manual``) unless
     ``include_manual``."""
-    names = [n for n in (namespaces or cat.names) if cat.namespace(n) is not None]
     items: list[WorkItem] = []
-    for name in names:
-        ns = cat.namespaces[name]
-        strings, meta = stored.get(name, ({}, {}))
+    for name, view in views.items():
+        ns, strings, meta = view.ns, view.strings, view.meta
         for key in [*ns.strings, *lp.extra_keys(ns, strings)]:
             status = lp.key_status(ns, key, strings, meta)
             if mode == "missing":
@@ -174,20 +172,37 @@ async def _update_job(code: str, **changes: Any) -> bool:
         return True
 
 
+def type_name_pairs(view: store.View, limit: int = lp.MAX_REFERENCE_PAIRS) -> list[tuple[str, str]]:
+    """``(English, translation)`` of the translated card-type names — the
+    terminology every UI string about a card type should reuse."""
+    pairs = []
+    for key, english in view.ns.strings.items():
+        if len(pairs) >= limit:
+            break
+        parts = mm.split_key(key)
+        if len(parts) == 3 and parts[0] == "type" and parts[2] == "label":
+            value = view.strings.get(key)
+            if isinstance(value, str) and value:
+                pairs.append((english, value))
+    return pairs
+
+
 async def _references(code: str, namespace: str, exclude: list[str]) -> list[tuple[str, str]]:
+    """The terminology reference for one chunk: up-to-date translations of the
+    same namespace, and for a UI chunk the translated card-type names."""
     cat = store.catalog()
-    ns = cat.namespace(namespace) if cat is not None else None
-    if ns is None:
-        return []
     async with _session() as db:
         locale = await store.get_locale(db, code)
         if locale is None:
             return []
-        rows = await store.load_rows(db, [locale.id])
-        row = rows[locale.id].get(namespace)
-        strings = dict(row.strings or {}) if row is not None else {}
-        meta = dict(row.meta or {}) if row is not None else {}
-    return lp.reference_pairs(ns, strings, meta, exclude=exclude)
+        views = await store.load_views(db, locale, cat, [namespace, store.METAMODEL])
+    view = views.get(namespace)
+    if view is None:
+        return []
+    pairs = lp.reference_pairs(view.ns, view.strings, view.meta, exclude=exclude)
+    if namespace != store.METAMODEL and store.METAMODEL in views:
+        pairs = type_name_pairs(views[store.METAMODEL]) + pairs
+    return pairs
 
 
 async def _merge(code: str, chunk: list[WorkItem], translations, expected) -> bool:
@@ -284,7 +299,10 @@ async def run_job(
     except Exception as exc:
         logger.exception("Translation job for %s failed", code)
         await _update_job(
-            code, status="failed", finished_at=_now(), error=f"Unexpected error: {type(exc).__name__}"
+            code,
+            status="failed",
+            finished_at=_now(),
+            error=f"Unexpected error: {type(exc).__name__}",
         )
     finally:
         _CANCELLED.discard(code)

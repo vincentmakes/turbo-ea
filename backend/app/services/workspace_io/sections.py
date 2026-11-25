@@ -31,6 +31,7 @@ from app.models.architecture_decision_person import ArchitectureDecisionPerson
 from app.models.bookmark import Bookmark
 from app.models.card_logo import CardLogo
 from app.models.comment import Comment
+from app.models.custom_locale import CustomLocale, CustomLocaleString
 from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup
@@ -380,5 +381,20 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         # A relation answer is a list of {id, name} card refs.
         rewrite=remap.rewrite_survey_response_row,
         id_bearing_columns=("responses",),
+    ),
+    # Custom languages: the language, then its strings (one row per namespace).
+    # ``translate_job`` is this instance's transient AI-job state, not content.
+    # The two blobs are far over a workbook cell's 32 767 characters, so they
+    # travel as JSON assets. A language's ``metamodel`` labels travel inside
+    # the metamodel records' own ``translations`` (bespoke core sections).
+    EntitySection(
+        "CustomLocales",
+        CustomLocale,
+        exclude_columns=("translate_job",),
+    ),
+    EntitySection(
+        "CustomLocaleStrings",
+        CustomLocaleString,
+        asset_columns=(("strings", "json", "json"), ("meta", "json", "json")),
     ),
 )

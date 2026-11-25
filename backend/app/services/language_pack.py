@@ -287,8 +287,7 @@ def has_forbidden_chars(text: str) -> bool:
     marks, Devanagari vowel signs), ZWJ / ZWNJ, LRM / RLM and the bidi
     isolates — because real scripts need them."""
     return any(
-        ch in _BIDI_OVERRIDES
-        or (ch not in _ALLOWED_CONTROLS and unicodedata.category(ch) == "Cc")
+        ch in _BIDI_OVERRIDES or (ch not in _ALLOWED_CONTROLS and unicodedata.category(ch) == "Cc")
         for ch in text
     )
 
@@ -708,8 +707,13 @@ GLOSSARY = (
 )
 
 
-def chunk(items: list[Any], size_of: Any, *, max_items: int = CHUNK_MAX_ITEMS,
-          max_chars: int = CHUNK_MAX_CHARS) -> list[list[Any]]:
+def chunk(
+    items: list[Any],
+    size_of: Any,
+    *,
+    max_items: int = CHUNK_MAX_ITEMS,
+    max_chars: int = CHUNK_MAX_CHARS,
+) -> list[list[Any]]:
     """Split ``items`` into chunks of at most ``max_items`` items and at most
     ``max_chars`` characters (``size_of(item)``); an item larger than
     ``max_chars`` on its own makes a chunk of one."""
@@ -843,9 +847,7 @@ def validate_pack(pack: Any, cat: Catalog) -> list[dict[str, str]]:
             problems.append({"namespace": str(name), "key": "", "reason": "unknown_namespace"})
             continue
         for key, value in entries.items():
-            reason = (
-                validate_structural(value) if ns is None else validate_entry(ns, key, value)
-            )
+            reason = validate_structural(value) if ns is None else validate_entry(ns, key, value)
             if reason is not None:
                 problems.append({"namespace": str(name), "key": str(key), "reason": reason})
     return problems

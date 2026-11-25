@@ -15,6 +15,7 @@ from app.api.v1 import (
     card_logos,
     cards,
     comments,
+    custom_locales,
     dashboards,
     diagram_groups,
     diagrams,
@@ -122,3 +123,4 @@ api_router.include_router(process_catalogue.router)
 api_router.include_router(value_stream_catalogue.router)
 api_router.include_router(principles_catalogue.router)
 api_router.include_router(ops.router)
+api_router.include_router(custom_locales.router)

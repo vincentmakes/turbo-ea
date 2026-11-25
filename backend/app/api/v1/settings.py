@@ -27,6 +27,7 @@ from app.services import (
     audit_labels,
     audit_log,
     card_type_categories,
+    custom_locale_store,
     lifecycle_phase_help,
 )
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
@@ -390,8 +391,15 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "extension_notices_enabled": general.get("extensionNoticesEnabled", True),
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
+        # Admin-added languages users may choose ({code, name, rtl, hash}); the
+        # hash versions ``GET /custom-locales/{code}/bundle``.
+        "custom_locales": await custom_locale_store.bootstrap_entries(db),
         "fiscal_year_start": general.get("fiscalYearStart", 1),
-        "lifecycle_phase_help": lifecycle_phase_help.read_phase_help(general),
+        # Enabled custom languages' phase texts are laid over the stored /
+        # default help (they live in the language's ``metamodel`` pack row).
+        "lifecycle_phase_help": await custom_locale_store.phase_help_with_custom_locales(
+            db, lifecycle_phase_help.read_phase_help(general)
+        ),
         "archive_retention_days": general.get(
             "archiveRetentionDays", DEFAULT_ARCHIVE_RETENTION_DAYS
         ),

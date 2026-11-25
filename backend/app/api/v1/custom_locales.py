@@ -128,13 +128,6 @@ def _target(locale: CustomLocale) -> tuple[str, str, str]:
     return ("custom_locale", str(locale.id), locale.name)
 
 
-async def _detail(db: AsyncSession, locale: CustomLocale, *, with_namespaces: bool) -> dict:
-    rows = await store.load_rows(db, [locale.id])
-    return store.serialize(
-        locale, rows[locale.id], store.catalog(), with_namespaces=with_namespaces
-    )
-
-
 async def _ai_config(db: AsyncSession) -> dict:
     row = (
         await db.execute(select(AppSettings).where(AppSettings.id == "default"))
@@ -154,10 +147,7 @@ async def list_custom_locales(
 ):
     """Every custom locale with its translation progress and AI job state."""
     await _require_admin(db, user)
-    locales = await store.list_locales(db)
-    rows = await store.load_rows(db, [loc.id for loc in locales])
-    cat = store.catalog()
-    return [store.serialize(loc, rows[loc.id], cat) for loc in locales]
+    return await store.serialize_all(db, await store.list_locales(db))
 
 
 @router.post("", status_code=201)
@@ -195,7 +185,7 @@ async def create_custom_locale(
     )
     await db.commit()
     await db.refresh(locale)
-    return await _detail(db, locale, with_namespaces=True)
+    return await store.serialize_one(db, locale)
 
 
 @router.get("/{code}")
@@ -207,7 +197,7 @@ async def get_custom_locale(
     """One locale with its per-namespace progress."""
     await _require_admin(db, user)
     locale = await _locale_or_404(db, code)
-    return await _detail(db, locale, with_namespaces=True)
+    return await store.serialize_one(db, locale)
 
 
 @router.patch("/{code}")
@@ -237,7 +227,7 @@ async def update_custom_locale(
         )
     await db.commit()
     await db.refresh(locale)
-    return await _detail(db, locale, with_namespaces=True)
+    return await store.serialize_one(db, locale)
 
 
 @router.delete("/{code}", status_code=204)
@@ -267,19 +257,20 @@ async def delete_custom_locale(
 @router.get("/{code}/export")
 async def export_custom_locale(
     code: str,
-    mode: Literal["missing", "all", "current"] = "missing",
+    mode: Literal["missing", "all", "current", "share"] = "missing",
     namespaces: str | None = Query(default=None, max_length=1000),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """The language-pack file: ``missing`` / ``all`` English text to translate,
-    or ``current`` — the stored translations, to share."""
+    ``current`` — the stored translations — or ``share``, the community pack
+    (the UI translations plus only the built-in seed's database labels)."""
     await _require_admin(db, user)
     locale = await _locale_or_404(db, code)
     cat = _catalog_or_503()
     wanted = [n.strip() for n in namespaces.split(",") if n.strip()] if namespaces else None
-    rows = await store.load_rows(db, [locale.id])
-    pack = store.export_pack(cat, locale, rows[locale.id], mode=mode, namespaces=wanted)
+    views = await store.load_views(db, locale, cat, wanted)
+    pack = store.export_pack(locale, views, mode=mode)
     await audit_log.record(
         db,
         action="access.export.language_pack",
@@ -313,12 +304,10 @@ async def list_custom_locale_strings(
     await _require_admin(db, user)
     locale = await _locale_or_404(db, code)
     cat = _catalog_or_503()
-    if namespace and cat.namespace(namespace) is None:
+    if namespace and not store.known_namespace(cat, namespace):
         raise HTTPException(400, "unknown_namespace")
-    rows = await store.load_rows(db, [locale.id])
-    items = store.list_strings(
-        cat, rows[locale.id], namespace=namespace, status=status, search=search
-    )
+    views = await store.load_views(db, locale, cat, [namespace] if namespace else None)
+    items = store.list_strings(views, namespace=namespace, status=status, search=search)
     return {"total": len(items), "items": items[offset : offset + limit]}
 
 
@@ -384,22 +373,10 @@ async def translate_custom_locale(
     ai_cfg = await _ai_config(db)
     if not provider_usable(ai_cfg):
         raise HTTPException(400, "ai_not_configured")
-    if body.namespaces:
-        unknown = [n for n in body.namespaces if cat.namespace(n) is None]
-        if unknown:
-            raise HTTPException(400, "unknown_namespace")
-    rows = await store.load_rows(db, [locale.id])
-    stored = {
-        name: (dict(row.strings or {}), dict(row.meta or {}))
-        for name, row in rows[locale.id].items()
-    }
-    items = translate.select_work(
-        cat,
-        stored,
-        mode=body.mode,
-        namespaces=body.namespaces,
-        include_manual=body.include_manual,
-    )
+    if body.namespaces and not all(store.known_namespace(cat, n) for n in body.namespaces):
+        raise HTTPException(400, "unknown_namespace")
+    views = await store.load_views(db, locale, cat, body.namespaces or None)
+    items = translate.select_work(views, mode=body.mode, include_manual=body.include_manual)
     locale.translate_job = translate.new_job(body.mode, len(items))
     await audit_log.record(
         db,
