@@ -3699,7 +3699,8 @@ export interface CustomLocaleBundle {
   resources: Record<string, Record<string, unknown>>;
 }
 
-export type LanguagePackMode = "missing" | "all" | "current";
+/** `share`: current translations with only the built-in database labels (a community pack). */
+export type LanguagePackMode = "missing" | "all" | "current" | "share";
 
 /** The `turbo-ea-language-pack` file (export and import). */
 export interface LanguagePack {
@@ -3725,5 +3726,6 @@ export interface CustomLocaleWriteResult {
   unchanged: number;
   cleared: number;
   rejected: CustomLocaleRejectedString[];
+  /** How many keys of the request are not strings of this version. */
   unknown: number;
 }

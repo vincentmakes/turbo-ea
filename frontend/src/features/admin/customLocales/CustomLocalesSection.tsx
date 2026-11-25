@@ -6,7 +6,9 @@
  * After any change the enabled list behind the language menu is re-read
  * (`invalidateCustomLocales`) and the changed language's bundle is dropped, and
  * reloaded at once when it is the active language (`refreshCustomLocale`), so
- * the admin sees the result without a page reload.
+ * the admin sees the result without a page reload. An import, a finished AI
+ * run or a manual edit of a database label also re-reads the metamodel and the
+ * bootstrap-primed caches (`refreshLabels`).
  */
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,6 +24,7 @@ import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import ListItemText from "@mui/material/ListItemText";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -30,6 +33,8 @@ import DialogActions from "@mui/material/DialogActions";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { refreshBootstrap } from "@/api/bootstrap";
+import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { invalidateCustomLocales } from "@/hooks/useCustomLocales";
 import i18n from "@/i18n";
@@ -43,9 +48,19 @@ import CustomLocaleFormDialog from "./CustomLocaleFormDialog";
 import ImportPackDialog from "./ImportPackDialog";
 import TranslateDialog from "./TranslateDialog";
 import ReviewStringsDialog from "./ReviewStringsDialog";
-import { downloadJson, errorMessage, percent } from "./customLocaleUtils";
+import { METAMODEL_NAMESPACE, downloadJson, errorMessage, percent } from "./customLocaleUtils";
 
-const EXPORT_MODES: LanguagePackMode[] = ["missing", "all", "current"];
+const EXPORT_MODES: LanguagePackMode[] = ["missing", "all", "current", "share"];
+
+/**
+ * Database labels (card types, fields, categories, lifecycle help …) live in
+ * the metamodel and the bootstrap-primed caches: re-read both after a change
+ * that can have translated them.
+ */
+function refreshLabels(): void {
+  void invalidateMetamodel();
+  void refreshBootstrap();
+}
 
 type DialogState =
   | { kind: "form"; locale: CustomLocale | null }
@@ -293,7 +308,10 @@ export default function CustomLocalesSection() {
             key={mode}
             onClick={() => exportAnchor && handleExport(exportAnchor.code, mode)}
           >
-            {t(`customLocales.export.${mode}`)}
+            <ListItemText
+              primary={t(`customLocales.export.${mode}`)}
+              secondary={mode === "share" ? t("customLocales.export.shareHint") : undefined}
+            />
           </MenuItem>
         ))}
       </Menu>
@@ -312,21 +330,30 @@ export default function CustomLocalesSection() {
         <ImportPackDialog
           locale={dialog.locale}
           onClose={closeDialog}
-          onImported={() => afterChange(dialog.locale.code)}
+          onImported={() => {
+            afterChange(dialog.locale.code);
+            refreshLabels();
+          }}
         />
       )}
       {dialog?.kind === "translate" && (
         <TranslateDialog
           locale={dialog.locale}
           onClose={closeDialog}
-          onFinished={() => afterChange(dialog.locale.code)}
+          onFinished={() => {
+            afterChange(dialog.locale.code);
+            refreshLabels();
+          }}
         />
       )}
       {dialog?.kind === "review" && (
         <ReviewStringsDialog
           locale={dialog.locale}
           onClose={closeDialog}
-          onChanged={() => afterChange(dialog.locale.code)}
+          onChanged={(namespace) => {
+            afterChange(dialog.locale.code);
+            if (namespace === METAMODEL_NAMESPACE) refreshLabels();
+          }}
         />
       )}
       {dialog?.kind === "delete" && (

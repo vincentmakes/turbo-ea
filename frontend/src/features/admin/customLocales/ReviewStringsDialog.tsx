@@ -2,7 +2,9 @@
  * Review a custom language string by string: the English source beside the
  * translation, filtered by namespace, status and a search, one server page at
  * a time. A string is corrected or cleared in place; the edit is stored as a
- * manual one, which "retranslate everything" leaves alone.
+ * manual one, which "retranslate everything" leaves alone. The namespace
+ * filter lists each namespace with its progress, the database labels
+ * (`metamodel`) under a readable name.
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,14 +33,14 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import i18n from "@/i18n";
 import type {
   CustomLocale,
+  CustomLocaleDetail,
   CustomLocaleString,
   CustomLocaleStringsPage,
   CustomLocaleWriteResult,
 } from "@/types";
-import { errorMessage, reasonLabel } from "./customLocaleUtils";
+import { errorMessage, namespaceLabel, reasonLabel } from "./customLocaleUtils";
 
 const STATUS_FILTERS = ["untranslated", "missing", "stale", "translated", "all"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
@@ -54,8 +56,8 @@ const PAGE_SIZES = [25, 50, 100];
 interface Props {
   locale: CustomLocale;
   onClose: () => void;
-  /** Called after a string was saved or cleared. */
-  onChanged: () => void;
+  /** Called with the string's namespace after it was saved or cleared. */
+  onChanged: (namespace: string) => void;
 }
 
 interface Editing {
@@ -77,8 +79,11 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // The namespaces are the English bundle's: the same 14 the server knows.
-  const namespaces = Object.keys(i18n.getDataByLanguage("en") ?? {}).sort();
+  // The namespaces, with their progress, are the server's: the UI ones and
+  // `metamodel` (the database labels).
+  const base = `/custom-locales/${encodeURIComponent(locale.code)}`;
+  const { data: detail } = useApiQuery<CustomLocaleDetail>(base, { refetchKey });
+  const namespaces = Array.isArray(detail?.namespaces) ? detail.namespaces : [];
 
   const params = new URLSearchParams({
     status,
@@ -87,9 +92,9 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
   });
   if (namespace) params.set("namespace", namespace);
   if (debouncedSearch) params.set("search", debouncedSearch);
-  const base = `/custom-locales/${encodeURIComponent(locale.code)}/strings`;
+  const stringsPath = `${base}/strings`;
   const { data, loading, error: loadError } = useApiQuery<CustomLocaleStringsPage>(
-    `${base}?${params.toString()}`,
+    `${stringsPath}?${params.toString()}`,
     { refetchKey },
   );
   const items = data?.items ?? [];
@@ -99,7 +104,7 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
     setSaving(true);
     setError("");
     try {
-      const res = await api.post<CustomLocaleWriteResult>(base, {
+      const res = await api.post<CustomLocaleWriteResult>(stringsPath, {
         strings: { [row.namespace]: { [row.key]: value } },
         origin: "manual",
       });
@@ -112,7 +117,7 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
       }
       setEditing(null);
       setRefetchKey((n) => n + 1);
-      onChanged();
+      onChanged(row.namespace);
     } catch (e) {
       setError(errorMessage(e, t, t("customLocales.review.saveFailed")));
     } finally {
@@ -140,8 +145,12 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
           >
             <MenuItem value="">{t("customLocales.review.allNamespaces")}</MenuItem>
             {namespaces.map((ns) => (
-              <MenuItem key={ns} value={ns}>
-                {ns}
+              <MenuItem key={ns.namespace} value={ns.namespace}>
+                {t("customLocales.review.namespaceOption", {
+                  name: namespaceLabel(ns.namespace, t),
+                  translated: ns.translated,
+                  total: ns.total,
+                })}
               </MenuItem>
             ))}
           </TextField>
@@ -209,7 +218,7 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
                       {row.source}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {row.namespace} · {row.key}
+                      {namespaceLabel(row.namespace, t)} · {row.key}
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ verticalAlign: "top" }}>

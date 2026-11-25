@@ -3,7 +3,9 @@
  * browser, refuse a file that is not a pack, ask before importing a pack made
  * for another language code, then send one namespace per request (a full pack
  * can exceed a request-size limit) and report what the server applied and
- * rejected.
+ * rejected. The `metamodel` namespace (database labels) is posted like any
+ * other; the server skips a label whose English changed since the pack was
+ * made (`source_changed`).
  */
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,6 +34,7 @@ import type {
 import {
   errorMessage,
   importBody,
+  namespaceLabel,
   parseLanguagePack,
   percent,
   readFileText,
@@ -73,7 +76,7 @@ const PARSE_ERROR_KEYS: Record<PackParseError, string> = {
 const MAX_LISTED_REJECTIONS = 100;
 
 function count(value: unknown): number {
-  return typeof value === "number" ? value : Array.isArray(value) ? value.length : 0;
+  return typeof value === "number" ? value : 0;
 }
 
 export default function ImportPackDialog({ locale, onClose, onImported }: Props) {
@@ -239,7 +242,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
             {report.failedNamespaces.map((f) => (
               <Alert severity="error" sx={{ mt: 1 }} key={f.namespace}>
                 {t("customLocales.import.namespaceFailed", {
-                  namespace: f.namespace,
+                  namespace: namespaceLabel(f.namespace, t),
                   message: f.message,
                 })}
               </Alert>
@@ -253,7 +256,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
                   {report.rejected.slice(0, MAX_LISTED_REJECTIONS).map((r) => (
                     <ListItem key={`${r.namespace}:${r.key}`} disableGutters>
                       <ListItemText
-                        primary={`${r.namespace} · ${r.key}`}
+                        primary={`${namespaceLabel(r.namespace, t)} · ${r.key}`}
                         secondary={reasonLabel(r.reason, t)}
                       />
                     </ListItem>

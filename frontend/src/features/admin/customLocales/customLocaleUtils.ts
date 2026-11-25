@@ -33,10 +33,35 @@ export const REJECT_REASONS = [
   "url_not_in_source",
   "control_chars",
   "not_a_string",
+  "source_changed",
 ] as const;
 
-/** Mirrors the backend's code rule: `nl`, `fil`, `pt-BR`. */
-export const LOCALE_CODE_PATTERN = /^[a-z]{2,3}(-[A-Z]{2})?$/;
+/** Mirrors the backend's code rule: `nl`, `fil`, `pt-BR`, `zh-Hant`, `sr-Latn-RS`. */
+export const LOCALE_CODE_PATTERN = /^[a-z]{2,3}(-[A-Z][a-z]{3})?(-[A-Z]{2})?$/;
+
+/** Base codes of languages usually written right to left (a hint, never applied on its own). */
+export const USUALLY_RTL_CODES: ReadonlySet<string> = new Set([
+  "he",
+  "ar",
+  "fa",
+  "ur",
+  "yi",
+  "ps",
+  "sd",
+  "ug",
+  "dv",
+]);
+
+/** Whether the language `code` names is usually written right to left. */
+export function usuallyRtl(code: string): boolean {
+  return USUALLY_RTL_CODES.has(code.trim().split("-")[0]);
+}
+
+/**
+ * The namespace that carries the database-held labels (card types, fields,
+ * options, relations …) — not an i18next namespace, so it has no bundle.
+ */
+export const METAMODEL_NAMESPACE = "metamodel";
 /** Mirrors the backend's English-name rule (the name reaches an AI prompt). */
 export const ENGLISH_NAME_PATTERN = /^[A-Za-z][A-Za-z ()-]{1,59}$/;
 
@@ -159,6 +184,11 @@ export type Translate = (key: string, options?: Record<string, unknown>) => stri
 export function errorMessage(err: unknown, t: Translate, fallback: string): string {
   const code = apiErrorCode(err);
   return isKnownErrorCode(code) ? t(`customLocales.errors.${code}`) : fallback;
+}
+
+/** How a namespace is named to the admin: the database labels by what they are, the rest by name. */
+export function namespaceLabel(namespace: string, t: Translate): string {
+  return namespace === METAMODEL_NAMESPACE ? t("customLocales.namespaces.metamodel") : namespace;
 }
 
 /** The label of a rejection reason, or the raw code when it is not one we know. */

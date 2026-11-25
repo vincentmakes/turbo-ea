@@ -792,3 +792,89 @@ def answer_map(answer: Any, ids: Iterable[str]) -> dict[str, Any]:
         if isinstance(inner, Mapping):
             return dict(inner)
     return dict(answer)
+
+
+# ---------------------------------------------------------------------------
+# Command line: validate a pack file offline (a community repository's CI)
+# ---------------------------------------------------------------------------
+
+#: The namespace of database-held labels (``metamodel_strings.py``). Its
+#: English text lives in the database, so offline it is checked structurally.
+METAMODEL_NAMESPACE = "metamodel"
+METAMODEL_MAX_LENGTH = 500
+
+
+def validate_structural(value: Any) -> str | None:
+    """The checks a ``metamodel`` value gets without an English source: a
+    non-blank string of at most 500 characters with no placeholder, no
+    tag-like token, no URL and no forbidden character."""
+    if not isinstance(value, str):
+        return NOT_A_STRING
+    if not value.strip():
+        return EMPTY
+    if has_forbidden_chars(value):
+        return CONTROL_CHARS
+    if len(value) > METAMODEL_MAX_LENGTH:
+        return TOO_LONG
+    if "{{" in value:
+        return PLACEHOLDER_MISMATCH
+    if _TAG.search(value):
+        return MARKUP_NOT_IN_SOURCE
+    if _URL.search(value):
+        return URL_NOT_IN_SOURCE
+    return None
+
+
+def validate_pack(pack: Any, cat: Catalog) -> list[dict[str, str]]:
+    """Every problem of a language-pack file: ``[{namespace, key, reason}]``
+    (``key`` is empty for a problem with the file or a whole namespace)."""
+    if not isinstance(pack, Mapping) or pack.get("format") != PACK_FORMAT:
+        return [{"namespace": "", "key": "", "reason": "not_a_language_pack"}]
+    strings = pack.get("strings")
+    if not isinstance(strings, Mapping):
+        return [{"namespace": "", "key": "", "reason": "no_strings"}]
+    problems: list[dict[str, str]] = []
+    for name, entries in strings.items():
+        if not isinstance(entries, Mapping):
+            problems.append({"namespace": str(name), "key": "", "reason": "not_an_object"})
+            continue
+        ns = cat.namespace(name)
+        if ns is None and name != METAMODEL_NAMESPACE:
+            problems.append({"namespace": str(name), "key": "", "reason": "unknown_namespace"})
+            continue
+        for key, value in entries.items():
+            reason = (
+                validate_structural(value) if ns is None else validate_entry(ns, key, value)
+            )
+            if reason is not None:
+                problems.append({"namespace": str(name), "key": str(key), "reason": reason})
+    return problems
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="language_pack.py", description=__doc__.splitlines()[0])
+    sub = parser.add_subparsers(dest="command", required=True)
+    check = sub.add_parser("validate", help="check a language-pack file against English")
+    check.add_argument("pack", type=Path)
+    check.add_argument("--english", type=Path, required=True, help="the English locale directory")
+    args = parser.parse_args(argv)
+    try:
+        pack = json.loads(args.pack.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"cannot read {args.pack}: {exc}")
+        return 1
+    problems = validate_pack(pack, read_catalog(args.english))
+    for problem in problems:
+        print(f"{problem['namespace']}\t{problem['key']}\t{problem['reason']}")
+    strings = pack.get("strings") if isinstance(pack, Mapping) else None
+    total = (
+        sum(len(v) for v in strings.values() if isinstance(v, Mapping))
+        if isinstance(strings, Mapping)
+        else 0
+    )
+    print(f"{total} strings checked, {len(problems)} problem(s)")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

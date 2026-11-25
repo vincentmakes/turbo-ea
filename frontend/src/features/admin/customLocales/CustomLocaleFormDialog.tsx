@@ -1,6 +1,8 @@
 /**
  * Add or edit a custom language: code, native name, English name and
- * direction. The code is fixed once the language exists.
+ * direction. The code is fixed once the language exists. A new language is
+ * left to right until the admin switches it; a code usually written right to
+ * left only earns a hint, never the switch.
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,7 +19,12 @@ import Stack from "@mui/material/Stack";
 import { api } from "@/api/client";
 import { isBuiltInLocale } from "@/i18n/customLocales";
 import type { CustomLocale } from "@/types";
-import { ENGLISH_NAME_PATTERN, LOCALE_CODE_PATTERN, errorMessage } from "./customLocaleUtils";
+import {
+  ENGLISH_NAME_PATTERN,
+  LOCALE_CODE_PATTERN,
+  errorMessage,
+  usuallyRtl,
+} from "./customLocaleUtils";
 
 interface Props {
   /** The language to edit; `null` adds a new one. */
@@ -114,6 +121,9 @@ export default function CustomLocaleFormDialog({ locale, onClose, onSaved }: Pro
             control={<Switch checked={rtl} onChange={(e) => setRtl(e.target.checked)} />}
             label={t("customLocales.form.rtl")}
           />
+          {!rtl && usuallyRtl(trimmedCode) && (
+            <Alert severity="info">{t("customLocales.form.rtlHint")}</Alert>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>
