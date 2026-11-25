@@ -59,6 +59,8 @@ back. The session that called you owns git: **you never commit, push, tag, label
 
 ## Conventions that always apply
 
+- **Comments.** Remove comments that repeat the code. Keep the reason for a real constraint in the shortest wording that remains clear.
+
 The three Python skills loaded above are generic; `python-type-safety` is installed too and **not**
 preloaded: invoke it (Skill tool) when you add or change annotations, generics or mypy configuration.
 `python-anti-patterns` is a review checklist and belongs to the `code-reviewer`. When one disagrees with this repository (line length 100,
