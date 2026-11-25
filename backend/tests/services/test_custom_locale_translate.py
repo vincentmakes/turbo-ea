@@ -414,3 +414,16 @@ class TestInterruptedAtStartup:
         assert done.translate_job == {"status": "completed"}
         assert idle.translate_job is None
         assert await store.mark_interrupted_jobs(db) == 0
+
+    async def test_the_startup_step_marks_and_commits(self, db, patched_async_session):
+        from app import main
+
+        running = CustomLocale(code="nl", name="NL", english_name="Dutch")
+        running.translate_job = tr.new_job("all", 2)
+        db.add(running)
+        await db.flush()
+        await main._mark_interrupted_translation_jobs()
+        await db.refresh(running)
+        assert running.translate_job["status"] == "interrupted"
+        await main._mark_interrupted_translation_jobs()
+        assert running.translate_job["status"] == "interrupted"
