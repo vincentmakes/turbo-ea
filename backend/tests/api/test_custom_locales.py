@@ -326,9 +326,13 @@ class TestStrings:
             store.catalog().namespace("common").strings
         )[1:3]
         found = await client.get(
-            f"{BASE}/nl/strings", params={"search": "actions.save"}, headers=headers
+            f"{BASE}/nl/strings",
+            params={"namespace": "common", "search": "ACTIONS.SAVE"},
+            headers=headers,
         )
-        assert [i["key"] for i in found.json()["items"]][0] == "actions.save"
+        assert "actions.save" in [i["key"] for i in found.json()["items"]]
+        assert all("actions.save" in i["key"].lower() or "actions.save" in i["source"].lower()
+                   for i in found.json()["items"])
         bad = await client.get(
             f"{BASE}/nl/strings", params={"namespace": "nope"}, headers=headers
         )
@@ -690,7 +694,8 @@ class TestUsersAndBootstrap:
             await _add(db, enabled=enabled)
         resp = await self._set_locale(client, env["viewer"], "nl")
         assert resp.status_code == 400
-        assert await self._set_locale(client, env["viewer"], "da") is not None
+        assert resp.json()["detail"] == "Unsupported locale 'nl'"
+        assert (await self._set_locale(client, env["viewer"], "da")).status_code == 200
 
     async def test_bootstrap_lists_enabled_languages_only(self, client, db, env):
         await _add(db, enabled=True)
