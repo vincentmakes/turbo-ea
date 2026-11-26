@@ -13,6 +13,11 @@
  * A relation without dates is always in effect and passes through as the same
  * object, so an undated landscape reads exactly as it did before relations had
  * dates.
+ *
+ * This decides the LINES only. Which CARDS a relation not in effect leaves in
+ * the centred view — and in which state — is `dependencyViewpoint.ts`: a card
+ * reached only through such relations is a planned / retired card from there,
+ * hidden unless the same toggles keep it.
  */
 import { parseDate } from "@/lib/lifecycleAtDate";
 import type { GEdge } from "./layeredDependencyLayout";

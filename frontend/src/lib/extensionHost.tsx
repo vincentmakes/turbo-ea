@@ -83,7 +83,8 @@
  * `loadTimeline` helpers take optional relation inputs —
  * `computeTimelineRange` and `computeTimelineMilestones` a list of relation
  * lifecycles (milestones then count `linking` / `unlinking` apart from cards),
- * `computeConnectionChanges` (now on the loader) edges with a `lifecycle` —
+ * `computeConnectionChanges` (now on the loader) edges with a `lifecycle` and
+ * an optional `moves` (cards entering / leaving a view for another reason) —
  * plus `relationAtDate`, the planned / ended visibility rule. Every addition
  * is optional and omitting it reproduces the previous results exactly.
  *
