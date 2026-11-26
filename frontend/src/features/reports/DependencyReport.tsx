@@ -887,15 +887,20 @@ export default function DependencyReport() {
   const timelineDelta = useMemo(() => {
     const at = timelineFilterDate;
     if (at <= timeline.todayMs) return { arriving: 0, retiring: 0 };
-    let arriving = 0;
-    let retiring = 0;
-    for (const n of milestoneScope) {
-      if (classifyTimelineChange(n.lifecycle, timeline.todayMs, at) === "arriving") arriving++;
+    // Over the view's own changes, so a card a relation brings in (or takes
+    // out) counts like one going live (or retiring). A card can enter and
+    // leave inside the window; it is counted once, as leaving — what it is at
+    // the date.
+    const arriving = new Set<string>();
+    const retiring = new Set<string>();
+    for (const n of viewScope.cards) {
+      if (classifyTimelineChange(n.lifecycle, timeline.todayMs, at) === "arriving") arriving.add(n.id);
       else if (isRetiredByDate(n.lifecycle, at) && !isRetiredByDate(n.lifecycle, timeline.todayMs))
-        retiring++;
+        retiring.add(n.id);
     }
-    return { arriving, retiring };
-  }, [milestoneScope, timelineFilterDate, timeline.todayMs]);
+    for (const id of retiring) arriving.delete(id);
+    return { arriving: arriving.size, retiring: retiring.size };
+  }, [viewScope, timelineFilterDate, timeline.todayMs]);
 
   // The landscape as it stands on the selected date. Every downstream consumer
   // (adjacency, LDV BFS, tree layout, centre picker, table) reads `nodes` /
