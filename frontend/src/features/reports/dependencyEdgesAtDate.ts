@@ -23,6 +23,17 @@ import { parseDate } from "@/lib/lifecycleAtDate";
 import type { GEdge } from "./layeredDependencyLayout";
 import { relationAtDate, type TimelineVisibility } from "./timelineRange";
 
+/** The legend entries the drawn relations call for: one per relation state
+ *  (planned / ended) at least one line is drawn in. */
+export function relationStateLegendKeys(
+  edges: readonly { relationState?: string }[],
+): ("plannedRelation" | "endedRelation")[] {
+  const keys: ("plannedRelation" | "endedRelation")[] = [];
+  if (edges.some((e) => e.relationState === "planned")) keys.push("plannedRelation");
+  if (edges.some((e) => e.relationState === "ended")) keys.push("endedRelation");
+  return keys;
+}
+
 export function edgesAtDate(
   edges: GEdge[],
   /** The cards on the graph at the date. */

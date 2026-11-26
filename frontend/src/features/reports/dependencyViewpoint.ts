@@ -70,6 +70,45 @@ export function relationReach(lifecycle: Lifecycle, dateMs: number, span: Span |
   return { state, atMark: span != null && eol >= span.from && eol <= span.to };
 }
 
+/**
+ * How the dependency tree reads relation dates along each branch: every card
+ * instance carries the state of ITS path from the root — the lower of its
+ * parent's and the best relation between the two — and is laid out only when
+ * that state is drawn at the date (or the spotlight forces it). Omitted, every
+ * neighbour is a present child, as before relations had dates.
+ */
+export interface TreePaths {
+  /** The best relation between two cards at the viewed date. */
+  at: (a: string, b: string) => Reach | undefined;
+  /** The same today, when the viewed date is in the future ("arriving"). */
+  today: ((a: string, b: string) => Reach | undefined) | null;
+  visibility: TimelineVisibility;
+  /** Cards drawn whatever their path says — the mark-click spotlight. */
+  forceShown: ReadonlySet<string>;
+  dateMs: number;
+  todayMs: number;
+}
+
+/** One tree card instance's path state, at the viewed date and today. */
+export interface InstanceReach {
+  at: Reach;
+  today: Reach | null;
+}
+
+/** A tree child's path state through `parent`, or null when it is not drawn. */
+export function treeChildReach(
+  paths: TreePaths | null,
+  parent: InstanceReach,
+  from: string,
+  to: string,
+): InstanceReach | null {
+  if (!paths) return parent;
+  const at = hopReach(parent.at, paths.at(from, to) ?? IN_EFFECT);
+  const today = parent.today && hopReach(parent.today, paths.today?.(from, to) ?? IN_EFFECT);
+  if (!isReachShown(at, paths.visibility) && !paths.forceShown.has(to)) return null;
+  return { at, today };
+}
+
 /** The better of two ways of reaching a card. Equal states: still at the mark
  *  if either path leaves there. Returns `a` itself when nothing improves. */
 export function bestReach(a: Reach | undefined, b: Reach): Reach {
@@ -358,4 +397,45 @@ export function viewMovesBetween(
     if (e != null && e >= from && e <= to) leaving.set(c.id, e);
   }
   return { arriving, leaving };
+}
+
+/**
+ * What the slider's marks and pills read: in a centred view, the cards
+ * entering and leaving it (`viewTransitions`); without one, the scope's cards
+ * and the lifecycles of the relations between them, exactly as before.
+ */
+export function viewScopeFor<T extends ScopeCard>(
+  scope: readonly T[],
+  edges: readonly ViewEdge[],
+  hops: ViewpointHops | null,
+): ViewTransitions<T> {
+  if (hops) return viewTransitions(scope, edges, hops);
+  const ids = new Set(scope.map((c) => c.id));
+  return {
+    cards: [...scope],
+    links: edges.filter((e) => ids.has(e.source) && ids.has(e.target)).map((e) => e.lifecycle),
+  };
+}
+
+/**
+ * How the centred view grows, per chart: the Layered Dependency View expands
+ * the cards it names and places the hierarchy reveals; the tree expands the
+ * card of each expanded instance (`<path>:<card id>`). Null without a centred
+ * chart.
+ */
+export function viewHopsFor(opts: {
+  view: string;
+  chartMode: string;
+  center: string | null | undefined;
+  ldvExpanded: Iterable<string>;
+  placed: Iterable<string>;
+  treeExpanded: Iterable<string>;
+}): ViewpointHops | null {
+  const { view, chartMode, center } = opts;
+  if (view !== "chart" || !center) return null;
+  if (chartMode === "c4") return { center, expanded: opts.ldvExpanded, placed: opts.placed };
+  return {
+    center,
+    expanded: [...opts.treeExpanded].map((instanceId) => instanceId.split(":").pop() as string),
+  };
 }

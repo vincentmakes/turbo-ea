@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { buildGroupTree } from "./portfolioGrouping";
-import { relationsAtDate } from "./portfolioHelpers";
+import { groupingRelationLifecycles, relationsAtDate } from "./portfolioHelpers";
 import type { AppData, AppRelation } from "./portfolioHelpers";
 
 const ms = (iso: string) => new Date(iso).getTime();
@@ -83,5 +83,65 @@ describe("grouping by organisation at a travelled date", () => {
         ["de", ["crm"]],
       ]),
     );
+  });
+});
+
+describe("groupingRelationLifecycles", () => {
+  const dated = (
+    relation_type: string,
+    related_type: string,
+    lifecycle: Record<string, string>,
+    direction?: "outgoing" | "incoming",
+  ): AppRelation => ({
+    relation_type,
+    related_type,
+    related_id: `${relation_type}-${related_type}`,
+    related_name: related_type,
+    lifecycle,
+    ...(direction ? { direction } : {}),
+  });
+  const owns = { active: "2027-01-01" };
+  const uses = { endOfLife: "2028-01-01" };
+  const runsOn = { active: "2029-01-01" };
+  const hasSite = { active: "2030-01-01" };
+  const isSiteOf = { active: "2031-01-01" };
+  const apps = [
+    app([
+      dated("relOrgOwnsApp", "Organization", owns),
+      dated("relOrgToApp", "Organization", uses),
+      dated("relAppToITC", "ITComponent", runsOn),
+    ]),
+    app([
+      dated("relAppToApp", "Application", hasSite, "outgoing"),
+      dated("relAppToApp", "Application", isSiteOf, "incoming"),
+    ]),
+  ];
+
+  it("gives an attribute grouping no relation dates", () => {
+    expect(groupingRelationLifecycles(apps, { kind: "attribute", fieldKey: "x" })).toBeUndefined();
+  });
+
+  it("takes every relation to the grouped card type when no relation type is named", () => {
+    expect(groupingRelationLifecycles(apps, { kind: "relation", typeKey: "Organization" })).toEqual([
+      owns,
+      uses,
+    ]);
+  });
+
+  it("narrows to the named relation type, and to its side of a self-referencing one", () => {
+    expect(
+      groupingRelationLifecycles(apps, {
+        kind: "relation",
+        typeKey: "Organization",
+        relTypeKey: "relOrgToApp",
+      }),
+    ).toEqual([uses]);
+    expect(
+      groupingRelationLifecycles(apps, {
+        kind: "relation",
+        typeKey: "Application",
+        relTypeKey: "relAppToApp__in",
+      }),
+    ).toEqual([isSiteOf]);
   });
 });

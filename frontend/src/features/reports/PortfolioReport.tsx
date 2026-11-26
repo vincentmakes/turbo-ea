@@ -112,6 +112,7 @@ import {
   DEFAULT_APP_COLOR,
   getAppColor,
   getAppColorLabel,
+  groupingRelationLifecycles,
   isAppAliveAtDate,
   isRetiredByDate,
   matchesStaticFilters,
@@ -122,6 +123,7 @@ import {
   REL_SUBTYPE_PREFIX,
   resolveColorBy,
   UNSET_COLOR,
+  type GroupByMode,
 } from "./portfolioHelpers";
 import {
   classifyTimelineChange,
@@ -200,13 +202,6 @@ interface DrawerData {
 /* ------------------------------------------------------------------ */
 /*  Grouping logic                                                     */
 /* ------------------------------------------------------------------ */
-
-type GroupByMode =
-  | { kind: "attribute"; fieldKey: string }
-  /** `relTypeKey` narrows the axis to ONE relation type; without it the axis
-   *  means "related to `typeKey` at all", which is what every saved report
-   *  carrying a `rel:<cardType>` key has always meant. */
-  | { kind: "relation"; typeKey: string; relTypeKey?: string };
 
 function groupApps(
   apps: AppData[],
@@ -1176,17 +1171,7 @@ export default function PortfolioReport({
     () =>
       computeTimelineMilestones(
         milestoneScope.map((a) => a.lifecycle),
-        groupByMode.kind === "relation"
-          ? milestoneScope.flatMap((a) =>
-              a.relations
-                .filter(
-                  (r) =>
-                    r.related_type === groupByMode.typeKey &&
-                    (!groupByMode.relTypeKey || relationOnSide(r, groupByMode.relTypeKey)),
-                )
-                .map((r) => r.lifecycle),
-            )
-          : undefined,
+        groupingRelationLifecycles(milestoneScope, groupByMode),
       ),
     [milestoneScope, groupByMode],
   );

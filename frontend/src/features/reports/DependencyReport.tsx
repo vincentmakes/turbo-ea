@@ -28,17 +28,20 @@ import SaveReportDialog from "./SaveReportDialog";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
 import { HIERARCHY_EDGE_TYPE, resolveRevealIds } from "./layeredDependencyLayout";
 import { buildAdjacency } from "./dependencyAdjacency";
-import { edgesAtDate } from "./dependencyEdgesAtDate";
+import { edgesAtDate, relationStateLegendKeys } from "./dependencyEdgesAtDate";
 import {
   IN_EFFECT,
   combineChangeState,
-  hopReach,
   isReachShown,
   pairReaches,
+  treeChildReach,
+  viewHopsFor,
   viewMovesBetween,
-  viewTransitions,
+  viewScopeFor,
   viewpointReach,
+  type InstanceReach,
   type Reach,
+  type TreePaths,
   type ViewpointHops,
 } from "./dependencyViewpoint";
 import { alpha, useTheme } from "@mui/material/styles";
@@ -62,7 +65,7 @@ import {
 import { isRetiredByDate } from "./portfolioHelpers";
 import LinkChangeIcon from "./LinkChangeIcon";
 import { TIMELINE_PULSE_KEYFRAMES, useMilestoneSpotlight } from "./useMilestoneSpotlight";
-import type { TimelineChange, TimelineVisibility } from "./timelineRange";
+import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
 import {
   CARD_TYPE_COLORS,
@@ -300,30 +303,6 @@ function cardH(card: { isRoot: boolean; breadcrumb: string[] }): number {
 /*  Tree layout engine                                                 */
 /* ------------------------------------------------------------------ */
 
-/**
- * How the tree reads relation dates along each branch (`dependencyViewpoint.ts`):
- * every card instance carries the state of ITS path from the root — the lower
- * of its parent's and the best relation between the two — and is laid out only
- * when that state is drawn at the date (or the spotlight forces it). Omitted,
- * every neighbour is a present child, as before relations had dates.
- */
-interface TreePaths {
-  /** The best relation between two cards at the viewed date. */
-  at: (a: string, b: string) => Reach | undefined;
-  /** The same today, when the viewed date is in the future ("arriving"). */
-  today: ((a: string, b: string) => Reach | undefined) | null;
-  visibility: TimelineVisibility;
-  /** Cards drawn whatever their path says — the mark-click spotlight. */
-  forceShown: ReadonlySet<string>;
-  dateMs: number;
-  todayMs: number;
-}
-
-interface InstanceReach {
-  at: Reach;
-  today: Reach | null;
-}
-
 function computeTreeLayout(
   rootId: string,
   expanded: Set<string>,
@@ -336,14 +315,8 @@ function computeTreeLayout(
   const headers: PositionedHeader[] = [];
   const placedNodeIds = new Set<string>();
 
-  /** The child's path state through `parent`, or null when it is not drawn. */
-  function childReach(parent: InstanceReach, from: string, to: string): InstanceReach | null {
-    if (!paths) return parent;
-    const at = hopReach(parent.at, paths.at(from, to) ?? IN_EFFECT);
-    const today = parent.today && hopReach(parent.today, paths.today?.(from, to) ?? IN_EFFECT);
-    if (!isReachShown(at, paths.visibility) && !paths.forceShown.has(to)) return null;
-    return { at, today };
-  }
+  const childReach = (parent: InstanceReach, from: string, to: string) =>
+    treeChildReach(paths, parent, from, to);
 
   function layoutNode(
     nodeId: string,
@@ -816,19 +789,18 @@ export default function DependencyReport() {
   // How the centred view grows: the centre's neighbours, the neighbours of each
   // expanded card, the hierarchy reveals — the hops `dependencyViewpoint.ts`
   // reads relation dates along. Null without a centred chart.
-  const viewHops = useMemo<ViewpointHops | null>(() => {
-    if (!(view === "chart" && center)) return null;
-    if (chartMode === "c4")
-      return {
+  const viewHops = useMemo<ViewpointHops | null>(
+    () =>
+      viewHopsFor({
+        view,
+        chartMode,
         center,
-        expanded: ldvExpandedNodes,
+        ldvExpanded: ldvExpandedNodes,
         placed: [...revealedParentIds, ...revealedChildIds],
-      };
-    return {
-      center,
-      expanded: [...expanded].map((instanceId) => instanceId.split(":").pop() as string),
-    };
-  }, [view, center, chartMode, ldvExpandedNodes, revealedParentIds, revealedChildIds, expanded]);
+        treeExpanded: expanded,
+      }),
+    [view, center, chartMode, ldvExpandedNodes, revealedParentIds, revealedChildIds, expanded],
+  );
 
   // What the marks and pills say. In a centred view a relation that brings a
   // card in, or takes the last path to it away, is that CARD arriving or
@@ -836,16 +808,10 @@ export default function DependencyReport() {
   // both stay counts as a connection (`linking` / `unlinking`). Without a
   // centre, or without a dated relation in scope, this is the scope's cards and
   // relations exactly as before.
-  const viewScope = useMemo(() => {
-    if (viewHops) return viewTransitions(milestoneScope, rawEdges, viewHops);
-    const scopeIds = new Set(milestoneScope.map((n) => n.id));
-    return {
-      cards: milestoneScope,
-      links: rawEdges
-        .filter((e) => scopeIds.has(e.source) && scopeIds.has(e.target))
-        .map((e) => e.lifecycle),
-    };
-  }, [milestoneScope, rawEdges, viewHops]);
+  const viewScope = useMemo(
+    () => viewScopeFor(milestoneScope, rawEdges, viewHops),
+    [milestoneScope, rawEdges, viewHops],
+  );
 
   const milestones = useMemo(
     () =>
@@ -1225,8 +1191,7 @@ export default function DependencyReport() {
     const set = new Set<string>(shown.map((n) => n.changeState).filter(Boolean) as string[]);
     if (nodes.some((n) => n.gainedLink)) set.add("gainedLink");
     if (nodes.some((n) => n.lostLink)) set.add("lostLink");
-    if (edges.some((e) => e.relationState === "planned")) set.add("plannedRelation");
-    if (edges.some((e) => e.relationState === "ended")) set.add("endedRelation");
+    for (const key of relationStateLegendKeys(edges)) set.add(key);
     return set;
   }, [nodes, edges, ldvData, layout]);
 

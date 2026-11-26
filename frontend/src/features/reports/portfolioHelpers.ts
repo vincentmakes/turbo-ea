@@ -55,6 +55,38 @@ export function relationOnSide(rel: AppRelation, facetKey: string): boolean {
   return (rel.direction === "outgoing") === isSource;
 }
 
+/** How the Portfolio report groups its cards. `relTypeKey` narrows a relation
+ *  axis to ONE relation type; without it the axis means "related to
+ *  `typeKey` at all", which is what every saved report carrying a
+ *  `rel:<cardType>` key has always meant. */
+export type GroupByMode =
+  | { kind: "attribute"; fieldKey: string }
+  | { kind: "relation"; typeKey: string; relTypeKey?: string };
+
+/** The relations that place `app` in a relation grouping's groups. */
+export function groupingRelations(
+  app: { relations: AppRelation[] },
+  typeKey: string,
+  relTypeKey?: string,
+): AppRelation[] {
+  return app.relations.filter(
+    (r) => r.related_type === typeKey && (!relTypeKey || relationOnSide(r, relTypeKey)),
+  );
+}
+
+/** While grouped by a related card, the lifecycles of the relations behind the
+ *  groups — the timeline counts one starting or ending as a card moving between
+ *  groups. `undefined` for an attribute grouping: no relation moves anything. */
+export function groupingRelationLifecycles(
+  apps: readonly { relations: AppRelation[] }[],
+  mode: GroupByMode,
+): (Record<string, string> | undefined)[] | undefined {
+  if (mode.kind !== "relation") return undefined;
+  return apps.flatMap((a) =>
+    groupingRelations(a, mode.typeKey, mode.relTypeKey).map((r) => r.lifecycle),
+  );
+}
+
 export interface AppData {
   id: string;
   name: string;
