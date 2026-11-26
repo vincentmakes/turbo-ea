@@ -389,3 +389,79 @@ describe("StakeholdersTab — role descriptions", () => {
     expect(roleInput).toHaveValue("Contract Owner");
   });
 });
+
+describe("StakeholdersTab — passive roles follow the owners (#1439)", () => {
+  const PASSIVE_ROLES = [
+    { key: "observer", label: "Observer", allowed_types: null, counts_for_quality: false },
+    { key: "responsible", label: "Responsible", allowed_types: null, counts_for_quality: true },
+    { key: "steward", label: "Steward", allowed_types: null },
+  ];
+
+  function primeRoles(roles: unknown[], subs: unknown[] = []) {
+    const get = api.get as unknown as ReturnType<typeof vi.fn>;
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/cards/") && path.endsWith("/stakeholders")) {
+        return Promise.resolve(subs);
+      }
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(roles);
+      if (path === "/users") return Promise.resolve(USERS);
+      return Promise.resolve([]);
+    });
+  }
+
+  it("lists the owning roles in the admin's order, then the passive ones under a heading", async () => {
+    primeRoles(PASSIVE_ROLES);
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+
+    const following = await screen.findByTestId("stakeholders-following");
+    expect(within(following).getByText("Following this card")).toBeInTheDocument();
+    expect(within(following).getByTestId("stakeholder-role-observer")).toBeInTheDocument();
+    expect(within(following).queryByTestId("stakeholder-role-responsible")).toBeNull();
+
+    const order = screen
+      .getAllByTestId(/^stakeholder-role-(observer|responsible|steward)$/)
+      .map((el) => el.getAttribute("data-testid"));
+    // A role without the flag counts, as the API's own default says.
+    expect(order).toEqual([
+      "stakeholder-role-responsible",
+      "stakeholder-role-steward",
+      "stakeholder-role-observer",
+    ]);
+  });
+
+  it("shows no empty-state line for a passive role nobody holds, but keeps it for owners", async () => {
+    primeRoles(PASSIVE_ROLES);
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+
+    const following = await screen.findByTestId("stakeholders-following");
+    expect(within(following).queryByText(/no observer assigned/i)).toBeNull();
+    expect(screen.getByText(/no responsible assigned/i)).toBeInTheDocument();
+  });
+
+  it("lists who follows the card under the heading", async () => {
+    primeRoles(PASSIVE_ROLES, [
+      {
+        id: "s1",
+        user_id: "u2",
+        role: "observer",
+        user_display_name: "Bob Builder",
+        user_email: "bob@nexatech.com",
+      },
+    ]);
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+
+    const following = await screen.findByTestId("stakeholders-following");
+    expect(await within(following).findByText("Bob Builder")).toBeInTheDocument();
+  });
+
+  it("renders no heading when every role counts", async () => {
+    primeRoles([
+      { key: "responsible", label: "Responsible", allowed_types: null, counts_for_quality: true },
+    ]);
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+
+    await screen.findByTestId("stakeholder-role-responsible");
+    expect(screen.queryByTestId("stakeholders-following")).toBeNull();
+    expect(screen.queryByText("Following this card")).toBeNull();
+  });
+});

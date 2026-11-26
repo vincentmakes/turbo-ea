@@ -80,6 +80,20 @@ async def ensure_role_definitions(
     return added
 
 
+def validate_role_order(current_keys: list[str], requested: list[str]) -> list[str]:
+    """``requested`` when it lists every one of a type's role keys exactly once.
+
+    A reorder may never drop or double a role (archived ones included), the
+    rule the category order follows. Raises ``ValueError`` otherwise.
+    """
+    order = list(requested)
+    if len(order) != len(set(order)):
+        raise ValueError("The order lists a stakeholder role more than once")
+    if set(order) != set(current_keys):
+        raise ValueError("The order must list every stakeholder role of the type once")
+    return order
+
+
 async def roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
     """Active stakeholder roles of a card type, from
     ``stakeholder_role_definitions`` (falling back to the card type's legacy
@@ -101,14 +115,21 @@ async def roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
                 "color": s.color,
                 "description": s.description,
                 "translations": s.translations or {},
+                "counts_for_quality": s.counts_for_quality,
             }
             for s in srds
         ]
     legacy = await db.execute(select(CardType.stakeholder_roles).where(CardType.key == type_key))
     roles = legacy.scalar_one_or_none()
-    if roles:
-        return list(roles)
-    return [dict(r) for r in DEFAULT_STAKEHOLDER_ROLES]
+    fallback = list(roles) if roles else [dict(r) for r in DEFAULT_STAKEHOLDER_ROLES]
+    # Rows with no definition carry no flag: treat them as the seed treats the
+    # same keys, so a card still shows Observer apart from the owners.
+    return [
+        {**r, "counts_for_quality": r.get("key") not in _NON_COUNTING_ROLES}
+        if isinstance(r, dict) and "counts_for_quality" not in r
+        else r
+        for r in fallback
+    ]
 
 
 def role_labels(roles: list[dict]) -> dict[str, str]:

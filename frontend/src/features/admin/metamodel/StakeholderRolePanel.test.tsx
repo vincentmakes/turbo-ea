@@ -15,6 +15,7 @@ const apiMock = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
+  put: vi.fn(),
   delete: vi.fn(),
 }));
 vi.mock("@/api/client", () => ({ api: apiMock }));
@@ -921,5 +922,89 @@ describe("StakeholderRolePanel — the edit form's own Save button", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Saving..." })).not.toBeInTheDocument(),
     );
+  });
+});
+
+describe("StakeholderRolePanel — reorder (#1439)", () => {
+  const ARCHIVED = {
+    ...ROLES[0],
+    id: "3",
+    key: "formerOwner",
+    label: "Former Owner",
+    is_archived: true,
+    sort_order: 2,
+  };
+
+  function mockOrder() {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes("permissions-schema")) return Promise.resolve({ "card.view": "View card" });
+      return Promise.resolve([...ROLES, ARCHIVED]);
+    });
+    apiMock.put.mockImplementation((_path: string, body: { keys: string[] }) =>
+      Promise.resolve(
+        body.keys.map((key, i) => ({
+          ...[...ROLES, ARCHIVED].find((r) => r.key === key)!,
+          sort_order: i,
+        })),
+      ),
+    );
+  }
+
+  it("moves a role down by sending every key of the type, archived ones included", async () => {
+    mockOrder();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Move down: Responsible" }));
+
+    await waitFor(() =>
+      expect(apiMock.put).toHaveBeenCalledWith(
+        "/metamodel/types/Application/stakeholder-roles/order",
+        { keys: ["typoRole", "responsible", "formerOwner"] },
+      ),
+    );
+    // The returned order is what the panel shows.
+    await waitFor(() => {
+      const labels = screen.getAllByRole("button", { name: /^Move up: / });
+      expect(labels.map((b) => b.getAttribute("aria-label"))).toEqual([
+        "Move up: Typo Role",
+        "Move up: Responsible",
+      ]);
+    });
+  });
+
+  it("moves a role up past its visible neighbour", async () => {
+    mockOrder();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Move up: Typo Role" }));
+
+    await waitFor(() =>
+      expect(apiMock.put).toHaveBeenCalledWith(
+        "/metamodel/types/Application/stakeholder-roles/order",
+        { keys: ["typoRole", "responsible", "formerOwner"] },
+      ),
+    );
+  });
+
+  it("disables moving the first role up and the last one down", async () => {
+    mockOrder();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    expect(await screen.findByRole("button", { name: "Move up: Responsible" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move down: Responsible" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Move up: Typo Role" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Move down: Typo Role" })).toBeDisabled();
+    expect(screen.getByText(/Cards list roles in this order/)).toBeInTheDocument();
+  });
+
+  it("reports a failed reorder through onError", async () => {
+    mockOrder();
+    apiMock.put.mockRejectedValue(new Error("boom"));
+    const onError = vi.fn();
+    render(<StakeholderRolePanel typeKey="Application" onError={onError} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Move down: Responsible" }));
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("boom"));
+    expect(screen.getByRole("button", { name: "Move down: Responsible" })).toBeEnabled();
   });
 });
