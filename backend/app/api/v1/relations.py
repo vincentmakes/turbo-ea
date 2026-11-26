@@ -33,6 +33,7 @@ from app.services.cost_field_filter import (
     keep_stored_cost_values,
 )
 from app.services.data_quality import calc_data_quality
+from app.services.lifecycle import lifecycle_in_effect_sql
 from app.services.permission_service import PermissionService
 from app.services.relation_orientation import orient_endpoints
 
@@ -577,16 +578,20 @@ async def _require_cardinality_room(
     also allows one per target. ``n:m`` is unconstrained. Only the bulk path
     applies this: ``POST /relations`` carries no cardinality guard, and the
     card detail dialog enforces the same rule client-side.
+
+    Only a relation in effect today takes room: an ended one is history and a
+    planned one has not started, so neither blocks a new relation.
     """
+    in_effect = lifecycle_in_effect_sql(Relation)
     if rt.cardinality in ("1:1", "1:n") and await db.scalar(
-        select(exists().where(Relation.type == rt.key, Relation.source_id == source_id))
+        select(exists().where(Relation.type == rt.key, Relation.source_id == source_id, in_effect))
     ):
         raise HTTPException(
             422,
             f"Cardinality {rt.cardinality} forbids a second '{rt.key}' relation from this source",
         )
     if rt.cardinality == "1:1" and await db.scalar(
-        select(exists().where(Relation.type == rt.key, Relation.target_id == target_id))
+        select(exists().where(Relation.type == rt.key, Relation.target_id == target_id, in_effect))
     ):
         raise HTTPException(
             422, f"Cardinality 1:1 forbids a second '{rt.key}' relation to this target"

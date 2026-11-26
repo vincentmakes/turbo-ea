@@ -251,6 +251,21 @@ def lifecycle_in_effect_sql(entity: Any, *, today: date | None = None) -> Any:
     return and_(started, not_retired)
 
 
+def live_relations_in_fiscal_year(relations: Any, fiscal_year: int, start_month: int) -> list[Any]:
+    """The rows of ``relations`` (anything with a ``lifecycle``) that count in
+    ``fiscal_year``.
+
+    The cost reports work at fiscal-year granularity, so the relations they sum
+    through answer to the same rule as their cards — ``is_live_in_fiscal_year``
+    on the relation's own lifecycle — rather than to ``lifecycle_in_effect``'s
+    single day. A relation ending in November still carries the year it ends
+    in, exactly as a card retiring in November does.
+    """
+    return [
+        rel for rel in relations if is_live_in_fiscal_year(rel.lifecycle, fiscal_year, start_month)
+    ]
+
+
 #: The keys a relation lifecycle may carry — a card's five phases.
 LIFECYCLE_PHASES = PHASE_CHRONOLOGICAL
 

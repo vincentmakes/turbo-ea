@@ -5,6 +5,7 @@ import logging
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, case, func, not_, or_, select
@@ -28,6 +29,7 @@ from app.models.user import User
 from app.models.user_favorite import UserFavorite
 from app.services.card_flags import (
     EOL_BUCKETS,
+    connected_card_ids,
     eol_bucket_condition,
     eol_type_keys,
     has_eol_coverage,
@@ -72,7 +74,12 @@ from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
 )
-from app.services.lifecycle import current_lifecycle_phase, is_live_in_fiscal_year
+from app.services.lifecycle import (
+    current_lifecycle_phase,
+    is_live_in_fiscal_year,
+    lifecycle_in_effect_sql,
+    live_relations_in_fiscal_year,
+)
 from app.services.permission_service import PermissionService
 from app.services.portfolio_payload import (
     build_portfolio_payload,
@@ -893,10 +900,12 @@ async def landscape(
     # Get relations connecting only the two relevant sets of IDs
     sheet_ids = [card.id for card in sheets]
     group_ids = [g.id for g in groups]
+    # Only relations in effect today group a card: the landscape is "now".
     rels_result = await db.execute(
         select(Relation).where(
             ((Relation.source_id.in_(sheet_ids)) & (Relation.target_id.in_(group_ids)))
-            | ((Relation.source_id.in_(group_ids)) & (Relation.target_id.in_(sheet_ids)))
+            | ((Relation.source_id.in_(group_ids)) & (Relation.target_id.in_(sheet_ids))),
+            lifecycle_in_effect_sql(Relation),
         )
     )
     rels = rels_result.scalars().all()
@@ -1107,22 +1116,23 @@ def _parse_matrix_attr_filters(
     return parsed
 
 
-def _matrix_attr_clause(field_key: str, field_type: str, value: str):
-    """One JSONB predicate for a single attribute filter value."""
+def _matrix_attr_clause(relation: Any, field_key: str, field_type: str, value: str):
+    """One JSONB predicate over ``relation.attributes`` for a single attribute
+    filter value (``relation``: the ``Relation`` the caller's query reads)."""
     if value == MATRIX_EMPTY_FILTER:
         return or_(
-            Relation.attributes.is_(None),
-            not_(Relation.attributes.has_key(field_key)),  # noqa: W601 — JSONB ? operator
-            Relation.attributes[field_key].astext.is_(None),
+            relation.attributes.is_(None),
+            not_(relation.attributes.has_key(field_key)),  # noqa: W601 — JSONB ? operator
+            relation.attributes[field_key].astext.is_(None),
         )
     if field_type == "boolean":
-        return Relation.attributes.contains({field_key: value == "true"})
+        return relation.attributes.contains({field_key: value == "true"})
     if field_type in ("number", "percentage"):
         try:
-            return Relation.attributes.contains({field_key: float(value)})
+            return relation.attributes.contains({field_key: float(value)})
         except ValueError:
-            return Relation.attributes[field_key].astext == value
-    return Relation.attributes.contains({field_key: value})
+            return relation.attributes[field_key].astext == value
+    return relation.attributes.contains({field_key: value})
 
 
 @router.get("/matrix")
@@ -1246,12 +1256,16 @@ async def matrix(
                 ),
                 *read_scope.where(src_card, mode="module"),
                 *read_scope.where(tgt_card, mode="module"),
+                # A planned or ended relation is no cell of today's grid.
+                lifecycle_in_effect_sql(Relation),
             )
         )
         if requested_types is not None:
             stmt = stmt.where(Relation.type.in_(sorted(requested_types)))
         for (rt_key, field_key), (field_type, values) in attr_filters.items():
-            clauses = [_matrix_attr_clause(field_key, field_type, v) for v in sorted(values)]
+            clauses = [
+                _matrix_attr_clause(Relation, field_key, field_type, v) for v in sorted(values)
+            ]
             # Scoped to its own relation type so a filter on one type never
             # silently discards relations of the other type on these axes.
             stmt = stmt.where(or_(Relation.type != rt_key, or_(*clauses)))
@@ -1584,7 +1598,8 @@ async def cost_treemap(
                 )
             )
             linked_ids: set[uuid.UUID] = set()
-            for r in edges_result.scalars().all():
+            # The link to the parent counts in this fiscal year, as the cards do.
+            for r in live_relations_in_fiscal_year(edges_result.scalars().all(), fy, fy_start):
                 if r.source_id == parent_card_id:
                     linked_ids.add(r.target_id)
                 else:
@@ -1682,7 +1697,8 @@ async def cost_treemap(
                         )
                     )
                 )
-                edges = edges_result.scalars().all()
+                # A relation outside the fiscal year sums nothing through it.
+                edges = live_relations_in_fiscal_year(edges_result.scalars().all(), fy, fy_start)
             else:
                 edges = []
 
@@ -1798,7 +1814,7 @@ async def cost_treemap(
                 | ((Relation.source_id.in_(grp_ids)) & (Relation.target_id.in_(sheet_ids)))
             )
         )
-        rels = rels_result.scalars().all()
+        rels = live_relations_in_fiscal_year(rels_result.scalars().all(), fy, fy_start)
 
         # Item -> every group it links to. An item linked to two group cards
         # belongs to both; it is filed under the alphabetically first so the
@@ -1874,6 +1890,8 @@ async def _parent_type_link_counts(
         .all()
     )
     linked: dict[str, set[str]] = {}
+    # A share is split only between the cards a link counts for this year.
+    rels = live_relations_in_fiscal_year(rels, fy, fy_start)
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in parent_id_set and tid in sheet_id_set:
@@ -2361,10 +2379,11 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     # Lifecycle completeness
     with_lifecycle = sum(1 for card in sheets if card.lifecycle and any(card.lifecycle.values()))
 
-    # Orphaned items (no relations) – use UNION to get distinct connected IDs
+    # Orphaned items (no relation in effect) — the inventory filter's own
+    # definition (`card_flags.connected_card_ids`), so the tile and the view it
+    # deep-links to agree.
     all_ids = {str(card.id) for card in sheets}
-    connected_q = select(Relation.source_id).union(select(Relation.target_id))
-    connected_result = await db.execute(connected_q)
+    connected_result = await db.execute(connected_card_ids())
     connected = {str(row[0]) for row in connected_result.all()}
     orphaned = len(all_ids - connected)
 
@@ -2627,9 +2646,11 @@ async def eol_report(
     it_to_apps: dict[str, list[dict]] = {}
 
     if it_ids:
+        # Only a relation in effect today makes an application impacted.
         rels_result = await db.execute(
             select(Relation).where(
-                (Relation.source_id.in_(it_ids)) | (Relation.target_id.in_(it_ids))
+                (Relation.source_id.in_(it_ids)) | (Relation.target_id.in_(it_ids)),
+                lifecycle_in_effect_sql(Relation),
             )
         )
         rels = rels_result.scalars().all()

@@ -21,6 +21,7 @@ from app.models.card import Card
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.turbolens import TurboLensVendorAnalysis, TurboLensVendorHierarchy
+from app.services.lifecycle import lifecycle_in_effect_sql
 from app.services.turbolens_ai import call_ai, parse_json
 
 logger = logging.getLogger("turboea.turbolens.vendors")
@@ -144,7 +145,12 @@ async def _load_cards_with_vendors(
     card_map = {str(c.id): c for c in [*app_cards, *provider_cards]}
 
     # Load relations to Providers
-    rels_result = await db.execute(select(Relation).where(Relation.type.in_(all_provider_rel_keys)))
+    # The landscape now: a planned or ended vendor link is no vendor.
+    rels_result = await db.execute(
+        select(Relation).where(
+            Relation.type.in_(all_provider_rel_keys), lifecycle_in_effect_sql(Relation)
+        )
+    )
     relations = rels_result.scalars().all()
 
     # Build card -> vendors mapping.

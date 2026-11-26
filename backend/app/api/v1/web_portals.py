@@ -42,6 +42,7 @@ from app.services import process_map_service as process_map
 from app.services.card_read_scope import CardReadScope
 from app.services.card_search import card_search_filter, card_search_rank
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
+from app.services.lifecycle import lifecycle_in_effect_sql
 from app.services.permission_service import PermissionService
 from app.services.portfolio_payload import build_portfolio_payload
 from app.services.public_access import (
@@ -1025,12 +1026,14 @@ async def get_public_portal_relation_options(
     )
 
     # Only return cards of type_key that are related to a portal-visible card
+    # A portal publishes the landscape now: only relations in effect today.
+    in_effect = lifecycle_in_effect_sql(Relation)
     related_ids = (
         select(Relation.target_id)
-        .where(Relation.type.in_(rel_keys), Relation.source_id.in_(visible_q))
+        .where(Relation.type.in_(rel_keys), Relation.source_id.in_(visible_q), in_effect)
         .union(
             select(Relation.source_id).where(
-                Relation.type.in_(rel_keys), Relation.target_id.in_(visible_q)
+                Relation.type.in_(rel_keys), Relation.target_id.in_(visible_q), in_effect
             )
         )
     )
@@ -1202,6 +1205,8 @@ async def get_public_portal_cards(
     relations_map: dict[str, list] = {}
     rel_keys = visibility.relation_types
     if card_ids and rel_keys:
+        # Only relations in effect today are published.
+        in_effect = lifecycle_in_effect_sql(Relation)
         # Source relations
         src_rows = await db.execute(
             select(
@@ -1216,6 +1221,7 @@ async def get_public_portal_cards(
                 Relation.source_id.in_(card_ids),
                 Relation.type.in_(rel_keys),
                 Card.status == "ACTIVE",
+                in_effect,
             )
         )
         for row in src_rows.all():
@@ -1243,6 +1249,7 @@ async def get_public_portal_cards(
                 Relation.target_id.in_(card_ids),
                 Relation.type.in_(rel_keys),
                 Card.status == "ACTIVE",
+                in_effect,
             )
         )
         for row in tgt_rows.all():

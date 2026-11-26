@@ -621,6 +621,7 @@ async def architect_objective_dependencies(
     """Fetch dependency subgraph for selected Objectives (BFS depth 3)."""
     from app.models.relation import Relation
     from app.models.relation_type import RelationType
+    from app.services.lifecycle import lifecycle_in_effect_sql
 
     await PermissionService.require_permission(db, user, "turbolens.manage")
 
@@ -643,9 +644,11 @@ async def architect_objective_dependencies(
     # Load all relations + relation type labels
     all_card_ids = list(card_map.keys())
     card_uuids = [uuid.UUID(cid) for cid in all_card_ids]
+    # The dependency graph of the landscape now: relations in effect only.
     rels_result = await db.execute(
         select(Relation).where(
-            (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids))
+            (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids)),
+            lifecycle_in_effect_sql(Relation),
         )
     )
     rels = rels_result.scalars().all()
@@ -869,6 +872,7 @@ async def architect_phase3(
 
     from app.models.relation import Relation
     from app.models.relation_type import RelationType
+    from app.services.lifecycle import lifecycle_in_effect_sql
     from app.services.turbolens_architect import phase3_capability_mapping
 
     qa_list = body.all_qa if isinstance(body.all_qa, list) else []
@@ -885,9 +889,11 @@ async def architect_phase3(
         seed_ids = {oid for oid in obj_ids if oid in card_map}
         if seed_ids:
             card_uuids = [uuid.UUID(cid) for cid in card_map]
+            # The landscape now: relations in effect only.
             rels_result = await db.execute(
                 select(Relation).where(
-                    (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids))
+                    (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids)),
+                    lifecycle_in_effect_sql(Relation),
                 )
             )
             rels = rels_result.scalars().all()

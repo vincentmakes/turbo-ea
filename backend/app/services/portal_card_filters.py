@@ -57,7 +57,7 @@ from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.tag import CardTag, Tag, TagGroup
-from app.services.lifecycle import _SQL_DATE_PATTERN
+from app.services.lifecycle import _SQL_DATE_PATTERN, lifecycle_in_effect_sql
 from app.services.search_rank import search_filter
 
 #: The "(empty)" option of every filter (``EMPTY_FILTER_KEY`` in
@@ -433,8 +433,10 @@ _OTHER = aliased(Card, name="portal_other_end")
 
 
 def _related(*, outgoing: bool, where: Iterable[ColumnElement[bool]]) -> ColumnElement[bool]:
-    """``EXISTS`` a relation with the card on one side and an ACTIVE card on
-    the other, matching ``where`` (which may name the far end as ``Other``)."""
+    """``EXISTS`` a relation in effect today with the card on one side and an
+    ACTIVE card on the other, matching ``where`` (which may name the far end as
+    ``Other``). A portal is a publication of the landscape now: a planned or
+    ended relation relates nothing, and "(empty)" means no relation in effect."""
     near, far = (
         (Relation.source_id, Relation.target_id)
         if outgoing
@@ -444,7 +446,12 @@ def _related(*, outgoing: bool, where: Iterable[ColumnElement[bool]]) -> ColumnE
         select(Relation.id)
         .select_from(Relation)
         .join(_OTHER, _OTHER.id == far)
-        .where(near == Card.id, _OTHER.status == "ACTIVE", *where)
+        .where(
+            near == Card.id,
+            _OTHER.status == "ACTIVE",
+            lifecycle_in_effect_sql(Relation),
+            *where,
+        )
         .correlate(Card)
     )
 

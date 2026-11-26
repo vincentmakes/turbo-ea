@@ -16,7 +16,7 @@ just a caller-supplied length.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,7 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.stakeholder import Stakeholder
+from app.services.lifecycle import lifecycle_in_effect_sql
 from app.services.recurrence import add_months
 
 #: A card nobody has touched in this many days reads as stale.
@@ -113,14 +114,29 @@ def not_updated_condition(filters: dict | None):
     return Card.updated_at < cutoff
 
 
-def orphaned_condition(card=Card):
-    """SQLAlchemy condition selecting cards with no relation in either
-    direction. Not "no outgoing relation" — an Application nothing points at
-    but which points at a capability is connected, and reporting it as
-    orphaned would send people looking for a problem that isn't there.
+def connected_card_ids(*, today: date | None = None):
+    """``SELECT`` of every card id at either end of a relation in effect on
+    ``today`` (default: today, UTC) — the complement of "orphaned". A relation
+    that has not started yet, or has ended, connects nothing
+    (``lifecycle_in_effect_sql``). The inventory filter / dashboard flag
+    (``orphaned_condition``) and the Data Quality report's count both read it,
+    so the tile and the view it deep-links to always agree."""
+    in_effect = lifecycle_in_effect_sql(Relation, today=today)
+    return (
+        select(Relation.source_id)
+        .where(in_effect)
+        .union(select(Relation.target_id).where(in_effect))
+    )
+
+
+def orphaned_condition(card=Card, *, today: date | None = None):
+    """SQLAlchemy condition selecting cards with no relation in effect, in
+    either direction. Not "no outgoing relation" — an Application nothing
+    points at but which points at a capability is connected, and reporting it
+    as orphaned would send people looking for a problem that isn't there. A
+    card whose only relations are planned or ended IS orphaned.
     ``card`` is ``Card`` or an alias of it."""
-    connected = select(Relation.source_id).union(select(Relation.target_id))
-    return card.id.not_in(connected)
+    return card.id.not_in(connected_card_ids(today=today))
 
 
 def stakeholder_condition(has: bool, card=Card):

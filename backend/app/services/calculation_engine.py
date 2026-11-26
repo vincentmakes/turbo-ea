@@ -46,6 +46,7 @@ from app.services.calculation_ppm import (
 from app.services.derived_writes import derived_maintenance
 from app.services.fiscal_year import current_fiscal_year
 from app.services.hierarchy import compute_hierarchy_level
+from app.services.lifecycle import lifecycle_in_effect_sql
 
 logger = logging.getLogger("turboea.calculations")
 
@@ -280,9 +281,15 @@ async def build_shared_context(
     )
     rel_types = {rt.key: rt for rt in rel_types_result.scalars().all()}
 
-    # Fetch all relations involving this card
+    # Fetch every relation involving this card that is in effect today: a
+    # planned or ended relation is not in ``relations`` / ``relation_count``.
+    # Time passing changes that without a write, hence the daily sweep
+    # (``relation_lifecycle_sweep``).
     rels_result = await db.execute(
-        select(Relation).where((Relation.source_id == card.id) | (Relation.target_id == card.id))
+        select(Relation).where(
+            (Relation.source_id == card.id) | (Relation.target_id == card.id),
+            lifecycle_in_effect_sql(Relation),
+        )
     )
     all_rels = rels_result.scalars().all()
 

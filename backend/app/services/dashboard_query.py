@@ -86,6 +86,7 @@ from app.services.lifecycle import (
     PHASE_CHRONOLOGICAL,
     current_lifecycle_phase,
     is_live_in_fiscal_year,
+    lifecycle_in_effect_sql,
     parse_lifecycle_date,
 )
 from app.services.ppm_fiscal_costs import EMPTY as EMPTY_FISCAL_COSTS
@@ -947,7 +948,7 @@ def _visible(card: Any, resolved: ResolvedQuery, read_scope: CardReadScope) -> l
     return clauses
 
 
-def _side_columns(side: RelationSide, relation: Any = Relation) -> tuple[Any, Any]:
+def _side_columns(side: RelationSide, relation: Any) -> tuple[Any, Any]:
     """``(the counted card's end, the other end)`` of a relation row —
     ``relation`` being ``Relation`` or an ``aliased(Relation)``."""
     if side.card_is_source:
@@ -955,30 +956,51 @@ def _side_columns(side: RelationSide, relation: Any = Relation) -> tuple[Any, An
     return relation.target_id, relation.source_id
 
 
-def relation_join(statement: Any, near_card: Any, side: RelationSide, other: Any) -> Any:
+def relation_join(
+    statement: Any, near_card: Any, side: RelationSide, other: Any, *, today: date | None = None
+) -> Any:
     """``statement`` joined from ``near_card`` through a relation on ``side``
     (a fresh ``aliased(Relation)``, keyed by relation type, never by card-type
-    pair) to ``other`` (a fresh ``aliased(Card)``): one row per relation.
+    pair) to ``other`` (a fresh ``aliased(Card)``): one row per relation in
+    effect on ``today`` (default: today, UTC — ``lifecycle_in_effect_sql``).
     The join twin of ``relation_exists``, for a caller that needs the far
     card itself rather than its existence (``card_query_matches``)."""
     relation = aliased(Relation)
     mine, theirs = _side_columns(side, relation)
     return statement.join(
-        relation, and_(relation.type == side.relation_type, mine == near_card.id)
+        relation,
+        and_(
+            relation.type == side.relation_type,
+            mine == near_card.id,
+            lifecycle_in_effect_sql(relation, today=today),
+        ),
     ).join(other, other.id == theirs)
 
 
-def relation_exists(near_card: Any, side: RelationSide, other: Any, *conditions: Any) -> Any:
-    """``EXISTS`` a relation on ``side`` from ``near_card`` whose far end is
-    ``other`` (a fresh ``aliased(Card)``) meeting ``conditions`` — correlated
-    to ``near_card``. The one builder behind the dashboards' relation flags and
-    the multi-hop card query's hops (``card_query``)."""
-    mine, theirs = _side_columns(side)
+def relation_exists(
+    near_card: Any,
+    side: RelationSide,
+    other: Any,
+    *conditions: Any,
+    today: date | None = None,
+) -> Any:
+    """``EXISTS`` a relation in effect on ``today`` (default: today, UTC) on
+    ``side`` from ``near_card`` whose far end is ``other`` (a fresh
+    ``aliased(Card)``) meeting ``conditions`` — correlated to ``near_card``.
+    The one builder behind the dashboards' relation flags and the multi-hop
+    card query's hops (``card_query``). A planned or ended relation relates
+    nothing (``lifecycle_in_effect_sql``)."""
+    mine, theirs = _side_columns(side, Relation)
     return exists(
         select(Relation.id)
         .select_from(Relation)
         .join(other, other.id == theirs)
-        .where(Relation.type == side.relation_type, mine == near_card.id, *conditions)
+        .where(
+            Relation.type == side.relation_type,
+            mine == near_card.id,
+            lifecycle_in_effect_sql(Relation, today=today),
+            *conditions,
+        )
     )
 
 
@@ -1169,6 +1191,7 @@ async def _sankey_records(
         .join(tgt, Relation.target_id == tgt.id)
         .where(
             Relation.type == relation.key,
+            lifecycle_in_effect_sql(Relation, today=window.today),
             *_live(src, resolved, read_scope),
             *_live(tgt, resolved, read_scope),
         )
@@ -1203,11 +1226,12 @@ async def _sankey_records(
 
 
 def _related_pairs(side: RelationSide, resolved: ResolvedQuery, read_scope: CardReadScope) -> Any:
-    """``(card_id, other_id, other_name)`` for every relation on ``side``
-    whose other end is visible — outer-joined, so a card with none keeps a
-    ``NULL`` (the ``none`` key) and a hidden related card is simply absent."""
+    """``(card_id, other_id, other_name)`` for every relation in effect on
+    ``side`` whose other end is visible — outer-joined, so a card with none
+    keeps a ``NULL`` (the ``none`` key) and a hidden related card is simply
+    absent."""
     other = aliased(Card)
-    mine, theirs = _side_columns(side)
+    mine, theirs = _side_columns(side, Relation)
     return (
         select(
             mine.label("card_id"),
@@ -1216,7 +1240,11 @@ def _related_pairs(side: RelationSide, resolved: ResolvedQuery, read_scope: Card
         )
         .select_from(Relation)
         .join(other, other.id == theirs)
-        .where(Relation.type == side.relation_type, *_visible(other, resolved, read_scope))
+        .where(
+            Relation.type == side.relation_type,
+            lifecycle_in_effect_sql(Relation),
+            *_visible(other, resolved, read_scope),
+        )
         .subquery()
     )
 
@@ -1233,13 +1261,14 @@ def _measure_column(resolved: ResolvedQuery, read_scope: CardReadScope) -> Any:
     spec = relations_measure_spec(field_key)
     if spec is not None:
         other = aliased(Card)
-        mine, theirs = _side_columns(resolved.sides[spec])
+        mine, theirs = _side_columns(resolved.sides[spec], Relation)
         return (
             select(func.count(Relation.id))
             .join(other, other.id == theirs)
             .where(
                 Relation.type == resolved.sides[spec].relation_type,
                 mine == Card.id,
+                lifecycle_in_effect_sql(Relation),
                 *_visible(other, resolved, read_scope),
             )
             .scalar_subquery()

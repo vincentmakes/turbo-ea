@@ -350,6 +350,7 @@ async def quiet_lifespan(monkeypatch):
         "_update_check_loop",
         "_extension_store_check_loop",
         "_ops_access_maintenance_loop",
+        "_relation_lifecycle_sweep_loop",
         "_ensure_ollama_model",
     ):
         monkeypatch.setattr(main, name, parked(name))
@@ -385,6 +386,7 @@ class TestLifespan:
             "_purge_audit_log_loop",
             "_purge_document_images_loop",
             "_purge_mutation_batches_loop",
+            "_relation_lifecycle_sweep_loop",
             "_update_check_loop",
             "extension-job",
         ]

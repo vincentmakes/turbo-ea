@@ -84,7 +84,12 @@ async def _world(db):
     app.external_id = "LX-42"
     archived = await create_card(db, card_type="Application", name="Old CRM", status="ARCHIVED")
     await create_relation(
-        db, type_key="relAppToBC", source_id=app.id, target_id=bc_child.id, attributes={"weight": 3}
+        db,
+        type_key="relAppToBC",
+        source_id=app.id,
+        target_id=bc_child.id,
+        attributes={"weight": 3},
+        lifecycle={"active": "2020-01-01", "endOfLife": "2021-06-30"},
     )
     await create_relation(db, type_key="relAppToBC", source_id=archived.id, target_id=bc_root.id)
 
@@ -145,6 +150,10 @@ class TestBuildExportSnapshot:
         assert [
             (r.type, r.from_entity_id, r.to_entity_id, r.attributes) for r in snap.relations
         ] == [("relAppToBC", str(w["app"].id), str(w["bc_child"].id), {"weight": 3})]
+        # An ended relation is still exported, with its dates.
+        assert [r.lifecycle for r in snap.relations] == [
+            {"active": "2020-01-01", "endOfLife": "2021-06-30"}
+        ]
         subs = sorted((s.user_email, s.role_name, s.role_type) for s in snap.subscriptions)
         assert subs == [
             ("owner@example.com", "Application Owner", "RESPONSIBLE"),

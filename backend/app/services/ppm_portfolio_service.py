@@ -31,6 +31,7 @@ from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag
 from app.models.user import User
+from app.services.lifecycle import lifecycle_in_effect_sql
 
 if TYPE_CHECKING:
     from app.services.card_read_scope import CardReadScope
@@ -418,6 +419,8 @@ async def build_group_map(
                 Relation.source_id.in_(initiative_ids),
                 Relation.target_id.in_(initiative_ids),
             ),
+            # An initiative is grouped by what it is related to now.
+            lifecycle_in_effect_sql(Relation),
         )
     )
     relations = sorted(
