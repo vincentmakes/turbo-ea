@@ -238,6 +238,8 @@
   "dependency.lostConnection": "在此失去一条连接",
   "dependency.legendGainedLink": "在该标记处新增连接",
   "dependency.legendLostLink": "在该标记处失去连接",
+  "dependency.legendPlannedRelation": "关系尚未开始",
+  "dependency.legendEndedRelation": "关系已结束",
   "dependency.highlightMode": "高亮模式：点击卡片以高亮显示其连接",
   "cost.title": "成本分析",
   "cost.cardType": "卡片类型",

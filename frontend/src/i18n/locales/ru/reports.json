@@ -246,6 +246,8 @@
   "dependency.lostConnection": "Здесь теряется связь",
   "dependency.legendGainedLink": "Появляется связь на этой метке",
   "dependency.legendLostLink": "Теряется связь на этой метке",
+  "dependency.legendPlannedRelation": "Связь ещё не началась",
+  "dependency.legendEndedRelation": "Связь завершена",
   "dependency.highlightMode": "Режим подсветки: нажмите на карточку, чтобы подсветить её связи",
   "cost.title": "Анализ стоимости",
   "cost.cardType": "Тип карточки",

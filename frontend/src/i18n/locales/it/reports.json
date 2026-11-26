@@ -238,6 +238,8 @@
   "dependency.lostConnection": "Perde una connessione qui",
   "dependency.legendGainedLink": "Guadagna una connessione a questo segno",
   "dependency.legendLostLink": "Perde una connessione a questo segno",
+  "dependency.legendPlannedRelation": "Relazione non ancora iniziata",
+  "dependency.legendEndedRelation": "Relazione terminata",
   "dependency.highlightMode": "Modalità evidenziazione: clicca su una scheda per evidenziare le sue connessioni",
   "cost.title": "Analisi dei costi",
   "cost.cardType": "Tipo di scheda",

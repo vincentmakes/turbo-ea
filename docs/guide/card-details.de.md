@@ -147,6 +147,19 @@ Zeigt alle Verbindungen zu anderen Karten, gruppiert nach Beziehungstyp. Für je
 
 ![Über Unterelemente verknüpfte Karten, nach Untertyp gruppiert](../assets/img/de/60_karte_unterelemente_beziehungen.png)
 
+#### Wann eine Beziehung gilt {: #when-a-relation-applies }
+
+Eine Beziehung kann einen eigenen **Lebenszyklus** tragen – dieselben fünf Phasen wie eine Karte (Planung, Einführung, Aktiv, Auslauf, End of Life). Er dient für Sachverhalte, die nur für einen Zeitraum gelten: eine globale Anwendung, die mehrere Organisationen ab unterschiedlichen Zeitpunkten nutzen, oder eine Organisation, die eine Anwendung nächstes Jahr abschaltet, während andere weitermachen. Eine Beziehung ohne Daten gilt einfach, wie jede Beziehung bisher.
+
+- **Daten festlegen** – wenn ein Administrator **Lebenszyklus verfolgen** für den Beziehungstyp aktiviert hat (siehe [Beziehungstypen](../admin/metamodel.md#relation-types)), trägt jede Beziehungszeile neben der Entfernen-Schaltfläche ein **Uhr**-Symbol, für alle, die Beziehungen verwalten dürfen. Das Symbol ist grau mit gestricheltem Rand, solange die Beziehung keine Daten hat. Ein Klick öffnet pro Phase ein Datumsfeld; speichern Sie zum Übernehmen oder nutzen Sie **Daten löschen**, damit die Beziehung wieder immer gilt. Die Felder warnen – ohne das Speichern zu blockieren –, wenn eine Phase nach einer Phase datiert ist, die ihr folgen sollte, genau wie beim Karten-Lebenszyklus.
+- **Geplant** – eine Beziehung, deren **Aktiv**-Datum noch in der Zukunft liegt (oder die ein Planungs- oder Einführungsdatum, aber noch kein Aktiv-Datum hat), hat noch nicht begonnen. Ihre Zeile bleibt in der Liste mit einem Chip wie *Geplant · ab 1. März 2027*.
+- **Bis** – eine geltende Beziehung, deren **End-of-Life**-Datum noch in der Zukunft liegt, zeigt *Bis …* mit diesem Datum.
+- **Beendet** – sobald das **End-of-Life**-Datum erreicht ist, ist die Beziehung beendet. Beendete Beziehungen bleiben erfasst, werden aber eingeklappt: Jede Gruppe bietet **Beendete anzeigen (N)**, um sie aufzulisten, mit einem Chip *Beendet …*.
+
+Nur Beziehungen, die **heute gelten**, zählen. Eine geplante oder beendete Beziehung zählt nicht in Berichten, im Flag „verwaist“, in Dashboards, berechneten Feldern oder im Datenqualitäts-Score, und eine erforderliche Beziehung, die nur geplante oder beendete Beziehungen hat, wird weiterhin als fehlend markiert – die Gruppe weist darauf hin. Auch die Zahl neben dem Abschnittstitel zählt nur geltende Beziehungen. Nichts wird von Hand neu berechnet: Wenn das Start- oder Enddatum einer Beziehung eintritt, werden die Karten an beiden Enden über Nacht aktualisiert.
+
+Daten an einer Beziehung werden angezeigt, woher auch immer sie stammen – LeanIX-Import, Arbeitsbereichs-Transfer, API, KI-Assistent oder Erweiterung –, auch wenn der Beziehungstyp die Uhr nicht anbietet. Ein Kartenpaar hat pro Beziehungstyp eine Beziehung, daher hat eine Beziehung nur einen Zeitraum: Eine Organisation, die eine Anwendung abschaltet und später wieder einführt, lässt sich nicht als zwei Zeiträume an derselben Beziehung darstellen. Änderungen an den Daten einer Beziehung erscheinen im Tab **Verlauf** beider Karten, unter der Beziehung, zu der sie gehören.
+
 ### Abhängigkeiten-Abschnitt
 
 Eine [Layered Dependency View](reports.md) der Karte und aller Karten in einem Schritt Entfernung, gruppiert nach den vier Architekturebenen. Mit Umschalt-Klick auf eine Karte zentrieren Sie die Ansicht neu und durchlaufen die Landschaft, ohne die Seite zu verlassen.

@@ -254,6 +254,8 @@
   "dependency.lostConnection": "يفقد اتصالًا هنا",
   "dependency.legendGainedLink": "يكتسب اتصالًا عند هذه العلامة",
   "dependency.legendLostLink": "يفقد اتصالًا عند هذه العلامة",
+  "dependency.legendPlannedRelation": "علاقة لم تبدأ بعد",
+  "dependency.legendEndedRelation": "علاقة منتهية",
   "dependency.highlightMode": "وضع التمييز: انقر على بطاقة لتمييز اتصالاتها",
   "cost.title": "تحليل التكلفة",
   "cost.cardType": "نوع البطاقة",

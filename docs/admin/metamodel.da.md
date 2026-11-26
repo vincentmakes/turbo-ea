@@ -220,7 +220,7 @@ Oversættelser gemmes sammen med hver korttype og opløses ved render-tid ved hj
 - **Indbyggede typer** soft-slettes (skjules) og kan gendannes. Slet-knappen i typeeditoren er låst for dem — brug **Skjul type** i stedet.
 - **Brugerdefinerede typer** — dem du selv har oprettet — kan **slettes permanent**. Åbn typen, klik på **Slet type** i toppen, og Turbo EA viser alt, som sletningen tager med sig: typens kort (med deres relationer, interessenter, kommentarer og vedhæftninger), de relationstyper der forbinder den med andre typer, de beregninger der er rettet mod den, og dens interessentroller. Skriv typens nøgle for at låse **Slet permanent** op. Sletningen kan ikke fortrydes; typens arkiverede kort slettes også, og hvert slettet kort registreres i sikkerheds- og administrationsloggen og i hændelseshistorikken.
 
-## Relationstyper
+## Relationstyper {: #relation-types }
 
 Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relationstype specificerer:
 
@@ -236,6 +236,8 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 Klik på **+ Ny relationstype** for at oprette en relation, eller klik på en eksisterende for at redigere dens etiketter og egenskaber.
 
 Hver relationsrække har desuden kontakterne **Synlig** og **Obligatorisk** for *hver* af sine to ender, navngivet efter den korttype de gælder: Synlig afgør, om relationen vises på den types kortdetaljeside, Obligatorisk om den skal udfyldes. En relationstype, hvis to ender er samme korttype, får ét sæt kontakter pr. retning, så den indgående side kan konfigureres separat fra den udgående.
+
+Slå **Spor livscyklus** til i oprettelses- eller redigeringsdialogen for en relationstype — også indbyggede typer — for at tilbyde et ur på hver relation af den type i kortets detaljer. Det registrerer, hvornår relationen er planlagt, aktiv og afsluttet, med de fem faser fra kortets livscyklus. Sådan modellerer du for eksempel den samme applikation, som flere organisationer bruger fra forskellige datoer: én relation pr. organisation, hver med sin egen periode. En relation, der er planlagt eller afsluttet, tæller ikke længere med i rapporter, flag, beregnede felter og datakvalitetsscoren, men står stadig på kortet (se [Hvornår en relation gælder](../guide/card-details.md#when-a-relation-applies)). Kontakten afgør kun, om uret tilbydes: datoer, en relation allerede har — fra en import, API'et eller en udvidelse — vises og tælles uanset, og når den slås fra, slettes ingen datoer. Et kortpar har én relation pr. relationstype, så hver relation har én enkelt periode. Ændringen af kontakten logges i sikkerheds- og adminloggen.
 
 Felterne **Etiket** og **Omvendt etiket** skrives på det sprog, du bruger lige nu — feltets betegnelse viser hvilket (for eksempel *Etiket (Dansk)*). Når du omdøber en relation, opdateres det sprog alle steder, hvor udsagnsordet optræder: afsnittet **Relationer** på et kort, inventarets relationskolonner, rapporter, portaler og diagrammer. Andre sprog beholder deres egen ordlyd, indtil du oversætter dem.
 

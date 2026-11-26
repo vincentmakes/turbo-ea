@@ -238,6 +238,8 @@
   "dependency.lostConnection": "Perde uma conexão aqui",
   "dependency.legendGainedLink": "Ganha uma conexão nesta marca",
   "dependency.legendLostLink": "Perde uma conexão nesta marca",
+  "dependency.legendPlannedRelation": "Relação ainda não iniciada",
+  "dependency.legendEndedRelation": "Relação terminada",
   "dependency.highlightMode": "Modo destaque: clique num cartão para destacar as suas conexões",
   "cost.title": "Análise de custos",
   "cost.cardType": "Tipo de ficha",

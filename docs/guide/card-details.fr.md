@@ -145,6 +145,19 @@ Affiche toutes les connexions avec d'autres fiches, groupées par type de relati
 
 ![Fiches liées via les sous-éléments, regroupées par sous-type](../assets/img/fr/60_fiche_sous_elements_relations.png)
 
+#### Quand une relation s'applique {: #when-a-relation-applies }
+
+Une relation peut porter son propre **cycle de vie** — les cinq mêmes phases qu'une fiche (Planification, Mise en service, Actif, Retrait progressif, Fin de vie). Il sert aux faits qui ne valent que pendant une période : une application globale utilisée par plusieurs organisations, chacune à partir d'une date différente, ou une organisation qui cesse d'utiliser une application l'an prochain alors que d'autres continuent. Une relation sans dates est simplement en vigueur, comme toute relation l'était auparavant.
+
+- **Définir les dates** — lorsqu'un administrateur a activé **Suivre le cycle de vie** pour le type de relation (voir [Types de relation](../admin/metamodel.md#relation-types)), chaque ligne de relation porte une icône d'**horloge** à côté de son bouton de suppression, pour toute personne autorisée à gérer les relations. L'icône est grisée avec un contour en pointillés tant que la relation n'a pas de dates. Cliquez dessus pour ouvrir un champ de date par phase ; enregistrez pour appliquer, ou utilisez **Effacer les dates** pour que la relation soit de nouveau toujours en vigueur. Les champs avertissent — sans bloquer l'enregistrement — lorsqu'une phase est datée après une phase qui devrait la suivre, exactement comme pour le cycle de vie d'une fiche.
+- **Planifiée** — une relation dont la date **Actif** est encore à venir (ou qui a une date de Planification ou de Mise en service mais pas encore de date Actif) n'a pas commencé. Sa ligne reste dans la liste avec une pastille du type *Planifiée · à partir du 1 mars 2027*.
+- **Jusqu'au** — une relation en vigueur dont la date de **Fin de vie** est encore à venir affiche *Jusqu'au …* avec cette date.
+- **Terminée** — dès que la date de **Fin de vie** arrive, la relation est terminée. Les relations terminées restent enregistrées mais sont mises à l'écart : chaque groupe propose **Afficher les terminées (N)** pour les lister, avec une pastille *Terminée le …*.
+
+Seules les relations **en vigueur aujourd'hui** comptent. Une relation planifiée ou terminée ne compte pas dans les rapports, l'indicateur d'orphelin, les tableaux de bord, les champs calculés ni le score de qualité des données, et une relation obligatoire qui n'a que des relations planifiées ou terminées est toujours signalée comme manquante — le groupe l'indique. Le nombre à côté du titre de la section compte lui aussi les relations en vigueur. Rien n'est recalculé à la main : lorsque la date de début ou de fin d'une relation arrive, les fiches aux deux extrémités sont actualisées pendant la nuit.
+
+Les dates d'une relation sont affichées quelle que soit leur origine — import LeanIX, transfert d'espace de travail, API, assistant IA ou extension — même si le type de relation ne propose pas l'horloge. Une paire de fiches a une relation par type de relation, donc une relation n'a qu'une seule période : une organisation qui cesse d'utiliser une application puis la réadopte plus tard ne peut pas être représentée par deux périodes sur la même relation. Les modifications des dates d'une relation apparaissent dans l'onglet **Historique** des deux fiches, sous la relation concernée.
+
 ### Section Dépendances
 
 Une [Layered Dependency View](reports.md) de la fiche et de tout ce qui se trouve à un lien de distance, regroupé selon les quatre couches d'architecture. Maj-cliquez sur une fiche pour recentrer la vue et parcourir le paysage sans quitter la page.

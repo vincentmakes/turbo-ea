@@ -238,6 +238,8 @@
   "dependency.lostConnection": "Verliert hier eine Verbindung",
   "dependency.legendGainedLink": "Erhält an dieser Markierung eine Verbindung",
   "dependency.legendLostLink": "Verliert an dieser Markierung eine Verbindung",
+  "dependency.legendPlannedRelation": "Beziehung noch nicht gestartet",
+  "dependency.legendEndedRelation": "Beziehung beendet",
   "dependency.highlightMode": "Hervorhebungsmodus: Klicken Sie auf eine Karte, um ihre Verbindungen hervorzuheben",
   "cost.title": "Kostenanalyse",
   "cost.cardType": "Kartentyp",

@@ -221,7 +221,7 @@ Las traducciones se almacenan junto con cada tipo de ficha y se resuelven en tie
 - Los **tipos predefinidos** se eliminan suavemente (se ocultan) y pueden restaurarse. El botón de eliminar del editor de tipos está bloqueado para ellos — use **Ocultar tipo** en su lugar.
 - Los **tipos personalizados** — los que usted creó — pueden **eliminarse permanentemente**. Abra el tipo, haga clic en **Eliminar tipo** en la cabecera y Turbo EA muestra todo lo que la eliminación se llevará consigo: las cards del tipo (con sus relaciones, partes interesadas, comentarios y adjuntos), los tipos de relación que lo conectan con otros tipos, los cálculos dirigidos a él y sus roles de parte interesada. Escriba la clave del tipo para desbloquear **Eliminar permanentemente**. La eliminación no se puede deshacer; las cards archivadas del tipo también se eliminan, y cada card eliminada queda registrada en el registro de seguridad y administración y en el historial de eventos.
 
-## Tipos de Relación
+## Tipos de Relación {: #relation-types }
 
 Los tipos de relación definen las conexiones permitidas entre tipos de fichas. Cada tipo de relación especifica:
 
@@ -237,6 +237,8 @@ Los tipos de relación definen las conexiones permitidas entre tipos de fichas. 
 Haga clic en **+ Nuevo Tipo de Relación** para crear una relación, o haga clic en una existente para editar sus etiquetas y atributos.
 
 Cada fila de relación lleva además los interruptores **Visible** y **Obligatorio** para *cada uno* de sus dos extremos, indicando el tipo de ficha al que se aplican: Visible decide si la relación aparece en la página de detalle de ese tipo, Obligatorio si debe rellenarse. Un tipo de relación cuyos dos extremos son la misma ficha recibe un par de interruptores por dirección, de modo que el lado entrante se configura por separado del saliente.
+
+Active **Seguir el ciclo de vida** en el cuadro de diálogo de creación o edición de un tipo de relación —incluidos los tipos integrados— para ofrecer un reloj en cada relación de ese tipo en el detalle de la ficha. Registra cuándo la relación está planificada, activa y finalizada, con las cinco fases del ciclo de vida de una ficha. Así se modela, por ejemplo, una misma aplicación utilizada por varias organizaciones desde fechas distintas: una relación por organización, cada una con su propio periodo. Una relación planificada o finalizada deja de contar en los informes, los indicadores, los campos calculados y la puntuación de calidad de datos, pero sigue apareciendo en la ficha (véase [Cuándo se aplica una relación](../guide/card-details.md#when-a-relation-applies)). El interruptor solo decide si se ofrece el reloj: las fechas que una relación ya tiene —procedentes de una importación, de la API o de una extensión— se muestran y se cuentan diga lo que diga, y desactivarlo no borra ninguna fecha. Un par de fichas tiene una relación por tipo de relación, por lo que cada relación tiene un único periodo. El cambio del interruptor queda registrado en el registro de seguridad y administración.
 
 Los campos **Etiqueta** y **Etiqueta Inversa** se escriben en el idioma que está utilizando en ese momento: el rótulo del campo indica cuál (por ejemplo, *Etiqueta (Español)*). Cambiar el nombre de una relación actualiza ese idioma en todos los lugares donde aparece el verbo: la sección **Relaciones** de una ficha, las columnas de relación del inventario, los informes, los portales y los diagramas. Los demás idiomas conservan su propia redacción hasta que los traduzca.
 

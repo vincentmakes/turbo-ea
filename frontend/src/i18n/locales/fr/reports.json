@@ -238,6 +238,8 @@
   "dependency.lostConnection": "Perd une connexion ici",
   "dependency.legendGainedLink": "Gagne une connexion à ce repère",
   "dependency.legendLostLink": "Perd une connexion à ce repère",
+  "dependency.legendPlannedRelation": "Relation pas encore commencée",
+  "dependency.legendEndedRelation": "Relation terminée",
   "dependency.highlightMode": "Mode surbrillance : cliquez sur une fiche pour mettre en évidence ses connexions",
   "cost.title": "Analyse des coûts",
   "cost.cardType": "Type de fiche",
