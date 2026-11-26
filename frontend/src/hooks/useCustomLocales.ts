@@ -22,7 +22,8 @@ export function sanitizeCustomLocales(raw: unknown): CustomLocaleInfo[] {
   if (!Array.isArray(raw)) return [];
   const out: CustomLocaleInfo[] = [];
   for (const item of raw) {
-    if (typeof item !== "object" || item === null) continue;
+    // A primitive destructures to nothing and is dropped by the code check.
+    if (!item) continue;
     const { code, name, rtl, hash } = item as Record<string, unknown>;
     if (typeof code !== "string" || !code || isBuiltInLocale(code)) continue;
     out.push({
@@ -41,21 +42,23 @@ function _set(v: CustomLocaleInfo[]) {
   for (const fn of _listeners) fn(v);
 }
 
+/**
+ * The fallback read, shared by every consumer that mounts before anything
+ * primed the cache. Once it settled the cache always holds a list (it is only
+ * ever replaced by another list), so the read never runs twice.
+ */
 function _fetch(): Promise<CustomLocaleInfo[]> {
-  if (_cache) return Promise.resolve(_cache);
   if (_inflight) return _inflight;
   // Started inside a promise chain, so a test double that returns nothing
-  // cannot throw inside the effect that called it.
+  // cannot throw inside the effect that called it; a reply without the field
+  // (or no reply at all) reads as no languages.
   _inflight = Promise.resolve()
     .then(() => api.get<{ custom_locales?: unknown }>("/settings/bootstrap"))
-    .then((r) => sanitizeCustomLocales(r?.custom_locales))
+    .then((r) => sanitizeCustomLocales(r.custom_locales))
     .catch(() => [] as CustomLocaleInfo[])
     .then((v) => {
       _set(v);
       return v;
-    })
-    .finally(() => {
-      _inflight = null;
     });
   return _inflight;
 }
@@ -75,11 +78,13 @@ export function useCustomLocales() {
 
   useEffect(() => {
     _listeners.add(setLocales);
-    if (_cache) setLocales(_cache);
-    else void _fetch();
+    if (!_cache) void _fetch();
+    // Stryker disable next-line BlockStatement: React drops a state update on an unmounted component, so a listener left behind changes nothing visible
     return () => {
+      // Stryker disable next-line CallExpression: as above — the stale listener's updates are dropped
       _listeners.delete(setLocales);
     };
+    // Stryker disable next-line ArrayDeclaration: a constant dependency list runs the effect once, exactly like []
   }, []);
 
   return { customLocales: locales };

@@ -344,7 +344,7 @@ function GeneralTab() {
   // toggles the admin has not saved yet.
   const lastCachedLocales = useRef<string | null>(null);
   useEffect(() => {
-    const key = cachedLocales.join(",");
+    const key = JSON.stringify(cachedLocales);
     if (key === lastCachedLocales.current) return;
     lastCachedLocales.current = key;
     setEnabledLocales(cachedLocales);

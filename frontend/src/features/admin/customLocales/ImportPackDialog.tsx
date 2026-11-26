@@ -93,6 +93,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
   const inputRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [parseError, setParseError] = useState("");
+  // Stryker disable next-line BooleanLiteral: handleFile clears it before any pack can be imported
   const [confirmMismatch, setConfirmMismatch] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -113,6 +114,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
     let text: string;
     try {
       text = await readFileText(file);
+      // Stryker disable next-line BlockStatement: with an empty catch `text` stays undefined, and parseLanguagePack answers invalid_json — the same message
     } catch {
       setParseError(t("customLocales.import.invalidJson"));
       return;
@@ -132,6 +134,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
   };
 
   const handleImport = async () => {
+    // Stryker disable next-line ConditionalExpression: Import is only enabled once a pack is parsed
     if (!parsed) return;
     setRunning(true);
     setProgress(0);
@@ -162,8 +165,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
           t,
           e instanceof Error && e.message ? e.message : t("customLocales.import.requestFailed"),
         );
-        const status = apiErrorStatus(e);
-        if (status !== null && FATAL_IMPORT_STATUSES.has(status)) {
+        if (FATAL_IMPORT_STATUSES.has(apiErrorStatus(e))) {
           // Signed out, not allowed, language gone, catalogue missing: every
           // other namespace would fail the same way.
           total.stopped = message;
@@ -194,6 +196,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
           hidden
           data-testid="language-pack-input"
           onChange={(e) => {
+            // Stryker disable next-line OptionalChaining: an <input type="file"> always has a FileList
             void handleFile(e.target.files?.[0]);
             e.target.value = "";
           }}
@@ -201,6 +204,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
         <Button
           variant="outlined"
           startIcon={<MaterialSymbol icon="upload_file" size={18} />}
+          // Stryker disable next-line OptionalChaining: the input is mounted before its button can be clicked
           onClick={() => inputRef.current?.click()}
           disabled={running}
         >

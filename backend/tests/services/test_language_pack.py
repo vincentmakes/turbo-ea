@@ -62,8 +62,8 @@ class TestRealCatalogue:
         the plural categories filled from ``_other``."""
         for name, ns in cat.namespaces.items():
             tree = json.loads((EN_DIR / f"{name}.json").read_text(encoding="utf-8"))
-            bundle = lp.build_namespace_bundle(ns, dict(ns.strings))
-            fill = lp.plural_fill(ns, ns.strings)
+            bundle = lp.build_namespace_bundle(ns, dict(ns.strings), "nl")
+            fill = lp.plural_fill(ns, ns.strings, "nl")
             leaves = {lp.flat_key(p) for p in lp.flatten(bundle)}
             assert leaves == set(ns.strings) | set(fill), name
             for path in lp.flatten(tree):
@@ -474,8 +474,8 @@ class TestPlurals:
 
     def test_no_fill_without_a_translated_other(self):
         ns = tiny(PLURAL)
-        assert lp.plural_fill(ns, {"items_one": "un"}) == {}
-        assert lp.build_namespace_bundle(ns, {"items_one": "un"}) == {"items_one": "un"}
+        assert lp.plural_fill(ns, {"items_one": "un"}, "nl") == {}
+        assert lp.build_namespace_bundle(ns, {"items_one": "un"}, "nl") == {"items_one": "un"}
 
 
 class TestStatus:

@@ -61,7 +61,7 @@ export function canonicalLocale(code: string): string | null {
 export const MAX_PACK_BYTES = 20 * 1024 * 1024;
 
 /** Statuses after which the next namespace's request would fail the same way. */
-export const FATAL_IMPORT_STATUSES: ReadonlySet<number> = new Set([401, 403, 404, 503]);
+export const FATAL_IMPORT_STATUSES: ReadonlySet<number | null> = new Set([401, 403, 404, 503]);
 
 /** Base codes of languages usually written right to left (a hint, never applied on its own). */
 export const USUALLY_RTL_CODES: ReadonlySet<string> = new Set([
@@ -205,7 +205,7 @@ export function apiErrorCode(err: unknown): string | null {
 
 /** Whether an error code has its own message under `customLocales.errors.*`. */
 export function isKnownErrorCode(code: string | null): code is (typeof KNOWN_ERROR_CODES)[number] {
-  return code !== null && (KNOWN_ERROR_CODES as readonly string[]).includes(code);
+  return (KNOWN_ERROR_CODES as readonly (string | null)[]).includes(code);
 }
 
 /** Whether a rejection reason has its own label under `customLocales.reasons.*`. */

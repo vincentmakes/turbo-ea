@@ -44,12 +44,11 @@ def ai_config_from_settings(general: dict) -> dict:
     key decrypted. Shared by the suggestion routes and the custom-language
     translation job."""
     ai = general.get("ai", {})
-    encrypted_key = ai.get("apiKey", "")
     return {
         "enabled": ai.get("enabled", False),
         "provider_type": ai.get("providerType", "ollama"),
         "provider_url": ai.get("providerUrl") or app_config.AI_PROVIDER_URL,
-        "api_key": decrypt_value(encrypted_key) if encrypted_key else "",
+        "api_key": decrypt_value(ai.get("apiKey") or ""),
         "model": ai.get("model") or app_config.AI_MODEL,
         "api_version": ai.get("apiVersion", DEFAULT_AZURE_API_VERSION),
         "search_provider": "duckduckgo",

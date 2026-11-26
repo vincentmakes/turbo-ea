@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -120,7 +120,10 @@ function listReads() {
   return mockApi.callsOf("get", "/custom-locales").length;
 }
 
-async function renderSection(list: CustomLocale[] = [HEBREW, HINDI]) {
+/** Hindi with no job: lists that poll nothing, so a re-read is the code's own. */
+const HINDI_IDLE: CustomLocale = { ...HINDI, job: null };
+
+async function renderSection(list: CustomLocale[] = [HEBREW, HINDI_IDLE]) {
   mockApi.on("get", "/custom-locales", list);
   const result = renderWithProviders(<CustomLocalesSection />);
   if (list.length) await screen.findByText(list[0].name);
@@ -145,7 +148,7 @@ afterEach(async () => {
 
 describe("CustomLocalesSection — list", () => {
   it("shows each language with its progress, open counts and state", async () => {
-    await renderSection();
+    await renderSection([HEBREW, HINDI]);
     expect(screen.getByRole("heading", { name: t("customLocales.title") })).toBeInTheDocument();
 
     const he = row("he");
@@ -166,6 +169,33 @@ describe("CustomLocalesSection — list", () => {
     expect(hi.getByText(t("customLocales.jobStatus.runningPercent", { percent: 20 }))).toBeInTheDocument();
     expect(hi.getByRole("checkbox", { name: t("customLocales.enabledLabel", { name: "हिन्दी" }) })).not.toBeChecked();
     expect(mockApi.callsOf("get", "/custom-locales")).toHaveLength(1);
+    expect(screen.queryByText(t("customLocales.empty"))).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows a bare loading bar, and no rows, until the first read lands — and never again after", async () => {
+    let release!: (v: unknown) => void;
+    mockApi.on("get", "/custom-locales", () => new Promise((r) => (release = r)));
+    renderWithProviders(<CustomLocalesSection />);
+    const bare = () => screen.queryAllByRole("progressbar").filter((el) => !el.getAttribute("aria-label"));
+    await waitFor(() => expect(bare()).toHaveLength(1));
+    expect(screen.queryByTestId(/^custom-locale-/)).toBeNull();
+    expect(screen.queryByText(t("customLocales.empty"))).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    release([HEBREW]);
+    await screen.findByText(HEBREW.name);
+    expect(bare()).toHaveLength(0);
+
+    // A re-read keeps the list on screen without the bar.
+    let again!: (v: unknown) => void;
+    mockApi.on("get", "/custom-locales", () => new Promise((r) => (again = r)));
+    mockApi.on("patch", "/custom-locales/he", {});
+    fireEvent.click(row("he").getByRole("checkbox"));
+    await waitFor(() => expect(listReads()).toBe(2));
+    expect(bare()).toHaveLength(0);
+    expect(row("he").getByText(HEBREW.name)).toBeInTheDocument();
+    again([HEBREW]);
   });
 
   it("shows a running job's share on its chip", async () => {
@@ -356,6 +386,8 @@ describe("CustomLocalesSection — delete", () => {
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: tc("actions.delete") }));
     expect(await screen.findByText(t("customLocales.errors.deleteFailed"))).toBeInTheDocument();
     expect(spies.forgetLoadedLocale).not.toHaveBeenCalled();
+    // The confirmation closes so the error can be read and acted on.
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 
@@ -521,5 +553,92 @@ describe("CustomLocalesSection — following a running job", () => {
     await user.click(screen.getByText("stub-imported"));
     await waitFor(() => expect(spies.invalidateMetamodel).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId("import-dialog")).toBeInTheDocument();
+  });
+});
+
+describe("CustomLocalesSection — errors clear on the next action", () => {
+  /** Any error alert, hidden behind an open dialog or not. */
+  const anyAlert = () => document.querySelector(".MuiAlert-root");
+
+  async function failToggle(user: Awaited<ReturnType<typeof renderSection>>["user"]) {
+    mockApi.fail("patch", "/custom-locales/he", 500);
+    await user.click(row("he").getByRole("checkbox"));
+    await screen.findByText(t("customLocales.errors.saveFailed"));
+  }
+
+  it("clears a failed toggle's error when the next toggle works", async () => {
+    const { user } = await renderSection();
+    await failToggle(user);
+    mockApi.on("patch", "/custom-locales/he", {});
+    await user.click(row("he").getByRole("checkbox"));
+    await waitFor(() => expect(anyAlert()).toBeNull());
+  });
+
+  it("clears it when an export starts", async () => {
+    const { user } = await renderSection();
+    await failToggle(user);
+    let release!: (v: unknown) => void;
+    mockApi.on("get", "/custom-locales/he/export?mode=all", () => new Promise((r) => (release = r)));
+    await user.click(row("he").getByRole("button", { name: t("customLocales.actions.export") }));
+    await user.click(await screen.findByRole("menuitem", { name: t("customLocales.export.all") }));
+    await waitFor(() => expect(anyAlert()).toBeNull());
+    release({});
+  });
+
+  it("clears it when a delete starts", async () => {
+    const { user } = await renderSection();
+    await failToggle(user);
+    let release!: (v: unknown) => void;
+    mockApi.on("delete", "/custom-locales/he", () => new Promise((r) => (release = r)));
+    await user.click(row("he").getByRole("button", { name: tc("actions.delete") }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", { name: tc("actions.delete") }),
+    );
+    await waitFor(() => expect(anyAlert()).toBeNull());
+    release({});
+  });
+
+  it("closes the export menu on Escape", async () => {
+    const { user } = await renderSection();
+    await user.click(row("he").getByRole("button", { name: t("customLocales.actions.export") }));
+    await screen.findByRole("menu");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    expect(mockApi.callsOf("get", /export/)).toHaveLength(0);
+  });
+});
+
+describe("CustomLocalesSection — one poll timer at a time", () => {
+  it("drops the pending poll when the list is re-read for another reason", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const RUNNING: CustomLocale = {
+      ...HEBREW,
+      job: { status: "running", mode: "missing", total: 10, done: 1, failed: 0 },
+    };
+    mockApi.on("get", "/custom-locales", [RUNNING]);
+    mockApi.on("patch", "/custom-locales/he", {});
+    renderWithProviders(<CustomLocalesSection />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(listReads()).toBe(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    // A toggle re-reads the list at t = 1 s; the poll is re-armed from there.
+    fireEvent.click(row("he").getByRole("checkbox"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(listReads()).toBe(2);
+    // The poll armed at t = 0 would have fired at 3 s: it must be gone.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+    expect(listReads()).toBe(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(listReads()).toBe(3);
   });
 });

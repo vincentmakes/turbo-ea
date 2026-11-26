@@ -93,14 +93,15 @@ export default function CustomLocalesSection() {
       refetch();
       refreshAfterChange(code, labels);
     },
+    // Stryker disable next-line ArrayDeclaration: `refetch` is a stable useCallback, so [] and [refetch] memoise the same function
     [refetch],
   );
 
   // Poll the list while a job runs, one read at a time: the next one is
   // armed only once the previous read settled.
-  const runningKey = locales.filter(isRunning).map((l) => l.code).join(",");
+  const runningKey = JSON.stringify(locales.filter(isRunning).map((l) => l.code));
   useEffect(() => {
-    if (!runningKey || loading) return;
+    if (runningKey === "[]" || loading) return;
     const id = setTimeout(refetch, POLL_INTERVAL_MS);
     return () => clearTimeout(id);
   }, [runningKey, loading, data, refetch]);

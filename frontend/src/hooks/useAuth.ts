@@ -64,9 +64,9 @@ export function useAuth() {
       // manifest + dynamic import; failures are captured per-extension).
       void import("@/lib/extensionHost").then((m) => m.loadUiExtensions());
       setUser(u as User);
-      // A custom language is loaded first; one that cannot be loaded falls
-      // back to English.
-      void setAppLanguage(u.locale || "en");
+      // A custom language is loaded first; one that cannot be loaded, or no
+      // language at all, falls back to English.
+      void setAppLanguage(u.locale);
       startRefreshTimer();
       return u as User;
     } catch {

@@ -23,20 +23,25 @@
 
 const ENGLISH_TAG = /<[^<>]*>/g;
 const TAG_OPEN = /<[A-Za-z/!?]/;
-const PLURAL_KEY = /^(.*)_(?:zero|one|two|few|many|other)$/;
+// No `^`: a greedy `(.*)` already starts at the first character.
+const PLURAL_KEY = /(.*)_(?:zero|one|two|few|many|other)$/;
 
-function count(text: string, needle: string): number {
-  return text.split(needle).length - 1;
+/**
+ * How many pieces `needle` cuts `text` into — one more than its occurrences,
+ * so two texts compare equal exactly when their counts do.
+ */
+function pieces(text: string, needle: string): number {
+  return text.split(needle).length;
 }
 
 /** Whether `value` may stand in for the English string `english`. */
 export function isSafeTranslation(english: string, value: unknown): value is string {
   if (typeof value !== "string") return false;
   let rest = value;
-  for (const tag of new Set(english.match(ENGLISH_TAG) ?? [])) rest = rest.split(tag).join("");
+  for (const [tag] of english.matchAll(ENGLISH_TAG)) rest = rest.split(tag).join("");
   if (TAG_OPEN.test(rest)) return false;
-  if (count(value, "$t(") !== count(english, "$t(")) return false;
-  return count(value, "{{") === count(value, "}}");
+  if (pieces(value, "$t(") !== pieces(english, "$t(")) return false;
+  return pieces(value, "{{") === pieces(value, "}}");
 }
 
 /** Every string leaf of a resource tree, keyed by its path joined with ".". */

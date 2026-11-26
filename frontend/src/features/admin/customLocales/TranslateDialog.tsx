@@ -37,7 +37,7 @@ interface Props {
   locale: CustomLocale;
   onClose: () => void;
   /** Called once a job was started, so the caller can follow it too. */
-  onStarted?: () => void;
+  onStarted: () => void;
   /** Called when a job this dialog followed stops running. */
   onFinished: () => void;
 }
@@ -47,13 +47,12 @@ export default function TranslateDialog({ locale, onClose, onStarted, onFinished
   const { aiStatus, aiStatusLoaded } = useAiStatus();
   const [mode, setMode] = useState<CustomLocaleTranslateMode>("missing");
   const [includeManual, setIncludeManual] = useState(false);
-  const [tick, setTick] = useState(0);
   const [job, setJob] = useState<CustomLocaleJob | null>(locale.job);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const path = `/custom-locales/${encodeURIComponent(locale.code)}`;
-  const { data: detail, loading } = useApiQuery<CustomLocaleDetail>(path, { refetchKey: tick });
+  const { data: detail, loading, refetch } = useApiQuery<CustomLocaleDetail>(path);
 
   useEffect(() => {
     if (detail) setJob(detail.job ?? null);
@@ -66,9 +65,9 @@ export default function TranslateDialog({ locale, onClose, onStarted, onFinished
   // otherwise be aborted by the next forever). The timer dies with the dialog.
   useEffect(() => {
     if (!running || loading) return;
-    const id = setTimeout(() => setTick((n) => n + 1), POLL_INTERVAL_MS);
+    const id = setTimeout(refetch, POLL_INTERVAL_MS);
     return () => clearTimeout(id);
-  }, [running, loading, detail]);
+  }, [running, loading, detail, refetch]);
 
   // A job seen running that no longer is has finished: refresh the caller.
   const wasRunning = useRef(false);
@@ -91,8 +90,8 @@ export default function TranslateDialog({ locale, onClose, onStarted, onFinished
         include_manual: mode === "all" && includeManual,
       });
       setJob(res.job);
-      setTick((n) => n + 1);
-      onStarted?.();
+      refetch();
+      onStarted();
     } catch (e) {
       setError(errorMessage(e, t, t("customLocales.translate.startFailed")));
     } finally {

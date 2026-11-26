@@ -125,7 +125,7 @@ _WHITESPACE = re.compile(r"\s+")
 
 def source_hash(text: str) -> str:
     """The first 12 hex characters of the SHA-256 of ``text`` (UTF-8)."""
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+    return hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
 def is_source_hash(value: Any) -> bool:
@@ -197,8 +197,10 @@ class Namespace:
 
     name: str
     strings: dict[str, str]
-    paths: dict[str, tuple[str, ...]]
     hashes: dict[str, str]
+    #: Where each key sits in the bundle (the ``metamodel`` namespace has no
+    #: bundle and no paths).
+    paths: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @classmethod
     def from_tree(cls, name: str, tree: Mapping[str, Any]) -> Namespace:
@@ -285,8 +287,8 @@ def catalog_from_trees(trees: Mapping[str, Mapping[str, Any]]) -> Catalog:
     namespaces = {name: Namespace.from_tree(name, trees[name]) for name in sorted(trees)}
     digest = hashlib.sha256()
     for name, ns in namespaces.items():
-        digest.update(name.encode("utf-8"))
-        digest.update(json.dumps(ns.strings, ensure_ascii=False, sort_keys=True).encode("utf-8"))
+        digest.update(name.encode())
+        digest.update(json.dumps(ns.strings, sort_keys=True).encode())
     return Catalog(namespaces=namespaces, fingerprint=digest.hexdigest()[:16])
 
 
@@ -314,10 +316,7 @@ def find_english_dir(override: str | None, here: Path | None = None) -> Path | N
 
 def read_catalog(directory: Path) -> Catalog:
     """Parse every ``<namespace>.json`` in ``directory``."""
-    trees = {
-        path.stem: json.loads(path.read_text(encoding="utf-8"))
-        for path in sorted(directory.glob("*.json"))
-    }
+    trees = {path.stem: json.loads(path.read_bytes()) for path in sorted(directory.glob("*.json"))}
     return catalog_from_trees(trees)
 
 
@@ -376,12 +375,11 @@ def _placeholder_name(token: str) -> str:
 
 
 def _braces_balanced(english: str, text: str) -> bool:
-    """Every ``{{`` and ``}}`` belongs to one matched placeholder, and no
-    other brace appears that English does not have — so ``{{email}x}}`` or
-    ``{{{name}}}`` cannot read one way here and another in i18next."""
+    """Every brace in ``text`` belongs to a matched ``{{placeholder}}``, apart
+    from the stray braces English itself has — so ``{{email}x}}``,
+    ``{{{name}}}`` or a lone ``{{`` cannot read one way here and another in
+    i18next."""
     matched = len(_PLACEHOLDER.findall(text))
-    if text.count("{{") != matched or text.count("}}") != matched:
-        return False
     english_matched = len(_PLACEHOLDER.findall(english))
     return all(
         text.count(brace) - 2 * matched == english.count(brace) - 2 * english_matched
@@ -394,7 +392,7 @@ def _nestings(text: str) -> Counter[str]:
 
 
 def _url_set(text: str) -> set[str]:
-    return {m.rstrip(_URL_TRAILING).lower() for m in _URL.findall(text)}
+    return {m.rstrip(_URL_TRAILING).casefold() for m in _URL.findall(text)}
 
 
 def _introduces_markup(english: str, value: str) -> bool:
@@ -414,7 +412,7 @@ def max_length(english: str) -> int:
     return 4 * len(english) + 200
 
 
-def placeholders_match(english: str, value: str, *, plural: bool = False) -> bool:
+def placeholders_match(english: str, value: str, *, plural: bool) -> bool:
     """The same ``{{placeholders}}`` as English (a multiset, inner whitespace
     ignored), with balanced braces. A plural-category key may drop
     ``{{count}}``: a dual or zero form names no number ("two items")."""
@@ -495,6 +493,17 @@ def key_status(ns: Namespace, key: str, strings: Mapping[str, Any], meta: Mappin
     return STATUS_TRANSLATED if stored == current else STATUS_STALE
 
 
+def keys_with_source(ns: Namespace, strings: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """``(key, English source key)`` of every English key, in file order, then
+    of every stored plural-category key English does not have but accepts."""
+    out = [(key, key) for key in ns.strings]
+    for key in strings:
+        source = ns.source_key(key)
+        if source is not None and key not in ns.strings:
+            out.append((key, source))
+    return out
+
+
 def extra_keys(ns: Namespace, strings: Mapping[str, Any]) -> list[str]:
     """Stored plural-category keys English does not have but accepts."""
     return [k for k in strings if k not in ns.strings and ns.source_key(k) is not None]
@@ -545,15 +554,14 @@ def list_entries(
     wanted = LIST_FILTERS[status]
     needle = search.strip().casefold()
     rows: list[dict[str, Any]] = []
-    for key in [*ns.strings, *extra_keys(ns, strings)]:
+    for key, source_key in keys_with_source(ns, strings):
         state = key_status(ns, key, strings, meta)
         if state not in wanted:
             continue
-        source = ns.source_text(key) or ""
-        value = strings.get(key)
-        if needle and not any(
-            needle in str(text).casefold() for text in (key, source, value or "")
-        ):
+        source = ns.strings[source_key]
+        stored = strings.get(key)
+        value = stored if isinstance(stored, str) else None
+        if needle and not any(needle in text.casefold() for text in (key, source, value or "")):
             continue
         entry = meta.get(key)
         rows.append(
@@ -561,10 +569,10 @@ def list_entries(
                 "namespace": ns.name,
                 "key": key,
                 "source": source,
-                "value": value if isinstance(value, str) else None,
+                "value": value,
                 "status": state,
                 "origin": entry.get("o") if isinstance(entry, Mapping) else None,
-                "source_hash": ns.current_hash(key),
+                "source_hash": ns.hashes[source_key],
             }
         )
     return rows
@@ -577,8 +585,8 @@ def list_entries(
 
 @dataclass
 class MergeResult:
-    strings: dict[str, str]
-    meta: dict[str, dict[str, str]]
+    strings: dict[str, str] = field(default_factory=dict)
+    meta: dict[str, dict[str, str]] = field(default_factory=dict)
     applied: int = 0
     unchanged: int = 0
     cleared: int = 0
@@ -709,9 +717,7 @@ def servable(ns: Namespace, strings: Mapping[str, Any]) -> dict[str, str]:
     }
 
 
-def build_namespace_bundle(
-    ns: Namespace, strings: Mapping[str, Any], code: str = ""
-) -> dict[str, Any]:
+def build_namespace_bundle(ns: Namespace, strings: Mapping[str, Any], code: str) -> dict[str, Any]:
     """The i18next resource for one namespace, in the English file's shape.
 
     Only :func:`servable` values. Walks the English keys in file order and
@@ -733,7 +739,7 @@ def build_namespace_bundle(
     return tree
 
 
-def plural_fill(ns: Namespace, strings: Mapping[str, Any], code: str = "") -> dict[str, str]:
+def plural_fill(ns: Namespace, strings: Mapping[str, Any], code: str) -> dict[str, str]:
     """``{key: text}`` for every plural category a translated ``<base>_other``
     has no translation for, filled from the ``_other`` value.
 
@@ -753,7 +759,7 @@ def plural_fill(ns: Namespace, strings: Mapping[str, Any], code: str = "") -> di
             continue
         base = key[: -len("_other")]
         for category in PLURAL_CATEGORIES:
-            if category == "other" or (category == "zero" and not has_zero):
+            if category == "zero" and not has_zero:
                 continue
             sibling = f"{base}_{category}"
             current = strings.get(sibling)
@@ -783,9 +789,8 @@ def bundle_hash(
             bool(rtl),
             sorted([str(n), str(d)] for n, d in rows),
         ],
-        ensure_ascii=False,
     )
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
 # ---------------------------------------------------------------------------
@@ -1127,7 +1132,7 @@ def main(argv: list[str] | None = None) -> int:
     1 when it has problems (one tab-separated line each, namespace and key
     JSON-quoted so no key can forge a line), 2 when the files cannot be read."""
     parser = argparse.ArgumentParser(prog="language_pack.py", description=__doc__.splitlines()[0])
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(required=True)
     check = sub.add_parser("validate", help="check a language-pack file against English")
     check.add_argument("pack", type=Path)
     check.add_argument("--english", type=Path, required=True, help="the English locale directory")
@@ -1136,14 +1141,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no English locale files in {args.english}")
         return 2
     try:
-        pack = parse_pack(args.pack.read_text(encoding="utf-8"))
+        pack = parse_pack(args.pack.read_bytes().decode())
     except (OSError, ValueError) as exc:
         print(f"cannot read {args.pack}: {exc}")
         return 2
     problems = validate_pack(pack, read_catalog(args.english))
     for problem in problems:
-        namespace = json.dumps(problem["namespace"], ensure_ascii=True)
-        key = json.dumps(problem["key"], ensure_ascii=True)
+        # ``json.dumps`` escapes control characters and (by default) every
+        # non-ASCII one, bidi overrides included: no key can forge a line.
+        namespace = json.dumps(problem["namespace"])
+        key = json.dumps(problem["key"])
         print(f"{namespace}\t{key}\t{problem['reason']}")
     strings = pack.get("strings") if isinstance(pack, Mapping) else None
     total = (

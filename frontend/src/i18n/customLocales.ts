@@ -44,8 +44,6 @@ export function localeLabel(code: string | null | undefined, fallback?: string):
 
 /** Bundle hash per loaded custom language. */
 const _loadedHash = new Map<string, string>();
-/** Namespaces added to i18next per custom language, so a reload can replace them. */
-const _loadedNamespaces = new Map<string, string[]>();
 const _inflight = new Map<string, Promise<boolean>>();
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -58,6 +56,7 @@ async function loadBundle(code: string): Promise<boolean> {
     bundle = await api.get<CustomLocaleBundle>(
       `/custom-locales/${encodeURIComponent(code)}/bundle`,
     );
+    // Stryker disable next-line BlockStatement: with an empty catch `bundle` stays undefined, which the isPlainObject check below refuses with the same false
   } catch {
     return false;
   }
@@ -67,22 +66,13 @@ async function loadBundle(code: string): Promise<boolean> {
   const english = i18n.getDataByLanguage("en") ?? {};
   // Replace, not merge: a string cleared since the last load must disappear.
   dropBundles(code);
-  const added: string[] = [];
   for (const [ns, resources] of Object.entries(bundle.resources)) {
     if (!(ns in english) || !isPlainObject(resources)) continue;
     // Every string is checked against its English source before i18next sees
     // it (`./translationGate`): one that could inject markup or nesting is
     // dropped and falls back to English.
-    i18n.addResourceBundle(
-      code,
-      ns,
-      gateResources(resources, flattenStrings(english[ns])),
-      true,
-      true,
-    );
-    added.push(ns);
+    i18n.addResourceBundle(code, ns, gateResources(resources, flattenStrings(english[ns])));
   }
-  _loadedNamespaces.set(code, added);
   const hash = typeof bundle.hash === "string" ? bundle.hash : "";
   _loadedHash.set(code, hash);
   registerCustomLocale({
@@ -94,10 +84,11 @@ async function loadBundle(code: string): Promise<boolean> {
   return true;
 }
 
-/** Remove a custom language's namespaces from i18next. */
+/** Remove every namespace a custom language has in i18next (only ever its bundle's). */
 function dropBundles(code: string): void {
-  for (const ns of _loadedNamespaces.get(code) ?? []) i18n.removeResourceBundle(code, ns);
-  _loadedNamespaces.delete(code);
+  for (const ns of Object.keys(i18n.getDataByLanguage(code) ?? {})) {
+    i18n.removeResourceBundle(code, ns);
+  }
 }
 
 /**
@@ -150,7 +141,9 @@ let _switchSeq = 0;
  * Resolves to the language applied, or to the current one when it gave way.
  */
 export async function setAppLanguage(code: string | null | undefined): Promise<string> {
+  // Stryker disable next-line UpdateOperator: only equality with the latest value matters, and counting down is as unique as counting up
   const seq = ++_switchSeq;
+  // Stryker disable next-line StringLiteral: an empty target is refused by ensureLocaleLoaded and falls back to English all the same
   const target = code || "en";
   if (isBuiltInLocale(target)) {
     await i18n.changeLanguage(target);

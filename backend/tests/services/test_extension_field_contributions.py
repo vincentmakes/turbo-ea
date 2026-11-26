@@ -1381,6 +1381,7 @@ from app.services.extensions.field_contributions import (  # noqa: E402
 )
 
 KEEP = frozenset({"nl"})
+FIELD_MAPS = ("translations", "helpTranslations", "badgeTranslations")
 
 
 class TestLocaleMerge:
@@ -1415,7 +1416,7 @@ class TestLocaleMerge:
             "translations": {"de": "Feld"},
             "options": [{"key": "a", "label": "A"}, {"key": "b", "label": "B"}, "x"],
         }
-        assert keep_stored_locales(stored, fresh, KEEP) == {
+        assert keep_stored_locales(stored, fresh, KEEP, FIELD_MAPS) == {
             "key": "f",
             "translations": {"nl": "veld", "de": "Feld"},
             "helpTranslations": {"nl": "hulp"},
@@ -1425,8 +1426,8 @@ class TestLocaleMerge:
                 "x",
             ],
         }
-        assert keep_stored_locales(None, fresh, KEEP) is fresh
-        assert keep_stored_locales(stored, fresh) is fresh
+        assert keep_stored_locales(None, fresh, KEEP, FIELD_MAPS) is fresh
+        assert keep_stored_locales(stored, fresh, frozenset(), FIELD_MAPS) is fresh
 
 
 class TestReapplyKeepsCustomLocales:

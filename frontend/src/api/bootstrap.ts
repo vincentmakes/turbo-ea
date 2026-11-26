@@ -199,7 +199,7 @@ export function primeBootstrap(): Promise<void> {
  * so the fresh one cannot be answered by data from before the change.
  */
 export async function refreshBootstrap(): Promise<void> {
-  if (_inflight) await _inflight;
+  await _inflight; // null when nothing is in flight
   _primed = false;
   return primeBootstrap();
 }

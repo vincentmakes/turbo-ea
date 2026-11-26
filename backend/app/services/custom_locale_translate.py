@@ -37,7 +37,6 @@ from app.services.ai_service import call_llm
 logger = logging.getLogger("turboea.custom_locales")
 
 MAX_CONSECUTIVE_FAILURES = 3
-ATTEMPTS_PER_CHUNK = 2
 
 #: Running job tasks by locale code, and the codes whose cancel was asked for.
 _TASKS: dict[str, asyncio.Task] = {}
@@ -90,7 +89,7 @@ def select_work(
     items: list[WorkItem] = []
     for name, view in views.items():
         ns, strings, meta = view.ns, view.strings, view.meta
-        for key in [*ns.strings, *lp.extra_keys(ns, strings)]:
+        for key, source_key in lp.keys_with_source(ns, strings):
             status = lp.key_status(ns, key, strings, meta)
             if mode == "missing":
                 if status not in (lp.STATUS_MISSING, lp.STATUS_STALE):
@@ -105,7 +104,7 @@ def select_work(
                 WorkItem(
                     namespace=name,
                     key=key,
-                    english=ns.source_text(key) or "",
+                    english=ns.strings[source_key],
                     current=value if isinstance(value, str) else None,
                 )
             )
@@ -123,6 +122,18 @@ def chunks_of(items: list[WorkItem]) -> list[list[WorkItem]]:
     return out
 
 
+def _ids(chunk: list[WorkItem]) -> list[str]:
+    """The numeric ids a chunk is sent with: 1-based positions."""
+    return [str(position) for position, _item in enumerate(chunk, start=1)]
+
+
+def is_plural_form(key: str) -> bool:
+    """Whether ``key`` is a plural form other than ``_other`` — one that may
+    drop ``{{count}}`` (``language_pack.Namespace.is_plural``)."""
+    parts = lp.plural_parts(key)
+    return parts is not None and parts[1] != "other"
+
+
 def accept_answer(
     chunk: list[WorkItem], answer: Any
 ) -> tuple[dict[str, str], dict[str, str | None], int]:
@@ -132,16 +143,15 @@ def accept_answer(
     a validated translation, ``expected`` maps the same keys to the value they
     held when the job read them (the merge only writes a key nobody changed
     since); everything missing or refused counts as failed."""
-    ids = [str(i) for i in range(1, len(chunk) + 1)]
-    answers = lp.answer_map(answer, ids)
+    answers = lp.answer_map(answer, _ids(chunk))
     translations: dict[str, str] = {}
     expected: dict[str, str | None] = {}
     failed = 0
-    for ident, item in zip(ids, chunk, strict=True):
-        value = answers.get(ident)
+    for position, item in enumerate(chunk, start=1):
+        value = answers.get(str(position))
         if isinstance(value, str):
             value = value.strip()
-        if lp.validate_value(item.english, value) is not None:
+        if lp.validate_value(item.english, value, plural=is_plural_form(item.key)) is not None:
             failed += 1
             continue
         translations[item.key] = value  # type: ignore[assignment]
@@ -270,28 +280,32 @@ def failure_detail(exc: Exception) -> str:
     return f"Unexpected error ({type(exc).__name__})."
 
 
+def _log_failure(exc: Exception) -> None:
+    logger.warning("Translation call failed: %s", exc)
+
+
 async def _ask(ai_cfg: Mapping[str, Any], messages: list[dict[str, str]]) -> Any:
     """One call, retried once after :data:`RETRY_DELAY`; :class:`ProviderFailedError`
     when both raise."""
-    last: Exception | None = None
-    for attempt in range(ATTEMPTS_PER_CHUNK):
-        if attempt:
-            await asyncio.sleep(RETRY_DELAY)
-        try:
-            return await _call(ai_cfg, messages)
-        except Exception as exc:  # a provider error of any kind
-            last = exc
-            logger.warning("Translation call failed: %s", exc)
-    raise ProviderFailedError(last)  # type: ignore[arg-type]
+    try:
+        return await _call(ai_cfg, messages)
+    except Exception as exc:  # a provider error of any kind
+        _log_failure(exc)
+    await asyncio.sleep(RETRY_DELAY)
+    try:
+        return await _call(ai_cfg, messages)
+    except Exception as exc:
+        _log_failure(exc)
+        raise ProviderFailedError(exc) from exc
 
 
 def answer_is_unusable(chunk: list[WorkItem], answer: Any) -> bool:
     """An answer that is empty or misses most ids — unparsable or cut off at
     the provider's output limit — rather than a few refused strings."""
-    ids = [str(i) for i in range(1, len(chunk) + 1)]
+    ids = _ids(chunk)
     answers = lp.answer_map(answer, ids)
     present = sum(1 for i in ids if isinstance(answers.get(i), str))
-    return present * 2 < len(chunk) or not answers
+    return present * 2 < len(chunk)
 
 
 async def translate_chunk(
@@ -378,7 +392,7 @@ async def run_job(
         )
     finally:
         if _TASKS.get(code) is asyncio.current_task():
-            _TASKS.pop(code, None)
+            del _TASKS[code]
             _CANCELLED.discard(code)
 
 

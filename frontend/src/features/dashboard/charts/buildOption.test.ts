@@ -518,6 +518,11 @@ describe("heatmap", () => {
     expect(o.tooltip.formatter({ value: [1, 0, 4] })).toBe("L:B · Y:p: 4");
   });
 
+  it("names a cell outside the axes by the empty key", () => {
+    const o = opt("heatmap", CELLS, { labels: (k) => `L:${k}<`, labels2: (k) => `Y:${k}<` });
+    expect(o.tooltip.formatter({ value: [9, 9, 4] })).toBe("L:&lt; · Y:&lt;: 4");
+  });
+
   it("escapes the axis labels in its HTML tooltip", () => {
     const o = opt("heatmap", CELLS, { labels: (k) => `<b>${k}`, labels2: (k) => `"${k}"&` });
     expect(o.tooltip.formatter({ value: [1, 0, 4] })).toBe("&lt;b&gt;B · &quot;p&quot;&amp;: 4");
@@ -587,6 +592,14 @@ describe("sankey", () => {
       "L:A → L:B: 2",
     );
     expect(o.tooltip.formatter({ dataType: "node", name: "s:A", value: 3 })).toBe("L:A: 3");
+  });
+
+  it("names an edge or node it does not know by nothing at all", () => {
+    const o = opt("sankey", FLOWS);
+    expect(o.tooltip.formatter({ dataType: "edge", value: 1, data: {} })).toBe(" → : 1");
+    expect(o.tooltip.formatter({ dataType: "edge", value: 1, data: { source: "s:A" } })).toBe("L:A → : 1");
+    expect(o.tooltip.formatter({ dataType: "node", value: 3 })).toBe(": 3");
+    expect(o.tooltip.formatter({ dataType: "node", name: "x:nope", value: 3 })).toBe(": 3");
   });
 
   it("escapes the names in its HTML tooltip", () => {

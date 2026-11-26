@@ -414,13 +414,19 @@ def heal_row(
     return True
 
 
+def _natural(section: EntitySection, row: dict[str, Any]) -> tuple[Any, ...]:
+    """The row's natural-key values (``()`` for a section without one, which
+    has no natural index to look it up in)."""
+    return tuple(row.get(column) for column in section.natural_key)
+
+
 def _rewrite_parents(
     section: EntitySection, kwargs: dict[str, Any], matched: dict[str, dict[Any, Any]]
 ) -> str | None:
     """Point each ``parent_columns`` FK at the target row its parent was
     matched to; the reason to refuse the row when its parent was refused."""
     for col, parent in section.parent_columns:
-        parents = matched.get(parent, {})
+        parents = matched.get(parent) or {}
         value = kwargs.get(col)
         if value in parents:
             if parents[value] is None:
@@ -536,8 +542,9 @@ async def apply_entity_section(
             sr.failed += 1
             continue
         current = existing_by_pk.get(pk_vals)
-        if current is None and section.natural_key:
-            current = existing_by_natural.get(tuple(kwargs.get(c) for c in section.natural_key))
+        if current is None:
+            # Not there by id: maybe by natural key (``EntitySection.natural_key``).
+            current = existing_by_natural.get(_natural(section, kwargs))
             if current is not None and len(pk_vals) == 1:
                 own_matches[pk_vals[0]] = getattr(current, pk_cols[0])
         if current is not None:
@@ -556,6 +563,6 @@ async def apply_entity_section(
         db.add(obj)
         existing_by_pk[pk_vals] = obj
         if section.natural_key:
-            existing_by_natural[tuple(kwargs.get(c) for c in section.natural_key)] = obj
+            existing_by_natural[_natural(section, kwargs)] = obj
         sr.created += 1
     await db.flush()

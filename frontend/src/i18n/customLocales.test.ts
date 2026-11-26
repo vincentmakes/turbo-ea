@@ -579,3 +579,79 @@ describe("preloadDetectedLocale — a slow load that then fails", () => {
     await vi.waitFor(() => expect(i18n.language).toBe("en"));
   });
 });
+
+describe("mutation pins — loader and switches", () => {
+  it("reuses a loaded bundle when the registry no longer knows the language", async () => {
+    mockApi.on("get", "/custom-locales/rg-gone/bundle", bundle("rg-gone"));
+    await ensureLocaleLoaded("rg-gone");
+    forgetCustomLocale("rg-gone");
+    await expect(ensureLocaleLoaded("rg-gone")).resolves.toBe(true);
+    expect(bundleCalls("rg-gone")).toHaveLength(1);
+  });
+
+  it("forgets a language that was never loaded without complaint", () => {
+    expect(() => forgetLoadedLocale("never-loaded")).not.toThrow();
+  });
+
+  it("does not reload a built-in language even when it is the active one", async () => {
+    await i18n.changeLanguage("de");
+    const spy = vi.spyOn(i18n, "changeLanguage");
+    await expect(refreshCustomLocale("de")).resolves.toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+    expect(mockApi.calls).toHaveLength(0);
+  });
+
+  it("applies a built-in language at once, before any await", () => {
+    void setAppLanguage("de");
+    expect(i18n.language).toBe("de");
+  });
+
+  it("makes a refresh of the active language wait out a stale request and read again", async () => {
+    await i18n.changeLanguage("stale-x");
+    const first = deferred<unknown>();
+    mockApi.on("get", "/custom-locales/stale-x/bundle", () => first.promise);
+    const pending = ensureLocaleLoaded("stale-x");
+    const refreshed = refreshCustomLocale("stale-x");
+    mockApi.on("get", "/custom-locales/stale-x/bundle", {
+      ...bundle("stale-x"),
+      resources: { common: { "actions.save": "new" } },
+    });
+    first.resolve({ ...bundle("stale-x"), resources: { common: { "actions.save": "old" } } });
+    await pending;
+    await expect(refreshed).resolves.toBe(true);
+    expect(bundleCalls("stale-x")).toHaveLength(2);
+    expect(i18n.t("actions.save", { lng: "stale-x" })).toBe("new");
+  });
+
+  it("leaves no timer behind once the stored language loaded in time", async () => {
+    await i18n.changeLanguage("tm-ok");
+    mockApi.on("get", "/custom-locales/tm-ok/bundle", bundle("tm-ok"));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      await preloadDetectedLocale();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("holds the first render until the stored language is applied", async () => {
+    await i18n.changeLanguage("hold-x");
+    mockApi.on("get", "/custom-locales/hold-x/bundle", bundle("hold-x"));
+    const applied = deferred<void>();
+    const spy = vi.spyOn(i18n, "changeLanguage").mockImplementation(async () => {
+      await applied.promise;
+      return i18n.t;
+    });
+    let done = false;
+    const preload = preloadDetectedLocale().then(() => {
+      done = true;
+    });
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith("hold-x"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(done).toBe(false);
+    applied.resolve();
+    await preload;
+    expect(done).toBe(true);
+  });
+});

@@ -78,6 +78,7 @@ describe("ImportPackDialog", () => {
     expect(screen.getByText(t("customLocales.import.title", { name: "עברית" }))).toBeInTheDocument();
     expect(importButton()).toBeDisabled();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("opens the file picker from the button", async () => {
@@ -214,6 +215,7 @@ describe("ImportPackDialog", () => {
     pick(packText());
     await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 3, namespaces: 2 }));
     expect(screen.queryByText(t("customLocales.import.invalidJson"))).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(importButton()).toBeEnabled();
   });
 
@@ -404,6 +406,79 @@ describe("ImportPackDialog", () => {
     await screen.findByTestId("import-report");
     expect(screen.getAllByText("brand_new_reason")).toHaveLength(100);
     expect(screen.queryByText(/and \d+ more/)).not.toBeInTheDocument();
+  });
+
+  it("forgets the previous pack when a bad file is picked after a good one", async () => {
+    renderDialog();
+    pick(packText());
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 3, namespaces: 2 }));
+    pick("{oops");
+    await screen.findByText(t("customLocales.import.invalidJson"));
+    expect(screen.queryByText(/he\.json/)).toBeNull();
+    expect(importButton()).toBeDisabled();
+  });
+
+  it("drops the picked pack, with no error, when the picker is cancelled", async () => {
+    renderDialog();
+    pick(packText());
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 3, namespaces: 2 }));
+    fireEvent.change(screen.getByTestId("language-pack-input"), { target: { files: [] } });
+    // Picking nothing clears the old pack and reports no error.
+    await waitFor(() => expect(screen.queryByText(/he\.json/)).toBeNull());
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(importButton()).toBeDisabled();
+  });
+
+  it("starts over — report gone, bar back at 0 — when another file is picked after an import", async () => {
+    mockApi.on("post", STRINGS_PATH, result({ applied: 1 }));
+    const { user } = renderDialog();
+    pick(packText({ strings: { common: { a: "b" } } }));
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 1, namespaces: 1 }));
+    await user.click(importButton());
+    await screen.findByTestId("import-report");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
+
+    pick(packText({ strings: { common: { a: "c" } } }), "second.json");
+    await screen.findByText(t("customLocales.import.summary", { file: "second.json", count: 1, namespaces: 1 }));
+    expect(screen.queryByTestId("import-report")).toBeNull();
+    let release!: (v: unknown) => void;
+    mockApi.on("post", STRINGS_PATH, () => new Promise((r) => (release = r)));
+    await user.click(importButton());
+    await waitFor(() => expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0"));
+    release(result({ applied: 1 }));
+    await screen.findByTestId("import-report");
+  });
+
+  it("counts a reply with no body as nothing applied, not as a failure", async () => {
+    mockApi.on("post", STRINGS_PATH, undefined);
+    const { user } = renderDialog();
+    pick(packText());
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 3, namespaces: 2 }));
+    await user.click(importButton());
+    const report = await screen.findByTestId("import-report");
+    expect(
+      within(report).getByText(
+        t("customLocales.import.result", { applied: 0, unchanged: 0, cleared: 0, rejected: 0, unknown: 0 }),
+      ),
+    ).toBeInTheDocument();
+    expect(within(report).getAllByRole("alert")).toHaveLength(1);
+    expect(within(report).getByRole("alert")).toHaveClass("MuiAlert-standardSuccess");
+  });
+
+  it("says the request failed when an error carries an empty message", async () => {
+    mockApi.on("post", STRINGS_PATH, () => Promise.reject(new Error("")));
+    const { user } = renderDialog();
+    pick(packText({ strings: { common: { a: "b" } } }));
+    await screen.findByText(t("customLocales.import.summary", { file: "he.json", count: 1, namespaces: 1 }));
+    await user.click(importButton());
+    expect(
+      await screen.findByText(
+        t("customLocales.import.namespaceFailed", {
+          namespace: "common",
+          message: t("customLocales.import.requestFailed"),
+        }),
+      ),
+    ).toBeInTheDocument();
   });
 
   it("closes on Close", async () => {

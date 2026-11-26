@@ -4,8 +4,24 @@
  * `cards:detail.dialogs.archive.confirm`, which the archive dialog renders
  * through `dangerouslySetInnerHTML`.
  */
-import { describe, expect, it } from "vitest";
-import { englishSource, flattenStrings, gateResources, isSafeTranslation } from "./translationGate";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+type Gate = typeof import("./translationGate");
+let gate: Gate;
+
+// The patterns are module-level constants: load the module fresh for every
+// test, so a mutation of one is evaluated here rather than credited to
+// whichever test first imported the module.
+beforeEach(async () => {
+  vi.resetModules();
+  gate = await import("./translationGate");
+});
+
+const isSafeTranslation = (...args: Parameters<Gate["isSafeTranslation"]>) =>
+  gate.isSafeTranslation(...args);
+const flattenStrings = (...args: Parameters<Gate["flattenStrings"]>) => gate.flattenStrings(...args);
+const englishSource = (...args: Parameters<Gate["englishSource"]>) => gate.englishSource(...args);
+const gateResources = (...args: Parameters<Gate["gateResources"]>) => gate.gateResources(...args);
 
 const ARCHIVE = "Are you sure you want to archive <strong>{{name}}</strong>?";
 
@@ -75,6 +91,27 @@ describe("isSafeTranslation — accepted", () => {
     expect(isSafeTranslation("See $t(common:items)", "Voir $t(common:items) $t(x)")).toBe(false);
   });
 
+  it("accepts a bare less-than right before a tag English has", () => {
+    // Removing English's own tags must not glue a "<" onto a letter.
+    expect(isSafeTranslation(ARCHIVE, "<<strong>{{name}}</strong>?")).toBe(true);
+  });
+
+  it("strips every one of English's tags, not just the first", () => {
+    expect(isSafeTranslation("<b>a</b> and <i>b</i>", "<i>ב</i> ו<b>א</b>")).toBe(true);
+    expect(isSafeTranslation("<strong>{{a}}</strong> <strong>{{b}}</strong>", "<strong>{{b}}</strong>, <strong>{{a}}</strong>")).toBe(true);
+  });
+
+  it("keeps a tag English has only when it is the whole token", () => {
+    expect(isSafeTranslation("<strong>x</strong>", "<strongx>y</strong>")).toBe(false);
+  });
+
+  it("counts nestings and braces exactly, not just their presence", () => {
+    expect(isSafeTranslation("$t(a) $t(b)", "$t(a)")).toBe(false);
+    expect(isSafeTranslation("$t(a)", "$t(a) $t(a)")).toBe(false);
+    expect(isSafeTranslation("{{a}} {{b}}", "{{a}} {{b}} }}")).toBe(false);
+    expect(isSafeTranslation("{{a}}", "{{a}} {{b}}")).toBe(true);
+  });
+
   it("accepts balanced braces and plain text", () => {
     expect(isSafeTranslation("{{count}} items", "{{count}} פריטים")).toBe(true);
     expect(isSafeTranslation("Save", "שמור")).toBe(true);
@@ -125,6 +162,18 @@ describe("englishSource", () => {
     expect(englishSource("save_few", english)).toBeUndefined();
     expect(englishSource("items_several", english)).toBeUndefined();
   });
+
+  it("takes a plural category only as the key's last part", () => {
+    // `items_oneself` is not a plural of `items`.
+    expect(englishSource("items_oneself", english)).toBeUndefined();
+    expect(englishSource("items_fewer", english)).toBeUndefined();
+  });
+
+  it("finds the _other sibling of a base with several parts", () => {
+    const nested = new Map([["dashboard.trend.vsDays_other", "vs {{count}} days"]]);
+    expect(englishSource("dashboard.trend.vsDays_few", nested)).toBe("vs {{count}} days");
+    expect(englishSource("a_b_few", new Map([["a_b_other", "x"]]))).toBe("x");
+  });
 });
 
 describe("gateResources", () => {
@@ -150,6 +199,16 @@ describe("gateResources", () => {
   it("matches a flat dotted key against a nested English path", () => {
     const english = flattenStrings({ login: { title: "Sign in" } });
     expect(gateResources({ "login.title": "התחברות" }, english)).toEqual({ "login.title": "התחברות" });
+  });
+
+  it("drops a null value instead of descending into it", () => {
+    const english = flattenStrings({ login: { title: "Sign in" }, save: "Save" });
+    expect(gateResources({ login: null, save: "שמור" }, english)).toEqual({ save: "שמור" });
+  });
+
+  it("drops a list instead of descending into it", () => {
+    const english = flattenStrings({ save: "Save" });
+    expect(gateResources({ save: ["שמור"] }, english)).toEqual({});
   });
 
   it("drops a branch whose strings were all refused", () => {

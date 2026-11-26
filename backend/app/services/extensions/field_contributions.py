@@ -119,15 +119,13 @@ def merge_group_locales(stored: Any, manifest: Any, keep: AbstractSet[str] = fro
 
 
 def keep_stored_locales(
-    stored: Any,
-    fresh: dict,
-    keep: AbstractSet[str] = frozenset(),
-    maps: tuple[str, ...] = _FIELD_LOCALE_MAPS,
+    stored: Any, fresh: dict, keep: AbstractSet[str], maps: tuple[str, ...]
 ) -> dict:
     """``fresh`` (a manifest definition) with the custom-language locales
-    (``keep``) that ``stored`` (the definition on the instance) carries in its
-    locale maps and ``fresh`` does not; option labels are merged per option
-    key the same way."""
+    (``keep``) that ``stored`` (the definition on the instance) carries in the
+    locale maps named by ``maps`` (``_FIELD_LOCALE_MAPS`` for a field, just
+    ``translations`` for an option or a subtype) and ``fresh`` does not;
+    option labels are merged per option key the same way."""
     if not isinstance(stored, Mapping) or not keep:
         return fresh
     out = dict(fresh)
@@ -327,7 +325,7 @@ def _resynced_at(current: dict, fresh: dict, keep: AbstractSet[str] = frozenset(
     manifest's — the manifest's column and group name its own section."""
     out = {k: v for k, v in fresh.items() if k not in _LAYOUT_PROPS}
     out.update({k: current[k] for k in _LAYOUT_PROPS if k in current})
-    return keep_stored_locales(current, out, keep)
+    return keep_stored_locales(current, out, keep, _FIELD_LOCALE_MAPS)
 
 
 def _manifest_field_keys(contributions: list, type_key: str) -> set[str]:
@@ -496,7 +494,10 @@ async def apply_field_contributions(
             for f in target.get("fields", [])
             if isinstance(f, dict) and f.get("ext") == ext_key
         }
-        own_fields = [keep_stored_locales(stored_own.get(f["key"]), f, keep) for f in own_fields]
+        own_fields = [
+            keep_stored_locales(stored_own.get(f["key"]), f, keep, _FIELD_LOCALE_MAPS)
+            for f in own_fields
+        ]
         target["fields"] = kept + own_fields
 
         ct.fields_schema = schema

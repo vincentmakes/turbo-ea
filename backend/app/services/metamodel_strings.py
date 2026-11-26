@@ -470,7 +470,6 @@ def namespace_of(items: Iterable[Entry]) -> MetamodelNamespace:
     return MetamodelNamespace(
         name=NAMESPACE,
         strings=strings,
-        paths={k: (k,) for k in strings},
         hashes={k: lp.source_hash(v) for k, v in strings.items()},
     )
 
@@ -495,7 +494,8 @@ def _prune_empty(data: Any, path: tuple[Any, ...]) -> None:
         parent: Any = data
         for step in path[: depth - 1]:
             parent = parent[step]
-        child = parent.get(part) if isinstance(parent, dict) else None
+        # A string step always addresses a dict: the slot was built from it.
+        child = parent.get(part)
         if not (isinstance(child, dict) and not child):
             return
         del parent[part]
@@ -514,9 +514,8 @@ def _write_slot(obj: Any, slot: Slot, code: str, value: str | None) -> bool:
     if data is None:
         data = {}
     node: Any = data
-    for depth, part in enumerate(slot.path):
-        leads_to_index = depth + 1 < len(slot.path) and isinstance(slot.path[depth + 1], int)
-        if isinstance(part, int) or leads_to_index:
+    for part, following in zip(slot.path, (*slot.path[1:], None)):
+        if isinstance(part, int) or isinstance(following, int):
             # A list element, or the list holding it (a section's ``fields``,
             # a field's ``options``): it exists, the slot was built from it.
             node = node[part]
@@ -527,7 +526,8 @@ def _write_slot(obj: Any, slot: Slot, code: str, value: str | None) -> bool:
             node[part] = child
         node = child
     if value is None:
-        node.pop(code, None)
+        # ``before`` was a value, so the code is there to remove.
+        del node[code]
         _prune_empty(data, slot.path)
     else:
         node[code] = value
@@ -581,13 +581,11 @@ async def apply(
         return lifecycle
     targets = {id(obj): obj for obj, slot in snap.slots() if slot.key in wanted}
     await _lock(db, targets.values())
-    touched = False
     for obj in targets.values():
         for slot in _SLOTS[type(obj)](record_view(obj)):
             if slot.key in wanted:
-                touched |= _write_slot(obj, slot, code, wanted[slot.key])
-    if touched:
-        await db.flush()
+                _write_slot(obj, slot, code, wanted[slot.key])
+    await db.flush()
     return lifecycle
 
 

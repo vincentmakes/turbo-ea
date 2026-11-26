@@ -104,11 +104,11 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
 
   // Saving the last row of the last page shrinks the total under the page:
   // step back to the last page that still has rows.
+  const lastPage = Math.max(0, Math.ceil(total / pageSize) - 1);
   useEffect(() => {
-    if (data && page > 0 && page * pageSize >= data.total) {
-      setPage(Math.max(0, Math.ceil(data.total / pageSize) - 1));
-    }
-  }, [data, page, pageSize]);
+    // Stryker disable next-line EqualityOperator: at page === lastPage the clamp sets the page it already has
+    if (page > lastPage) setPage(lastPage);
+  }, [page, lastPage]);
 
   const write = async (row: CustomLocaleString, value: string | null) => {
     setSaving(true);
@@ -126,6 +126,7 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
         return;
       }
       setEditing(null);
+      // Stryker disable next-line ArithmeticOperator: the key only has to differ from the last one
       setRefetchKey((n) => n + 1);
       onChanged(row.namespace);
     } catch (e) {

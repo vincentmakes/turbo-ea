@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Text, cast, func, select, update
+from sqlalchemy import Text, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import APP_VERSION
@@ -151,13 +151,14 @@ class View:
     shareable: frozenset[str] = field(default_factory=frozenset)
 
 
-def metamodel_view(snap: mm.Snapshot, code: str, rows: Mapping[str, CustomLocaleString]) -> View:
+def metamodel_view(snap: mm.Snapshot, code: str, row: CustomLocaleString | None) -> View:
     """The ``metamodel`` namespace of ``code``. A label that holds a value
     under the code but has no ``meta`` entry was written by someone else (the
     field editor, an extension manifest, a workspace import): it reads as a
     current manual translation — never as stale, or the next AI run would
     overwrite it — and that meta is stored on the next write."""
-    pack_strings, meta = _stored(rows, METAMODEL)
+    pack_strings = dict(row.strings or {}) if row is not None else {}
+    meta = dict(row.meta or {}) if row is not None else {}
     items = mm.entries(snap, code, pack_strings)
     ns = mm.namespace_of(items)
     strings = mm.values_of(items)
@@ -185,7 +186,7 @@ def build_views(
     wanted = set(names) if names is not None else None
     out: dict[str, View] = {}
     if snap is not None and (wanted is None or METAMODEL in wanted):
-        out[METAMODEL] = metamodel_view(snap, code, rows)
+        out[METAMODEL] = metamodel_view(snap, code, rows.get(METAMODEL))
     if cat is None:
         return out
     for name, ns in cat.namespaces.items():
@@ -425,7 +426,7 @@ async def bootstrap_payload(
 
 
 def bundle_resources(
-    cat: lp.Catalog | None, rows: Mapping[str, CustomLocaleString], code: str = ""
+    cat: lp.Catalog | None, rows: Mapping[str, CustomLocaleString], code: str
 ) -> dict[str, dict[str, Any]]:
     """``{namespace: resource}`` of the UI namespaces, every value re-checked
     by the validator (``language_pack.servable``). Without the English
@@ -462,7 +463,7 @@ def bundle_body(
         "hash": tag,
         "resources": bundle_resources(cat, rows, locale.code),
     }
-    return json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    return json.dumps(payload, ensure_ascii=False).encode()
 
 
 class BundleCache:
@@ -486,7 +487,7 @@ class BundleCache:
         self._entries[(code, tag)] = body
         self._entries.move_to_end((code, tag))
         while len(self._entries) > self.size:
-            self._entries.popitem(last=False)
+            del self._entries[next(iter(self._entries))]
 
     def clear(self) -> None:
         self._entries.clear()
@@ -539,7 +540,7 @@ async def locked_row(
         )
     ).scalar_one_or_none()
     if row is None and create:
-        row = CustomLocaleString(locale_id=locale.id, namespace=namespace, strings={}, meta={})
+        row = CustomLocaleString(locale_id=locale.id, namespace=namespace)
         db.add(row)
         await db.flush()
     return row
@@ -616,35 +617,29 @@ async def _merge_metamodel(
 ) -> lp.MergeResult:
     row = await locked_row(db, locale, METAMODEL, create=not dry_run)
     snap = await mm.load(db)
-    rows = {METAMODEL: row} if row is not None else {}
-    view = metamodel_view(snap, locale.code, rows)
+    view = metamodel_view(snap, locale.code, row)
     split = source_changed(view, entries, hashes, origin=origin)
+    # No source hashes here: ``source_changed`` has refused every value whose
+    # hash differs, so what is left is stored with the current English hash.
     merged = lp.merge_strings(
-        view.ns,
-        view.strings,
-        view.meta,
-        split.kept,
-        origin=origin,
-        source_hashes=hashes,
-        expected=expected,
+        view.ns, view.strings, view.meta, split.kept, origin=origin, expected=expected
     )
     merged.rejected = [*split.refused, *merged.rejected]
     merged.unchanged += split.unchanged
     if not dry_run and row is not None:
         await mm.apply(db, locale.code, label_changes(view.strings, merged.strings), snap)
-        pack_strings = {k: v for k, v in merged.strings.items() if k in snap.lifecycle}
-        if pack_strings != (row.strings or {}):
-            row.strings = pack_strings
-        if merged.meta != (row.meta or {}):
-            row.meta = merged.meta
+        # Reassigned whatever they hold: an equal value is not an UPDATE.
+        row.strings = {k: v for k, v in merged.strings.items() if k in snap.lifecycle}
+        row.meta = merged.meta
     return merged
 
 
 def _unknown_namespace(namespace: str, entries: Any) -> lp.MergeResult:
     """A namespace English does not have: every key in it is unknown."""
-    result = lp.MergeResult(strings={}, meta={})
-    for key in entries if isinstance(entries, Mapping) else ():
-        result.add_unknown(namespace, key)
+    result = lp.MergeResult()
+    if isinstance(entries, Mapping):
+        for key in entries:
+            result.add_unknown(namespace, key)
     return result
 
 
@@ -668,7 +663,7 @@ async def apply_strings(
     The locale's row is locked first and the namespaces are merged in sorted
     order, so two writers can neither both create a namespace row nor lock
     two rows in opposite orders."""
-    totals = lp.MergeResult(strings={}, meta={})
+    totals = lp.MergeResult()
     hashes = source_hashes or {}
     await lock_locale(db, locale)
     for namespace in sorted(payload):
@@ -708,17 +703,15 @@ async def apply_strings(
                 if merged.meta != meta:
                     row.meta = merged.meta
         totals.add(merged)
-    if not dry_run:
-        await db.flush()
     return totals.report()
 
 
 async def reset_users(db: AsyncSession, code: str) -> int:
     """Set every user whose locale is ``code`` back to English; return how many."""
-    result = await db.execute(
-        update(User).where(User.locale == code).values(locale="en").returning(User.id)
-    )
-    return len(result.all())
+    users = list((await db.execute(select(User).where(User.locale == code))).scalars())
+    for user in users:
+        user.locale = "en"
+    return len(users)
 
 
 async def mark_interrupted_jobs(db: AsyncSession) -> int:
