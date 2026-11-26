@@ -348,6 +348,49 @@ class TestStageRelations:
         _, stats, rows = await self._staged(db, env, snap)
         assert stats["skip"] == 1 and rows["rel-4"].action == "skip"
 
+    async def test_a_relation_lifecycle_is_staged_and_diffed(self, db, env):
+        app = await create_card(
+            db, card_type="Application", name="Salesforce", user_id=env["admin"].id
+        )
+        org = await create_card(
+            db, card_type="Organization", name="Sales EMEA", user_id=env["admin"].id
+        )
+        db.add(_identity("app-1", app.id))
+        db.add(_identity("org-1", org.id))
+        db.add(
+            RelationModel(
+                type="relOrgToApp",
+                source_id=org.id,
+                target_id=app.id,
+                attributes={"usageType": "owner"},
+                lifecycle={"active": "2020-01-01"},
+            )
+        )
+        await db.flush()
+        snap = sample_snapshot()
+        snap.relations = [r for r in snap.relations if r.source_id == "rel-4"]
+
+        # The source sends no dates: nothing to change, the stored ones stay.
+        _, stats, rows = await self._staged(db, env, snap)
+        assert stats["skip"] == 1 and rows["rel-4"].source_data["lifecycle"] == {}
+
+        # It sends the same dates: still a skip.
+        snap.relations[0].lifecycle = {"active": "2020-01-01"}
+        _, stats, rows = await self._staged(db, env, snap)
+        assert stats["skip"] == 1
+
+        # It sends other dates: an update naming the old and the new.
+        snap.relations[0].lifecycle = {"active": "2020-01-01", "endOfLife": "2030-06-30"}
+        _, stats, rows = await self._staged(db, env, snap)
+        assert stats["update"] == 1
+        assert rows["rel-4"].diff == {
+            "lifecycle": {
+                "old": {"active": "2020-01-01"},
+                "new": {"active": "2020-01-01", "endOfLife": "2030-06-30"},
+            }
+        }
+        assert rows["rel-4"].source_data["lifecycle"] == snap.relations[0].lifecycle
+
 
 class TestStageTags:
     async def test_groups_tags_and_links(self, db, env):

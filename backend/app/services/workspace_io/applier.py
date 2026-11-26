@@ -835,6 +835,10 @@ async def _apply_relation_types(
     # what the API (metamodel.py) and the platform-migration importer accept.
     for row in bundle.rows(schema.SHEET_RELATION_TYPES):
         data = _coerce(row, exp.RELATION_TYPE_COLUMNS, exp.RELATION_TYPE_JSON)
+        # An empty ``lifecycle_enabled`` cell (a hand-built sheet) says nothing
+        # about the switch: it must not write NULL into a NOT NULL column.
+        if data.get("lifecycle_enabled") is None:
+            data.pop("lifecycle_enabled", None)
         key = data.get("key")
         if not key:
             sr.failed += 1
@@ -1527,6 +1531,9 @@ async def _apply_relations(
             target_id=target_id,
             description=data.get("description"),
             attributes=data.get("attributes") or {},
+            # A bundle written before relations carried dates has no
+            # lifecycle column: always in effect, as the row was there.
+            lifecycle=data.get("lifecycle") or {},
         )
         db.add(relation)
         existing[key] = relation.id

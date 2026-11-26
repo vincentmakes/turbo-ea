@@ -668,3 +668,88 @@ def test_parse_xlsx_path_loads_workbook_regardless_of_extension(tmp_path) -> Non
     snap = parse_xlsx_path(str(wb_path))
     assert snap.version == "xlsx"
     assert len(snap.entities) == 3
+
+
+def _validity_workbook(active_from, active_until) -> Workbook:
+    """One Application, one Business Capability and one relation between them
+    carrying LeanIX's ``activeFrom`` / ``activeUntil`` validity columns."""
+    wb = Workbook()
+    _write_sheet(
+        wb,
+        "Application",
+        [
+            ["id", "type", "name", "displayName", "status"],
+            ["ID", "Type", "Name", "Display Name", "Status"],
+            ["fs-app", "Application", "ERP", "ERP", "ACTIVE"],
+        ],
+    )
+    _write_sheet(
+        wb,
+        "BusinessCapability",
+        [
+            ["id", "type", "name", "displayName", "status"],
+            ["ID", "Type", "Name", "Display Name", "Status"],
+            ["fs-bc", "BusinessCapability", "Finance", "Finance", "ACTIVE"],
+        ],
+    )
+    _write_sheet(
+        wb,
+        "applicationBusinessCapability",
+        [
+            [
+                "id",
+                "type",
+                "fromRelatedFactSheetDisplayName",
+                "fromRelatedFactSheetType",
+                "toRelatedFactSheetDisplayName",
+                "toRelatedFactSheetType",
+                "status",
+                "activeFrom",
+                "activeUntil",
+            ],
+            ["ID", "Type", "From", "From Type", "To", "To Type", "Status", "From", "Until"],
+            [
+                "rel-valid",
+                "applicationBusinessCapabilityRelation",
+                "ERP",
+                "Application",
+                "Finance",
+                "BusinessCapability",
+                "ACTIVE",
+                active_from,
+                active_until,
+            ],
+        ],
+    )
+    return wb
+
+
+def test_relation_validity_window_becomes_its_lifecycle() -> None:
+    """``activeFrom`` → ``active`` and ``activeUntil`` → ``endOfLife``; neither
+    lands among the relation's attributes."""
+    snap = parse_xlsx(_to_stream(_validity_workbook(datetime(2021, 3, 1), "2030-06-30")))
+    [rel] = snap.relations
+    assert rel.lifecycle == {"active": "2021-03-01", "endOfLife": "2030-06-30"}
+    assert "activeFrom" not in rel.attributes
+    assert "activeUntil" not in rel.attributes
+
+
+def test_relation_validity_accepts_iso_timestamps() -> None:
+    snap = parse_xlsx(_to_stream(_validity_workbook("2021-03-01T00:00:00Z", None)))
+    assert snap.relations[0].lifecycle == {"active": "2021-03-01"}
+
+
+def test_a_relation_without_a_validity_window_has_no_lifecycle() -> None:
+    snap = parse_xlsx(_to_stream(_validity_workbook(None, "")))
+    assert snap.relations[0].lifecycle == {}
+
+
+def test_an_unreadable_validity_date_is_left_out() -> None:
+    snap = parse_xlsx(_to_stream(_validity_workbook("someday", "2030-06-30")))
+    assert snap.relations[0].lifecycle == {"endOfLife": "2030-06-30"}
+
+
+def test_the_ordinary_relation_has_no_lifecycle() -> None:
+    snap = parse_xlsx(_to_stream(_minimal_workbook()))
+    rel = next(r for r in snap.relations if r.type == "applicationBusinessCapabilityRelation")
+    assert rel.lifecycle == {}

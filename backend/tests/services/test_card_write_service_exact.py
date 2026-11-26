@@ -1335,3 +1335,103 @@ async def test_a_dry_run_relation_is_written_but_not_announced(db, env, publishe
         dry_run=True,
     )
     assert published == []
+
+
+# ---------------------------------------------------------------------------
+# Relation lifecycle: replaced when provided, kept when omitted, `{}` clears
+# ---------------------------------------------------------------------------
+
+_STORED_LC = {"active": "2024-01-01"}
+
+
+@pytest.mark.parametrize(
+    "lifecycle,stored_after,changed",
+    [
+        (None, _STORED_LC, []),
+        ({"active": "2024-01-01"}, _STORED_LC, []),
+        ({"endOfLife": "2030-06-30"}, {"endOfLife": "2030-06-30"}, ["lifecycle"]),
+        ({}, {}, ["lifecycle"]),
+    ],
+)
+async def test_an_existing_relation_lifecycle_is_replaced_only_when_provided(
+    db, env, published, lifecycle, stored_after, changed
+):
+    app = await create_card(db, name="Billing")
+    itc = await create_card(db, card_type="ITComponent", name="Server")
+    existing = await create_relation(
+        db, source_id=app.id, target_id=itc.id, lifecycle=dict(_STORED_LC)
+    )
+    rel, reused, got = await svc.upsert_relation(
+        db,
+        env["actor"],
+        type_key="app_to_itc",
+        source_id=app.id,
+        target_id=itc.id,
+        lifecycle=lifecycle,
+    )
+    assert rel.id == existing.id and reused is True and got == changed
+    assert rel.lifecycle == stored_after
+    if changed:
+        assert [p["type"] for p in published] == ["relation.updated", "relation.updated"]
+        for event in published:
+            assert event["data"]["fields"] == ["lifecycle"]
+            assert event["data"]["changes"] == {
+                "lifecycle": {"old": _STORED_LC, "new": stored_after}
+            }
+        assert {p["card_id"] for p in published} == {app.id, itc.id}
+    else:
+        assert published == []
+
+
+async def test_a_new_relation_takes_its_lifecycle(db, env, published):
+    app = await create_card(db, name="Billing")
+    itc = await create_card(db, card_type="ITComponent", name="Server")
+    rel, reused, _ = await svc.upsert_relation(
+        db,
+        env["actor"],
+        type_key="app_to_itc",
+        source_id=app.id,
+        target_id=itc.id,
+        lifecycle={"plan": "2027-01-01", "active": "2027-06-01"},
+    )
+    assert reused is False
+    assert rel.lifecycle == {"plan": "2027-01-01", "active": "2027-06-01"}
+
+
+async def test_a_new_relation_without_a_lifecycle_stores_an_empty_one(db, env, published):
+    app = await create_card(db, name="Billing")
+    itc = await create_card(db, card_type="ITComponent", name="Server")
+    rel, _, _ = await svc.upsert_relation(
+        db, env["actor"], type_key="app_to_itc", source_id=app.id, target_id=itc.id
+    )
+    await db.refresh(rel)
+    assert rel.lifecycle == {}
+
+
+async def test_an_update_without_a_lifecycle_change_carries_no_changes(db, env, published):
+    app = await create_card(db, name="Billing")
+    itc = await create_card(db, card_type="ITComponent", name="Server")
+    await create_relation(db, source_id=app.id, target_id=itc.id)
+    await svc.upsert_relation(
+        db, env["actor"], type_key="app_to_itc", source_id=app.id, target_id=itc.id, description="d"
+    )
+    assert published[0]["data"]["fields"] == ["description"]
+    assert "changes" not in published[0]["data"]
+
+
+def test_relation_update_extra_shapes():
+    rel = Relation(type="t", lifecycle={"active": "2025-01-01"})
+    assert svc.relation_update_extra(["description"], {}, rel) == {"fields": ["description"]}
+    assert svc.relation_update_extra(["attributes", "lifecycle"], None, rel) == {
+        "fields": ["attributes", "lifecycle"],
+        "changes": {"lifecycle": {"old": {}, "new": {"active": "2025-01-01"}}},
+    }
+
+
+def test_merge_relation_fields_lists_the_lifecycle_last():
+    rel = Relation(type="t", attributes={}, description=None, lifecycle={})
+    changed = svc.merge_relation_fields(
+        rel, attributes={"a": 1}, description="d", lifecycle={"active": "2025-01-01"}
+    )
+    assert changed == ["attributes", "description", "lifecycle"]
+    assert rel.lifecycle == {"active": "2025-01-01"}

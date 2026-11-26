@@ -92,6 +92,7 @@ def _rel_to_response(
         target=target_ref,
         attributes=attrs,
         description=r.description,
+        lifecycle=dict(r.lifecycle or {}),
         created_at=r.created_at,
     )
 
@@ -329,6 +330,7 @@ async def create_relation(
         target_id=uuid.UUID(body.target_id),
         attributes=body.attributes,
         description=body.description,
+        lifecycle=body.lifecycle,
         preserve_attribute_keys=preserve,
     )
 
@@ -356,6 +358,11 @@ async def update_relation(
     if not rel or not await _relation_readable(db, user, rel):
         raise HTTPException(404, "Relation not found")
     update_data = body.model_dump(exclude_unset=True)
+    # ``lifecycle`` replaces the stored one only when it changes, and is never
+    # set to NULL (an explicit null means "leave it", like an omitted key);
+    # ``{}`` clears it. Its old and new values ride on the event.
+    new_lifecycle = update_data.pop("lifecycle", None)
+    lifecycle_before = dict(rel.lifecycle or {})
     # If the user lacks cost access on the source card, preserve any existing
     # cost-typed values on the relation. PATCH replaces `attributes` wholesale,
     # so we merge old cost values back into the incoming payload to prevent a
@@ -373,6 +380,9 @@ async def update_relation(
     changed_fields = sorted(update_data.keys())
     for field, value in update_data.items():
         setattr(rel, field, value)
+    if new_lifecycle is not None and new_lifecycle != lifecycle_before:
+        rel.lifecycle = new_lifecycle
+        changed_fields = sorted([*changed_fields, "lifecycle"])
 
     # Run calculated fields for both source and target cards, then rescore.
     source_card = await db.get(Card, rel.source_id)
@@ -392,7 +402,7 @@ async def update_relation(
             source_card=source_card,
             target_card=target_card,
             actor_id=user.id,
-            extra={"fields": changed_fields},
+            extra=card_write_service.relation_update_extra(changed_fields, lifecycle_before, rel),
         )
 
     await db.commit()
@@ -693,6 +703,7 @@ async def apply_relation_operations(
                         target_id=target_id,
                         attributes=op.attributes,
                         description=op.description,
+                        lifecycle=op.lifecycle,
                     )
                     await db.flush()
                     op_events.append(await _pending_event(db, "relation.created", rel))
@@ -708,11 +719,22 @@ async def apply_relation_operations(
                             attributes = keep_stored_cost_values(
                                 rel.attributes, attributes, cost_keys
                             )
+                    lifecycle_before = dict(rel.lifecycle or {})
                     if changed := card_write_service.merge_relation_fields(
-                        rel, attributes=attributes, description=op.description
+                        rel,
+                        attributes=attributes,
+                        description=op.description,
+                        lifecycle=op.lifecycle,
                     ):
                         op_events.append(
-                            await _pending_event(db, "relation.updated", rel, {"fields": changed})
+                            await _pending_event(
+                                db,
+                                "relation.updated",
+                                rel,
+                                card_write_service.relation_update_extra(
+                                    changed, lifecycle_before, rel
+                                ),
+                            )
                         )
 
                 op_impacted += [source_id, target_id]

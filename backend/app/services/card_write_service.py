@@ -1407,26 +1407,36 @@ def add_relation(
     target_id: uuid.UUID,
     attributes: dict | None,
     description: str | None,
+    lifecycle: dict | None = None,
 ) -> Relation:
-    """Stage a new relation row in the session (not flushed)."""
+    """Stage a new relation row in the session (not flushed).
+
+    ``lifecycle`` must already be validated (``normalize_relation_lifecycle``);
+    ``None`` stores an empty one — always in effect."""
     rel = Relation(
         type=type_key,
         source_id=source_id,
         target_id=target_id,
         attributes=attributes or {},
         description=description,
+        lifecycle=dict(lifecycle or {}),
     )
     db.add(rel)
     return rel
 
 
 def merge_relation_fields(
-    rel: Relation, *, attributes: dict | None, description: str | None
+    rel: Relation,
+    *,
+    attributes: dict | None,
+    description: str | None,
+    lifecycle: dict | None = None,
 ) -> list[str]:
     """Overwrite what the caller supplied on an existing relation.
 
-    ``None`` leaves a field alone; ``attributes`` replaces the whole dict.
-    Returns the fields whose value changed, in a fixed order.
+    ``None`` leaves a field alone; ``attributes`` and ``lifecycle`` each
+    replace the whole dict (``{}`` clears a lifecycle). Returns the fields
+    whose value changed, in a fixed order.
     """
     changed: list[str] = []
     if attributes is not None and attributes != (rel.attributes or {}):
@@ -1435,7 +1445,24 @@ def merge_relation_fields(
     if description is not None and description != rel.description:
         rel.description = description
         changed.append("description")
+    if lifecycle is not None and lifecycle != (rel.lifecycle or {}):
+        rel.lifecycle = dict(lifecycle)
+        changed.append("lifecycle")
     return changed
+
+
+def relation_update_extra(changed: list[str], lifecycle_before: dict | None, rel: Relation) -> dict:
+    """The ``extra`` a ``relation.updated`` event carries for ``changed``.
+
+    Always the ``fields`` list; when the lifecycle moved, also ``changes``
+    with the whole old and new dict — the ``{field: {"old", "new"}}`` shape a
+    card's History tab renders."""
+    extra: dict = {"fields": list(changed)}
+    if "lifecycle" in changed:
+        extra["changes"] = {
+            "lifecycle": {"old": dict(lifecycle_before or {}), "new": dict(rel.lifecycle or {})}
+        }
+    return extra
 
 
 async def upsert_relation(
@@ -1447,6 +1474,7 @@ async def upsert_relation(
     target_id: uuid.UUID,
     attributes: dict | None = None,
     description: str | None = None,
+    lifecycle: dict | None = None,
     dry_run: bool = False,
     preserve_attribute_keys: frozenset[str] = frozenset(),
 ) -> tuple[Relation, bool, list[str]]:
@@ -1463,11 +1491,16 @@ async def upsert_relation(
     ``preserve_attribute_keys`` names attributes the caller may not write on
     an existing row (the cost attributes of a caller without cost access —
     the route decides, this module never judges a permission): their stored
-    values survive the replace. A new row takes ``attributes`` as given."""
+    values survive the replace. A new row takes ``attributes`` as given.
+
+    ``lifecycle`` (already validated by ``normalize_relation_lifecycle``)
+    replaces a stored one wholesale when provided, ``{}`` clearing it, and
+    ``None`` leaves it alone — on a reused row as on PATCH."""
     source_id, target_id = await orient_endpoints(db, type_key, source_id, target_id)
     rel = await find_relation(db, type_key, source_id, target_id)
     reused = rel is not None
     changed: list[str] = []
+    lifecycle_before: dict = {}
 
     if rel is None:
         rel = add_relation(
@@ -1477,13 +1510,17 @@ async def upsert_relation(
             target_id=target_id,
             attributes=attributes,
             description=description,
+            lifecycle=lifecycle,
         )
     else:
         if attributes is not None and preserve_attribute_keys:
             attributes = keep_stored_cost_values(
                 rel.attributes, attributes, preserve_attribute_keys
             )
-        changed = merge_relation_fields(rel, attributes=attributes, description=description)
+        lifecycle_before = dict(rel.lifecycle or {})
+        changed = merge_relation_fields(
+            rel, attributes=attributes, description=description, lifecycle=lifecycle
+        )
     await db.flush()
 
     # Run calculated fields for both source and target cards, then rescore.
@@ -1517,7 +1554,7 @@ async def upsert_relation(
                 source_card=source_card,
                 target_card=target_card,
                 actor_id=actor.user_id,
-                extra={"fields": changed},
+                extra=relation_update_extra(changed, lifecycle_before, rel),
                 ext_key=actor.ext_key,
             )
 

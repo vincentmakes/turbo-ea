@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import and_, case, cast, func, literal
+from sqlalchemy import and_, case, cast, func, literal, not_, or_
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.models.card import Card
@@ -42,11 +42,16 @@ def parse_lifecycle_date(value: object) -> date | None:
         return None
 
 
-def current_lifecycle_phase(lifecycle: dict | None) -> str | None:
-    """Determine which lifecycle phase a card is currently in based on dates."""
+def _utc_today() -> date:
+    return datetime.now(timezone.utc).date()
+
+
+def current_lifecycle_phase(lifecycle: dict | None, *, today: date | None = None) -> str | None:
+    """Determine which lifecycle phase a card (or relation) is in on ``today``
+    — by default today's UTC date — based on its dates."""
     if not lifecycle:
         return None
-    today = datetime.now(timezone.utc).date()
+    today = today or _utc_today()
     for phase in PHASE_PRECEDENCE:
         d = parse_lifecycle_date(lifecycle.get(phase))
         if d is not None and d <= today:
@@ -160,3 +165,121 @@ def is_live_in_fiscal_year(lifecycle: dict | None, fiscal_year: int, start_month
         return False
     end_of_life = parse_lifecycle_date(lc.get("endOfLife"))
     return end_of_life is None or fiscal_year <= fiscal_year_for(end_of_life, start_month)
+
+
+# ---------------------------------------------------------------------------
+#  "In effect on a date" — one definition, two twins
+# ---------------------------------------------------------------------------
+#
+# A relation between two cards may carry the same five phase dates a card
+# does. Whether it is IN EFFECT on a date is the frontend's ``isAliveAtDate``
+# rule (``features/reports/portfolioHelpers.ts``), unchanged: it has STARTED
+# and is not RETIRED.
+#
+# * Started: its ``active`` date has arrived. With no ``active`` date, a
+#   ``plan`` / ``phaseIn`` date says it is meant to start but has not, so it
+#   has not started; carrying neither leaves it no start to miss, so it has.
+#   That fail-open branch is what keeps an undated relation in effect, and
+#   what keeps one holding only ``phaseOut`` / ``endOfLife`` in effect until
+#   its end — it must already exist to be phasing out.
+# * Retired: its ``endOfLife`` date has arrived (inclusive).
+#
+# An empty lifecycle is therefore always in effect, which is what every
+# relation meant before it could carry dates.
+
+
+def lifecycle_in_effect(lifecycle: dict | None, *, on: date | None = None) -> bool:
+    """Whether a lifecycle is in effect on ``on`` (default: today, UTC).
+
+    Started and not retired — see the block comment above. An unparseable
+    date counts as absent, exactly as ``parse_lifecycle_date`` reads it.
+    """
+    on = on or _utc_today()
+    lc = lifecycle if isinstance(lifecycle, dict) else {}
+    active = parse_lifecycle_date(lc.get("active"))
+    if active is not None:
+        started = active <= on
+    else:
+        started = not any(parse_lifecycle_date(lc.get(p)) is not None for p in _PLANNED_PHASES)
+    end_of_life = parse_lifecycle_date(lc.get("endOfLife"))
+    retired = end_of_life is not None and end_of_life <= on
+    return started and not retired
+
+
+def _sql_phase_date(entity: Any, phase: str) -> tuple[Any, Any, Any]:
+    """``(has_date, no_date, first_ten)`` for one phase of ``entity.lifecycle``.
+
+    ``has_date`` and ``no_date`` are each TRUE or FALSE, never NULL: an absent
+    key, a JSON null and a SQL NULL ``lifecycle`` all yield a NULL text, which
+    ``no_date`` tests for positively — ``NOT (text ~ pattern)`` alone is NULL
+    there, and ``NOT NULL`` is not TRUE (the ``_jsonb_absent`` trap).
+    """
+    text = entity.lifecycle[phase].astext
+    has_date = and_(text.is_not(None), text.regexp_match(_SQL_DATE_PATTERN))
+    no_date = or_(text.is_(None), not_(text.regexp_match(_SQL_DATE_PATTERN)))
+    return has_date, no_date, func.left(text, 10)
+
+
+def lifecycle_in_effect_sql(entity: Any, *, today: date | None = None) -> Any:
+    """``lifecycle_in_effect`` as a SQL condition over ``entity.lifecycle`` —
+    any mapped class or alias with a ``lifecycle`` JSONB column (``Relation``,
+    ``aliased(Relation)``, ``Card``).
+
+    The same technique as ``current_lifecycle_phase_sql``: dates are compared
+    as text (``left(value, 10)``) behind ``_SQL_DATE_PATTERN``, never cast to
+    ``date``, and ``today`` is bound from Python's UTC clock. Every branch is
+    two-valued — TRUE or FALSE, never NULL — so ``not_()`` of the whole
+    condition selects exactly the rows it does not, which a sweep looking for
+    relations that are *no longer* in effect relies on. A ``{}`` or SQL NULL
+    ``lifecycle`` is in effect.
+
+    Known divergence from the Python twin (shared with the phase twin): an
+    impossible calendar date (``2025-02-30``), a malformed time part after
+    ``T``, or a date without zero padding (``2025-1-5``) reads differently.
+    Writes go through ``normalize_relation_lifecycle``, which stores every
+    date zero-padded, so a relation written through the API cannot hold one.
+    """
+    today_text = (today or _utc_today()).isoformat()
+    active_has, active_none, active_day = _sql_phase_date(entity, "active")
+    started = or_(
+        and_(active_has, active_day <= today_text),
+        and_(active_none, *(_sql_phase_date(entity, p)[1] for p in _PLANNED_PHASES)),
+    )
+    _eol_has, eol_none, eol_day = _sql_phase_date(entity, "endOfLife")
+    # "Not retired", written positively: no end-of-life date, or one still ahead.
+    not_retired = or_(eol_none, eol_day > today_text)
+    return and_(started, not_retired)
+
+
+#: The keys a relation lifecycle may carry — a card's five phases.
+LIFECYCLE_PHASES = PHASE_CHRONOLOGICAL
+
+
+def normalize_relation_lifecycle(value: object) -> dict[str, str]:
+    """Validate a relation lifecycle and return what is stored.
+
+    ``value`` must be a dict (``None`` reads as ``{}``) whose keys are among
+    the five phases; a ``None`` or ``""`` value drops its key; every other
+    value must be a string ``parse_lifecycle_date`` reads. Each date is stored
+    as zero-padded ``YYYY-MM-DD`` — the date part of an ISO timestamp — so the
+    SQL twin reads exactly what the Python twin does. Phase order is not
+    checked: it is advisory, as on a card. Raises ``ValueError`` naming the
+    offending key.
+    """
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("lifecycle must be an object of phase → date")
+    out: dict[str, str] = {}
+    for key, raw in value.items():
+        if key not in LIFECYCLE_PHASES:
+            raise ValueError(
+                f"lifecycle: unknown phase {key!r} (expected one of {', '.join(LIFECYCLE_PHASES)})"
+            )
+        if raw is None or raw == "":
+            continue
+        parsed = parse_lifecycle_date(raw) if isinstance(raw, str) else None
+        if parsed is None:
+            raise ValueError(f"lifecycle: {key!r} is not a date (expected YYYY-MM-DD)")
+        out[key] = parsed.isoformat()
+    return out

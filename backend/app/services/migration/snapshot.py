@@ -58,6 +58,11 @@ class Relation:
     to_entity_id: str
     attributes: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
+    # The relation's own phase dates in Turbo EA vocabulary (``plan`` /
+    # ``phaseIn`` / ``active`` / ``phaseOut`` / ``endOfLife`` → ``YYYY-MM-DD``);
+    # empty when the source carries none. A parser maps its platform's validity
+    # columns here.
+    lifecycle: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

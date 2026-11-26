@@ -695,3 +695,97 @@ class TestBulkReadScope:
         assert body["failed"] == 2
         rows = await db.execute(select(Relation).where(Relation.type == "app_to_itc"))
         assert list(rows.scalars().all()) == []
+
+
+class TestBulkLifecycle:
+    async def test_a_new_relation_takes_its_lifecycle(self, client, db, rel_env):
+        body = await _bulk(
+            client, rel_env["admin"], _op(rel_env, lifecycle={"active": "2027-01-01"})
+        )
+        rel = await db.get(Relation, uuid.UUID(body["results"][0]["relation_id"]))
+        await db.refresh(rel)
+        assert rel.lifecycle == {"active": "2027-01-01"}
+
+    async def test_an_existing_relation_has_its_lifecycle_replaced(self, client, db, rel_env):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["app1"].id,
+            target_id=rel_env["itc1"].id,
+            lifecycle={"plan": "2024-01-01"},
+        )
+        await db.commit()
+        await _bulk(client, rel_env["admin"], _op(rel_env, lifecycle={"endOfLife": "2028-01-01"}))
+        await db.refresh(rel)
+        assert rel.lifecycle == {"endOfLife": "2028-01-01"}
+        updated = await _events(db, "relation.updated")
+        assert {e.card_id for e in updated} == {rel_env["app1"].id, rel_env["itc1"].id}
+        for event in updated:
+            assert event.data["fields"] == ["lifecycle"]
+            assert event.data["changes"] == {
+                "lifecycle": {"old": {"plan": "2024-01-01"}, "new": {"endOfLife": "2028-01-01"}}
+            }
+
+    async def test_an_op_without_a_lifecycle_keeps_it(self, client, db, rel_env):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["app1"].id,
+            target_id=rel_env["itc1"].id,
+            lifecycle={"plan": "2024-01-01"},
+        )
+        await db.commit()
+        await _bulk(client, rel_env["admin"], _op(rel_env, description="kept dates"))
+        await db.refresh(rel)
+        assert rel.lifecycle == {"plan": "2024-01-01"}
+        assert [e.data["fields"] for e in await _events(db, "relation.updated")] == [
+            ["description"],
+            ["description"],
+        ]
+
+    async def test_an_empty_lifecycle_clears_it(self, client, db, rel_env):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["app1"].id,
+            target_id=rel_env["itc1"].id,
+            lifecycle={"plan": "2024-01-01"},
+        )
+        await db.commit()
+        await _bulk(client, rel_env["admin"], _op(rel_env, lifecycle={}))
+        await db.refresh(rel)
+        assert rel.lifecycle == {}
+
+    async def test_a_dry_run_leaves_the_lifecycle_alone(self, client, db, rel_env):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["app1"].id,
+            target_id=rel_env["itc1"].id,
+            lifecycle={"plan": "2024-01-01"},
+        )
+        await db.commit()
+        body = await _bulk(
+            client, rel_env["admin"], _op(rel_env, lifecycle={"active": "2025-01-01"}), dry_run=True
+        )
+        assert body["upserted"] == 1
+        await db.refresh(rel)
+        assert rel.lifecycle == {"plan": "2024-01-01"}
+        assert await _events(db, "relation.updated") == []
+
+    @pytest.mark.parametrize(
+        "lifecycle", [{"sunset": "2026-01-01"}, {"active": "not a date"}, ["active"]]
+    )
+    async def test_a_bad_lifecycle_is_422(self, client, db, rel_env, lifecycle):
+        resp = await client.post(
+            "/api/v1/relations/bulk",
+            json={"operations": [_op(rel_env, lifecycle=lifecycle)]},
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 422
+        rows = await db.execute(select(Relation).where(Relation.type == "app_to_itc"))
+        assert list(rows.scalars().all()) == []
+
+    async def test_without_relations_manage_it_is_403(self, client, db, rel_env):
+        resp = await client.post(
+            "/api/v1/relations/bulk",
+            json={"operations": [_op(rel_env, lifecycle={"active": "2027-01-01"})]},
+            headers=auth_headers(rel_env["viewer"]),
+        )
+        assert resp.status_code == 403

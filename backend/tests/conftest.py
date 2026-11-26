@@ -618,6 +618,7 @@ async def create_relation_type(
         is_hidden=kwargs.get("is_hidden", False),
         sort_order=kwargs.get("sort_order", 0),
         translations=kwargs.get("translations", {}),
+        lifecycle_enabled=kwargs.get("lifecycle_enabled", False),
     )
     db.add(rt)
     await db.flush()
@@ -633,6 +634,7 @@ async def create_relation(db, *, type_key="app_to_itc", source_id=None, target_i
         source_id=source_id,
         target_id=target_id,
         attributes=kwargs.get("attributes", {}),
+        lifecycle=kwargs.get("lifecycle", {}),
     )
     db.add(rel)
     await db.flush()

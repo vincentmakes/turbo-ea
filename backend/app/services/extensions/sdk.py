@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
@@ -342,7 +342,24 @@ async def require_card_permission(
 #   and a task spawned inside inherits it. UNGATED, like the per-card
 #   permission helpers: it opens no data domain, it names who asked.
 
-SDK_VERSION = "1.19"
+# 1.20: relation lifecycle. A relation may carry the same five phase dates a
+#   card does (``plan`` / ``phaseIn`` / ``active`` / ``phaseOut`` /
+#   ``endOfLife`` → ``YYYY-MM-DD``); empty means always in effect.
+#   ``ExtRelation.lifecycle`` is a TRAILING field with a default, so a
+#   positional seven-argument construction still works.
+#   ``ctx.data.upsert_relation(..., lifecycle=)`` replaces the stored dates
+#   when provided (``{}`` clears them) and leaves them alone when omitted —
+#   the ``POST /relations`` semantics; an unknown phase or an unreadable date
+#   is refused with ``ExtensionDataError``. ``get_relations`` /
+#   ``get_relations_for`` return only the relations IN EFFECT today by default
+#   (started — ``active`` reached, or no ``plan`` / ``phaseIn`` date — and
+#   ``endOfLife`` not reached, the one definition in core's lifecycle
+#   service); ``include_inactive=True`` returns every row, as before. A
+#   relation written before 1.20 carries no dates, so the default changes
+#   nothing on upgrade. ``get_relation_types()`` rows carry
+#   ``lifecycle_enabled`` (whether the UI offers the date editor on that type).
+
+SDK_VERSION = "1.20"
 
 
 @dataclass(frozen=True)
@@ -559,6 +576,9 @@ class ExtRelation:
     attributes: dict[str, Any]
     description: str | None
     created_at: str | None
+    # SDK 1.20 — trailing and defaulted so older constructions keep working.
+    #: The relation's own phase dates; empty means always in effect.
+    lifecycle: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -888,13 +908,23 @@ class DataBridge(Protocol):
         page_size: int = 50,
     ) -> ExtCardPage: ...
 
-    async def get_relations(self, card_id: str) -> list[ExtRelation]: ...
+    async def get_relations(
+        self, card_id: str, *, include_inactive: bool = False
+    ) -> list[ExtRelation]:
+        """Relations touching ``card_id``; only those in effect today unless
+        ``include_inactive`` (SDK 1.20)."""
+        ...
 
     async def get_cards(
         self, ids: Sequence[str], *, include_archived: bool = False
     ) -> list[ExtCard]: ...
 
-    async def get_relations_for(self, card_ids: Sequence[str]) -> list[ExtRelation]: ...
+    async def get_relations_for(
+        self, card_ids: Sequence[str], *, include_inactive: bool = False
+    ) -> list[ExtRelation]:
+        """Relations touching any of ``card_ids``; only those in effect today
+        unless ``include_inactive`` (SDK 1.20)."""
+        ...
 
     async def get_stakeholders_for(self, card_ids: Sequence[str]) -> list[ExtStakeholder]: ...
 
@@ -959,6 +989,7 @@ class DataBridge(Protocol):
         attributes: dict[str, Any] | None = None,
         description: str | None = None,
         dry_run: bool = False,
+        lifecycle: dict[str, str] | None = None,
     ) -> ExtRelation: ...
 
     async def set_card_tags(

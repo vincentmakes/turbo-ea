@@ -392,6 +392,37 @@ class TestUpsertRelation:
                 target_id="00000000-0000-0000-0000-000000000000",
             )
 
+    async def test_the_lifecycle_is_replaced_when_given_and_kept_when_not(self, db, env):
+        """SDK 1.20: the POST /relations semantics — given, it replaces the
+        stored dates (``{}`` clears them); omitted, they stay."""
+        load_registry(grants=["core.cards.write"])
+        app = await create_card(db, card_type="Application", name="Src")
+        itc = await create_card(db, card_type="ITComponent", name="Tgt")
+        bridge = ExtensionData(KEY)
+        ends = {"type": "app_to_itc", "source_id": str(app.id), "target_id": str(itc.id)}
+        rel = await bridge.upsert_relation(**ends, lifecycle={"active": "2027-01-01"})
+        assert rel.lifecycle == {"active": "2027-01-01"}
+        kept = await bridge.upsert_relation(**ends, description="no dates sent")
+        assert kept.lifecycle == {"active": "2027-01-01"}
+        replaced = await bridge.upsert_relation(**ends, lifecycle={"endOfLife": "2030-01-01"})
+        assert replaced.lifecycle == {"endOfLife": "2030-01-01"}
+        cleared = await bridge.upsert_relation(**ends, lifecycle={})
+        assert cleared.lifecycle == {}
+
+    @pytest.mark.parametrize("lifecycle", [{"sunset": "2030-01-01"}, {"active": "soon"}])
+    async def test_a_bad_lifecycle_is_refused_before_any_write(self, db, env, lifecycle):
+        load_registry(grants=["core.cards.write"])
+        app = await create_card(db, card_type="Application", name="Src")
+        itc = await create_card(db, card_type="ITComponent", name="Tgt")
+        with pytest.raises(ExtensionDataError, match="lifecycle"):
+            await ExtensionData(KEY).upsert_relation(
+                type="app_to_itc",
+                source_id=str(app.id),
+                target_id=str(itc.id),
+                lifecycle=lifecycle,
+            )
+        assert list((await db.execute(select(Relation))).scalars().all()) == []
+
 
 class TestBatching:
     async def test_explicit_batch_groups_writes(self, db, env):

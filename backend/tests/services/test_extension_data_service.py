@@ -368,3 +368,68 @@ class TestSessionDiscipline:
         src = Path(bridge_mod.__file__).read_text(encoding="utf-8")
         assert "async with async_session() as db" in src
         assert "Depends(" not in src
+
+
+class TestRelationLifecycleReads:
+    """SDK 1.20: the relation reads return what is in effect today unless
+    ``include_inactive``; every row carries its lifecycle."""
+
+    async def _dated(self, db, env):
+        await create_relation_type(db, key="app_to_itc_dated")
+        ended = await create_relation(
+            db,
+            type_key="app_to_itc_dated",
+            source_id=env["app"].id,
+            target_id=env["itc"].id,
+            lifecycle={"active": "2001-01-01", "endOfLife": "2002-01-01"},
+        )
+        planned = await create_relation(
+            db,
+            type_key="app_to_itc_dated",
+            source_id=env["micro"].id,
+            target_id=env["itc"].id,
+            lifecycle={"plan": "2001-01-01", "active": "2999-01-01"},
+        )
+        live = await create_relation(
+            db,
+            type_key="app_to_itc_dated",
+            source_id=env["itc"].id,
+            target_id=env["app"].id,
+            lifecycle={"active": "2001-01-01", "endOfLife": "2999-01-01"},
+        )
+        return ended, planned, live
+
+    async def test_get_relations_returns_only_what_is_in_effect(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        ended, _, live = await self._dated(db, env)
+        bridge = ExtensionData(KEY)
+        ids = {r.id for r in await bridge.get_relations(str(env["app"].id))}
+        assert ids == {str(env["rel"].id), str(live.id)}
+        every = await bridge.get_relations(str(env["app"].id), include_inactive=True)
+        assert {r.id for r in every} == {str(env["rel"].id), str(live.id), str(ended.id)}
+        by_id = {r.id: r for r in every}
+        assert by_id[str(ended.id)].lifecycle == {"active": "2001-01-01", "endOfLife": "2002-01-01"}
+        assert by_id[str(env["rel"].id)].lifecycle == {}
+
+    async def test_get_relations_for_returns_only_what_is_in_effect(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        ended, planned, live = await self._dated(db, env)
+        bridge = ExtensionData(KEY)
+        ids = [str(env["itc"].id)]
+        assert {r.id for r in await bridge.get_relations_for(ids)} == {
+            str(env["rel"].id),
+            str(live.id),
+        }
+        assert {r.id for r in await bridge.get_relations_for(ids, include_inactive=True)} == {
+            str(env["rel"].id),
+            str(live.id),
+            str(ended.id),
+            str(planned.id),
+        }
+
+    async def test_relation_types_carry_the_lifecycle_switch(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        env["rt"].lifecycle_enabled = True
+        await db.flush()
+        rts = await ExtensionData(KEY).get_relation_types()
+        assert next(r for r in rts if r["key"] == "app_to_itc")["lifecycle_enabled"] is True

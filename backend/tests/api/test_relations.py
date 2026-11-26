@@ -1151,3 +1151,276 @@ class TestDeleteRelation:
             headers=auth_headers(viewer),
         )
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------
+# Relation lifecycle — the relation's own phase dates
+# ---------------------------------------------------------------
+
+
+async def _lifecycle_events(db, rel_id):
+    from sqlalchemy import select
+
+    from app.models.event import Event
+
+    rows = await db.execute(select(Event).where(Event.event_type == "relation.updated"))
+    return [e for e in rows.scalars().all() if e.data.get("id") == str(rel_id)]
+
+
+class TestRelationLifecycle:
+    def _body(self, rel_env, **extra):
+        return {
+            "type": "app_to_itc",
+            "source_id": str(rel_env["source"].id),
+            "target_id": str(rel_env["target"].id),
+            **extra,
+        }
+
+    async def test_create_with_a_lifecycle(self, client, db, rel_env):
+        resp = await client.post(
+            "/api/v1/relations",
+            json=self._body(
+                rel_env, lifecycle={"active": "2027-01-01", "endOfLife": "2030-12-31T00:00:00"}
+            ),
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        # A timestamp is stored as its day.
+        assert resp.json()["lifecycle"] == {"active": "2027-01-01", "endOfLife": "2030-12-31"}
+        listed = await client.get(
+            f"/api/v1/relations?card_id={rel_env['source'].id}",
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert listed.json()[0]["lifecycle"] == {"active": "2027-01-01", "endOfLife": "2030-12-31"}
+
+    async def test_a_relation_without_dates_answers_an_empty_lifecycle(self, client, db, rel_env):
+        resp = await client.post(
+            "/api/v1/relations", json=self._body(rel_env), headers=auth_headers(rel_env["admin"])
+        )
+        assert resp.status_code == 201
+        assert resp.json()["lifecycle"] == {}
+
+    async def test_get_returns_every_relation_whatever_its_dates(self, client, db, rel_env):
+        """``GET /relations`` is an all-time reader: an ended and a planned
+        relation are listed, each with its lifecycle."""
+        other = await create_card(
+            db, card_type="ITComponent", name="Other ITC", user_id=rel_env["admin"].id
+        )
+        await create_relation(
+            db,
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            lifecycle={"endOfLife": "2001-01-01"},
+        )
+        await create_relation(
+            db,
+            source_id=rel_env["source"].id,
+            target_id=other.id,
+            lifecycle={"plan": "2099-01-01"},
+        )
+        resp = await client.get(
+            f"/api/v1/relations?card_id={rel_env['source'].id}",
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert sorted(r["lifecycle"].popitem()[0] for r in resp.json()) == ["endOfLife", "plan"]
+
+    async def test_patch_replaces_the_lifecycle(self, client, db, rel_env):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            lifecycle={"plan": "2025-01-01", "active": "2025-06-01"},
+        )
+        resp = await client.patch(
+            f"/api/v1/relations/{rel.id}",
+            json={"lifecycle": {"endOfLife": "2031-01-01"}},
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["lifecycle"] == {"endOfLife": "2031-01-01"}
+        events = await _lifecycle_events(db, rel.id)
+        assert {e.card_id for e in events} == {rel_env["source"].id, rel_env["target"].id}
+        for event in events:
+            assert event.data["fields"] == ["lifecycle"]
+            assert event.data["changes"] == {
+                "lifecycle": {
+                    "old": {"plan": "2025-01-01", "active": "2025-06-01"},
+                    "new": {"endOfLife": "2031-01-01"},
+                }
+            }
+
+    @pytest.mark.parametrize("body", [{"description": "only this"}, {"lifecycle": None}])
+    async def test_patch_without_a_lifecycle_keeps_it(self, client, db, rel_env, body):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            lifecycle={"active": "2025-06-01"},
+        )
+        resp = await client.patch(
+            f"/api/v1/relations/{rel.id}", json=body, headers=auth_headers(rel_env["admin"])
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["lifecycle"] == {"active": "2025-06-01"}
+        for event in await _lifecycle_events(db, rel.id):
+            assert "lifecycle" not in event.data["fields"]
+            assert "changes" not in event.data
+
+    async def test_patch_with_an_empty_lifecycle_clears_it(self, client, db, rel_env):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            lifecycle={"active": "2025-06-01"},
+        )
+        resp = await client.patch(
+            f"/api/v1/relations/{rel.id}",
+            json={"lifecycle": {}},
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["lifecycle"] == {}
+        events = await _lifecycle_events(db, rel.id)
+        assert len(events) == 2
+        assert events[0].data["changes"]["lifecycle"] == {
+            "old": {"active": "2025-06-01"},
+            "new": {},
+        }
+
+    async def test_patch_with_the_same_lifecycle_records_nothing(self, client, db, rel_env):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            lifecycle={"active": "2025-06-01"},
+        )
+        resp = await client.patch(
+            f"/api/v1/relations/{rel.id}",
+            json={"lifecycle": {"active": "2025-06-01"}},
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert await _lifecycle_events(db, rel.id) == []
+
+    async def test_post_on_an_existing_relation_replaces_the_lifecycle(self, client, db, rel_env):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            lifecycle={"active": "2025-06-01"},
+        )
+        resp = await client.post(
+            "/api/v1/relations",
+            json=self._body(rel_env, lifecycle={"phaseOut": "2029-01-01"}),
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["id"] == str(rel.id)
+        assert resp.json()["lifecycle"] == {"phaseOut": "2029-01-01"}
+        events = await _lifecycle_events(db, rel.id)
+        assert events and all(e.data["fields"] == ["lifecycle"] for e in events)
+
+    async def test_post_on_an_existing_relation_without_a_lifecycle_keeps_it(
+        self, client, db, rel_env
+    ):
+        rel = await create_relation(
+            db,
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            lifecycle={"active": "2025-06-01"},
+        )
+        resp = await client.post(
+            "/api/v1/relations",
+            json=self._body(rel_env, description="merged"),
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["id"] == str(rel.id)
+        assert resp.json()["lifecycle"] == {"active": "2025-06-01"}
+
+    @pytest.mark.parametrize(
+        ("lifecycle", "fragment"),
+        [
+            ({"retired": "2026-01-01"}, "retired"),
+            ({"active": "next spring"}, "active"),
+            ({"endOfLife": "2026-02-30"}, "endOfLife"),
+            ("2026-01-01", "must be an object"),
+        ],
+    )
+    async def test_a_bad_lifecycle_is_422_on_create_and_patch(
+        self, client, db, rel_env, lifecycle, fragment
+    ):
+        resp = await client.post(
+            "/api/v1/relations",
+            json=self._body(rel_env, lifecycle=lifecycle),
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 422
+        assert fragment in resp.text
+        rel = await create_relation(
+            db, source_id=rel_env["source"].id, target_id=rel_env["target"].id
+        )
+        resp = await client.patch(
+            f"/api/v1/relations/{rel.id}",
+            json={"lifecycle": lifecycle},
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 422
+        await db.refresh(rel)
+        assert rel.lifecycle == {}
+
+    async def test_without_relations_manage_it_is_403(self, client, db, rel_env):
+        resp = await client.post(
+            "/api/v1/relations",
+            json=self._body(rel_env, lifecycle={"active": "2027-01-01"}),
+            headers=auth_headers(rel_env["viewer"]),
+        )
+        assert resp.status_code == 403
+        rel = await create_relation(
+            db, source_id=rel_env["source"].id, target_id=rel_env["target"].id
+        )
+        resp = await client.patch(
+            f"/api/v1/relations/{rel.id}",
+            json={"lifecycle": {"active": "2027-01-01"}},
+            headers=auth_headers(rel_env["viewer"]),
+        )
+        assert resp.status_code == 403
+        await db.refresh(rel)
+        assert rel.lifecycle == {}
+
+    async def test_an_end_hidden_by_the_read_scope_is_404(self, client, db, rel_env):
+        from sqlalchemy import select
+
+        from app.core.permissions import MEMBER_PERMISSIONS
+        from app.models.card_type import CardType
+        from app.services.permission_service import PermissionService
+
+        await create_role(db, key="member", label="Member", permissions=MEMBER_PERMISSIONS)
+        member = await create_user(db, email="member@test.com", role="member")
+        rel = await create_relation(
+            db,
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            lifecycle={"active": "2025-06-01"},
+        )
+        ct = (await db.execute(select(CardType).where(CardType.key == "ITComponent"))).scalar_one()
+        ct.role_permissions = {"member": {"inventory.view": False}}
+        await db.commit()
+        PermissionService.invalidate_type_permission_cache()
+        try:
+            created = await client.post(
+                "/api/v1/relations",
+                json=self._body(rel_env, lifecycle={"endOfLife": "2026-01-01"}),
+                headers=auth_headers(member),
+            )
+            patched = await client.patch(
+                f"/api/v1/relations/{rel.id}",
+                json={"lifecycle": {"endOfLife": "2026-01-01"}},
+                headers=auth_headers(member),
+            )
+        finally:
+            PermissionService.invalidate_type_permission_cache()
+        assert created.status_code == 404
+        assert patched.status_code == 404
+        await db.refresh(rel)
+        assert rel.lifecycle == {"active": "2025-06-01"}

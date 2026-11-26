@@ -84,6 +84,7 @@ from app.services.extensions.sdk import (
     ExtRelation,
     ExtStakeholder,
 )
+from app.services.lifecycle import lifecycle_in_effect_sql, normalize_relation_lifecycle
 
 READ_GRANTS = frozenset({"core.cards.read", "core.cards.write"})
 WRITE_GRANT = "core.cards.write"
@@ -323,6 +324,7 @@ def _to_ext_relation(rel: Relation) -> ExtRelation:
         attributes=dict(rel.attributes or {}),
         description=rel.description,
         created_at=rel.created_at.isoformat() if rel.created_at else None,
+        lifecycle=dict(rel.lifecycle or {}),
     )
 
 
@@ -356,6 +358,7 @@ def _relation_type_to_dict(rt: RelationType) -> dict:
         "attributes_schema": list(rt.attributes_schema or []),
         "built_in": rt.built_in,
         "is_hidden": rt.is_hidden,
+        "lifecycle_enabled": bool(rt.lifecycle_enabled),
     }
 
 
@@ -624,10 +627,16 @@ class ExtensionData:
                 page_size=page_size,
             )
 
-    async def get_relations(self, card_id: str) -> list[ExtRelation]:
+    async def get_relations(
+        self, card_id: str, *, include_inactive: bool = False
+    ) -> list[ExtRelation]:
         """Every relation touching ``card_id`` in either direction, excluding
         relations whose other endpoint is archived (matching ``GET
-        /relations`` — those rows reappear on restore)."""
+        /relations`` — those rows reappear on restore).
+
+        Only relations in effect today unless ``include_inactive`` (SDK 1.20):
+        a relation whose dates say it has not started or has ended is left
+        out, by the one definition in ``services/lifecycle.py``."""
         self._require(write=False)
         try:
             cid = uuid.UUID(card_id)
@@ -643,6 +652,8 @@ class ExtensionData:
             .where(src.status != "ARCHIVED", tgt.status != "ARCHIVED")
             .order_by(Relation.type.asc(), Relation.id.asc())
         )
+        if not include_inactive:
+            q = q.where(lifecycle_in_effect_sql(Relation))
         async with async_session() as db:
             rels = (await db.execute(q)).scalars().all()
             return [_to_ext_relation(r) for r in rels]
@@ -671,8 +682,12 @@ class ExtensionData:
             cards = (await db.execute(q)).scalars().all()
             return [_to_ext_card(c) for c in cards]
 
-    async def get_relations_for(self, card_ids: Sequence[str]) -> list[ExtRelation]:
-        """Every relation touching ANY of ``card_ids`` (SDK 1.8), each once.
+    async def get_relations_for(
+        self, card_ids: Sequence[str], *, include_inactive: bool = False
+    ) -> list[ExtRelation]:
+        """Every relation touching ANY of ``card_ids`` (SDK 1.8), each once —
+        only those in effect today unless ``include_inactive`` (SDK 1.20), as
+        ``get_relations``.
 
         Exactly the shape of ``GET /relations?card_ids=``: both endpoints
         joined, hidden-type and archived endpoints excluded on either side.
@@ -696,6 +711,8 @@ class ExtensionData:
             .where(src.status != "ARCHIVED", tgt.status != "ARCHIVED")
             .order_by(Relation.type.asc(), Relation.id.asc())
         )
+        if not include_inactive:
+            q = q.where(lifecycle_in_effect_sql(Relation))
         async with async_session() as db:
             rels = (await db.execute(q)).scalars().all()
             return [_to_ext_relation(r) for r in rels]
@@ -1120,12 +1137,23 @@ class ExtensionData:
         attributes: dict[str, Any] | None = None,
         description: str | None = None,
         dry_run: bool = False,
+        lifecycle: dict[str, str] | None = None,
     ) -> ExtRelation:
         """Idempotent upsert on ``(type, source, target)`` — POST /relations
         semantics: an existing relation is reused and supplied attributes /
-        description merge onto it. There is no relation delete on the bridge."""
+        description merge onto it. There is no relation delete on the bridge.
+
+        ``lifecycle`` (SDK 1.20) replaces the relation's dates when provided —
+        ``{}`` clears them — and leaves them alone when ``None``. An unknown
+        phase or an unreadable date is refused before anything is written."""
         src = _parse_uuid(source_id, "source_id")
         tgt = _parse_uuid(target_id, "target_id")
+        try:
+            checked_lifecycle = (
+                None if lifecycle is None else normalize_relation_lifecycle(lifecycle)
+            )
+        except ValueError as e:
+            raise ExtensionDataError(str(e)) from e
 
         async def op(db: AsyncSession) -> ExtRelation:
             source = (await db.execute(select(Card).where(Card.id == src))).scalar_one_or_none()
@@ -1141,6 +1169,7 @@ class ExtensionData:
                 target_id=tgt,
                 attributes=attributes,
                 description=description,
+                lifecycle=checked_lifecycle,
                 dry_run=dry_run,
             )
             await db.refresh(rel)
