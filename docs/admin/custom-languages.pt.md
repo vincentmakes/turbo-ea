@@ -90,11 +90,12 @@ Esta opção não depende de as sugestões de descrição por IA para os cards e
 
 ### 3. Por meio de um assistente de IA (MCP)
 
-Um assistente de IA conectado por meio da [integração MCP](mcp.md) pode traduzir o idioma por você, usando três ferramentas:
+Um assistente de IA conectado por meio da [integração MCP](mcp.md) pode traduzir o idioma por você, usando estas ferramentas:
 
 - `list_custom_languages` — que idiomas personalizados existem e até onde cada um está traduzido.
-- `get_untranslated_strings` — os textos em inglês que ainda faltam traduzir, página a página, com as instruções de tradução.
-- `submit_translations` — envia as traduções de volta. Mostra primeiro uma pré-visualização e salva após a confirmação, como qualquer ferramenta de escrita do MCP.
+- `get_untranslated_strings` — os textos em inglês que ainda faltam traduzir, página a página (até 500 de cada vez), com as instruções de tradução. Um texto que aparece em muitos lugares, como «High» ou «Description», é listado uma só vez.
+- `submit_translations` — envia de volta uma página de traduções e as salva de imediato, sem prévia: cada texto é verificado individualmente e só os válidos são armazenados. Uma tradução também preenche todo outro texto não traduzido com o mesmo texto inglês; um texto que já tem tradução nunca é alterado, e um preenchimento errado é corrigido na tabela de revisão.
+- `start_ai_translation` e `stop_ai_translation` — iniciam ou param o job **Traduzir com IA** do próprio servidor, de modo que um idioma inteiro é uma só solicitação. O job é executado no provedor de IA configurado em [Funcionalidades de IA](ai.md), não no assistente; o assistente mostra primeiro numa prévia quantos textos seriam enviados e, para um job grande, devolve a confirmação da prévia ao iniciá-lo.
 
 Peça ao assistente, por exemplo: *«Traduza os textos ausentes do nosso idioma personalizado neerlandês, começando pelos nomes do metamodelo.»* O assistente trabalha com as suas próprias permissões, e cada alteração que faz fica registrada no registro de auditoria.
 

@@ -3305,6 +3305,7 @@
   "securityLog.fields.namespaces": "الأقسام",
   "securityLog.fields.origin": "المصدر",
   "securityLog.fields.cleared": "تم مسحها",
+  "securityLog.fields.filled": "مملوءة من نص مطابق",
   "securityLog.fields.rejected": "تم رفضها",
   "securityLog.fields.strings": "النصوص",
   "securityLog.fields.include_manual": "بما في ذلك النصوص المصحّحة يدويًا",

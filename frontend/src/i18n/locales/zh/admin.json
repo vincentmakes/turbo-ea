@@ -3045,6 +3045,7 @@
   "securityLog.fields.namespaces": "分区",
   "securityLog.fields.origin": "来源",
   "securityLog.fields.cleared": "已清除",
+  "securityLog.fields.filled": "由相同文本填充",
   "securityLog.fields.rejected": "已拒绝",
   "securityLog.fields.strings": "字符串",
   "securityLog.fields.include_manual": "包括手动修正的字符串",

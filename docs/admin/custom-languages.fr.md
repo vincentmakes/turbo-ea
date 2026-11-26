@@ -90,11 +90,12 @@ Cette option ne dépend pas de l'activation des suggestions de description par I
 
 ### 3. Via un assistant IA (MCP)
 
-Un assistant IA connecté par l'[intégration MCP](mcp.md) peut traduire la langue à votre place, à l'aide de trois outils :
+Un assistant IA connecté par l'[intégration MCP](mcp.md) peut traduire la langue à votre place, à l'aide des outils suivants :
 
 - `list_custom_languages` — quelles langues personnalisées existent et où en est la traduction de chacune.
-- `get_untranslated_strings` — les chaînes anglaises encore à traduire, page par page, avec les instructions de traduction.
-- `submit_translations` — renvoie les traductions. Il affiche d'abord un aperçu et enregistre après confirmation, comme tout outil d'écriture MCP.
+- `get_untranslated_strings` — les chaînes anglaises encore à traduire, page par page (jusqu'à 500 à la fois), avec les instructions de traduction. Un texte qui apparaît à de nombreux endroits, comme « High » ou « Description », n'est listé qu'une fois.
+- `submit_translations` — renvoie une page de traductions et les enregistre aussitôt, sans aperçu : chaque chaîne est vérifiée individuellement, et seules les valides sont stockées. Une traduction remplit aussi toute autre chaîne non traduite ayant le même texte anglais ; une chaîne déjà traduite n'est jamais modifiée, et un remplissage erroné se corrige dans le tableau de vérification.
+- `start_ai_translation` et `stop_ai_translation` — démarrent ou arrêtent le job **Traduire avec l'IA** du serveur, de sorte qu'une langue entière tienne en une seule requête. Le job s'exécute sur le fournisseur d'IA configuré sous [Fonctionnalités IA](ai.md), pas sur l'assistant ; l'assistant indique d'abord en aperçu combien de chaînes seraient envoyées et, pour un job important, renvoie la confirmation de l'aperçu au démarrage.
 
 Demandez par exemple à l'assistant : *« Traduis les chaînes manquantes de notre langue personnalisée néerlandais, en commençant par les noms du métamodèle. »* L'assistant travaille avec vos propres permissions, et chaque modification qu'il effectue est consignée dans le journal d'audit.
 

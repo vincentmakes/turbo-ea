@@ -90,11 +90,12 @@ Esta opción no depende de que estén activadas las sugerencias de descripción 
 
 ### 3. A través de un asistente de IA (MCP)
 
-Un asistente de IA conectado mediante la [integración MCP](mcp.md) puede traducir el idioma por usted, con tres herramientas:
+Un asistente de IA conectado mediante la [integración MCP](mcp.md) puede traducir el idioma por usted, con estas herramientas:
 
 - `list_custom_languages` — qué idiomas personalizados existen y cuánto está traducido cada uno.
-- `get_untranslated_strings` — las cadenas en inglés que aún faltan por traducir, página por página, con las instrucciones de traducción.
-- `submit_translations` — envía las traducciones de vuelta. Primero muestra una vista previa y guarda tras la confirmación, como toda herramienta de escritura de MCP.
+- `get_untranslated_strings` — las cadenas en inglés que aún faltan por traducir, página por página (hasta 500 a la vez), con las instrucciones de traducción. Un texto que aparece en muchos sitios, como «High» o «Description», se muestra una sola vez.
+- `submit_translations` — envía de vuelta una página de traducciones y las guarda de inmediato, sin vista previa: cada cadena se comprueba por separado y solo se almacenan las válidas. Una traducción también rellena cualquier otra cadena sin traducir con el mismo texto inglés; una cadena que ya tiene traducción nunca se modifica, y un relleno erróneo se corrige en la tabla de revisión.
+- `start_ai_translation` y `stop_ai_translation` — inician o detienen el trabajo **Traducir con IA** del propio servidor, de modo que un idioma entero es una sola petición. El trabajo se ejecuta en el proveedor de IA configurado en [Funciones de IA](ai.md), no en el asistente; el asistente muestra primero en una vista previa cuántas cadenas se enviarían y, para un trabajo grande, devuelve la confirmación de la vista previa al iniciarlo.
 
 Pida al asistente, por ejemplo: *«Traduce las cadenas que faltan de nuestro idioma personalizado neerlandés, empezando por los nombres del metamodelo.»* El asistente trabaja con sus propios permisos y cada cambio que hace queda registrado en el registro de auditoría.
 

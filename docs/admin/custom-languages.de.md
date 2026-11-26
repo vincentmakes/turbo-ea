@@ -90,11 +90,12 @@ Diese Option hängt nicht davon ab, dass die KI-Beschreibungsvorschläge für Ka
 
 ### 3. Über einen KI-Assistenten (MCP)
 
-Ein über die [MCP-Integration](mcp.md) verbundener KI-Assistent kann die Sprache für Sie übersetzen und nutzt dafür drei Werkzeuge:
+Ein über die [MCP-Integration](mcp.md) verbundener KI-Assistent kann die Sprache für Sie übersetzen und nutzt dafür diese Werkzeuge:
 
 - `list_custom_languages` — welche benutzerdefinierten Sprachen es gibt und wie weit jede übersetzt ist.
-- `get_untranslated_strings` — die noch zu übersetzenden englischen Zeichenfolgen, Seite für Seite, mit den Übersetzungsanweisungen.
-- `submit_translations` — sendet die Übersetzungen zurück. Es zeigt zuerst eine Vorschau und speichert nach Bestätigung, wie jedes MCP-Schreibwerkzeug.
+- `get_untranslated_strings` — die noch zu übersetzenden englischen Zeichenfolgen, Seite für Seite (bis zu 500 auf einmal), mit den Übersetzungsanweisungen. Ein Text, der an vielen Stellen vorkommt, etwa „High“ oder „Description“, wird einmal aufgeführt.
+- `submit_translations` — sendet eine Seite mit Übersetzungen zurück und speichert sie sofort, ohne Vorschau: Jede Zeichenfolge wird einzeln geprüft, und nur gültige werden gespeichert. Eine Übersetzung füllt außerdem jede andere unübersetzte Zeichenfolge mit demselben englischen Text; eine bereits übersetzte Zeichenfolge wird nie geändert, und eine falsche Füllung korrigieren Sie in der Prüftabelle.
+- `start_ai_translation` und `stop_ai_translation` — starten oder beenden den serverseitigen Job **Mit KI übersetzen**, sodass eine ganze Sprache eine einzige Anfrage ist. Der Job läuft auf dem unter [KI-Funktionen](ai.md) konfigurierten KI-Anbieter, nicht auf dem Assistenten; der Assistent zeigt zuerst in einer Vorschau, wie viele Zeichenfolgen gesendet würden, und gibt bei einem großen Job die Bestätigung der Vorschau beim Start zurück.
 
 Bitten Sie den Assistenten zum Beispiel: *„Übersetze die fehlenden Zeichenfolgen unserer benutzerdefinierten Sprache Niederländisch, beginnend mit den Metamodell-Namen.“* Der Assistent arbeitet mit Ihren eigenen Berechtigungen, und jede seiner Änderungen wird im Audit-Log festgehalten.
 

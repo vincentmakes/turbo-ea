@@ -3045,6 +3045,7 @@
   "securityLog.fields.namespaces": "Secciones",
   "securityLog.fields.origin": "Origen",
   "securityLog.fields.cleared": "Borradas",
+  "securityLog.fields.filled": "Rellenadas desde texto idéntico",
   "securityLog.fields.rejected": "Rechazadas",
   "securityLog.fields.strings": "Cadenas",
   "securityLog.fields.include_manual": "Incluidas las cadenas corregidas a mano",

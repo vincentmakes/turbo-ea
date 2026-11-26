@@ -90,11 +90,12 @@ Questa opzione non dipende dall'attivazione dei suggerimenti di descrizione IA p
 
 ### 3. Tramite un assistente IA (MCP)
 
-Un assistente IA collegato tramite l'[integrazione MCP](mcp.md) può tradurre la lingua al posto tuo, usando tre strumenti:
+Un assistente IA collegato tramite l'[integrazione MCP](mcp.md) può tradurre la lingua al posto tuo, usando questi strumenti:
 
 - `list_custom_languages` — quali lingue personalizzate esistono e a che punto è la traduzione di ciascuna.
-- `get_untranslated_strings` — le stringhe inglesi ancora da tradurre, pagina per pagina, con le istruzioni di traduzione.
-- `submit_translations` — rimanda indietro le traduzioni. Mostra prima un'anteprima e salva dopo la conferma, come ogni strumento di scrittura MCP.
+- `get_untranslated_strings` — le stringhe inglesi ancora da tradurre, pagina per pagina (fino a 500 alla volta), con le istruzioni di traduzione. Un testo che compare in molti punti, come «High» o «Description», viene elencato una sola volta.
+- `submit_translations` — rimanda indietro una pagina di traduzioni e le salva subito, senza anteprima: ogni stringa viene controllata singolarmente e solo quelle valide vengono memorizzate. Una traduzione riempie anche ogni altra stringa non tradotta con lo stesso testo inglese; una stringa che ha già una traduzione non viene mai modificata, e un riempimento errato si corregge nella tabella di revisione.
+- `start_ai_translation` e `stop_ai_translation` — avviano o interrompono il job **Traduci con IA** del server, così un'intera lingua è una sola richiesta. Il job viene eseguito sul provider IA configurato in [Funzionalità IA](ai.md), non sull'assistente; l'assistente mostra prima in anteprima quante stringhe verrebbero inviate e, per un job di grandi dimensioni, rimanda la conferma dell'anteprima all'avvio.
 
 Chiedi all'assistente, per esempio: *«Traduci le stringhe mancanti della nostra lingua personalizzata olandese, partendo dai nomi del metamodello.»* L'assistente lavora con i tuoi permessi e ogni modifica che fa viene registrata nel registro di audit.
 

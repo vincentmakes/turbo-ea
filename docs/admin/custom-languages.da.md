@@ -90,11 +90,12 @@ Denne mulighed afhænger ikke af, om AI-beskrivelsesforslagene til kort er slåe
 
 ### 3. Via en AI-assistent (MCP)
 
-En AI-assistent, der er forbundet via [MCP-integrationen](mcp.md), kan oversætte sproget for dig ved hjælp af tre værktøjer:
+En AI-assistent, der er forbundet via [MCP-integrationen](mcp.md), kan oversætte sproget for dig ved hjælp af disse værktøjer:
 
 - `list_custom_languages` — hvilke brugerdefinerede sprog der findes, og hvor langt hvert enkelt er oversat.
-- `get_untranslated_strings` — de engelske tekststrenge, der stadig mangler at blive oversat, side for side, med oversættelsesvejledningen.
-- `submit_translations` — sender oversættelserne tilbage. Det viser først en forhåndsvisning og gemmer efter bekræftelse, som alle MCP-skriveværktøjer.
+- `get_untranslated_strings` — de engelske tekststrenge, der stadig mangler at blive oversat, side for side (op til 500 ad gangen), med oversættelsesvejledningen. En tekst, der optræder mange steder, som »High« eller »Description«, vises kun én gang.
+- `submit_translations` — sender en side med oversættelser tilbage og gemmer dem med det samme, uden forhåndsvisning: hver tekststreng kontrolleres for sig, og kun gyldige gemmes. En oversættelse udfylder også hver anden uoversat tekststreng med den samme engelske tekst; en tekststreng, der allerede har en oversættelse, ændres aldrig, og en forkert udfyldning rettes i gennemgangstabellen.
+- `start_ai_translation` og `stop_ai_translation` — starter eller stopper serverens eget job **Oversæt med AI**, så et helt sprog er én forespørgsel. Jobbet kører på den AI-udbyder, der er konfigureret under [AI-funktioner](ai.md), ikke på assistenten; assistenten viser først i en forhåndsvisning, hvor mange tekststrenge der ville blive sendt, og sender ved et stort job forhåndsvisningens bekræftelse tilbage, når det startes.
 
 Bed fx assistenten: *»Oversæt de manglende tekststrenge i vores brugerdefinerede hollandske sprog, og begynd med metamodellens navne.«* Assistenten arbejder med dine egne tilladelser, og hver ændring, den foretager, registreres i auditloggen.
 
