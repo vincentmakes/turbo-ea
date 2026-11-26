@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -154,11 +154,13 @@ describe("CommunityInstallDialog", () => {
     const { user } = renderDialog();
     await user.click(screen.getByRole("button", { name: t("customLocales.community.install") }));
     await screen.findByRole("progressbar");
-    await user.keyboard("{Escape}");
+    // On the dialog itself: the clicked button is gone once the report shows,
+    // and a key pressed on <body> never reaches the modal.
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
     release(result());
     await screen.findByTestId("import-report");
-    await user.keyboard("{Escape}");
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
