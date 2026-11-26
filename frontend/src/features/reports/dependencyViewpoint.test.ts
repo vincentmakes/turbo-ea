@@ -69,6 +69,13 @@ describe("relationReach", () => {
   });
 });
 
+describe("relationReach for a planned relation", () => {
+  it("never leaves at a mark, even when its end falls inside it", () => {
+    const lc = { active: "2030-01-01", endOfLife: "2031-01-01" };
+    expect(relationReach(lc, ms("2026-01-01"), { from: 0, to: ms("2032-01-01") })).toEqual(PLANNED);
+  });
+});
+
 describe("bestReach / hopReach", () => {
   it("bestReach orders in effect > planned > ended, either way round", () => {
     expect(bestReach(PLANNED, IN_EFFECT)).toBe(IN_EFFECT);
@@ -91,6 +98,12 @@ describe("bestReach / hopReach", () => {
     expect(hopReach(ENDED, PLANNED)).toBe(ENDED);
     expect(hopReach(PLANNED, ENDED)).toBe(ENDED);
     expect(hopReach(IN_EFFECT, IN_EFFECT)).toBe(IN_EFFECT);
+  });
+
+  it("hopReach keeps the card it came from when the hop is no worse", () => {
+    const from: Reach = { state: "ended", atMark: false };
+    expect(hopReach(from, ENDED)).toBe(from);
+    expect(hopReach(from, ENDED_AT_MARK)).toBe(from);
   });
 
   it("hopReach leaves at the mark only when both sides of an ended hop do", () => {
@@ -280,6 +293,31 @@ describe("viewpointReach", () => {
     );
   });
 
+  it("reaches only the centre when nothing connects to it", () => {
+    expect(states(viewpointReach([], { center: "c" }, AT))).toEqual({ c: "inEffect" });
+  });
+
+  it("settles over as many passes as a lift takes to travel", () => {
+    // b lifts a (reached ended) to in effect; a then lifts e on the next pass,
+    // and e lifts f on the one after.
+    const ended = { endOfLife: "2020-01-01" };
+    const edges: ViewEdge[] = [
+      { source: "c", target: "a", lifecycle: ended },
+      { source: "c", target: "b" },
+      { source: "b", target: "a" },
+      { source: "a", target: "e" },
+      { source: "e", target: "f" },
+      { source: "c", target: "e", lifecycle: ended },
+    ];
+    expect(states(viewpointReach(edges, { center: "c", expanded: ["e", "a", "b"] }, AT))).toEqual({
+      c: "inEffect",
+      a: "inEffect",
+      b: "inEffect",
+      e: "inEffect",
+      f: "inEffect",
+    });
+  });
+
   it("never changes the centre's state and ignores self-loops", () => {
     const edges: ViewEdge[] = [
       { source: "c", target: "c", lifecycle: { endOfLife: "2020-01-01" } },
@@ -294,6 +332,7 @@ describe("viewpointReach", () => {
     const edges: ViewEdge[] = [
       { source: "c", target: "a" },
       { source: "c", target: "hidden" },
+      { source: "elsewhere", target: "c" },
     ];
     expect(states(viewpointReach(edges, { center: "c" }, AT, { eligible: new Set(["a"]) }))).toEqual({
       c: "inEffect",
@@ -361,6 +400,60 @@ describe("viewTransitions", () => {
     expect(v.cards).toEqual(scope);
     expect(v.cards[1]).toBe(scope[1]);
     expect(v.links).toEqual([undefined]);
+  });
+
+  it("passes on an empty lifecycle as it came", () => {
+    const v = viewTransitions([card("c"), card("a")], [{ source: "c", target: "a", lifecycle: {} }], {
+      center: "c",
+    });
+    expect(v.links).toEqual([{}]);
+  });
+
+  it("expands only through cards in effect at each date, as the view does", () => {
+    // p is planned (or ended) from the centre at its turn, so it is not expanded
+    // through, even once q lifts it: z behind it is not in the view in 2028.
+    const scope = [card("c"), card("p"), card("q"), card("z", { active: "2028-01-01" })];
+    const hops = { center: "c", expanded: ["p", "q"] };
+    const rest: ViewEdge[] = [
+      { source: "c", target: "q" },
+      { source: "q", target: "p" },
+      { source: "p", target: "z" },
+    ];
+    const planned = viewTransitions(
+      scope,
+      [{ source: "c", target: "p", lifecycle: { active: "2030-01-01" } }, ...rest],
+      hops,
+    );
+    expect(planned.cards).toEqual([{ id: "z", name: "Z", lifecycle: { active: "2030-01-01" } }]);
+    const ended = viewTransitions(
+      scope,
+      [{ source: "c", target: "p", lifecycle: { endOfLife: "2025-01-01" } }, ...rest],
+      hops,
+    );
+    expect(ended.cards).toEqual([]);
+  });
+
+  it("makes a card leave when the relation reaching it ends on its own end of life", () => {
+    const scope = [card("c"), card("x", { endOfLife: "2027-01-01" })];
+    const edges: ViewEdge[] = [{ source: "c", target: "x", lifecycle: { endOfLife: "2027-01-01" } }];
+    expect(viewTransitions(scope, edges, { center: "c" }).cards).toEqual([
+      { id: "x", name: "X", lifecycle: { endOfLife: "2027-01-01" } },
+    ]);
+  });
+
+  it("skips a card that goes live and retires on the same day", () => {
+    const scope = [card("c"), card("x", { active: "2027-01-01", endOfLife: "2027-01-01" })];
+    const edges: ViewEdge[] = [{ source: "c", target: "x", lifecycle: { active: "2020-01-01" } }];
+    expect(viewTransitions(scope, edges, { center: "c" }).cards).toEqual([]);
+  });
+
+  it("does not count a link to a card retired at the date as a connection change", () => {
+    const scope = [card("c"), card("b", { endOfLife: "2027-01-01" })];
+    const edges: ViewEdge[] = [
+      { source: "c", target: "b" },
+      { source: "c", target: "b", lifecycle: { active: "2028-01-01" } },
+    ];
+    expect(viewTransitions(scope, edges, { center: "c" }).links).toEqual([]);
   });
 
   it("makes a relation bringing a card in an arrival on its start date, and its end a departure", () => {
@@ -471,6 +564,9 @@ describe("viewMovesBetween", () => {
       { id: "b", name: "B", lifecycle: { endOfLife: "2027-01-02" } },
       { id: "c", name: "C", lifecycle: { active: "2027-01-03" } },
       { id: "d", name: "D", lifecycle: { endOfLife: "2026-12-31" } },
+      { id: "e", name: "E", lifecycle: { endOfLife: "2027-01-03" } },
+      { id: "f", name: "F", lifecycle: { active: "2026-12-31" } },
+      { id: "g", name: "G" },
     ];
     const m = viewMovesBetween(cards, ms("2027-01-01"), ms("2027-01-02"));
     expect([...m.arriving]).toEqual([["a", ms("2027-01-01")]]);

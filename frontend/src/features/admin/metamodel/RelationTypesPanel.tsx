@@ -107,6 +107,20 @@ function TrackLifecycleSwitch({
   );
 }
 
+/** The create dialog's empty form, with `source` as the source type. */
+function blankRelation(source = "") {
+  return {
+    key: "",
+    label: "",
+    reverse_label: "",
+    source_type_key: source,
+    target_type_key: "",
+    cardinality: "1:n" as "1:1" | "1:n" | "n:m",
+    lifecycle_enabled: false,
+    translations: {} as MetamodelTranslations,
+  };
+}
+
 export interface RelationTypesPanelProps {
   /** ALL card types — the endpoint pickers, colour dots and delete-confirm
    *  labels resolve against this, hidden types included. */
@@ -161,16 +175,7 @@ export default function RelationTypesPanel({
 
   const [showHiddenRels, setShowHiddenRels] = useState(false);
   const [createRelOpen, setCreateRelOpen] = useState(false);
-  const [newRel, setNewRel] = useState({
-    key: "",
-    label: "",
-    reverse_label: "",
-    source_type_key: "",
-    target_type_key: "",
-    cardinality: "1:n" as "1:1" | "1:n" | "n:m",
-    lifecycle_enabled: false,
-    translations: {} as MetamodelTranslations,
-  });
+  const [newRel, setNewRel] = useState(() => blankRelation());
   const [editRelOpen, setEditRelOpen] = useState(false);
   const [editRel, setEditRel] = useState<(RType & { translations?: MetamodelTranslations }) | null>(
     null,
@@ -254,17 +259,8 @@ export default function RelationTypesPanel({
   /* ---- Handlers ---- */
 
   const openCreateRelation = () => {
-    setNewRel({
-      key: "",
-      label: "",
-      reverse_label: "",
-      // In card-type mode the type under view is the obvious source.
-      source_type_key: scopeTypeKey || "",
-      target_type_key: "",
-      cardinality: "1:n",
-      lifecycle_enabled: false,
-      translations: {},
-    });
+    // In card-type mode the type under view is the obvious source.
+    setNewRel(blankRelation(scopeTypeKey || ""));
     setRelError(null);
     setRelKeyTouched(false);
     setCreateRelOpen(true);
@@ -297,18 +293,9 @@ export default function RelationTypesPanel({
       return;
     }
     onRefresh();
+    // The form is reset when the dialog next opens (`openCreateRelation`).
     setCreateRelOpen(false);
     setRelError(null);
-    setNewRel({
-      key: "",
-      label: "",
-      reverse_label: "",
-      source_type_key: "",
-      target_type_key: "",
-      cardinality: "1:n",
-      lifecycle_enabled: false,
-      translations: {},
-    });
   };
 
   const handleUpdateRelation = async () => {

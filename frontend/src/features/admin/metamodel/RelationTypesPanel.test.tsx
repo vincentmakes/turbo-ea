@@ -302,7 +302,14 @@ describe("RelationTypesPanel — Track lifecycle", () => {
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
     expect(api.post).toHaveBeenCalledWith(
       "/metamodel/relation-types",
-      expect.objectContaining({ lifecycle_enabled: true, source_type_key: "Organization" }),
+      expect.objectContaining({
+        lifecycle_enabled: true,
+        source_type_key: "Organization",
+        target_type_key: "Application",
+        label: "runs",
+        reverse_label: "",
+        cardinality: "1:n",
+      }),
     );
     expect(onRefresh).toHaveBeenCalled();
   });
