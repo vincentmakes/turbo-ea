@@ -49,7 +49,8 @@ class HashMemory:
         key = (_owner(token), locale)
         with self._lock:
             self._expire()
-            _stamp, stored = self._entries.pop(key, (0.0, {}))
+            entry = self._entries.pop(key, None)
+            stored = entry[1] if entry is not None else {}
             count = sum(len(keys) for keys in stored.values())
             for namespace, keys in hashes.items():
                 for name, digest in keys.items():
@@ -63,7 +64,8 @@ class HashMemory:
                     bucket[name] = digest
             self._entries[key] = (self._clock(), stored)
             while len(self._entries) > MAX_ENTRIES:
-                self._entries.popitem(last=False)
+                # The least recently used: the first in order.
+                del self._entries[next(iter(self._entries))]
 
     def recall(self, token: str, locale: str, translations: Mapping[str, Mapping]) -> Hashes:
         """The remembered hashes of the keys in ``translations`` (only those)."""

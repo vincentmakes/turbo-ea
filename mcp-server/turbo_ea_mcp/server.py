@@ -8120,7 +8120,7 @@ async def _submit_translations(
     rows: int,
     dry_run: bool,
     token: str,
-    fill_identical: bool = True,
+    fill_identical: bool,
 ) -> str:
     """The batch and the write of ``submit_translations`` (its checks done)."""
     async with mutation_batch(

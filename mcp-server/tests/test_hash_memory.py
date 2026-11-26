@@ -95,11 +95,12 @@ def test_the_keys_per_entry_are_bounded(monkeypatch):
     monkeypatch.setattr(hm, "MAX_KEYS_PER_ENTRY", 2)
     memory = hm.HashMemory()
     memory.remember("tok", "nl", {"c": {"a": "1", "b": "2", "d": "3"}})
-    memory.remember("tok", "nl", {"c": {"a": "9", "e": "4"}})
-    # A key already kept is updated; a new one past the bound is not kept.
-    assert memory.recall("tok", "nl", {"c": {"a": "", "b": "", "d": "", "e": ""}}) == {
-        "c": {"a": "9", "b": "2"}
-    }
+    # A new key past the bound is skipped, and the keys after it still count:
+    # one already kept is updated.
+    memory.remember("tok", "nl", {"c": {"e": "4", "a": "9"}, "x": {"f": "5", "b": "?"}})
+    assert memory.recall(
+        "tok", "nl", {"c": {"a": "", "b": "", "d": "", "e": ""}, "x": {"f": "", "b": ""}}
+    ) == {"c": {"a": "9", "b": "2"}}
 
 
 def test_the_shared_memory_is_one_instance():

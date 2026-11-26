@@ -442,6 +442,32 @@ class TestIdenticalTextFills:
         sent = {"common": {"zz": "High", "a": None}, "nope": {"a": "x"}, "nav": "odd"}
         assert store.identical_text_fills(views, sent, set()) == {}
 
+    def test_a_skipped_entry_never_stops_the_rest(self):
+        """Every reason to pass an entry by is a skip, not the end of the
+        call: the good value after it still fills."""
+        other = lp.Namespace.from_tree("admin", {"x": "High"})
+        views = {
+            "admin": store.View(ns=other, strings={}, meta={}),
+            "common": twin_view(),
+        }
+        stale = {"common": {"zz": "0123456789ab", "d": "0123456789ab"}}
+        sent = {
+            "nope": {"a": "x"},
+            "admin": "not a mapping",
+            "common": {"zz": "High", "n_one": None, "d": "Laag", "c": "Hoog"},
+        }
+        skip = {("common", "n_one")}
+        assert store.identical_text_fills(views, sent, skip, stale) == {
+            "admin": {"x": "Hoog"},
+            "common": {"a": "Hoog", "b": "Hoog"},
+        }
+        # A refused entry ahead of a good one, too.
+        sent = {"common": {"a": "<b>Hoog</b>", "c": "Hoog"}}
+        assert store.identical_text_fills(views, sent, {("common", "a")}) == {
+            "admin": {"x": "Hoog"},
+            "common": {"b": "Hoog"},
+        }
+
     def test_across_namespaces(self):
         other = lp.Namespace.from_tree("admin", {"x": "High"})
         views = {
@@ -552,6 +578,20 @@ class TestFillIdentical:
         stored = await self._stored(db, loc)
         assert stored.strings["portal.description"] == "Eigen"
         assert stored.strings["dashboard.settings.description"] == "Beschrijving"
+
+    async def test_the_given_source_hashes_reach_the_fill(self, db):
+        loc = await self._locale(db)
+        cat = store.catalog()
+        sent = {"common": {"labels.description": "Beschrijving"}}
+        old = {"common": {"labels.description": "0123456789ab"}}
+        report = await store.apply_strings(db, loc, cat, sent, origin="mcp", source_hashes=old)
+        assert report["applied"] == 1
+        out = await store.fill_identical(
+            db, loc, cat, sent, report, origin="mcp", dry_run=False, source_hashes=old
+        )
+        assert out == ({"filled": 0, "fill_rejected": 0}, [])
+        stored = await self._stored(db, loc)
+        assert "portal.description" not in stored.strings
 
     async def test_rejected_fills_are_counted(self, db, monkeypatch):
         loc = await self._locale(db)
