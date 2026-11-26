@@ -364,6 +364,16 @@ export function computeConnectionChanges(
   from: number,
   /** End of the mark's span, inclusive — the date the graph is drawn as of. */
   to: number,
+  /** Cards entering / leaving the view inside the span for a reason other than
+   *  their own lifecycle — a relation bringing a card into a centred view, or
+   *  the last one reaching it ending — each with the date it does (optional).
+   *  Such a card moves exactly as one going live or retiring there: it is not
+   *  marked itself, and the neighbours it attaches to gain / lose a connection.
+   *  Omitted, only the cards' own dates move them. */
+  moves?: {
+    arriving: ReadonlyMap<string, number>;
+    leaving: ReadonlyMap<string, number>;
+  },
 ): ConnectionChanges {
   const gained = new Set<string>();
   const lost = new Set<string>();
@@ -371,8 +381,14 @@ export function computeConnectionChanges(
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const inSpan = (d: number | null) => d != null && d >= from && d <= to;
-  const arrives = (id: string) => inSpan(parseDate(byId.get(id)?.lifecycle?.active));
-  const retires = (id: string) => inSpan(parseDate(byId.get(id)?.lifecycle?.endOfLife));
+  const arrives = (id: string) =>
+    inSpan(parseDate(byId.get(id)?.lifecycle?.active)) || !!moves?.arriving.has(id);
+  /** When the card leaves inside the span, or null when it does not. */
+  const leavesAt = (id: string): number | null => {
+    const eol = parseDate(byId.get(id)?.lifecycle?.endOfLife);
+    return inSpan(eol) ? eol : (moves?.leaving.get(id) ?? null);
+  };
+  const retires = (id: string) => leavesAt(id) != null;
   /** Eligible to be marked: here at the end of the span, and not itself moving. */
   const bystander = (id: string): boolean => {
     const n = byId.get(id);
@@ -398,8 +414,7 @@ export function computeConnectionChanges(
     ] as const) {
       if (!bystander(other)) continue;
       if (arrives(moved) && inEffectAfter) gained.add(other);
-      if (retires(moved) && inEffectBefore(parseDate(byId.get(moved)?.lifecycle?.endOfLife)))
-        lost.add(other);
+      if (retires(moved) && inEffectBefore(leavesAt(moved))) lost.add(other);
       // The relation's own dates: two cards that both stay put gain the
       // connection the day it comes into effect and lose it the day it ends.
       if (!relNeverAlive && bystander(moved)) {

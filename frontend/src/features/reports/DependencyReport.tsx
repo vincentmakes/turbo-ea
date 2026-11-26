@@ -29,6 +29,18 @@ import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyVie
 import { HIERARCHY_EDGE_TYPE, resolveRevealIds } from "./layeredDependencyLayout";
 import { buildAdjacency } from "./dependencyAdjacency";
 import { edgesAtDate } from "./dependencyEdgesAtDate";
+import {
+  IN_EFFECT,
+  combineChangeState,
+  hopReach,
+  isReachShown,
+  pairReaches,
+  viewMovesBetween,
+  viewTransitions,
+  viewpointReach,
+  type Reach,
+  type ViewpointHops,
+} from "./dependencyViewpoint";
 import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -50,7 +62,7 @@ import {
 import { isRetiredByDate } from "./portfolioHelpers";
 import LinkChangeIcon from "./LinkChangeIcon";
 import { TIMELINE_PULSE_KEYFRAMES, useMilestoneSpotlight } from "./useMilestoneSpotlight";
-import type { TimelineChange } from "./timelineRange";
+import type { TimelineChange, TimelineVisibility } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
 import {
   CARD_TYPE_COLORS,
@@ -288,16 +300,50 @@ function cardH(card: { isRoot: boolean; breadcrumb: string[] }): number {
 /*  Tree layout engine                                                 */
 /* ------------------------------------------------------------------ */
 
+/**
+ * How the tree reads relation dates along each branch (`dependencyViewpoint.ts`):
+ * every card instance carries the state of ITS path from the root — the lower
+ * of its parent's and the best relation between the two — and is laid out only
+ * when that state is drawn at the date (or the spotlight forces it). Omitted,
+ * every neighbour is a present child, as before relations had dates.
+ */
+interface TreePaths {
+  /** The best relation between two cards at the viewed date. */
+  at: (a: string, b: string) => Reach | undefined;
+  /** The same today, when the viewed date is in the future ("arriving"). */
+  today: ((a: string, b: string) => Reach | undefined) | null;
+  visibility: TimelineVisibility;
+  /** Cards drawn whatever their path says — the mark-click spotlight. */
+  forceShown: ReadonlySet<string>;
+  dateMs: number;
+  todayMs: number;
+}
+
+interface InstanceReach {
+  at: Reach;
+  today: Reach | null;
+}
+
 function computeTreeLayout(
   rootId: string,
   expanded: Set<string>,
   adjMap: Map<string, { nodeId: string; relType: string; relLabel: string; relDescription?: string }[]>,
   nodeMap: Map<string, GNode>,
   types: CardType[],
+  paths: TreePaths | null = null,
 ): TreeLayout {
   const cards: PositionedCard[] = [];
   const headers: PositionedHeader[] = [];
   const placedNodeIds = new Set<string>();
+
+  /** The child's path state through `parent`, or null when it is not drawn. */
+  function childReach(parent: InstanceReach, from: string, to: string): InstanceReach | null {
+    if (!paths) return parent;
+    const at = hopReach(parent.at, paths.at(from, to) ?? IN_EFFECT);
+    const today = parent.today && hopReach(parent.today, paths.today?.(from, to) ?? IN_EFFECT);
+    if (!isReachShown(at, paths.visibility) && !paths.forceShown.has(to)) return null;
+    return { at, today };
+  }
 
   function layoutNode(
     nodeId: string,
@@ -306,9 +352,14 @@ function computeTreeLayout(
     yOffset: number,
     parentInstanceId: string | null,
     pathAncestors: Set<string>,
+    reach: InstanceReach,
   ): number {
-    const node = nodeMap.get(nodeId);
-    if (!node) return 0;
+    const baseNode = nodeMap.get(nodeId);
+    if (!baseNode) return 0;
+    const changeState = paths
+      ? combineChangeState(baseNode.changeState, reach.at, reach.today, paths.dateMs, paths.todayMs)
+      : baseNode.changeState;
+    const node = changeState === baseNode.changeState ? baseNode : { ...baseNode, changeState };
 
     const isRoot = parentInstanceId === null;
     const breadcrumb = node.path || [];
@@ -316,9 +367,13 @@ function computeTreeLayout(
     const x = column * COL_SPACING + PADDING;
     const isExp = expanded.has(instanceId);
     const totalConns = (adjMap.get(nodeId) || []).length;
-    const neighbors = (adjMap.get(nodeId) || []).filter(
-      (n) => !pathAncestors.has(n.nodeId) && nodeMap.has(n.nodeId),
-    );
+    const childReaches = new Map<string, InstanceReach>();
+    const neighbors = (adjMap.get(nodeId) || []).filter((n) => {
+      if (pathAncestors.has(n.nodeId) || !nodeMap.has(n.nodeId)) return false;
+      const r = childReach(reach, nodeId, n.nodeId);
+      if (r) childReaches.set(n.nodeId, r);
+      return r != null;
+    });
     const isDuplicate = placedNodeIds.has(nodeId);
     placedNodeIds.add(nodeId);
 
@@ -397,6 +452,7 @@ function computeTreeLayout(
           childY,
           instanceId,
           childPath,
+          childReaches.get(nodeIds[i])!,
         );
       }
     }
@@ -427,7 +483,10 @@ function computeTreeLayout(
     return { cards: [], headers: [], connections: [], width: 0, height: 0 };
 
   const rootInstance = `root:${rootId}`;
-  const totalH = layoutNode(rootId, rootInstance, 0, PADDING, null, new Set());
+  const totalH = layoutNode(rootId, rootInstance, 0, PADDING, null, new Set(), {
+    at: IN_EFFECT,
+    today: paths?.today ? IN_EFFECT : null,
+  });
 
   // Build connections
   const connections: Connection[] = [];
@@ -754,17 +813,48 @@ export default function DependencyReport() {
     revealedChildIds,
   ]);
 
-  // The relations among the scoped cards mark the track too, on their own
-  // dates — counted as connections, never as cards, so the pills stay cards.
-  const milestones = useMemo(() => {
+  // How the centred view grows: the centre's neighbours, the neighbours of each
+  // expanded card, the hierarchy reveals — the hops `dependencyViewpoint.ts`
+  // reads relation dates along. Null without a centred chart.
+  const viewHops = useMemo<ViewpointHops | null>(() => {
+    if (!(view === "chart" && center)) return null;
+    if (chartMode === "c4")
+      return {
+        center,
+        expanded: ldvExpandedNodes,
+        placed: [...revealedParentIds, ...revealedChildIds],
+      };
+    return {
+      center,
+      expanded: [...expanded].map((instanceId) => instanceId.split(":").pop() as string),
+    };
+  }, [view, center, chartMode, ldvExpandedNodes, revealedParentIds, revealedChildIds, expanded]);
+
+  // What the marks and pills say. In a centred view a relation that brings a
+  // card in, or takes the last path to it away, is that CARD arriving or
+  // leaving at the mark; only a link starting or ending between two cards that
+  // both stay counts as a connection (`linking` / `unlinking`). Without a
+  // centre, or without a dated relation in scope, this is the scope's cards and
+  // relations exactly as before.
+  const viewScope = useMemo(() => {
+    if (viewHops) return viewTransitions(milestoneScope, rawEdges, viewHops);
     const scopeIds = new Set(milestoneScope.map((n) => n.id));
-    return computeTimelineMilestones(
-      milestoneScope.map((n) => n.lifecycle),
-      rawEdges
+    return {
+      cards: milestoneScope,
+      links: rawEdges
         .filter((e) => scopeIds.has(e.source) && scopeIds.has(e.target))
         .map((e) => e.lifecycle),
-    );
-  }, [milestoneScope, rawEdges]);
+    };
+  }, [milestoneScope, rawEdges, viewHops]);
+
+  const milestones = useMemo(
+    () =>
+      computeTimelineMilestones(
+        viewScope.cards.map((n) => n.lifecycle),
+        viewScope.links,
+      ),
+    [viewScope],
+  );
 
   /* ---------------------------------------------------------------- */
   /*  Clicking a transition mark                                        */
@@ -788,7 +878,7 @@ export default function DependencyReport() {
     handleMilestoneClick,
     milestoneCards,
     handleMilestoneCardClick,
-  } = useMilestoneSpotlight({ scope: milestoneScope, getColor: milestoneCardColor });
+  } = useMilestoneSpotlight({ scope: viewScope.cards, getColor: milestoneCardColor });
 
   // The transformation between today and the selected date, over the same
   // scope as the marks and computed BEFORE the persist filter — hiding retired
@@ -813,7 +903,7 @@ export default function DependencyReport() {
   // the rule; the centred card is additionally always kept, so travelling past
   // its retirement doesn't strip the view's anchor (and with it the
   // back/forward history).
-  const { nodes, edges } = useMemo(() => {
+  const { nodes, edges, span } = useMemo(() => {
     const at = timelineFilterDate;
     const visibility = { persistRetired, previewPlanned };
     // The span arrives undebounced while the filter runs on the debounced date,
@@ -852,8 +942,17 @@ export default function DependencyReport() {
     // What the mark does to the cards that stay put: a neighbour arriving hands
     // them a connection, a neighbour retiring takes one away. Nothing off a mark
     // — this says "changed here", not "changed at some point on the way".
+    // Cards a relation brings into the centred view, or takes out of it, move
+    // here like cards going live or retiring: they are not marked themselves,
+    // their neighbours gain or lose the connection.
     const links = span
-      ? computeConnectionChanges(rawNodes, rawEdges, span.from, span.to)
+      ? computeConnectionChanges(
+          rawNodes,
+          rawEdges,
+          span.from,
+          span.to,
+          viewMovesBetween(viewScope.cards, span.from, span.to),
+        )
       : null;
     const visible = filtered.map((n) =>
       links?.gained.has(n.id) || links?.lost.has(n.id)
@@ -863,6 +962,7 @@ export default function DependencyReport() {
     return {
       nodes: visible,
       edges: edgesAtDate(rawEdges, ids, at, visibility, span),
+      span,
     };
   }, [
     rawNodes,
@@ -874,6 +974,7 @@ export default function DependencyReport() {
     previewPlanned,
     revealedForPulse,
     activeSpan,
+    viewScope,
   ]);
 
   // Adjacency map — one entry per neighbouring CARD, not per edge, since two
@@ -900,27 +1001,44 @@ export default function DependencyReport() {
   // Also include depth-1 neighbors of any nodes that have been "expanded"
   const ldvData = useMemo(() => {
     if (!center || !nodeMap.has(center)) return { nodes: [] as GNode[], edges: [] as GEdge[] };
-    // Start with depth-1 BFS from center
-    const visited = new Set<string>([center]);
-    for (const neighbor of adjMap.get(center) || []) {
-      if (nodeMap.has(neighbor.nodeId)) visited.add(neighbor.nodeId);
-    }
-    // Also include depth-1 neighbors of any expanded nodes
-    for (const expId of ldvExpandedNodes) {
-      if (!visited.has(expId)) continue; // only expand visible nodes
-      for (const neighbor of adjMap.get(expId) || []) {
-        if (nodeMap.has(neighbor.nodeId)) visited.add(neighbor.nodeId);
-      }
-    }
-    // Targeted reveals: hierarchical parents / children surfaced by the toolbar.
-    for (const id of revealedParentIds) if (nodeMap.has(id)) visited.add(id);
-    for (const id of revealedChildIds) if (nodeMap.has(id)) visited.add(id);
+    // The neighbourhood seen from the centre: its depth-1 neighbours, those of
+    // every expanded card, and the hierarchy reveals. A card reached only
+    // through relations not in effect at the date is a planned or retired card
+    // from here (`dependencyViewpoint.ts`): drawn only when its toggle keeps it
+    // (or the slider stands on the mark where it leaves, or the spotlight
+    // points at it), and ghosted and badged like one.
+    const at = timelineFilterDate;
+    const visibility = { persistRetired, previewPlanned };
+    const hops = {
+      center,
+      expanded: ldvExpandedNodes,
+      placed: [...revealedParentIds, ...revealedChildIds],
+    };
+    const eligible = new Set(nodeMap.keys());
+    const reach = viewpointReach(rawEdges, hops, at, { eligible, visibility, span });
+    const reachToday =
+      at > timeline.todayMs ? viewpointReach(rawEdges, hops, timeline.todayMs, { eligible }) : null;
+    const visited = new Set(
+      [...reach]
+        .filter(([id, r]) => isReachShown(r, visibility) || revealedForPulse.has(id))
+        .map(([id]) => id),
+    );
     // Annotate each visible card with whether it has any child in the full
     // dataset, so the view can draw the "hidden children" hierarchy marker.
     const parentIds = new Set(nodes.map((n) => n.parent_id).filter(Boolean) as string[]);
     const filteredNodes = nodes
       .filter((n) => visited.has(n.id))
-      .map((n) => ({ ...n, hasChildren: parentIds.has(n.id) }));
+      .map((n) => ({
+        ...n,
+        changeState: combineChangeState(
+          n.changeState,
+          reach.get(n.id) as Reach,
+          reachToday?.get(n.id),
+          at,
+          timeline.todayMs,
+        ),
+        hasChildren: parentIds.has(n.id),
+      }));
     const filteredEdges = edges.filter((e) => visited.has(e.source) && visited.has(e.target));
     // Draw the containment line for parent/child pairs surfaced by the Reveal
     // tools (the view no longer auto-synthesises hierarchy edges).
@@ -941,11 +1059,17 @@ export default function DependencyReport() {
     center,
     nodes,
     edges,
-    adjMap,
+    rawEdges,
     nodeMap,
     ldvExpandedNodes,
     revealedParentIds,
     revealedChildIds,
+    timelineFilterDate,
+    timeline.todayMs,
+    persistRetired,
+    previewPlanned,
+    span,
+    revealedForPulse,
     t,
   ]);
 
@@ -1022,8 +1146,32 @@ export default function DependencyReport() {
   // Compute tree layout
   const layout = useMemo<TreeLayout | null>(() => {
     if (!center || !nodeMap.has(center)) return null;
-    return computeTreeLayout(center, expanded, adjMap, nodeMap, types);
-  }, [center, expanded, adjMap, nodeMap, types]);
+    // Each branch reads relation dates along its own path: a card reached
+    // through relations not in effect is a planned / retired card on that
+    // branch, drawn only when its toggle keeps it.
+    const at = timelineFilterDate;
+    return computeTreeLayout(center, expanded, adjMap, nodeMap, types, {
+      at: pairReaches(rawEdges, at, span),
+      today: at > timeline.todayMs ? pairReaches(rawEdges, timeline.todayMs) : null,
+      visibility: { persistRetired, previewPlanned },
+      forceShown: revealedForPulse,
+      dateMs: at,
+      todayMs: timeline.todayMs,
+    });
+  }, [
+    center,
+    expanded,
+    adjMap,
+    nodeMap,
+    types,
+    rawEdges,
+    timelineFilterDate,
+    timeline.todayMs,
+    span,
+    persistRetired,
+    previewPlanned,
+    revealedForPulse,
+  ]);
 
   // Hovered ancestry chain (for highlighting the path)
   const hoveredChain = useMemo(() => {
@@ -1062,13 +1210,20 @@ export default function DependencyReport() {
   // hidden when "Persist retired cards" is off, so an unconditional entry
   // would advertise a badge the user cannot see.
   const usedChangeStates = useMemo(() => {
-    const set = new Set<string>(nodes.map((n) => n.changeState).filter(Boolean) as string[]);
+    // The graph's own states plus those the centred view gives a card through
+    // its relations (a card reached only by a planned relation is planned).
+    const shown = [
+      ...nodes,
+      ...ldvData.nodes,
+      ...(layout?.cards.map((c) => c.node) ?? []),
+    ];
+    const set = new Set<string>(shown.map((n) => n.changeState).filter(Boolean) as string[]);
     if (nodes.some((n) => n.gainedLink)) set.add("gainedLink");
     if (nodes.some((n) => n.lostLink)) set.add("lostLink");
     if (edges.some((e) => e.relationState === "planned")) set.add("plannedRelation");
     if (edges.some((e) => e.relationState === "ended")) set.add("endedRelation");
     return set;
-  }, [nodes, edges]);
+  }, [nodes, edges, ldvData, layout]);
 
   /**
    * Cards already at End of Life TODAY — judged against `todayMs`, never against
