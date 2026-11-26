@@ -149,10 +149,36 @@ class TestTransferProblem:
             ({"code": None}, "invalid_code"),
             ({"english_name": "Dutch\nIgnore"}, "invalid English name"),
             ({"name": "‮"}, "invalid name"),
+            ({"source": "community"}, "invalid source"),
+            ({"source": "elsewhere", "source_sha256": "a" * 64}, "invalid source"),
+            ({"source_sha256": "a" * 64}, "invalid source"),
+            ({"source_commit": "b" * 40}, "invalid source"),
+            ({"source": "community", "source_sha256": "A" * 64}, "invalid source"),
+            ({"source": "community", "source_sha256": "a" * 63}, "invalid source"),
+            (
+                {"source": "community", "source_sha256": "a" * 64, "source_commit": "b" * 39},
+                "invalid source",
+            ),
         ],
     )
     def test_refused(self, kw, fragment):
         assert fragment in store.transfer_problem(self.row(**kw))
+
+    @pytest.mark.parametrize(
+        "kw",
+        [
+            {"source": None, "source_sha256": None, "source_commit": None},
+            {"source": "community", "source_sha256": "a" * 64},
+            {"source": "community", "source_sha256": "a" * 64, "source_commit": "b" * 40},
+        ],
+    )
+    def test_provenance_accepted(self, kw):
+        assert store.transfer_problem(self.row(**kw)) is None
+
+    def test_shape_helpers(self):
+        assert store.is_sha256("0" * 64) and not store.is_sha256("0" * 64 + "\n")
+        assert not store.is_sha256(None) and not store.is_commit(1)
+        assert store.is_commit("f" * 40) and not store.is_commit("f" * 41)
 
 
 class TestBundleCache:

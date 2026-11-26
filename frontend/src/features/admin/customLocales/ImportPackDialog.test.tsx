@@ -205,7 +205,10 @@ describe("ImportPackDialog", () => {
     vi.stubGlobal("FileReader", FailingReader);
     renderDialog();
     pick(packText());
-    expect(await screen.findByText(t("customLocales.import.invalidJson"))).toBeInTheDocument();
+    // Its own message: a file the browser could not read is not a JSON problem.
+    expect(await screen.findByText(t("customLocales.import.readFailed"))).toBeInTheDocument();
+    expect(screen.queryByText(t("customLocales.import.invalidJson"))).not.toBeInTheDocument();
+    expect(importButton()).toBeDisabled();
   });
 
   it("clears an earlier error when a good file is picked", async () => {

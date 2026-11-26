@@ -83,6 +83,9 @@ NOT_A_STRING = "not_a_string"
 
 _CODE = re.compile(r"[a-z]{2,3}(-[A-Z][a-z]{3})?(-[A-Z]{2})?")
 MAX_CODE_LENGTH = 10
+#: The languages the app ships (``settings.SUPPORTED_LOCALES`` is this list):
+#: a custom language, and so a language pack, can never take one of them.
+BUILT_IN_CODES = ("en", "de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar")
 #: Deprecated base codes i18next canonicalises to another code (``iw`` → ``he``
 #: …): a language stored under one of them would never be displayed.
 DEPRECATED_BASE_CODES = frozenset({"iw", "in", "ji", "jw", "mo", "sh", "tl", "cmn"})
@@ -133,7 +136,7 @@ def is_source_hash(value: Any) -> bool:
     return isinstance(value, str) and bool(_HASH.fullmatch(value))
 
 
-def code_error(code: str, built_in: Iterable[str]) -> str | None:
+def code_error(code: str, built_in: Iterable[str] = BUILT_IN_CODES) -> str | None:
     """Why ``code`` cannot be a new custom locale's code, or ``None``.
 
     ``invalid_code`` unless it is a two- or three-letter lower-case language
@@ -972,9 +975,10 @@ def translation_messages(
     payload: dict[str, Any] = {"translate": dict(sources)}
     if references:
         payload["reference"] = dict(references)
+    data = json.dumps(payload, ensure_ascii=False)  # pragma: no mutate, None is falsy like False
     return [
         {"role": "system", "content": translation_system_prompt(language)},
-        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        {"role": "user", "content": data},
     ]
 
 
@@ -1080,8 +1084,11 @@ def _header_problems(pack: Mapping[str, Any]) -> list[str]:
         problems.append("bad_format_version")
     locale = pack.get("locale")
     locale = locale if isinstance(locale, Mapping) else {}
-    if code_error(locale.get("code"), ()) is not None:  # type: ignore[arg-type]
-        problems.append("invalid_code")
+    # A pack for a language the app ships is refused here, not only by the
+    # routes: the ``validate`` CLI (the community library's check) uses this.
+    code_problem = code_error(locale.get("code"))  # type: ignore[arg-type]
+    if code_problem is not None:
+        problems.append(code_problem)
     if not is_valid_english_name(locale.get("english_name")):  # type: ignore[arg-type]
         problems.append("invalid_english_name")
     hashes = pack.get("source_hashes", {})

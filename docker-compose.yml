@@ -58,6 +58,8 @@ services:
       AI_SEARCH_PROVIDER: ${AI_SEARCH_PROVIDER:-duckduckgo}
       AI_SEARCH_URL: ${AI_SEARCH_URL:-}
       AI_AUTO_CONFIGURE: ${AI_AUTO_CONFIGURE:-false}
+      # Community language library (Custom Languages); empty switches it off.
+      LANGUAGE_CATALOGUE_URL: ${LANGUAGE_CATALOGUE_URL-https://raw.githubusercontent.com/vincentmakes/turbo-ea-translations/main/index.json}
       NVD_API_KEY: ${NVD_API_KEY:-}
       # Read the client address from the X-Real-IP header the edge nginx sets
       # (the security audit log and the sign-in rate limit key on it). Only

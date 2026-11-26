@@ -76,16 +76,21 @@ export function invalidateCustomLocales(v: CustomLocaleInfo[]): void {
 export function useCustomLocales() {
   const [locales, setLocales] = useState<CustomLocaleInfo[]>(_cache ?? []);
 
-  useEffect(() => {
-    _listeners.add(setLocales);
-    if (!_cache) void _fetch();
-    // Stryker disable next-line BlockStatement: React drops a state update on an unmounted component, so a listener left behind changes nothing visible
-    return () => {
-      // Stryker disable next-line CallExpression: as above — the stale listener's updates are dropped
-      _listeners.delete(setLocales);
-    };
+  useEffect(
+    () => {
+      _listeners.add(setLocales);
+      if (!_cache) void _fetch();
+      // Stryker disable next-line BlockStatement: React drops a state update on an unmounted component, so a listener left behind changes nothing visible
+      return () => {
+        // Stryker disable next-line CallExpression: as above — the stale listener's updates are dropped
+        _listeners.delete(setLocales);
+      };
+    },
+    // Here the pragma leads the array itself, which is where Stryker reads it
+    // (after the effect's closing brace it was an inner comment and ignored).
     // Stryker disable next-line ArrayDeclaration: a constant dependency list runs the effect once, exactly like []
-  }, []);
+    [],
+  );
 
   return { customLocales: locales };
 }

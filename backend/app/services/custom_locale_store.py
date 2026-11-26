@@ -40,6 +40,14 @@ _UNCHECKABLE = re.compile(r"[<{}]|\$t\(")
 SOURCE_CHANGED = "source_changed"
 SOURCE_HASH_MISSING = "source_hash_missing"
 
+#: The origin of a string installed from the community library
+#: (``services/language_catalogue.py``). Like ``import``, it comes from a
+#: language-pack file, so the ``metamodel`` rules of a file import apply.
+ORIGIN_COMMUNITY = "community"
+#: Origins whose strings come from a pack file: every ``metamodel`` value must
+#: carry the hash of the English it translates.
+FILE_ORIGINS = frozenset({"import", ORIGIN_COMMUNITY})
+
 
 def catalog() -> lp.Catalog | None:
     """The English catalogue (``I18N_EN_DIR`` overrides where it is read)."""
@@ -77,7 +85,36 @@ def transfer_problem(row: Mapping[str, Any]) -> str | None:
         return f"language {code!r}: invalid English name"
     if not lp.is_valid_native_name(row.get("name")):  # type: ignore[arg-type]
         return f"language {code!r}: invalid name"
+    if not is_valid_provenance(
+        row.get("source"), row.get("source_sha256"), row.get("source_commit")
+    ):
+        return f"language {code!r}: invalid source"
     return None
+
+
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+_COMMIT = re.compile(r"[0-9a-f]{40}")
+
+
+def is_sha256(value: Any) -> bool:
+    """A lower-case hex SHA-256 digest."""
+    return isinstance(value, str) and bool(_SHA256.fullmatch(value))
+
+
+def is_commit(value: Any) -> bool:
+    """A full lower-case hex git commit id."""
+    return isinstance(value, str) and bool(_COMMIT.fullmatch(value))
+
+
+def is_valid_provenance(source: Any, sha256: Any, commit: Any) -> bool:
+    """Whether a language's ``source`` / ``source_sha256`` / ``source_commit``
+    have the shape an install writes: all empty (added by hand), or the
+    community origin with a digest and, where the library named one, a commit."""
+    if source is None:
+        return sha256 is None and commit is None
+    return (
+        source == ORIGIN_COMMUNITY and is_sha256(sha256) and (commit is None or is_commit(commit))
+    )
 
 
 #: Bounds of one ``POST …/strings``: keys across all namespaces, and the
@@ -242,6 +279,8 @@ def serialize(
         "updated_at": stamp.isoformat() if stamp else None,
         "stats": lp.sum_stats(per_ns) if views is not None else None,
         "job": locale.translate_job,
+        # ``"community"`` for a language installed from the community library.
+        "source": locale.source,
     }
     if with_namespaces:
         out["namespaces"] = per_ns
@@ -463,7 +502,8 @@ def bundle_body(
         "hash": tag,
         "resources": bundle_resources(cat, rows, locale.code),
     }
-    return json.dumps(payload, ensure_ascii=False).encode()
+    text = json.dumps(payload, ensure_ascii=False)  # pragma: no mutate, None is falsy like False
+    return text.encode()
 
 
 class BundleCache:
@@ -572,8 +612,8 @@ def source_changed(
     * A given source hash that is not the current English hash means the value
       was translated from a label that has changed since (an admin renamed the
       type): ``source_changed``.
-    * An import must carry the hash of every ``metamodel`` value (every export
-      writes one): ``source_hash_missing``.
+    * An import or a community install must carry the hash of every
+      ``metamodel`` value (every export writes one): ``source_hash_missing``.
     * A manual or MCP write without a hash, a clear (``None``) and a key the
       namespace does not have (the merge counts it unknown) pass through."""
     split = MetamodelSplit()
@@ -583,11 +623,11 @@ def source_changed(
         has_hash = lp.is_source_hash(given)
         if value is None or current is None:
             split.kept[key] = value
-        elif view.strings.get(key) == value and (has_hash or origin == "import"):
+        elif view.strings.get(key) == value and (has_hash or origin in FILE_ORIGINS):
             split.unchanged += 1
         elif has_hash and given != current:
             split.refused.append({"namespace": METAMODEL, "key": key, "reason": SOURCE_CHANGED})
-        elif origin == "import" and not has_hash:
+        elif origin in FILE_ORIGINS and not has_hash:
             split.refused.append(
                 {"namespace": METAMODEL, "key": key, "reason": SOURCE_HASH_MISSING}
             )

@@ -201,6 +201,44 @@ class TestSplit:
         assert slept == [3]
 
 
+class TestAsk:
+    """``_ask``: one call, one retry with the same messages, each failure logged."""
+
+    @pytest.fixture
+    def failures(self, monkeypatch):
+        logged: list[Exception] = []
+        monkeypatch.setattr(tr, "RETRY_DELAY", 0)
+        monkeypatch.setattr(tr, "_log_failure", logged.append)
+        return logged
+
+    async def test_the_retry_sends_the_same_messages(self, monkeypatch, failures):
+        sent: list = []
+        first = RuntimeError("first")
+
+        async def call(cfg, messages):
+            sent.append(messages)
+            if len(sent) == 1:
+                raise first
+            return {"1": "ok"}
+
+        monkeypatch.setattr(tr, "_call", call)
+        messages = [{"role": "user", "content": "x"}]
+        assert await tr._ask(AI, messages) == {"1": "ok"}
+        assert sent == [messages, messages]
+        assert failures == [first]
+
+    async def test_both_failures_are_logged(self, monkeypatch, failures):
+        errors = [RuntimeError("one"), RuntimeError("two")]
+
+        async def call(cfg, messages):
+            raise errors[len(failures)]
+
+        monkeypatch.setattr(tr, "_call", call)
+        with pytest.raises(tr.ProviderFailedError):
+            await tr._ask(AI, [])
+        assert failures == errors
+
+
 # ---------------------------------------------------------------------------
 # The job
 # ---------------------------------------------------------------------------

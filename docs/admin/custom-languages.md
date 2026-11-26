@@ -32,6 +32,34 @@ A new language starts switched off: users do not see it until you offer it. Each
 
 Offer a language to your users with its switch. Users can then pick it from the language menu, like any built-in language. Strings that are still missing appear in English.
 
+## Installing a language from the community library
+
+Other Turbo EA users share their translations in the [community language library](https://github.com/vincentmakes/turbo-ea-translations). Below your own languages, the **Community languages** block lists the languages it holds, each with its native name and code, how much of the interface it translates, and the Turbo EA version its pack was made with.
+
+!!! warning "Community-provided, not reviewed"
+    The packs are written by members of the community. **The Turbo EA project does not review them.** Automatic checks make sure a pack cannot add markup, links or broken placeholders that the English text does not have, but nobody checks whether the translations are accurate or complete. Review a language before you offer it to your users.
+
+**Install** downloads the language's pack and imports it. What happens:
+
+- The pack is downloaded from the community library — exactly the file the library lists, checked against its checksum.
+- Every string goes through the same checks as an [imported file](#the-language-pack-file); a rejected string is listed in the report and never saved.
+- A new language is added **switched off**. Look at it in **Review strings**, then switch it on for your users.
+- The report shows what was applied, what was rejected and why, and what is not in your version of Turbo EA.
+
+The language then shows as **installed**, and its row in your own list carries the **Community-provided, not reviewed** marker. In **Review strings**, each translation shows where it came from — *Community library*, *Corrected by hand*, *AI translation*, *Imported file* or *MCP*.
+
+When the library has a newer pack of a language you installed, the language shows **Update available**. **Update** merges the new pack into your language. Strings you corrected by hand are kept, unless you tick **Also replace the strings corrected by hand**. The name, direction and switch of your language are left as they are.
+
+Turbo EA contacts the library only when you open this section or click **Refresh** — never in the background. If the library cannot be reached, the block says so and keeps showing the list from the last successful download.
+
+### Turning the library off
+
+The library's address is set by the `LANGUAGE_CATALOGUE_URL` environment variable (Helm value `customLanguages.catalogueUrl`). Set it to an empty value to switch the feature off, for example on an installation without internet access; the block then says that the community library is switched off. You can also point it at a copy of the library on your own server: packs are downloaded from the `packs/<code>/pack.json` files beside its `index.json`.
+
+### Contributing a language
+
+Translated a language that is not in the library yet, or improved one? Export it with **Export language pack > Share (community pack)** and propose it to the library — see its [contributing guide](https://github.com/vincentmakes/turbo-ea-translations/blob/main/CONTRIBUTING.md).
+
 ## Three ways to translate
 
 Use whichever suits you; they can be combined, and the result is the same.

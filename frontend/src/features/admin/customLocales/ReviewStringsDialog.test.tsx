@@ -97,6 +97,28 @@ beforeEach(() => {
 });
 
 describe("ReviewStringsDialog", () => {
+  it("names where each translation came from, a community pack included", async () => {
+    const community: CustomLocaleString = {
+      ...SAVED,
+      key: "actions.delete",
+      source: "Delete",
+      value: "מחק",
+      origin: "community",
+    };
+    serve([SAVED, TYPE_LABEL, community, { ...STALE, origin: null }]);
+    renderDialog();
+    await screen.findByText("מחק");
+    expect(within(rowOf("Delete")).getByTestId("string-origin")).toHaveTextContent(
+      t("customLocales.origins.community"),
+    );
+    expect(within(rowOf("Save")).getByTestId("string-origin")).toHaveTextContent(
+      t("customLocales.origins.manual"),
+    );
+    // Nothing to name: no translation, or no origin recorded.
+    expect(within(rowOf("Application")).queryByTestId("string-origin")).toBeNull();
+    expect(within(rowOf("Cancel")).queryByTestId("string-origin")).toBeNull();
+  });
+
   it("lists the strings still to do, English beside the translation", async () => {
     serve([SAVED, TYPE_LABEL, STALE]);
     renderDialog();

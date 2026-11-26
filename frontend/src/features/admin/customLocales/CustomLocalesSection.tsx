@@ -8,8 +8,8 @@
  * regulation and resource-type labels, lifecycle help) and the changed
  * language's bundle is dropped, and reloaded at once when it is the active
  * language (`refreshCustomLocale`), so the admin sees the result without a page
- * reload. An import, a finished AI run or a manual edit of a database label
- * also re-reads the metamodel. While any language's AI job runs, the list is
+ * reload. An import, an install from the community library, a finished AI run
+ * or a manual edit of a database label also re-reads the metamodel. While any language's AI job runs, the list is
  * polled, so a job finishing after its dialog closed still refreshes all that.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -41,10 +41,12 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import i18n from "@/i18n";
 import { forgetLoadedLocale, refreshCustomLocale, setAppLanguage } from "@/i18n/customLocales";
 import type { CustomLocale, LanguagePack, LanguagePackMode } from "@/types";
+import CommunityLanguages from "./CommunityLanguages";
 import CustomLocaleFormDialog from "./CustomLocaleFormDialog";
 import ImportPackDialog from "./ImportPackDialog";
 import TranslateDialog, { POLL_INTERVAL_MS } from "./TranslateDialog";
 import ReviewStringsDialog from "./ReviewStringsDialog";
+import UnreviewedChip from "./UnreviewedChip";
 import {
   METAMODEL_NAMESPACE,
   downloadJson,
@@ -98,13 +100,13 @@ export default function CustomLocalesSection() {
   );
 
   // Poll the list while a job runs, one read at a time: the next one is
-  // armed only once the previous read settled.
-  const runningKey = JSON.stringify(locales.filter(isRunning).map((l) => l.code));
+  // armed only once the previous read settled (every read is a new `data`).
+  const anyRunning = locales.some(isRunning);
   useEffect(() => {
-    if (runningKey === "[]" || loading) return;
+    if (!anyRunning || loading) return;
     const id = setTimeout(refetch, POLL_INTERVAL_MS);
     return () => clearTimeout(id);
-  }, [runningKey, loading, data, refetch]);
+  }, [anyRunning, loading, data, refetch]);
 
   // A job seen running that no longer is has finished: refresh what it wrote.
   const seenRunning = useRef<Set<string>>(new Set());
@@ -222,6 +224,7 @@ export default function CustomLocalesSection() {
                 {locale.rtl ? ` · ${t("customLocales.rtlShort")}` : ""}
               </Typography>
             </Box>
+            {locale.source === "community" && <UnreviewedChip />}
             <Box sx={{ flex: 1, minWidth: 160 }}>
               {stats ? (
                 <>
@@ -352,8 +355,10 @@ export default function CustomLocalesSection() {
         );
       })}
 
+      <CommunityLanguages onInstalled={(code) => afterChange(code, true)} />
+
       <Menu
-        anchorEl={exportAnchor?.el ?? null}
+        anchorEl={exportAnchor?.el}
         open={!!exportAnchor}
         onClose={() => setExportAnchor(null)}
       >

@@ -37,6 +37,7 @@
 | `AI_PROVIDER_URL` | *(empty)* | Ollama-compatible LLM provider URL (e.g., `http://ollama:11434`) |
 | `AI_MODEL` | *(empty)* | LLM model name (e.g., `mistral`, `gemma3:4b`, `llama3:8b`) |
 | `I18N_EN_DIR` | *(empty)* | Directory of the English UI locale files the custom-languages feature diffs, validates and exports against. Empty = `/app/i18n/en` in the backend image, else `frontend/src/i18n/locales/en` in a checkout |
+| `LANGUAGE_CATALOGUE_URL` | `https://raw.githubusercontent.com/vincentmakes/turbo-ea-translations/main/index.json` | The community language library's `index.json` (Custom Languages → Community languages). Read only when an admin opens or refreshes the list; packs are downloaded from beside it, pinned to the commit the index names. Empty = feature off (air-gapped installs) |
 | `AI_SEARCH_PROVIDER` | `duckduckgo` | Web search provider for AI context: `duckduckgo`, `google`, or `searxng` |
 | `AI_SEARCH_URL` | *(empty)* | Search provider URL: SearXNG URL or `API_KEY:CX` for Google |
 | `AI_AUTO_CONFIGURE` | `false` | Auto-enable AI on startup if provider is reachable |

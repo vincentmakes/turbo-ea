@@ -51,15 +51,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 async function loadBundle(code: string): Promise<boolean> {
-  let bundle: CustomLocaleBundle;
-  try {
-    bundle = await api.get<CustomLocaleBundle>(
-      `/custom-locales/${encodeURIComponent(code)}/bundle`,
-    );
-    // Stryker disable next-line BlockStatement: with an empty catch `bundle` stays undefined, which the isPlainObject check below refuses with the same false
-  } catch {
-    return false;
-  }
+  // A failed read is no bundle: the shape check below answers false for it.
+  const bundle: CustomLocaleBundle | undefined = await api
+    .get<CustomLocaleBundle>(`/custom-locales/${encodeURIComponent(code)}/bundle`)
+    .catch(() => undefined);
   if (!isPlainObject(bundle) || !isPlainObject(bundle.resources)) return false;
 
   // Only the namespaces English has: a bundle cannot invent one.

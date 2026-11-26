@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.215.0] - 2026-11-26
+
+### Added
+- Custom languages: a **Community languages** block lists the language packs of the community library, with each one's coverage and the version it was made for, and installs or updates one in a click — checked like an imported file, added switched off, marked as community-provided and not reviewed.
+- An update from the community library keeps the strings you corrected by hand, unless you choose to replace them; the review table now shows where each translation came from.
+- `LANGUAGE_CATALOGUE_URL` (Helm `customLanguages.catalogueUrl`) sets the community library's address; empty switches the feature off.
+
+### Changed
+- The `validate` command of the language-pack checker refuses a pack for a language Turbo EA ships itself.
+
+### Fixed
+- Importing a language pack the browser cannot read now says so, instead of reporting invalid JSON.
+
 ## [2.214.0] - 2026-11-25
 
 ### Added

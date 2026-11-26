@@ -24,7 +24,9 @@ import {
   parseLanguagePack,
   percent,
   readFileText,
+  originLabel,
   reasonLabel,
+  STRING_ORIGINS,
   usuallyRtl,
 } from "./customLocaleUtils";
 import type { LanguagePack } from "@/types";
@@ -64,7 +66,18 @@ describe("constants", () => {
       "catalog_unavailable",
       "locale_not_found",
       "unknown_namespace",
+      "catalogue_disabled",
+      "catalogue_unreachable",
+      "catalogue_too_large",
+      "catalogue_invalid",
+      "not_in_catalogue",
+      "pack_unreachable",
+      "pack_too_large",
+      "pack_checksum_mismatch",
+      "pack_invalid",
+      "pack_code_mismatch",
     ]);
+    expect([...STRING_ORIGINS]).toEqual(["manual", "ai", "import", "mcp", "community"]);
     expect([...REJECT_REASONS]).toEqual([
       "unknown_key",
       "empty",
@@ -355,6 +368,15 @@ describe("apiErrorCode / errorMessage", () => {
     );
     expect(errorMessage(new ApiError("m", 500, "boom"), t, "fallback")).toBe("fallback");
     expect(errorMessage(new Error("x"), t, "fallback")).toBe("fallback");
+  });
+});
+
+describe("originLabel", () => {
+  it("labels each origin the server writes and shows an unknown one as sent", () => {
+    expect(originLabel("community", t)).toBe("T:customLocales.origins.community");
+    expect(originLabel("manual", t)).toBe("T:customLocales.origins.manual");
+    expect(originLabel("ai", t)).toBe("T:customLocales.origins.ai");
+    expect(originLabel("something", t)).toBe("something");
   });
 });
 

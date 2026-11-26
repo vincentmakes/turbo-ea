@@ -4788,6 +4788,17 @@
         "title": "CardUpdate",
         "type": "object"
       },
+      "CatalogueInstall": {
+        "properties": {
+          "overwrite_manual": {
+            "default": false,
+            "title": "Overwrite Manual",
+            "type": "boolean"
+          }
+        },
+        "title": "CatalogueInstall",
+        "type": "object"
+      },
       "ComplianceBundleOut": {
         "properties": {
           "findings": {
@@ -29696,6 +29707,99 @@
           }
         },
         "summary": "Create Custom Locale",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
+    "/api/v1/custom-locales/catalogue": {
+      "get": {
+        "description": "The community library's languages, each marked installed / update\navailable. The index is downloaded only here \u2014 on the first visit and on\n``refresh`` \u2014 and cached; ``enabled`` is false when no library is\nconfigured. Registered before ``/{code}``.",
+        "operationId": "list_language_catalogue_api_v1_custom_locales_catalogue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Language Catalogue",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
+    "/api/v1/custom-locales/catalogue/{code}/install": {
+      "post": {
+        "description": "Install (or update) a language from the community library: its pack is\ndownloaded, checked like an imported file and merged; a new language is\nadded disabled. Answers the merge report with ``created``,\n``kept_manual`` and the language.",
+        "operationId": "install_from_catalogue_api_v1_custom_locales_catalogue__code__install_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogueInstall"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Install From Catalogue",
         "tags": [
           "Custom languages"
         ]

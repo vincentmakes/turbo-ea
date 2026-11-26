@@ -171,6 +171,30 @@ describe("TranslateDialog", () => {
     });
   });
 
+  it("reads the language again as soon as the job starts, not a poll interval later", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let reads = 0;
+    mockApi.on("get", DETAIL_PATH, () => {
+      reads += 1;
+      return reads === 1 ? detail() : detail({ job: job({ done: 4 }) });
+    });
+    mockApi.on("post", "/custom-locales/he/translate", { job: job() });
+    renderDialog();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(reads).toBe(1);
+    await act(async () => {
+      fireEvent.click(startButton());
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    // No timer has run yet: this read is the start's own.
+    expect(reads).toBe(2);
+  });
+
   it("polls every few seconds while the job runs and reports when it finished", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     let reads = 0;

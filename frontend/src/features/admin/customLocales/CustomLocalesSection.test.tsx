@@ -69,6 +69,13 @@ vi.mock("./TranslateDialog", () => ({
     </div>
   ),
 }));
+vi.mock("./CommunityLanguages", () => ({
+  default: ({ onInstalled }: { onInstalled: (code: string) => void }) => (
+    <div data-testid="community-languages">
+      <button onClick={() => onInstalled("nl")}>stub-installed</button>
+    </div>
+  ),
+}));
 vi.mock("./ReviewStringsDialog", () => ({
   default: ({
     locale,
@@ -426,6 +433,22 @@ describe("CustomLocalesSection — dialogs", () => {
     await waitFor(() => expect(listReads()).toBe(2));
   });
 
+  it("marks a language installed from the community library, and only that one", async () => {
+    await renderSection([{ ...HEBREW, source: "community" }, HINDI_IDLE]);
+    expect(row("he").getByText(t("customLocales.community.unreviewed"))).toBeInTheDocument();
+    expect(row("hi").queryByText(t("customLocales.community.unreviewed"))).toBeNull();
+    expect(screen.getByTestId("community-languages")).toBeInTheDocument();
+  });
+
+  it("after an install from the community library refreshes the list, the language and the labels", async () => {
+    const { user } = await renderSection();
+    await user.click(screen.getByText("stub-installed"));
+    expect(spies.refreshCustomLocale).toHaveBeenCalledWith("nl");
+    expect(spies.invalidateMetamodel).toHaveBeenCalledTimes(1);
+    expect(spies.refreshBootstrap).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(listReads()).toBe(2));
+  });
+
   it("after an AI run refreshes the language and the database labels", async () => {
     const { user } = await renderSection();
     await user.click(row("hi").getByRole("button", { name: t("customLocales.actions.translate") }));
@@ -467,9 +490,11 @@ describe("CustomLocalesSection — following a running job", () => {
   it("polls the list while a job runs and refreshes everything once it finished", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     let reads = 0;
+    // A second language that is not translating: one job running is enough.
+    const idle: CustomLocale = { ...HINDI, code: "xx", job: null };
     mockApi.on("get", "/custom-locales", () => {
       reads += 1;
-      return reads < 3 ? [RUNNING] : [DONE];
+      return reads < 3 ? [idle, RUNNING] : [idle, DONE];
     });
     renderWithProviders(<CustomLocalesSection />);
     await act(async () => {

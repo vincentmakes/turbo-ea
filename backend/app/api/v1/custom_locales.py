@@ -29,12 +29,17 @@ from app.models.user import User
 from app.services import audit_log
 from app.services import custom_locale_store as store
 from app.services import custom_locale_translate as translate
+from app.services import language_catalogue as community
 from app.services import language_pack as lp
 from app.services import metamodel_strings as mm
 from app.services.ai_service import ai_config_from_settings, provider_usable
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/custom-locales", tags=["Custom languages"])
+
+#: Recorded by ``language_catalogue.install`` (named here, where the Security
+#: log's label guard reads the actions from).
+_COMMUNITY_INSTALLED = "admin.custom_locale.community_installed"
 
 
 def _clean_name(value: str) -> str:
@@ -99,6 +104,11 @@ class StringsWrite(BaseModel):
         if problem is not None:
             raise ValueError(problem)
         return self
+
+
+class CatalogueInstall(BaseModel):
+    #: On an update, also replace the strings an administrator corrected by hand.
+    overwrite_manual: bool = False
 
 
 class TranslateRequest(BaseModel):
@@ -198,6 +208,58 @@ async def create_custom_locale(
     await db.commit()
     await db.refresh(locale)
     return await store.serialize_one(db, locale)
+
+
+def _catalogue_url() -> str:
+    from app.config import settings as app_config
+
+    return app_config.LANGUAGE_CATALOGUE_URL
+
+
+@router.get("/catalogue")
+@limiter.limit("30/minute")
+async def list_language_catalogue(
+    request: Request,
+    refresh: bool = False,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The community library's languages, each marked installed / update
+    available. The index is downloaded only here — on the first visit and on
+    ``refresh`` — and cached; ``enabled`` is false when no library is
+    configured. Registered before ``/{code}``."""
+    await _require_admin(db, user)
+    # Hand the pooled connection back: the service downloads with no session
+    # open and opens its own short ones.
+    await db.commit()
+    return await community.catalogue(_catalogue_url(), refresh=refresh)
+
+
+@router.post("/catalogue/{code}/install")
+@limiter.limit("10/minute")
+async def install_from_catalogue(
+    request: Request,
+    code: str,
+    body: CatalogueInstall,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Install (or update) a language from the community library: its pack is
+    downloaded, checked like an imported file and merged; a new language is
+    added disabled. Answers the merge report with ``created``,
+    ``kept_manual`` and the language."""
+    await _require_admin(db, user)
+    await db.commit()
+    try:
+        return await community.install(
+            _catalogue_url(),
+            code,
+            overwrite_manual=body.overwrite_manual,
+            actor=user,
+            action=_COMMUNITY_INSTALLED,
+        )
+    except community.CatalogueError as exc:
+        raise HTTPException(community.STATUS.get(exc.code, 502), exc.code) from exc
 
 
 @router.get("/{code}")
