@@ -31,7 +31,7 @@ from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag
 from app.models.user import User
-from app.services.lifecycle import lifecycle_in_effect_sql
+from app.services.lifecycle import lifecycle_in_effect, lifecycle_in_effect_sql
 
 if TYPE_CHECKING:
     from app.services.card_read_scope import CardReadScope
@@ -895,11 +895,25 @@ def card_filter_payload(payload: dict) -> dict:
     come from the metamodel the client already holds.
     """
     return {
-        "items": [{key: item[key] for key in FILTER_ITEM_KEYS} for item in payload["items"]],
+        "items": [_filter_item(item) for item in payload["items"]],
         "relation_types": payload["relation_types"],
         "groupable_types": payload["groupable_types"],
         "tag_groups": payload["tag_groups"],
     }
+
+
+def _filter_item(item: dict) -> dict:
+    """One initiative's filter data. The board is the portfolio NOW, so a
+    relation not in effect today by its own dates matches no filter, and the
+    dates themselves stay behind — the board has no time travel to spend them on.
+    """
+    out = {key: item[key] for key in FILTER_ITEM_KEYS}
+    out["relations"] = [
+        {k: v for k, v in rel.items() if k != "lifecycle"}
+        for rel in item["relations"]
+        if lifecycle_in_effect(rel.get("lifecycle"))
+    ]
+    return out
 
 
 def empty_filter_payload() -> dict:

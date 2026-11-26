@@ -845,3 +845,91 @@ describe('DependencyReport "Center on" drop-down', () => {
     expect(optionNames()).toEqual(["Legacy ERP"]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A relation's own dates
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport time travel — a relation's own dates", () => {
+  // Both ends of each relation are alive throughout; only the relations carry
+  // dates. At the travelled date (2028-06-01) one has ended and one is planned.
+  const DATED_GRAPH = {
+    nodes: [
+      { id: "crm", name: "CRM Cloud", type: "Application", lifecycle: { active: "2021-01-01" } },
+      { id: "portal", name: "Web Portal", type: "Application", lifecycle: { active: "2020-01-01" } },
+      { id: "billing", name: "Billing", type: "Application", lifecycle: { active: "2020-01-01" } },
+    ],
+    edges: [
+      {
+        source: "portal",
+        target: "crm",
+        type: "app_to_app",
+        label: "uses",
+        lifecycle: { active: "2029-01-01" },
+      },
+      {
+        source: "billing",
+        target: "crm",
+        type: "app_to_app",
+        label: "uses",
+        lifecycle: { active: "2020-01-01", endOfLife: "2027-01-01" },
+      },
+    ],
+  };
+  type Edge = { source: string; relationState?: string };
+  const drawn = () =>
+    ((ldvProps.at(-1) as { edges?: Edge[] }).edges ?? [])
+      .map((e) => `${e.source}:${e.relationState ?? "inEffect"}`)
+      .sort();
+
+  function renderChart() {
+    vi.mocked(api.get).mockResolvedValue(DATED_GRAPH);
+    vi.mocked(useSavedReport).mockReturnValue({
+      savedReport: null,
+      savedReportName: null,
+      saveDialogOpen: false,
+      setSaveDialogOpen: vi.fn(),
+      loadedConfig: null,
+      consumeConfig: vi.fn().mockReturnValue({ view: "chart", chartMode: "c4", center: "crm" }),
+      resetSavedReport: vi.fn(),
+      persistConfig: vi.fn(),
+      resetAll: vi.fn(),
+      reportType: "dependencies",
+    } as unknown as ReturnType<typeof useSavedReport>);
+    return renderReport();
+  }
+
+  it("draws an ended relation in its state while retired cards are kept, a planned one not", async () => {
+    renderChart();
+    await screen.findByTestId("ldv");
+    await waitFor(() => expect(drawn()).toEqual(["billing:ended"]));
+  });
+
+  it("drops the ended relation when retired cards are not kept", async () => {
+    renderChart();
+    await screen.findByTestId("ldv");
+    await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
+    await waitFor(() => expect(drawn()).toEqual([]));
+  });
+
+  it("previews the planned relation in its state when planned cards are shown", async () => {
+    renderChart();
+    await screen.findByTestId("ldv");
+    await userEvent.click(screen.getByRole("checkbox", { name: /Show cards that have not started/ }));
+    await waitFor(() => expect(drawn()).toEqual(["billing:ended", "portal:planned"]));
+  });
+
+  it("marks the track where each relation starts and ends", async () => {
+    renderChart();
+    await screen.findByTestId("ldv");
+    const marks = sliderProps.at(-1)?.milestones as
+      | { value: number; linking?: number; unlinking?: number }[]
+      | undefined;
+    expect(marks).toContainEqual(
+      expect.objectContaining({ value: ms("2029-01-01"), linking: 1, unlinking: 0 }),
+    );
+    expect(marks).toContainEqual(
+      expect.objectContaining({ value: ms("2027-01-01"), linking: 0, unlinking: 1 }),
+    );
+  });
+});

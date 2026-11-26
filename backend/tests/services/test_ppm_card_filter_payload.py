@@ -117,3 +117,23 @@ def test_empty_filter_payload_shape():
         "groupable_types": {},
         "tag_groups": [],
     }
+
+
+def test_the_board_matches_only_relations_in_effect_today_without_their_dates():
+    # The board is the portfolio now: a relation not in effect today by its own
+    # dates matches no filter, and its dates are no use to the board.
+    from tests.relation_windows import COUNTING, WINDOWS
+
+    relations = [
+        {**RELATION, "related_id": name, **({"lifecycle": lc} if lc else {})}
+        for name, lc in WINDOWS.items()
+    ]
+    out = card_filter_payload({**PAYLOAD, "items": [{**ITEM_A, "relations": relations}]})
+    kept = out["items"][0]["relations"]
+    assert sorted(r["related_id"] for r in kept) == COUNTING
+    assert all("lifecycle" not in r for r in kept)
+    # Everything else about a kept relation passes through unchanged.
+    assert next(r for r in kept if r["related_id"] == "undated") == {
+        **RELATION,
+        "related_id": "undated",
+    }

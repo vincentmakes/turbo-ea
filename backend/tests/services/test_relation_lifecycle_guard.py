@@ -109,15 +109,18 @@ ALL_TIME: dict[str, str] = {
     "services/relation_lifecycle_sweep.py::affected_card_ids": (
         "finds relations that started or ended in the window, in effect or not"
     ),
-    # The time-travel reports filter at the travelled date on the client.
-    "api/v1/reports.py::dependencies": (
-        "time travel: the client filters edges at the travelled date"
-    ),
+    # The time-travel reports carry each relation's `lifecycle` and filter at
+    # the travelled date on the client (`lib/relationLifecycle.ts`).
+    # (`/reports/dependencies` left this list when it gained `in_effect_only`:
+    # it applies the definition for that flag and carries `lifecycle` otherwise.)
     "api/v1/reports.py::capability_heatmap": (
-        "time travel: the client filters links at the travelled date"
+        "time travel: every capability-application link, with the linking relations' "
+        "lifecycle in `app_link_lifecycles`, filtered at the travelled date on the client"
     ),
     "services/portfolio_payload.py::build_portfolio_payload": (
-        "time travel: the client filters app_relations at the travelled date"
+        "time travel: every app_relations entry carries its relation's `lifecycle`, "
+        "filtered at the travelled date on the client; the PPM board's projection "
+        "(`card_filter_payload`) keeps only what is in effect today"
     ),
 }
 

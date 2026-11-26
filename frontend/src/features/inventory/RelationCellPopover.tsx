@@ -20,6 +20,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
+import { RelationPhaseChip } from "@/features/cards/sections/RelationLifecycleControls";
 import type { Relation, RelationType } from "@/types";
 
 interface RelationCellPopoverProps {
@@ -230,20 +231,30 @@ function RelationTypeSection({
               {t("relation.noRelationsYet")}
             </Typography>
           )}
+          {/* Every row, whatever its dates: this is where relations are
+              managed, so one that is planned or has ended is listed with its
+              phase — never hidden, or someone re-adds a relation that merely
+              ended. The grid cell behind it shows those in effect today. */}
           {sortedRelations.map((r) => {
             const other = otherEnd(r, cardId);
             return (
-              <Chip
+              <Box
                 key={r.id}
-                label={other?.name || t("relation.unknown")}
-                onDelete={() => handleDelete(r.id)}
-                icon={
-                  otherType ? (
-                    <MaterialSymbol icon={otherType.icon} size={16} color={otherType.color} />
-                  ) : undefined
-                }
-                sx={{ maxWidth: "100%" }}
-              />
+                data-testid={`relation-row-${r.id}`}
+                sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, maxWidth: "100%" }}
+              >
+                <Chip
+                  label={other?.name || t("relation.unknown")}
+                  onDelete={() => handleDelete(r.id)}
+                  icon={
+                    otherType ? (
+                      <MaterialSymbol icon={otherType.icon} size={16} color={otherType.color} />
+                    ) : undefined
+                  }
+                  sx={{ maxWidth: "100%" }}
+                />
+                <RelationPhaseChip lifecycle={r.lifecycle} />
+              </Box>
             );
           })}
         </Box>

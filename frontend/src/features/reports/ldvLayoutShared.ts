@@ -11,6 +11,7 @@
 
 import dagre from "@dagrejs/dagre";
 import { runsAgainstType } from "@/lib/relationSort";
+import { relationLifecycleState } from "@/lib/relationLifecycle";
 import {
   categoryDisplayName,
   orderCategoryKeys,
@@ -312,6 +313,25 @@ export function flowMarkers(
     ...(start ? { markerStart: arrow } : {}),
     ...(end ? { markerEnd: arrow } : {}),
   };
+}
+
+/**
+ * Stamp each edge that is NOT in effect at `dateMs` by its own `lifecycle` with
+ * its `relationState` ("planned" / "ended"), so the line is drawn in that
+ * state. A state the consumer already set wins (it decided at its own date);
+ * an edge without dates, or one in effect, is returned as it came — the same
+ * object, so an undated graph is not copied.
+ *
+ * Classifying is all this does: which planned or ended relations to draw at all
+ * is the consumer's call (the Dependencies report's two toggles; the card
+ * page passes only what is in effect today).
+ */
+export function withRelationStates(edges: GEdge[], dateMs: number): GEdge[] {
+  return edges.map((e) => {
+    if (e.relationState || !e.lifecycle) return e;
+    const state = relationLifecycleState(e.lifecycle, dateMs);
+    return state === "inEffect" ? e : { ...e, relationState: state };
+  });
 }
 
 /** Whether a relation is severed at the viewed date: either of its cards is retired there. */

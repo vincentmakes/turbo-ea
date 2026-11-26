@@ -107,27 +107,9 @@ async def build_portfolio_payload(
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in app_id_set and tid in related_map:
-            app_relations[sid].append(
-                {
-                    "relation_type": r.type,
-                    "direction": "outgoing",
-                    "related_id": tid,
-                    "related_name": related_map[tid]["name"],
-                    "related_type": related_map[tid]["type"],
-                    "attributes": r.attributes or {},
-                }
-            )
+            app_relations[sid].append(_relation_entry(r, "outgoing", related_map[tid]))
         if tid in app_id_set and sid in related_map:
-            app_relations[tid].append(
-                {
-                    "relation_type": r.type,
-                    "direction": "incoming",
-                    "related_id": sid,
-                    "related_name": related_map[sid]["name"],
-                    "related_type": related_map[sid]["type"],
-                    "attributes": r.attributes or {},
-                }
-            )
+            app_relations[tid].append(_relation_entry(r, "incoming", related_map[sid]))
 
     # 4b. Ancestor closure for hierarchical related types: nested grouping needs
     # the full parent chain of every related member, including ancestors that
@@ -285,6 +267,27 @@ async def build_portfolio_payload(
         "organizations": organizations,
         "tag_groups": tag_groups_payload,
     }
+
+
+def _relation_entry(r: Relation, direction: str, related: dict) -> dict:
+    """One side of one relation as a portfolio card sees it.
+
+    Carries the relation's own ``lifecycle`` only when it has dates — absent
+    means always in effect — so the time-travel reports can tell which related
+    card a card is linked to at the travelled date, and the current-state
+    surfaces built on this payload can keep only what is in effect today.
+    """
+    entry = {
+        "relation_type": r.type,
+        "direction": direction,
+        "related_id": related["id"],
+        "related_name": related["name"],
+        "related_type": related["type"],
+        "attributes": r.attributes or {},
+    }
+    if r.lifecycle:
+        entry["lifecycle"] = r.lifecycle
+    return entry
 
 
 def has_timeline_dates(lifecycle: dict | None, attributes: dict | None) -> bool:

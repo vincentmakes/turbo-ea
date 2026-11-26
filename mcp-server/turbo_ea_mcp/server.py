@@ -2381,7 +2381,8 @@ async def analyze_impact(
 
     Walks the network of relations outward from ``card_id`` up to
     ``max_depth`` hops and returns nodes grouped by depth. Wraps the
-    existing ``GET /reports/dependencies`` BFS endpoint.
+    existing ``GET /reports/dependencies`` BFS endpoint, asking it for the
+    relations in effect today only: a planned or ended relation is not walked.
 
     Args:
         card_id: Centre node UUID.
@@ -2409,7 +2410,10 @@ async def analyze_impact(
     if not token:
         return "Error: Not authenticated. Please reconnect."
     client = TurboEAClient(token)
-    params: dict = {"center_id": card_id, "depth": max_depth}
+    # An impact analysis asks about the landscape NOW: a relation that has not
+    # started or has ended by its own dates carries no impact, and the BFS must
+    # not walk through it.
+    params: dict = {"center_id": card_id, "depth": max_depth, "in_effect_only": True}
     data = await client.get("/reports/dependencies", params=params)
     if not isinstance(data, dict):
         return _fmt(data)

@@ -212,10 +212,22 @@ export function edgeColors(
   active: boolean,
   severed: boolean,
   isDark: boolean,
+  /** The relation is not in effect at the viewed date by its own dates. Like
+   *  severed it keeps its colour when lit — the future violet the timeline
+   *  uses for what has not arrived yet, or the neutral grey of what is over —
+   *  and severed (an end retired) wins over it. */
+  relationState?: "planned" | "ended",
 ): { stroke: string; label: string; labelBorder: string; labelBackground: string } {
   const lit = isDark ? brand.primaryLight : brand.primary;
-  const base = severed ? STATUS_COLORS.error : isDark ? STATUS_COLORS.neutral : SCREEN_INK.secondary;
-  const hover = severed ? STATUS_COLORS.error : lit;
+  const stateColor = severed
+    ? STATUS_COLORS.error
+    : relationState === "planned"
+      ? TIMELINE_COLORS.future
+      : relationState === "ended"
+        ? STATUS_COLORS.neutral
+        : null;
+  const base = stateColor ?? (isDark ? STATUS_COLORS.neutral : SCREEN_INK.secondary);
+  const hover = stateColor ?? lit;
   return {
     stroke: active ? hover : base,
     label: active ? lit : isDark ? STATUS_COLORS.neutral : SCREEN_INK.secondary,

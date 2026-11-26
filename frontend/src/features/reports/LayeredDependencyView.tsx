@@ -84,6 +84,9 @@ import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import { buildLdvDiagramXml } from "@/features/diagrams/drawio-shapes";
 import { collectDiagramInputs } from "./ldvDiagramExport";
 import LdvExportAggregatedDialog from "./LdvExportAggregatedDialog";
+import { withRelationStates } from "./ldvLayoutShared";
+import { useDateFormat } from "@/hooks/useDateFormat";
+import { relationPhaseNote, todayLifecycleMs } from "@/lib/relationLifecycle";
 import {
   buildLdvFlow,
   relationValueSuffix,
@@ -808,7 +811,10 @@ const LdvEdgeComponent = memo(
     // colour even while hovered — the highlight bumps its width instead, so
     // "this dependency is going away" never reads as a healthy blue link.
     const severed = edgeData?.severed === true;
-    const colors = edgeColors(active, severed, isDark);
+    // Planned / ended at the viewed date by the relation's own dates: its own
+    // colour and a faded dash, below severed and above hover (ldvLineStyle.ts).
+    const relationState = edgeData?.relationState;
+    const colors = edgeColors(active, severed, isDark, relationState);
     const color = colors.stroke;
 
     // Channel-routed edges carry an orthogonal waypoint polyline that dodges
@@ -925,8 +931,8 @@ const LdvEdgeComponent = memo(
             stroke: color,
             strokeWidth: edgeStrokeWidth(mergedCount, active),
             ...(isConnector
-              ? ldvEdgeStroke("solid", { active, severed })
-              : ldvEdgeStroke(edgeData?.lineStyle, { active, severed })),
+              ? ldvEdgeStroke("solid", { active, severed, relationState })
+              : ldvEdgeStroke(edgeData?.lineStyle, { active, severed, relationState })),
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />
@@ -1105,10 +1111,27 @@ function LayeredDependencyInner({
      other way round must be turned before anything lays it out or draws its
      arrowheads — otherwise a provider is drawn as a consumer (#1140). Done once,
      here, so both layouts, hover and "Create diagram" agree. */
-  const orientedEdges = useMemo(
-    () => orientEdgesToRelationTypes(rawNodes, rawEdges, relTypeByKey),
-    [rawNodes, rawEdges, relTypeByKey],
-  );
+  const { formatDate } = useDateFormat();
+  const orientedEdges = useMemo(() => {
+    const oriented = orientEdgesToRelationTypes(rawNodes, rawEdges, relTypeByKey);
+    /* A relation's own dates, read at the date the view is drawn as of (today
+       without time travel): one not in effect there is drawn in its planned /
+       ended state, and its hover text says so before its description. */
+    const at = asOfMs ?? todayLifecycleMs();
+    return withRelationStates(oriented, at).map((e) => {
+      if (!e.relationState) return e;
+      const note = relationPhaseNote(e.lifecycle, at);
+      const text =
+        e.relationState === "ended"
+          ? t("cards:relations.lifecycle.ended", {
+              date: formatDate(note?.kind === "ended" ? note.date : e.lifecycle?.endOfLife),
+            })
+          : note?.kind === "planned" && note.date
+            ? t("cards:relations.lifecycle.plannedFrom", { date: formatDate(note.date) })
+            : t("cards:relations.lifecycle.planned");
+      return { ...e, description: e.description ? `${text}\n${e.description}` : text };
+    });
+  }, [rawNodes, rawEdges, relTypeByKey, asOfMs, t, formatDate]);
 
   /* ---- Hide end-of-life related cards unless toggled on (centre always kept) ---- */
   const lifecycleFiltered = useMemo(

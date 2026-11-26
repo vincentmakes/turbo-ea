@@ -37,6 +37,9 @@ export interface AppRelation {
   /** Relation attribute values keyed by attribute field key, e.g.
    * `{ usageType: "owner" }`. Drives the relation-subtype colour/filters. */
   attributes?: Record<string, unknown>;
+  /** The relation's own lifecycle, sent only when it has dates; absent means
+   *  always in effect. `relationsAtDate` reads it. */
+  lifecycle?: Record<string, string>;
 }
 
 /**
@@ -432,6 +435,25 @@ export function relationMemberMatchesSubtypeFilters(
     if (!ok) return false;
   }
   return true;
+}
+
+/**
+ * The card as it stands at `dateMs`: only the relations in effect then by
+ * their own dates (`isAliveAtDate`, the one rule — `lib/relationLifecycle.ts`).
+ * Everything a report places, groups, colours or filters by a RELATED card
+ * reads `relations`, so projecting the card once is what makes an application
+ * an organisation starts using in 2027 sit under that organisation from 2027,
+ * while the card itself stays in the report throughout. A card with no dated
+ * relation, or with none ended or planned at the date, is returned as the same
+ * object.
+ */
+export function relationsAtDate<T extends { relations: AppRelation[] }>(
+  app: T,
+  dateMs: number,
+): T {
+  if (!app.relations.some((r) => r.lifecycle)) return app;
+  const relations = app.relations.filter((r) => isAliveAtDate(r.lifecycle, dateMs));
+  return relations.length === app.relations.length ? app : { ...app, relations };
 }
 
 export function matchesFilters(app: AppData, filters: FilterState): boolean {

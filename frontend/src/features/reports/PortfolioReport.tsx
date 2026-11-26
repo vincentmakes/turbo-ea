@@ -118,6 +118,7 @@ import {
   pickSelectFields,
   relationMemberMatchesSubtypeFilters,
   relationOnSide,
+  relationsAtDate,
   REL_SUBTYPE_PREFIX,
   resolveColorBy,
   UNSET_COLOR,
@@ -1094,7 +1095,13 @@ export default function PortfolioReport({
 
   // Timeline range
   const { dateRange, yearMarks, hasLifecycleData } = useMemo(
-    () => computeTimelineRange(data?.items.map((a) => a.lifecycle) ?? [], tl.todayMs),
+    () =>
+      computeTimelineRange(
+        data?.items.map((a) => a.lifecycle) ?? [],
+        tl.todayMs,
+        // A relation starting or ending moves a card between groups.
+        (data?.items ?? []).flatMap((a) => a.relations.map((r) => r.lifecycle)),
+      ),
     [data, tl.todayMs],
   );
 
@@ -1162,9 +1169,26 @@ export default function PortfolioReport({
     () => (data ? data.items.filter((a) => matchesStaticFilters(a, staticFilters)) : []),
     [data, staticFilters],
   );
+  // While grouped by a related card, the relations behind the groups mark the
+  // track too: one starting or ending moves a card between groups. Counted as
+  // relations, never as cards, so the pills keep naming cards.
   const milestones = useMemo(
-    () => computeTimelineMilestones(milestoneScope.map((a) => a.lifecycle)),
-    [milestoneScope],
+    () =>
+      computeTimelineMilestones(
+        milestoneScope.map((a) => a.lifecycle),
+        groupByMode.kind === "relation"
+          ? milestoneScope.flatMap((a) =>
+              a.relations
+                .filter(
+                  (r) =>
+                    r.related_type === groupByMode.typeKey &&
+                    (!groupByMode.relTypeKey || relationOnSide(r, groupByMode.relTypeKey)),
+                )
+                .map((r) => r.lifecycle),
+            )
+          : undefined,
+      ),
+    [milestoneScope, groupByMode],
   );
 
   // Pill accents reuse the report's own colour-by, so the pill row matches
@@ -1209,11 +1233,16 @@ export default function PortfolioReport({
   // at; the reveal ends with the pulse).
   const filteredApps = useMemo(() => {
     if (!data) return [];
-    return data.items.filter(
-      (a) =>
-        matchesStaticFilters(a, staticFilters) &&
-        (isAppAliveAtDate(a, tl.timelineDate) || revealedForPulse.has(a.id)),
-    );
+    // Each card with the relations in effect at the travelled date only, so
+    // grouping, relation filters, colour and the table all read the landscape
+    // of that date (`relationsAtDate`).
+    return data.items
+      .map((a) => relationsAtDate(a, tl.timelineDate))
+      .filter(
+        (a) =>
+          matchesStaticFilters(a, staticFilters) &&
+          (isAppAliveAtDate(a, tl.timelineDate) || revealedForPulse.has(a.id)),
+      );
   }, [data, staticFilters, tl.timelineDate, revealedForPulse]);
 
   // When grouping by a related type, honour active relation-subtype filters

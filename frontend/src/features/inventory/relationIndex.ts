@@ -1,3 +1,4 @@
+import { isRelationInEffect, todayLifecycleMs } from "@/lib/relationLifecycle";
 import type { RelatedCardRef, Relation, RelationType } from "@/types";
 
 /**
@@ -13,12 +14,19 @@ import type { RelatedCardRef, Relation, RelationType } from "@/types";
  * The far end's **id** is kept, not just its name: the cell text needs the
  * name, but the context menu's Preview action needs to open the card, and
  * resolving a name back to an id is ambiguous the moment two cards share one.
+ *
+ * Only relations in effect at `dateMs` (today by default) are indexed: the
+ * grid is the landscape now, so its cells, the sidebar's relation facets and
+ * their counts — all read from this index — agree with the server's counts. A
+ * relation planned for later or one that has ended is still listed, with its
+ * phase, in the cell's edit dialog, which loads every row itself.
  */
 export function buildRelationIndex(
   relations: Relation[],
   relationType: RelationType,
   selectedType: string,
-  side?: "out" | "in"
+  side?: "out" | "in",
+  dateMs: number = todayLifecycleMs(),
 ): Map<string, RelatedCardRef[]> {
   const index = new Map<string, RelatedCardRef[]>();
   const add = (myId: string, other: Relation["source"]) => {
@@ -30,6 +38,7 @@ export function buildRelationIndex(
   };
 
   for (const rel of relations) {
+    if (!isRelationInEffect(rel.lifecycle, dateMs)) continue;
     if (side !== "in" && relationType.source_type_key === selectedType) {
       add(rel.source_id, rel.target);
     }

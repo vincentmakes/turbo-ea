@@ -28,6 +28,7 @@ import SaveReportDialog from "./SaveReportDialog";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
 import { HIERARCHY_EDGE_TYPE, resolveRevealIds } from "./layeredDependencyLayout";
 import { buildAdjacency } from "./dependencyAdjacency";
+import { edgesAtDate } from "./dependencyEdgesAtDate";
 import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -256,6 +257,13 @@ const CHANGE_LEGEND = [
   { key: "retired", color: STATUS_COLORS.error, labelKey: "dependency.legendRetired" },
   { key: "gainedLink", color: TIMELINE_COLORS.goLive, labelKey: "dependency.legendGainedLink" },
   { key: "lostLink", color: STATUS_COLORS.error, labelKey: "dependency.legendLostLink" },
+  // A relation drawn although it is not in effect at the date by its own dates.
+  {
+    key: "plannedRelation",
+    color: TIMELINE_COLORS.future,
+    labelKey: "dependency.legendPlannedRelation",
+  },
+  { key: "endedRelation", color: STATUS_COLORS.neutral, labelKey: "dependency.legendEndedRelation" },
 ] as const;
 
 function tl(key: string, types: CardType[], locale?: string): string {
@@ -673,8 +681,15 @@ export default function DependencyReport() {
 
   // Slider bounds come from the lifecycle dates actually present in the graph.
   const { dateRange, yearMarks, hasLifecycleData } = useMemo(
-    () => computeTimelineRange(rawNodes.map((n) => n.lifecycle), timeline.todayMs),
-    [rawNodes, timeline.todayMs],
+    () =>
+      computeTimelineRange(
+        rawNodes.map((n) => n.lifecycle),
+        timeline.todayMs,
+        // A relation's own dates move the view too: a link that starts or ends
+        // between two cards that both stay.
+        rawEdges.map((e) => e.lifecycle),
+      ),
+    [rawNodes, rawEdges, timeline.todayMs],
   );
 
   // Transition marks describe the cards on the DISPLAYED diagram, not the whole
@@ -739,10 +754,17 @@ export default function DependencyReport() {
     revealedChildIds,
   ]);
 
-  const milestones = useMemo(
-    () => computeTimelineMilestones(milestoneScope.map((n) => n.lifecycle)),
-    [milestoneScope],
-  );
+  // The relations among the scoped cards mark the track too, on their own
+  // dates — counted as connections, never as cards, so the pills stay cards.
+  const milestones = useMemo(() => {
+    const scopeIds = new Set(milestoneScope.map((n) => n.id));
+    return computeTimelineMilestones(
+      milestoneScope.map((n) => n.lifecycle),
+      rawEdges
+        .filter((e) => scopeIds.has(e.source) && scopeIds.has(e.target))
+        .map((e) => e.lifecycle),
+    );
+  }, [milestoneScope, rawEdges]);
 
   /* ---------------------------------------------------------------- */
   /*  Clicking a transition mark                                        */
@@ -840,7 +862,7 @@ export default function DependencyReport() {
     );
     return {
       nodes: visible,
-      edges: rawEdges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+      edges: edgesAtDate(rawEdges, ids, at, visibility, span),
     };
   }, [
     rawNodes,
@@ -1043,8 +1065,10 @@ export default function DependencyReport() {
     const set = new Set<string>(nodes.map((n) => n.changeState).filter(Boolean) as string[]);
     if (nodes.some((n) => n.gainedLink)) set.add("gainedLink");
     if (nodes.some((n) => n.lostLink)) set.add("lostLink");
+    if (edges.some((e) => e.relationState === "planned")) set.add("plannedRelation");
+    if (edges.some((e) => e.relationState === "ended")) set.add("endedRelation");
     return set;
-  }, [nodes]);
+  }, [nodes, edges]);
 
   /**
    * Cards already at End of Life TODAY — judged against `todayMs`, never against

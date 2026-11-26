@@ -338,3 +338,49 @@ describe("RelationCellPopover — self-referencing relation type", () => {
     });
   });
 });
+
+describe("RelationCellPopover — relation dates", () => {
+  // The grid cell shows only the relations in effect today; this dialog is
+  // where relations are managed, so it lists every row with its phase — an
+  // ended relation hidden here would be re-added by someone who thought it
+  // was missing.
+  const DATED = [
+    { ...RELATIONS[0], id: "rel-now", target_id: "app-now", target: { id: "app-now", name: "Now App", type: "Application" } },
+    {
+      ...RELATIONS[0],
+      id: "rel-ended",
+      target_id: "app-old",
+      target: { id: "app-old", name: "Old App", type: "Application" },
+      lifecycle: { active: "2001-01-01", endOfLife: "2002-03-04" },
+    },
+    {
+      ...RELATIONS[0],
+      id: "rel-planned",
+      target_id: "app-new",
+      target: { id: "app-new", name: "New App", type: "Application" },
+      lifecycle: { plan: "2001-01-01", active: "2999-05-06" },
+    },
+  ];
+
+  it("lists ended and planned relations with their phase chip, and an undated one without", async () => {
+    vi.mocked(api.get).mockResolvedValue(DATED);
+    mount([USES]);
+    const ended = within(await screen.findByTestId("relation-row-rel-ended"));
+    expect(ended.getByText("Old App")).toBeInTheDocument();
+    expect(ended.getByText(/^Ended /)).toBeInTheDocument();
+    const planned = within(screen.getByTestId("relation-row-rel-planned"));
+    expect(planned.getByText("New App")).toBeInTheDocument();
+    expect(planned.getByText(/^Planned · from /)).toBeInTheDocument();
+    const now = within(screen.getByTestId("relation-row-rel-now"));
+    expect(now.getByText("Now App")).toBeInTheDocument();
+    expect(now.queryByText(/^(Ended|Planned|Until) /)).not.toBeInTheDocument();
+  });
+
+  it("still deletes an ended relation from its row", async () => {
+    vi.mocked(api.get).mockResolvedValue(DATED);
+    mount([USES]);
+    const row = await screen.findByTestId("relation-row-rel-ended");
+    await userEvent.click(within(row).getByTestId("CancelIcon"));
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith("/relations/rel-ended"));
+  });
+});

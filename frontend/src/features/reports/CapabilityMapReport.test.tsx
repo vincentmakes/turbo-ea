@@ -461,6 +461,78 @@ describe("CapabilityMapReport time travel — transition marks", () => {
   });
 });
 
+describe("CapabilityMapReport time travel — a capability link's own dates", () => {
+  // Both applications are alive throughout; only the RELATIONS linking them to
+  // their capability have dates. One starts in 2028, the other ended in 2027.
+  const LATER = app("later", "Later App");
+  const GONE = app("gone", "Gone App");
+  const LINKS_HEATMAP = {
+    ...TT_HEATMAP,
+    items: [
+      {
+        ...cap("ops", "Operations", null, [LATER]),
+        app_link_lifecycles: { later: [{ active: "2028-01-01" }] },
+      },
+      {
+        ...cap("hr", "HR", null, [GONE]),
+        app_link_lifecycles: { gone: [{ active: "2015-01-01", endOfLife: "2027-06-01" }] },
+      },
+    ],
+  };
+
+  function renderAt(timelineDate: number) {
+    vi.mocked(api.get).mockResolvedValue(LINKS_HEATMAP as never);
+    vi.mocked(useTimeline).mockReturnValue({
+      timelineDate,
+      setTimelineDate: vi.fn(),
+      todayMs: TODAY,
+      isTimeTraveling: timelineDate !== TODAY,
+      persistValue: timelineDate,
+      printParam: null,
+      restore: vi.fn(),
+      reset: vi.fn(),
+    });
+    consumedConfig = { showApps: true };
+    renderMap();
+  }
+
+  it("places an application under a capability only while the link is in effect", async () => {
+    renderAt(TODAY);
+    await waitFor(() => expect(within(chart()).getByText("Operations")).toBeInTheDocument());
+    expect(within(chart()).queryByText("Later App")).not.toBeInTheDocument();
+    expect(within(chart()).getAllByText("Gone App").length).toBeGreaterThan(0);
+  });
+
+  it("moves both at a date past the two link dates", async () => {
+    renderAt(FUTURE);
+    await waitFor(() => expect(within(chart()).getByText("Operations")).toBeInTheDocument());
+    expect(within(chart()).getAllByText("Later App").length).toBeGreaterThan(0);
+    expect(within(chart()).queryByText("Gone App")).not.toBeInTheDocument();
+  });
+
+  it("marks the track on the links' own dates, as relations", async () => {
+    renderAt(TODAY);
+    await waitFor(() => expect(within(chart()).getByText("Operations")).toBeInTheDocument());
+    const props = sliderProps.at(-1)! as unknown as {
+      milestones: { value: number; linking?: number; unlinking?: number }[];
+    };
+    expect(props.milestones).toContainEqual({
+      value: ms("2028-01-01"),
+      activating: 0,
+      disappearing: 0,
+      linking: 1,
+      unlinking: 0,
+    });
+    expect(props.milestones).toContainEqual({
+      value: ms("2027-06-01"),
+      activating: 0,
+      disappearing: 0,
+      linking: 0,
+      unlinking: 1,
+    });
+  });
+});
+
 describe("CapabilityMapReport column picker", () => {
   /** The card grid — the element carrying the print-column class. */
   function grid() {

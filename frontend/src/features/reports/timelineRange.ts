@@ -31,12 +31,17 @@ export interface TimelineRange {
 export function computeTimelineRange(
   lifecycles: Lifecycle[],
   todayMs: number,
+  /** The relations' own lifecycles (optional). A relation starting or ending
+   *  changes the view exactly as a card going live or retiring does — an
+   *  organisation that starts using an application in 2027 — so its `active` /
+   *  `endOfLife` dates bound the axis too. Omitted, the range is the cards'. */
+  relationLifecycles: Lifecycle[] = [],
 ): TimelineRange {
   let minD = Infinity;
   let maxD = -Infinity;
   let hasLifecycleData = false;
 
-  for (const lc of lifecycles) {
+  for (const lc of [...lifecycles, ...relationLifecycles]) {
     if (!lc) continue;
     // Only two dates can change what the timeline shows, and they are exactly
     // the two that carry marks: `active` (the card appears — `hasStartedByDate`
@@ -146,6 +151,31 @@ export function isVisibleAtDate(
   return persistRetired || !isRetiredByDate(lifecycle, dateMs);
 }
 
+/** How a relation that is NOT in effect at the viewed date presents there. */
+export type RelationTimelineState = "planned" | "ended";
+
+/**
+ * Where a relation stands at `dateMs` by its own dates, and whether a graph
+ * drawn as of that date shows it: in effect is plain (`state` absent); planned
+ * follows the "preview planned" toggle and ended the "keep retired" one —
+ * exactly the two switches that keep a card the date has not reached or has
+ * left behind, read through the same `isVisibleAtDate`. A relation without
+ * dates is always in effect.
+ *
+ * The relation's own window only: whether its two cards are on the graph is
+ * the caller's other half of the question.
+ */
+export function relationAtDate(
+  lifecycle: Lifecycle,
+  dateMs: number,
+  visibility: TimelineVisibility,
+): { visible: boolean; state?: RelationTimelineState } {
+  const visible = isVisibleAtDate(lifecycle, dateMs, visibility);
+  if (isRetiredByDate(lifecycle, dateMs)) return { visible, state: "ended" };
+  if (!hasStartedByDate(lifecycle, dateMs)) return { visible, state: "planned" };
+  return { visible };
+}
+
 export interface TimelineMilestone {
   /** Epoch ms at which the change takes effect. */
   value: number;
@@ -153,6 +183,17 @@ export interface TimelineMilestone {
   activating: number;
   /** How many reach their `endOfLife` — retire — on it. */
   disappearing: number;
+  /** How many relations come into effect on it (their own `active` date).
+   *  Present only when the caller passed relation lifecycles. */
+  linking?: number;
+  /** How many relations end on it (their own `endOfLife`). Present only when
+   *  the caller passed relation lifecycles. */
+  unlinking?: number;
+}
+
+/** Whether a lifecycle was never in effect: it ends at or before it starts. */
+function neverAlive(active: number | null, eol: number | null): boolean {
+  return active != null && eol != null && eol <= active;
 }
 
 /**
@@ -165,13 +206,42 @@ export interface TimelineMilestone {
  * jumping the slider to a mark lands on the first day the change is *in
  * effect* — the card that goes live is active, the one that retires is gone.
  */
-export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMilestone[] {
+export function computeTimelineMilestones(
+  lifecycles: Lifecycle[],
+  /** The relations' own lifecycles (optional): a relation coming into effect
+   *  or ending is a change too, counted apart from the cards as `linking` /
+   *  `unlinking` — those are connections, not cards, and the mark's card pills
+   *  must never be asked to name them. Omitted — or with no dated relation
+   *  among them — nothing about the result changes, not even its keys. */
+  relationLifecycles?: Lifecycle[],
+): TimelineMilestone[] {
   const byDate = new Map<number, TimelineMilestone>();
-  const bump = (value: number, key: "activating" | "disappearing") => {
-    const entry = byDate.get(value) ?? { value, activating: 0, disappearing: 0 };
-    entry[key] += 1;
+  // The relation counts join the milestone objects only once a relation has
+  // marked a date, so a caller passing undated relations gets exactly the
+  // card-only result it always got.
+  let withLinks = false;
+  const bump = (
+    value: number,
+    key: "activating" | "disappearing" | "linking" | "unlinking",
+  ) => {
+    const entry =
+      byDate.get(value) ??
+      (withLinks
+        ? { value, activating: 0, disappearing: 0, linking: 0, unlinking: 0 }
+        : { value, activating: 0, disappearing: 0 });
+    entry[key] = (entry[key] ?? 0) + 1;
     byDate.set(value, entry);
   };
+
+  for (const lc of relationLifecycles ?? []) {
+    if (!lc) continue;
+    const active = parseDate(lc.active);
+    const eol = parseDate(lc.endOfLife);
+    if (neverAlive(active, eol)) continue;
+    if (active != null || eol != null) withLinks = true;
+    if (active != null) bump(active, "linking");
+    if (eol != null) bump(eol, "unlinking");
+  }
 
   for (const lc of lifecycles) {
     if (!lc) continue;
@@ -234,6 +304,14 @@ export function cardsChangingBetween(
   );
 }
 
+/** One relation as the connection changes read it: its two cards and,
+ *  when it has dates, its own lifecycle (absent means always in effect). */
+export interface TimelineEdge {
+  source: string;
+  target: string;
+  lifecycle?: Record<string, string>;
+}
+
 /** Which way a card's connections change at a transition mark. */
 export interface ConnectionChanges {
   /** Present cards that gain a connection because a neighbour arrives here. */
@@ -268,13 +346,20 @@ export interface ConnectionChanges {
  * the mark's own pills can never disagree about what changed here. Past marks
  * count: a retirement in 2015 is as real a change as one in 2030.
  *
+ * An edge may carry the relation's own `lifecycle` (`TimelineEdge`). Then the
+ * relation itself is a change: when it comes into effect in the span both of
+ * its cards gain a connection, and when it ends there both lose one — the
+ * organisation that starts using an application that already exists. A
+ * neighbour's arrival or retirement counts only while the relation is in
+ * effect across it. An edge without dates reads exactly as before.
+ *
  * Direction is deliberately ignored: the dependency graph is walked undirected
  * everywhere else in the report. Structural parameter types (not GNode) so the
  * layout module can depend on this one without a cycle.
  */
 export function computeConnectionChanges(
   nodes: { id: string; lifecycle?: Record<string, string> }[],
-  edges: { source: string; target: string }[],
+  edges: TimelineEdge[],
   /** Start of the mark's span, inclusive. */
   from: number,
   /** End of the mark's span, inclusive — the date the graph is drawn as of. */
@@ -295,13 +380,32 @@ export function computeConnectionChanges(
   };
 
   for (const e of edges) {
+    const lc = e.lifecycle;
+    // An edge without dates is always in effect, and reads exactly as it did
+    // before relations had dates of their own.
+    const relActive = parseDate(lc?.active);
+    const relEol = parseDate(lc?.endOfLife);
+    const relNeverAlive = neverAlive(relActive, relEol);
+    // A neighbour's arrival hands over this connection only if the relation
+    // is in effect once the span is over; its retirement takes one away only
+    // if the relation was still in effect the moment before.
+    const inEffectAfter = !lc || isAliveAtDate(lc, to);
+    const inEffectBefore = (at: number | null) =>
+      !lc || (at != null && isAliveAtDate(lc, at - 1));
     for (const [moved, other] of [
       [e.source, e.target],
       [e.target, e.source],
     ] as const) {
       if (!bystander(other)) continue;
-      if (arrives(moved)) gained.add(other);
-      if (retires(moved)) lost.add(other);
+      if (arrives(moved) && inEffectAfter) gained.add(other);
+      if (retires(moved) && inEffectBefore(parseDate(byId.get(moved)?.lifecycle?.endOfLife)))
+        lost.add(other);
+      // The relation's own dates: two cards that both stay put gain the
+      // connection the day it comes into effect and lose it the day it ends.
+      if (!relNeverAlive && bystander(moved)) {
+        if (inSpan(relActive)) gained.add(other);
+        if (inSpan(relEol)) lost.add(other);
+      }
     }
   }
   return { gained, lost };

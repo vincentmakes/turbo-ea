@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A relation that is planned or has ended no longer counts in reports, dashboards, the orphaned flag, calculated fields or the data-quality score; a mandatory relation met only by planned or ended relations is flagged as missing. Cards are refreshed overnight when a relation's start or end date arrives.
 - A card's History shows a change to a relation's dates or attributes under the relation it belongs to.
 - Expanding a card on a diagram draws only the relations in effect today, matching the counts in the expand menu.
+- Time travel follows a relation's own dates: the Dependencies report draws a relation only while it is in effect at the selected date (one not started yet or ended appears faded when **Preview planned cards** or **Persist retired cards** is on), the Portfolio report groups and filters applications by the relations in effect at that date, and the Capability Map places an application under a capability only while their link is in effect.
+- The time-travel slider marks the dates on which relations start or end, and the two cards of such a relation show a gained or lost connection at that mark.
+- The Layered Dependency View draws a relation that has not started or has ended in a faded style of its own and names its dates on hover; a card's Dependencies section shows only the relations in effect today.
+- The inventory's relation cells and relation filters show only relations in effect today; a cell's edit popover still lists every relation, with its phase.
+- The PPM board's filters and the MCP impact analysis follow only the relations in effect today.
 
 ## [2.215.1] - 2026-11-26
 

@@ -2014,11 +2014,22 @@ async def capability_heatmap(
     # two cards may be connected by several relation types. Track what has been
     # added so a capability never lists the same application twice.
     cap_app_seen: dict[str, set[str]] = {cid: set() for cid in cap_apps}
+    # The lifecycles of the relations linking each capability to each app, for
+    # the map's time travel: the client places an app under a capability only
+    # while one of them is in effect at the travelled date. Kept per
+    # (capability, app) because two relation types may link the same pair; an
+    # undated link makes the pair always linked, which is sent as nothing.
+    cap_app_link_lcs: dict[tuple[str, str], list[dict]] = {}
+    cap_app_undated: set[tuple[str, str]] = set()
     # App -> the readable capabilities it is linked to, derived from `cap_apps`
     # links only (both ends already read-scoped), never from raw relation rows.
     app_caps: dict[str, set[str]] = {}
 
-    def _link_cap_app(cap_id: str, app_id: str) -> None:
+    def _link_cap_app(cap_id: str, app_id: str, lifecycle: dict | None) -> None:
+        if lifecycle:
+            cap_app_link_lcs.setdefault((cap_id, app_id), []).append(lifecycle)
+        else:
+            cap_app_undated.add((cap_id, app_id))
         if app_id in cap_app_seen[cap_id]:
             return
         cap_app_seen[cap_id].add(app_id)
@@ -2028,9 +2039,9 @@ async def capability_heatmap(
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in cap_id_set and tid in app_map:
-            _link_cap_app(sid, tid)
+            _link_cap_app(sid, tid, r.lifecycle)
         elif tid in cap_id_set and sid in app_map:
-            _link_cap_app(tid, sid)
+            _link_cap_app(tid, sid, r.lifecycle)
         # app -> related card relations (for filtering). `if`/`if`, not `elif`:
         # a self-referencing row belongs to BOTH applications, and lands under
         # a per-side key (`<type>__out` / `<type>__in`) so the report can tell
@@ -2128,18 +2139,26 @@ async def capability_heatmap(
 
         risk_count = sum(1 for a in linked_apps if (a.lifecycle or {}).get("endOfLife"))
 
-        items.append(
-            {
-                "id": cid,
-                "name": c.name,
-                "parent_id": str(c.parent_id) if c.parent_id else None,
-                "app_count": app_count,
-                "total_cost": total_cost,
-                "risk_count": risk_count,
-                "attributes": c.attributes,
-                "apps": [_app_to_dict(a) for a in linked_apps],
-            }
-        )
+        item = {
+            "id": cid,
+            "name": c.name,
+            "parent_id": str(c.parent_id) if c.parent_id else None,
+            "app_count": app_count,
+            "total_cost": total_cost,
+            "risk_count": risk_count,
+            "attributes": c.attributes,
+            "apps": [_app_to_dict(a) for a in linked_apps],
+        }
+        # Only the links every relation of which is dated; the key is absent
+        # when none is, so an undated landscape pays nothing for it.
+        link_lifecycles = {
+            str(a.id): cap_app_link_lcs[(cid, str(a.id))]
+            for a in linked_apps
+            if (cid, str(a.id)) in cap_app_link_lcs and (cid, str(a.id)) not in cap_app_undated
+        }
+        if link_lifecycles:
+            item["app_link_lifecycles"] = link_lifecycles
+        items.append(item)
 
     payload = {
         "items": items,
@@ -2195,8 +2214,23 @@ async def dependencies(
     center_id: str | None = Query(None),
     depth: int = Query(2, ge=1, le=3),
     type: str | None = Query(None),
+    in_effect_only: bool = Query(
+        False,
+        description=(
+            "Drop relations not in effect today by their own lifecycle dates. Off by "
+            "default: the Dependencies report travels in time and filters each edge "
+            "at the travelled date from its `lifecycle`."
+        ),
+    ),
 ):
-    """Dependency / interface map: nodes + edges for graph rendering."""
+    """Dependency / interface map: nodes + edges for graph rendering.
+
+    Every relation is returned by default, each edge carrying its own
+    ``lifecycle`` when it has dates (absent means always in effect), so the
+    report can decide what a relation does at the date it travels to. With
+    ``in_effect_only`` the graph is the landscape today — what an impact
+    analysis asks about — and the BFS never walks a planned or ended relation.
+    """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # Always load ALL active cards for ancestor path resolution — every card the
     # reader may see. Filtering this one load removes hidden cards from the
@@ -2219,11 +2253,12 @@ async def dependencies(
     all_card_ids = list(sheet_map.keys())
     if all_card_ids:
         card_uuids = [uuid.UUID(cid) for cid in all_card_ids]
-        rels_result = await db.execute(
-            select(Relation).where(
-                (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids))
-            )
+        rels_stmt = select(Relation).where(
+            (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids))
         )
+        if in_effect_only:
+            rels_stmt = rels_stmt.where(lifecycle_in_effect_sql(Relation))
+        rels_result = await db.execute(rels_stmt)
     else:
         rels_result = await db.execute(select(Relation).where(False))
     rels = rels_result.scalars().all()
@@ -2320,17 +2355,20 @@ async def dependencies(
             if edge_key not in seen_edges:
                 seen_edges.add(edge_key)
                 rt_info = rel_type_info.get(r.type, {})
-                edges.append(
-                    {
-                        "source": sid,
-                        "target": tid,
-                        "type": r.type,
-                        "label": rt_info.get("label", r.type),
-                        "reverse_label": rt_info.get("reverse_label"),
-                        "description": r.description,
-                        "attributes": r.attributes,
-                    }
-                )
+                edge = {
+                    "source": sid,
+                    "target": tid,
+                    "type": r.type,
+                    "label": rt_info.get("label", r.type),
+                    "reverse_label": rt_info.get("reverse_label"),
+                    "description": r.description,
+                    "attributes": r.attributes,
+                }
+                # The relation's own dates, for the client's time travel. Only
+                # a dated relation carries the key: absent means always in effect.
+                if r.lifecycle:
+                    edge["lifecycle"] = r.lifecycle
+                edges.append(edge)
 
     return {"nodes": nodes, "edges": edges}
 

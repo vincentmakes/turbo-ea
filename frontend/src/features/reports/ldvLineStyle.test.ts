@@ -33,6 +33,33 @@ describe("ldvEdgeStroke", () => {
     }
   });
 
+  it("draws a planned or ended relation in its own faded state, over hover and the style", () => {
+    // Not by dashes alone — the idle style is itself a dash a reader picked —
+    // so the state also fades the line.
+    for (const style of LDV_LINE_STYLES) {
+      for (const active of [false, true]) {
+        expect(ldvEdgeStroke(style, { active, relationState: "planned" })).toEqual({
+          strokeDasharray: "8 3 2 3",
+          strokeOpacity: 0.7,
+        });
+        expect(ldvEdgeStroke(style, { active, relationState: "ended" })).toEqual({
+          strokeDasharray: "1 3",
+          strokeLinecap: "round",
+          strokeOpacity: 0.5,
+        });
+      }
+    }
+  });
+
+  it("lets severed win over a relation's own state", () => {
+    expect(ldvEdgeStroke("solid", { severed: true, relationState: "planned" })).toEqual({
+      strokeDasharray: "3 3",
+    });
+    expect(ldvEdgeStroke("solid", { severed: true, relationState: "ended" })).toEqual({
+      strokeDasharray: "3 3",
+    });
+  });
+
   it("falls back to dashed for a missing or unknown style", () => {
     expect(ldvEdgeStroke(undefined).strokeDasharray).toBe("5 3");
     // A value from a hand-edited localStorage blob must not blank the lines.

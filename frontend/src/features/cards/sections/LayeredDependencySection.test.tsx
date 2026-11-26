@@ -26,6 +26,7 @@ type LdvProps = {
   onExpandReset?: () => void;
   expandedIds?: Set<string>;
   centerId?: string;
+  edges?: { source: string; target: string }[];
 };
 const ldvProps: LdvProps[] = [];
 vi.mock("@/features/reports/LayeredDependencyView", () => ({
@@ -108,5 +109,44 @@ describe("LayeredDependencySection expand mode", () => {
 
     act(() => latest().onExpandReset?.());
     expect(latest().expandedIds?.size).toBe(0);
+  });
+});
+
+describe("LayeredDependencySection relation dates", () => {
+  it("draws only the relations in effect today", async () => {
+    // The card page is the landscape now: a relation planned for later or one
+    // that has ended is not a dependency today, whatever the dates of its cards.
+    vi.mocked(api.get).mockResolvedValue({
+      ...GRAPH,
+      edges: [
+        { source: "erp", target: "portal", type: "app_to_app", label: "uses" },
+        {
+          source: "erp",
+          target: "crm",
+          type: "app_to_app",
+          label: "uses",
+          lifecycle: { active: "2001-01-01", endOfLife: "2999-01-01" },
+        },
+        {
+          source: "portal",
+          target: "crm",
+          type: "app_to_app",
+          label: "uses",
+          lifecycle: { plan: "2001-01-01", active: "2999-01-01" },
+        },
+        {
+          source: "crm",
+          target: "erp",
+          type: "app_to_app",
+          label: "feeds",
+          lifecycle: { active: "2001-01-01", endOfLife: "2002-01-01" },
+        },
+      ],
+    });
+    await renderSection();
+    expect(latest().edges?.map((e) => `${e.source}>${e.target}`)).toEqual([
+      "erp>portal",
+      "erp>crm",
+    ]);
   });
 });
