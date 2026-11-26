@@ -53,6 +53,42 @@ Efter at have gemt, åbn en ny browser-fane (eller inkognito-vindue), og verific
 - Når SSO er aktiveret, forbliver lokalt adgangskodelogin tilgængeligt som fallback
 - Du kan konfigurere redirect-URI'en i din identitetsudbyder som: `https://your-turbo-ea-domain/auth/callback`
 
+**Rolletilknytning:**
+
+Som standard ankommer hver ny SSO-bruger med standardrollen (eller rollen fra sin invitation), og en administrator ændrer den manuelt under **Administration → Brugere**. Hvis din identitetsudbyder allerede ved, hvem der skal være administrator, medlem eller læser — via gruppemedlemskab eller app-roller — kan Turbo EA læse det fra ID-tokenet og selv tildele rollen ved hvert login. Blokken **Rolletilknytning** ligger i SSO-sektionen under udbyderfelterne og gemmes med den samme knap **Gem**:
+
+- **Claim-navn**: ID-token-claimet, der angiver brugerens grupper eller roller, for eksempel `roles` (Microsoft Entra-app-roller), `groups` (Okta, Keycloak) eller `cognito:groups` (Amazon Cognito). Lader du det stå tomt, eller lader du tilknytningen være uden rækker, forbliver roller helt manuelle.
+- **Tilknytningsrækker**: hver række parrer en **katalogværdi** (en gruppe- eller app-rolleværdi, som claimet bærer den) med en Turbo EA-rolle. Brug pilene til at ordne rækkerne; den første matchende række vinder.
+- **Ekstra scopes**: scopes adskilt af mellemrum, der anmodes om ved login ud over `openid email profile` — for eksempel `groups` for Okta. MCP-serverens login anmoder om de samme scopes.
+
+Reglerne, alle valgt, så en konfigurationsfejl ikke kan låse dig ude:
+
+- **Tilknytningen anvendes ved hvert login**, ikke kun når kontoen oprettes. Den overskriver en manuelt ændret rolle, så fjernelse af nogen fra en kataloggruppe træder i kraft ved deres næste login.
+- **Den første matchende række vinder**, i rækkefølgen af rækkerne, ikke i den rækkefølge, identitetsudbyderen angiver værdierne i. Sammenligningen ignorerer store og små bogstaver.
+- **En claim-værdi, der ikke matcher nogen række**, giver standardrollen.
+- **Et token uden claimet, eller med et tomt claim**, lader brugerens nuværende rolle være uændret. Et forkert stavet claim-navn, eller en udbyder, der er holdt op med at sende claimet, kan derfor ikke nedgradere alle brugere på én gang.
+- **En række, hvis rolle ikke findes eller er arkiveret**, giver standardrollen. Indstillingssiden markerer sådan en række, så du kan vælge en aktiv rolle.
+- **Den sidste aktive administrator nedgraderes aldrig.** Hvis tilknytningen ville fratage den eneste aktive administrator administratorrollen, beholder vedkommende den, og loggen Sikkerhed og administration registrerer, at rollen blev bevaret.
+- **Så længe en tilknytning er sat, er SSO-brugeres rolle låst under Administration → Brugere** (rollevælgeren er deaktiveret med et hint; en masseændring af rolle springer disse konti over, og en Excel-import lader deres rolle stå, og begge giver besked om det). Ændr i stedet rollen i kataloget, eller skift kontoen til lokalt login for at styre den manuelt. Lokale konti påvirkes aldrig.
+
+Noter pr. identitetsudbyder:
+
+| Udbyder | Hvad der skal konfigureres |
+|---------|----------------------------|
+| **Microsoft Entra ID** | Foretræk **app-roller**: deklarer dem i appregistreringen, tildel brugere eller grupper til dem, og brug claimet `roles`. Rolletilknytning kræver et **specifikt tenant-id**: med `organizations`, `common` eller `consumers` kan enhver Microsoft-tenant logge ind, og en tilknytning kan ikke gemmes. Claimet `groups` indeholder gruppernes objekt-id'er, ikke navne, og Entra udelader det helt fra tokenet for en bruger i mere end 200 grupper. |
+| **Okta** | Tilføj et groups-claim til ID-tokenet i autorisationsserveren (eller i appens login-indstillinger), og tilføj `groups` under **Ekstra scopes**. Brug det claim-navn, du har givet det, normalt `groups`. |
+| **Keycloak** (Generic OIDC) | Tilføj en **Group Membership**-mapper til klienten med token-claim-navnet `groups` og **Add to ID token** slået til, så et `groups`-claim på øverste niveau når ID-tokenet (slå **Full group path** fra for at få rene gruppenavne). Indlejrede claims som `realm_access.roles` læses ikke. |
+| **Amazon Cognito** (Generic OIDC) | Brug claimet `cognito:groups`. |
+| **Google Workspace** | Ikke tilgængelig: Googles ID-tokens indeholder intet groups-claim, så blokken er skjult for Google. |
+
+!!! warning "Begrænsninger at holde øje med"
+    - **Tilknyt app-roller eller gruppe-id'er, ikke visningsnavne, som brugerne selv kan oprette.** Hvis enhver kan oprette en gruppe kaldet `ea-admins`, kan enhver blive administrator.
+    - **Claimet skal være til stede i ID-tokenet.** Turbo EA læser kun ID-tokenet — ikke userinfo-endpointet eller en katalog-API. Nogle identitetsudbydere kræver både scopet under **Ekstra scopes** og en claim-konfiguration, før grupperne dukker op i ID-tokenet; log ind én gang, og kontroller resultatet, før du stoler på det.
+    - **En ændring i kataloget træder i kraft ved brugerens næste login**, ikke i en session, der allerede er åben.
+    - **En invitations rolle overskrives ved det første login**, når tilknytningen tildeler en.
+    - **En bruger, hvis token aldrig bærer claimet, beholder sin nuværende rolle**, og så længe en tilknytning er sat, kan ingen ændre den under Administration → Brugere. Ret claimet hos identitetsudbyderen, eller skift kontoen til lokalt login.
+    - **Et tomt claim tæller som fraværende**: at fjerne nogen fra alle tilknyttede grupper nedgraderer dem ikke. Fjern i stedet deres adgang til applikationen hos identitetsudbyderen.
+
 #### Godkendelse via reverse proxy
 
 Hvis Turbo EA kører bag en proxy, der allerede logger dine brugere på — Azure App Services indbyggede godkendelse ("EasyAuth"), oauth2-proxy, Authelia, Cloudflare Access — kan den acceptere den identitet direkte i stedet for at køre sin egen SSO ovenpå. Ingen OIDC-klient, ingen app-registrering, ingen klienthemmelighed. Brugerne lander i Turbo EA allerede logget på.
@@ -120,12 +156,13 @@ TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
 Hvert par skrives `KATALOGVÆRDI:turbo-ea-rollenøgle`. Når en bruger har flere katalogroller, **vinder den første post i kortlægningen** — kortlægningens rækkefølge, ikke den rækkefølge udbyderen tilfældigvis sendte dem i, for de to Azure-identitetsformater er ikke enige om den. Matchningen skelner ikke mellem store og små bogstaver på katalogsiden. I generisk proxytilstand læser den samme kortlægning en kommasepareret header i stedet for et claim: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
 
 !!! warning "Kortlægningen er afgørende ved hvert log ind"
-    Ikke kun ved oprettelsen af kontoen. En rolle, der er tildelt manuelt under **Administration → Brugere**, rulles tilbage, næste gang den person logger ind — hvilket er hele pointen, eftersom det skal have effekt at fjerne nogens katalogrolle. Lad `TURBO_EA_PROXY_AUTH_ROLE_MAP` være tom, og intet ændrer sig: roller forbliver helt manuelle.
+    Ikke kun ved oprettelsen af kontoen — det skal have effekt at fjerne nogens katalogrolle. Så længe tilknytningen er i kraft, er rollen på en konto, der logger ind via proxyen, derfor **låst under Administration → Brugere**: rollevælgeren er deaktiveret med et hint, en masseændring af rolle springer kontoen over, og en Excel-import lader dens rolle stå, i stedet for at lade en manuel ændring blive stille og roligt erstattet ved næste login. Lad `TURBO_EA_PROXY_AUTH_ROLE_MAP` være tom, og intet ændrer sig: roller forbliver helt manuelle.
 
 Grænsetilfældene, alle valgt så en konfigurationsfejl ikke kan lukke jer ude:
 
 - **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` vinder altid** over kortlægningen. Hvis de to er uenige, er den adresse administrator.
 - **En værdi, der ikke matcher noget i kortlægningen** — eller som peger på en Turbo EA-rolle, der ikke findes eller er arkiveret — falder tilbage til standardrollen.
+- **Den sidste aktive administrator nedgraderes aldrig.** Hvis tilknytningen ville fratage den eneste aktive administrator administratorrollen, beholder vedkommende den, og loggen Sikkerhed og administration registrerer, at rollen blev bevaret.
 - **Et claim, der mangler helt**, lader brugerens nuværende rolle være urørt. Det er bevidst forskelligt fra tilfældet ovenfor: et fejlskrevet `ROLE_CLAIM` eller et token-lager, der holder op med at videresende, ville ellers degradere alle brugere på instansen på én gang.
 - **Identiteten skal være værd at betro rettigheder.** Rollekortlægning gælder, når identitetstokenet er blevet verificeret (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`), eller der er konfigureret en delt hemmelighed. På App Service med token-lageret slået fra og uden hemmelighed ignoreres kortlægningen, og der skrives en linje i loggen om det — samme ræsonnement som forhindrer en uverificeret header i at oprette en konto.
 

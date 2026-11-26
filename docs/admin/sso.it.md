@@ -53,6 +53,42 @@ Dopo il salvataggio, aprite una nuova scheda del browser (o finestra in incognit
 - Quando SSO è abilitato, il login con password locale rimane disponibile come fallback
 - Potete configurare l'URI di redirect nel vostro identity provider come: `https://your-turbo-ea-domain/auth/callback`
 
+**Mappatura dei ruoli:**
+
+Per impostazione predefinita ogni nuovo utente SSO arriva con il ruolo predefinito (o con quello del suo invito) e un amministratore lo modifica a mano in **Amministrazione → Utenti**. Se il vostro provider di identità sa già chi deve essere amministratore, membro o visualizzatore — tramite l'appartenenza a gruppi o i ruoli applicativi —, Turbo EA può leggerlo dal token ID e assegnare il ruolo da sé a ogni accesso. Il blocco **Mappatura dei ruoli** si trova nella sezione SSO, sotto i campi del provider, e si salva con lo stesso pulsante **Salva**:
+
+- **Nome del claim**: il claim del token ID che elenca i gruppi o i ruoli dell'utente, ad esempio `roles` (ruoli applicativi di Microsoft Entra), `groups` (Okta, Keycloak) o `cognito:groups` (Amazon Cognito). Lasciatelo vuoto, o lasciate la mappatura senza righe, e i ruoli restano interamente manuali.
+- **Righe di mappatura**: ogni riga associa un **valore della directory** (un valore di gruppo o di ruolo applicativo così come lo porta il claim) a un ruolo di Turbo EA. Usate le frecce per ordinare le righe; vince la prima riga corrispondente.
+- **Scope aggiuntivi**: scope separati da spazi richiesti all'accesso oltre a `openid email profile` — ad esempio `groups` per Okta. L'accesso del server MCP richiede gli stessi scope.
+
+Le regole, tutte scelte perché un errore di configurazione non possa escludervi:
+
+- **La mappatura viene applicata a ogni accesso**, non solo alla creazione dell'account. Sovrascrive un ruolo modificato a mano, quindi la rimozione di qualcuno da un gruppo della directory ha effetto al suo accesso successivo.
+- **Vince la prima riga corrispondente**, nell'ordine delle righe e non nell'ordine in cui il provider di identità elenca i valori. Il confronto ignora le maiuscole.
+- **Un valore del claim che non corrisponde a nessuna riga** dà il ruolo predefinito.
+- **Un token senza il claim, o con il claim vuoto**, lascia invariato il ruolo attuale dell'utente. Un nome di claim digitato male, o un provider che ha smesso di inviare il claim, non può quindi declassare tutti gli utenti in una volta.
+- **Una riga il cui ruolo non esiste o è stato archiviato** dà il ruolo predefinito. La pagina delle impostazioni contrassegna tale riga così da poter scegliere un ruolo attivo.
+- **L'ultimo amministratore attivo non viene mai declassato.** Se la mappatura togliesse il ruolo di amministratore all'unico amministratore attivo, questi lo mantiene e il registro Sicurezza e amministrazione annota che il ruolo è stato mantenuto.
+- **Finché è impostata una mappatura, il ruolo degli utenti SSO è bloccato in Amministrazione → Utenti** (il selettore del ruolo è disabilitato, con un suggerimento; una modifica di ruolo in blocco salta questi account e un'importazione Excel ne lascia invariato il ruolo, ed entrambe lo segnalano). Modificate invece il ruolo nella directory, oppure passate l'account all'accesso locale per gestirlo a mano. Gli account locali non sono mai interessati.
+
+Note per provider di identità:
+
+| Provider | Cosa configurare |
+|----------|------------------|
+| **Microsoft Entra ID** | Preferite i **ruoli applicativi**: dichiarateli nella registrazione dell'app, assegnate loro utenti o gruppi e usate il claim `roles`. La mappatura dei ruoli richiede un **ID tenant specifico**: con `organizations`, `common` o `consumers` qualsiasi tenant Microsoft può accedere e una mappatura non può essere salvata. Il claim `groups` contiene gli ID oggetto dei gruppi, non i nomi, ed Entra lo omette del tutto dal token per un utente in più di 200 gruppi. |
+| **Okta** | Aggiungete un claim dei gruppi al token ID nel server di autorizzazione (o nelle impostazioni di accesso dell'app) e aggiungete `groups` in **Scope aggiuntivi**. Usate il nome del claim che gli avete dato, di solito `groups`. |
+| **Keycloak** (Generic OIDC) | Aggiungete al client un mapper **Group Membership**, con il nome del claim del token `groups` e **Add to ID token** attivo, in modo che un claim `groups` di primo livello arrivi nel token ID (disattivate **Full group path** per ottenere nomi di gruppo semplici). I claim annidati come `realm_access.roles` non vengono letti. |
+| **Amazon Cognito** (Generic OIDC) | Usate il claim `cognito:groups`. |
+| **Google Workspace** | Non disponibile: i token ID di Google non contengono un claim dei gruppi, quindi il blocco è nascosto per Google. |
+
+!!! warning "Limiti da tenere presenti"
+    - **Mappate ruoli applicativi o ID di gruppo, non nomi visualizzati che gli utenti possono creare da soli.** Se chiunque può creare un gruppo chiamato `ea-admins`, chiunque può diventare amministratore.
+    - **Il claim deve essere presente nel token ID.** Turbo EA legge solo il token ID — non l'endpoint userinfo né un'API della directory. Alcuni provider di identità richiedono sia lo scope in **Scope aggiuntivi** sia una configurazione del claim perché i gruppi compaiano nel token ID; accedete una volta e verificate il risultato prima di farci affidamento.
+    - **Una modifica nella directory ha effetto al successivo accesso dell'utente**, non durante una sessione già aperta.
+    - **Il ruolo di un invito viene sovrascritto al primo accesso** quando la mappatura ne assegna uno.
+    - **Un utente il cui token non porta mai il claim mantiene il ruolo attuale**, e finché è impostata una mappatura nessuno può modificarlo in Amministrazione → Utenti. Correggete il claim nel provider di identità, oppure passate l'account all'accesso locale.
+    - **Un claim vuoto conta come assente**: rimuovere qualcuno da tutti i gruppi mappati non lo declassa. Rimuovete invece il suo accesso all'applicazione nel provider di identità.
+
 #### Autenticazione tramite reverse proxy
 
 Se Turbo EA è in esecuzione dietro un proxy che autentica già i vostri utenti — l'autenticazione integrata di Azure App Service ("EasyAuth"), oauth2-proxy, Authelia, Cloudflare Access — può accettare direttamente quell'identità invece di eseguire un proprio SSO aggiuntivo. Nessun client OIDC, nessuna registrazione di app, nessun client secret. Gli utenti arrivano in Turbo EA già autenticati.
@@ -120,12 +156,13 @@ TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
 Ogni coppia si scrive `VALORE_DIRECTORY:chiave-ruolo-turbo-ea`. Quando un utente possiede più ruoli di directory, **vince la prima voce della mappatura** — l'ordine della mappatura, non quello in cui il provider li ha inviati, perché i due formati di identità Azure non concordano su questo. La corrispondenza ignora maiuscole e minuscole sul lato directory. In modalità proxy generica la stessa mappatura legge un'intestazione separata da virgole anziché un claim: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
 
 !!! warning "La mappatura è autorevole a ogni accesso"
-    Non solo alla creazione dell'account. Un ruolo assegnato a mano in **Amministrazione → Utenti** viene annullato al successivo accesso di quella persona — ed è proprio questo il punto, perché la rimozione del ruolo di directory di qualcuno deve avere effetto. Lasciate `TURBO_EA_PROXY_AUTH_ROLE_MAP` non impostata e nulla cambia: i ruoli restano interamente manuali.
+    Non solo alla creazione dell'account — la rimozione del ruolo di directory di qualcuno deve avere effetto. Finché la mappa è in vigore, il ruolo di un account che accede tramite il proxy è quindi **bloccato in Amministrazione → Utenti**: il selettore del ruolo è disabilitato con un suggerimento, una modifica di ruolo in blocco salta l'account e un'importazione Excel ne lascia invariato il ruolo, invece di lasciare che una modifica fatta a mano venga sostituita silenziosamente al successivo accesso. Lasciate `TURBO_EA_PROXY_AUTH_ROLE_MAP` non impostata e nulla cambia: i ruoli restano interamente manuali.
 
 I casi limite, scelti tutti perché un errore di configurazione non possa lasciarvi fuori:
 
 - **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` vince sempre** sulla mappatura. Se i due sono in disaccordo, quell'indirizzo è amministratore.
 - **Un valore che non corrisponde a nulla nella mappatura** — o che indica un ruolo Turbo EA inesistente o archiviato — ricade sul ruolo predefinito.
+- **L'ultimo amministratore attivo non viene mai declassato.** Se la mappa togliesse il ruolo di amministratore all'unico amministratore attivo, questi lo mantiene e il registro Sicurezza e amministrazione annota che il ruolo è stato mantenuto.
 - **Un claim del tutto assente** lascia intatto il ruolo attuale dell'utente. È deliberatamente diverso dal caso precedente: un `ROLE_CLAIM` digitato male, o un archivio token che smette di inoltrare, retrocederebbe altrimenti tutti gli utenti dell'istanza in un colpo solo.
 - **L'identità deve meritare che le si affidino permessi.** La mappatura dei ruoli si applica quando il token di identità è stato verificato (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) o è configurato un segreto condiviso. Su App Service con l'archivio token disabilitato e senza segreto la mappatura viene ignorata e una riga nel log lo segnala — lo stesso ragionamento che impedisce a un'intestazione non verificata di creare un account.
 

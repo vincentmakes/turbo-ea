@@ -53,6 +53,42 @@ Diese Felder sind optional. Wenn sie leer gelassen werden, verwendet das System 
 - Wenn SSO aktiviert ist, bleibt die lokale Passwortanmeldung als Fallback verfügbar
 - Sie können die Redirect-URI in Ihrem Identitätsanbieter konfigurieren als: `https://ihre-turbo-ea-domain/auth/callback`
 
+**Rollenzuordnung:**
+
+Standardmäßig erhält jeder neue SSO-Benutzer die Standardrolle (oder die Rolle seiner Einladung), und ein Administrator ändert sie von Hand unter **Administration → Benutzer**. Weiß Ihr Identitätsanbieter bereits, wer Administrator, Mitglied oder Betrachter sein soll — über Gruppenmitgliedschaft oder App-Rollen —, kann Turbo EA das aus dem ID-Token lesen und die Rolle bei jeder Anmeldung selbst vergeben. Der Block **Rollenzuordnung** befindet sich im SSO-Bereich unterhalb der Anbieterfelder und wird mit derselben Schaltfläche **Speichern** gespeichert:
+
+- **Claim-Name**: der ID-Token-Claim, der die Gruppen oder Rollen des Benutzers auflistet, zum Beispiel `roles` (Microsoft-Entra-App-Rollen), `groups` (Okta, Keycloak) oder `cognito:groups` (Amazon Cognito). Lassen Sie ihn leer oder die Zuordnung ohne Zeilen, bleiben die Rollen vollständig manuell.
+- **Zuordnungszeilen**: Jede Zeile verbindet einen **Verzeichniswert** (ein Gruppen- oder App-Rollenwert, wie ihn der Claim trägt) mit einer Turbo-EA-Rolle. Ordnen Sie die Zeilen mit den Pfeilen; die erste passende Zeile gewinnt.
+- **Zusätzliche Scopes**: durch Leerzeichen getrennte Scopes, die bei der Anmeldung zusätzlich zu `openid email profile` angefordert werden — zum Beispiel `groups` für Okta. Die Anmeldung des MCP-Servers fordert dieselben Scopes an.
+
+Die Regeln, alle so gewählt, dass ein Konfigurationsfehler Sie nicht aussperren kann:
+
+- **Die Zuordnung wird bei jeder Anmeldung angewendet**, nicht nur bei der Kontoerstellung. Sie überschreibt eine von Hand geänderte Rolle, sodass das Entfernen aus einer Verzeichnisgruppe bei der nächsten Anmeldung wirksam wird.
+- **Die erste passende Zeile gewinnt**, in der Reihenfolge der Zeilen, nicht in der Reihenfolge, in der der Identitätsanbieter die Werte auflistet. Beim Abgleich wird die Groß- und Kleinschreibung ignoriert.
+- **Ein Claim-Wert, der zu keiner Zeile passt**, ergibt die Standardrolle.
+- **Ein Token ohne den Claim oder mit leerem Claim** lässt die aktuelle Rolle des Benutzers unverändert. Ein falsch geschriebener Claim-Name oder ein Anbieter, der den Claim nicht mehr sendet, kann daher nicht alle Benutzer auf einmal herabstufen.
+- **Eine Zeile, deren Rolle nicht existiert oder archiviert wurde**, ergibt die Standardrolle. Die Einstellungsseite markiert eine solche Zeile, damit Sie eine aktive Rolle wählen können.
+- **Der letzte aktive Administrator wird nie herabgestuft.** Würde die Zuordnung dem einzigen aktiven Administrator die Administratorrolle nehmen, behält er sie, und das Protokoll Sicherheit & Administration hält fest, dass die Rolle beibehalten wurde.
+- **Solange eine Zuordnung gesetzt ist, ist die Rolle von SSO-Benutzern unter Administration → Benutzer gesperrt** (die Rollenauswahl ist deaktiviert und zeigt einen Hinweis; eine Massenänderung der Rolle überspringt diese Konten und ein Excel-Import belässt ihre Rolle unverändert, beides mit entsprechender Meldung). Ändern Sie die Rolle stattdessen im Verzeichnis oder stellen Sie das Konto auf lokale Anmeldung um, um es von Hand zu verwalten. Lokale Konten sind nie betroffen.
+
+Hinweise je Identitätsanbieter:
+
+| Anbieter | Was zu konfigurieren ist |
+|----------|-------------------------|
+| **Microsoft Entra ID** | Bevorzugen Sie **App-Rollen**: Deklarieren Sie sie in der App-Registrierung, weisen Sie ihnen Benutzer oder Gruppen zu und verwenden Sie den Claim `roles`. Die Rollenzuordnung erfordert eine **konkrete Mandanten-ID**: Bei `organizations`, `common` oder `consumers` kann sich jeder Microsoft-Mandant anmelden, und eine Zuordnung kann nicht gespeichert werden. Der Claim `groups` enthält Objekt-IDs von Gruppen, keine Namen, und Entra lässt ihn bei einem Benutzer in mehr als 200 Gruppen ganz aus dem Token weg. |
+| **Okta** | Fügen Sie im Autorisierungsserver (oder in den Anmeldeeinstellungen der App) dem ID-Token einen Groups-Claim hinzu und tragen Sie `groups` unter **Zusätzliche Scopes** ein. Verwenden Sie den Claim-Namen, den Sie vergeben haben, meist `groups`. |
+| **Keycloak** (Generic OIDC) | Fügen Sie dem Client einen **Group-Membership**-Mapper hinzu, mit dem Token-Claim-Namen `groups` und aktiviertem **Add to ID token**, damit ein `groups`-Claim auf oberster Ebene im ID-Token ankommt (deaktivieren Sie **Full group path**, um reine Gruppennamen zu erhalten). Verschachtelte Claims wie `realm_access.roles` werden nicht gelesen. |
+| **Amazon Cognito** (Generic OIDC) | Verwenden Sie den Claim `cognito:groups`. |
+| **Google Workspace** | Nicht verfügbar: Google-ID-Tokens enthalten keinen Groups-Claim, daher wird der Block für Google ausgeblendet. |
+
+!!! warning "Zu beachtende Grenzen"
+    - **Ordnen Sie App-Rollen oder Gruppen-IDs zu, keine Anzeigenamen, die Benutzer selbst erstellen können.** Kann jeder eine Gruppe namens `ea-admins` anlegen, kann jeder Administrator werden.
+    - **Der Claim muss im ID-Token enthalten sein.** Turbo EA liest nur das ID-Token — nicht den Userinfo-Endpunkt oder eine Verzeichnis-API. Manche Identitätsanbieter benötigen sowohl den Scope unter **Zusätzliche Scopes** als auch eine Claim-Konfiguration, damit die Gruppen im ID-Token erscheinen; melden Sie sich einmal an und prüfen Sie das Ergebnis, bevor Sie sich darauf verlassen.
+    - **Eine Änderung im Verzeichnis wirkt bei der nächsten Anmeldung des Benutzers**, nicht in einer bereits geöffneten Sitzung.
+    - **Die Rolle einer Einladung wird bei der ersten Anmeldung überschrieben**, wenn die Zuordnung eine Rolle vergibt.
+    - **Ein Benutzer, dessen Token den Claim nie enthält, behält seine aktuelle Rolle**, und solange eine Zuordnung gesetzt ist, kann niemand sie unter Administration → Benutzer ändern. Korrigieren Sie den Claim im Identitätsanbieter oder stellen Sie das Konto auf lokale Anmeldung um.
+    - **Ein leerer Claim gilt als nicht vorhanden**: Wer aus allen zugeordneten Gruppen entfernt wird, wird nicht herabgestuft. Entziehen Sie ihm stattdessen im Identitätsanbieter den Zugriff auf die Anwendung.
+
 #### Reverse-Proxy-Authentifizierung
 
 Wenn Turbo EA hinter einem Proxy läuft, der Ihre Benutzer bereits anmeldet — die integrierte Authentifizierung von Azure App Service («EasyAuth»), oauth2-proxy, Authelia, Cloudflare Access — kann es diese Identität direkt übernehmen, statt darüber ein eigenes SSO zu betreiben. Kein OIDC-Client, keine App-Registrierung, kein Client-Secret. Benutzer landen bereits angemeldet in Turbo EA.
@@ -120,12 +156,13 @@ TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
 Jedes Paar hat die Form `VERZEICHNISWERT:turbo-ea-rollenschlüssel`. Hält ein Benutzer mehrere Verzeichnisrollen, **gewinnt der erste Eintrag der Zuordnung** — die Reihenfolge in der Zuordnung, nicht die Reihenfolge, in der der Anbieter sie zufällig gesendet hat, denn die beiden Azure-Identitätsformate sind sich darüber nicht einig. Bei der Zuordnung wird die Groß- und Kleinschreibung auf Verzeichnisseite ignoriert. Im generischen Proxy-Modus liest dieselbe Zuordnung einen kommagetrennten Header statt eines Claims: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
 
 !!! warning "Die Zuordnung ist bei jeder Anmeldung maßgeblich"
-    Nicht nur bei der Kontoerstellung. Eine unter **Administration → Benutzer** von Hand vergebene Rolle wird bei der nächsten Anmeldung dieser Person zurückgesetzt — und genau das ist der Sinn, denn das Entziehen einer Verzeichnisrolle muss wirksam werden. Lassen Sie `TURBO_EA_PROXY_AUTH_ROLE_MAP` leer, ändert sich nichts: Rollen bleiben vollständig manuell.
+    Nicht nur bei der Kontoerstellung — das Entziehen einer Verzeichnisrolle muss wirksam werden. Solange die Zuordnung gilt, ist die Rolle eines Kontos, das sich über den Proxy anmeldet, daher **unter Administration → Benutzer gesperrt**: Die Rollenauswahl ist mit einem Hinweis deaktiviert, eine Massenänderung der Rolle überspringt das Konto und ein Excel-Import belässt seine Rolle unverändert, statt eine von Hand vorgenommene Änderung bei der nächsten Anmeldung stillschweigend zu ersetzen. Lassen Sie `TURBO_EA_PROXY_AUTH_ROLE_MAP` leer, ändert sich nichts: Rollen bleiben vollständig manuell.
 
 Die Sonderfälle, alle so gewählt, dass ein Konfigurationsfehler Sie nicht aussperren kann:
 
 - **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` gewinnt immer** gegenüber der Zuordnung. Widersprechen sich beide, ist diese Adresse Administrator.
 - **Ein Wert, der zu keinem Eintrag der Zuordnung passt** — oder auf eine Turbo-EA-Rolle verweist, die nicht existiert oder archiviert wurde — fällt auf die Standardrolle zurück.
+- **Der letzte aktive Administrator wird nie herabgestuft.** Würde die Zuordnung dem einzigen aktiven Administrator die Administratorrolle nehmen, behält er sie, und das Protokoll Sicherheit & Administration hält fest, dass die Rolle beibehalten wurde.
 - **Ein vollständig fehlender Claim** lässt die aktuelle Rolle des Benutzers unangetastet. Das unterscheidet sich bewusst vom Fall oben: ein falsch geschriebener `ROLE_CLAIM` oder ein Token-Speicher, der nichts mehr weiterleitet, würde sonst in einem einzigen Durchgang alle Benutzer der Instanz herabstufen.
 - **Die Identität muss der Vergabe von Berechtigungen würdig sein.** Die Rollenzuordnung greift, wenn das Identitätstoken verifiziert wurde (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) oder ein gemeinsames Geheimnis konfiguriert ist. Auf App Service mit deaktiviertem Token-Speicher und ohne Geheimnis wird die Zuordnung ignoriert und eine entsprechende Zeile ins Protokoll geschrieben — dieselbe Begründung, die einen unverifizierten Header daran hindert, ein Konto anzulegen.
 
