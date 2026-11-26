@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - MCP: a custom language's English text that appears in many places is listed once by `get_untranslated_strings`, and one translation from `submit_translations` fills every untranslated string with the same English (never one already translated; `fill_identical=false` turns it off).
 
 ### Changed
-- MCP: `start_ai_translation` is marked destructive and, for a job above the confirmation threshold, needs the preview's `confirm_token` to start.
+- MCP: `start_ai_translation` is marked destructive and, for a job above the confirmation threshold, needs the preview's `confirm_token` to start; the token is valid only for the language and mode that were previewed.
 - MCP: `submit_translations` saves on its first call with no preview or confirm token, takes up to 2000 strings per call (`MCP_MAX_TRANSLATIONS_PER_CALL`), attaches the source hashes itself and answers with counts per section instead of every key.
 
 ### Fixed

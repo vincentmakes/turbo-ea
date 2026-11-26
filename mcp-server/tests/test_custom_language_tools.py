@@ -912,7 +912,7 @@ class TestStartAiTranslation:
         # cycle of any other write applies above the threshold.
         assert backend.posts[0] == (
             "/mutation-batches?row_count=5700",
-            {"tool_name": "start_ai_translation", "dry_run": True},
+            {"tool_name": "start_ai_translation", "dry_run": True, "scope": "nl|missing|keep"},
         )
         assert backend.posts[-1][1]["summary"] == {"status": "preview", "strings": 5700}
         assert backend.writes() == []
@@ -929,10 +929,42 @@ class TestStartAiTranslation:
         )
         assert backend.posts[0] == (
             "/mutation-batches?row_count=5700",
-            {"tool_name": "start_ai_translation", "dry_run": False, "confirm_token": "TOK-1"},
+            {
+                "tool_name": "start_ai_translation",
+                "dry_run": False,
+                "confirm_token": "TOK-1",
+                "scope": "nl|missing|keep",
+            },
         )
         assert out["dry_run"] is False
         assert backend.posts[-1][1]["summary"] == {"status": "started", "strings": 5700}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("args", "scope"),
+        [
+            ({}, "nl|missing|keep"),
+            ({"mode": "all"}, "nl|all|keep"),
+            ({"mode": "all", "include_manual": True}, "nl|all|manual"),
+            # include_manual means nothing without "all", so it binds nothing.
+            ({"include_manual": True}, "nl|missing|keep"),
+            ({"locale": "pt-BR"}, "pt-BR|missing|keep"),
+        ],
+    )
+    async def test_the_token_is_bound_to_language_and_mode(self, fake_token, args, scope):
+        """Preview and commit send the same scope, so the backend refuses a
+        token from a preview of other arguments."""
+        call = {"locale": "nl", **args}
+        backend = _JobBackend()
+        await backend.run("start_ai_translation", **call)
+        await backend.run("start_ai_translation", **call, dry_run=False, confirm_token="TOK-1")
+        opens = [body for path, body in backend.posts if path.startswith("/mutation-batches?")]
+        assert [body["scope"] for body in opens] == [scope, scope]
+
+    def test_the_scope_names_each_argument(self):
+        scope = server._ai_translation_scope
+        assert scope("nl", {"mode": "all", "include_manual": True}) == "nl|all|manual"
+        assert scope("nl", {"mode": "missing", "include_manual": False}) == "nl|missing|keep"
 
     @pytest.mark.asyncio
     async def test_a_small_job_or_an_unknown_count_needs_no_token(self, fake_token):

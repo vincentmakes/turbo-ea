@@ -60,10 +60,12 @@ async def test_every_other_tool_still_needs_its_token(client, admin_user):
     assert resp.json()["detail"].startswith("confirm_token_required")
 
 
-async def _open(client, user, *, rows, dry_run, tool="update_cards_bulk", token=None):
+async def _open(client, user, *, rows, dry_run, tool="update_cards_bulk", token=None, scope=None):
     body: dict = {"tool_name": tool, "dry_run": dry_run}
     if token is not None:
         body["confirm_token"] = token
+    if scope is not None:
+        body["scope"] = scope
     return await client.post(
         f"/api/v1/mutation-batches?row_count={rows}",
         json=body,
@@ -71,10 +73,12 @@ async def _open(client, user, *, rows, dry_run, tool="update_cards_bulk", token=
     )
 
 
-async def _preview(client, user, *, rows=52, tool="update_cards_bulk") -> tuple[str, str]:
+async def _preview(
+    client, user, *, rows=52, tool="update_cards_bulk", scope=None
+) -> tuple[str, str]:
     """Open and close a dry-run the way the MCP wrapper does; return
     ``(batch_id, confirm_token)``."""
-    resp = await _open(client, user, rows=rows, dry_run=True, tool=tool)
+    resp = await _open(client, user, rows=rows, dry_run=True, tool=tool, scope=scope)
     assert resp.status_code == 201, resp.text
     batch_id, token = resp.json()["id"], resp.json()["confirm_token"]
     assert token
@@ -240,6 +244,34 @@ async def test_another_tools_token_is_refused(client, admin_user):
     assert resp.status_code == 400
     assert resp.json()["detail"].startswith("confirm_token_invalid: wrong_tool")
     assert "a dry-run of another tool" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_a_scoped_token_authorises_only_its_own_arguments(client, admin_user, db):
+    """``start_ai_translation`` binds its token to language and mode: the
+    preview of one cannot start another."""
+    tool = "start_ai_translation"
+    preview_id, token = await _preview(client, admin_user, tool=tool, scope="nl|missing|keep")
+    preview = await _load(db, preview_id)
+    # The close kept the scope beside the summary it recorded.
+    assert preview.summary["confirm_scope"] == "nl|missing|keep"
+    for scope in ("nl|all|manual", "fy|missing|keep", None):
+        resp = await _open(
+            client, admin_user, rows=52, dry_run=False, tool=tool, token=token, scope=scope
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"].startswith("confirm_token_invalid: wrong_scope")
+        assert "a preview of other arguments" in resp.json()["detail"]
+    resp = await _open(
+        client, admin_user, rows=52, dry_run=False, tool=tool, token=token, scope="nl|missing|keep"
+    )
+    assert resp.status_code == 201, resp.text
+
+
+@pytest.mark.asyncio
+async def test_a_scope_is_bounded(client, admin_user):
+    resp = await _open(client, admin_user, rows=1, dry_run=True, scope="x" * 201)
+    assert resp.status_code == 422
 
 
 @pytest.mark.asyncio

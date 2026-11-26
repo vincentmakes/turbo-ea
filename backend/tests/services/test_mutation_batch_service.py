@@ -13,8 +13,10 @@ from app.services.mutation_batch_service import (
     CONFIRM_TOKEN_TTL,
     CONFIRMATION_EXEMPT_TOOLS,
     CONFIRMED_BATCH_KEY,
+    SCOPE_KEY,
     close_summary,
     commit_batch,
+    create_batch,
     issue_confirm_token,
     issues_token,
     mark_token_used,
@@ -139,14 +141,31 @@ def _batch(
     )
 
 
-def _resolve(candidates, token="tok", *, actor=_ME, tool="update_cards_bulk", now=None):
+def _resolve(candidates, token="tok", *, actor=_ME, tool="update_cards_bulk", scope=None, now=None):
     return resolve_confirm_token(
         candidates,
         token,
         actor_id=actor,
         tool_name=tool,
+        scope=scope,
         now=now or _ISSUED + timedelta(minutes=1),
     )
+
+
+def test_resolve_a_scoped_token_needs_the_same_scope():
+    scoped = _batch(summary={SCOPE_KEY: "nl|missing|keep", "rows": 52})
+    assert _resolve([scoped], scope="nl|missing|keep") == (scoped, None)
+    for other in ("nl|all|manual", "fy|missing|keep", None):
+        assert _resolve([scoped], scope=other) == (None, "wrong_scope")
+
+
+def test_resolve_an_unscoped_token_refuses_a_scope():
+    """A preview that named no scope authorises only a commit naming none,
+    so a tool that starts binding cannot be fed an old unscoped token."""
+    plain = _batch(summary={"rows": 52})
+    assert _resolve([plain]) == (plain, None)
+    assert _resolve([plain], scope="nl|missing|keep") == (None, "wrong_scope")
+    assert _resolve([_batch()], scope="x") == (None, "wrong_scope")
 
 
 def test_resolve_returns_the_issuing_dry_run():
@@ -230,6 +249,7 @@ def test_resolve_checks_used_before_actor_before_tool_before_age():
         "wrong_actor",
     )
     assert _resolve([_batch(tool="archive_cards")], now=late) == (None, "wrong_tool")
+    assert _resolve([_batch()], scope="x", now=late) == (None, "wrong_scope")
     # And a missing token is reported before any candidate is looked at.
     assert _resolve([], token="") == (None, "missing")
 
@@ -272,6 +292,43 @@ def test_close_summary_keeps_the_single_use_stamp():
         CONFIRMED_BATCH_KEY: "B-2",
     }
     assert close_summary(None, {"status": "ok"}) == {"status": "ok"}
+
+
+def test_close_summary_keeps_the_scope_and_never_takes_one():
+    stored = {SCOPE_KEY: "nl|all|keep"}
+    assert close_summary(stored, {"status": "preview", "strings": 7700}) == {
+        "status": "preview",
+        "strings": 7700,
+        SCOPE_KEY: "nl|all|keep",
+    }
+    # A caller can neither replace nor add the scope or the stamp.
+    forged = {"status": "x", SCOPE_KEY: "fy|all|manual", CONFIRMED_BATCH_KEY: "B-9"}
+    assert close_summary(stored, forged) == {"status": "x", SCOPE_KEY: "nl|all|keep"}
+    assert close_summary(None, forged) == {"status": "x"}
+    assert close_summary({"rows": 1}, forged) == {"status": "x"}
+
+
+async def test_create_batch_keeps_a_dry_runs_scope_only():
+    added: list = []
+
+    class _Db:
+        def add(self, row):
+            added.append(row)
+
+        async def flush(self):
+            pass
+
+    preview = await create_batch(
+        _Db(), "start_ai_translation", None, "mcp", dry_run=True, scope="nl|all|keep"
+    )
+    assert preview.summary == {SCOPE_KEY: "nl|all|keep"}
+    real = await create_batch(
+        _Db(), "start_ai_translation", None, "mcp", dry_run=False, scope="nl|all|keep"
+    )
+    assert real.summary is None
+    unscoped = await create_batch(_Db(), "update_cards_bulk", None, "mcp", dry_run=True)
+    assert unscoped.summary is None
+    assert added == [preview, real, unscoped]
 
 
 async def test_commit_batch_closes_over_the_stored_summary():

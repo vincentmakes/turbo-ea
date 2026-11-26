@@ -10233,6 +10233,18 @@
             "title": "Dry Run",
             "type": "boolean"
           },
+          "scope": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
           "tool_name": {
             "maxLength": 100,
             "minLength": 1,

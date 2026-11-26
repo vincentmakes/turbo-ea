@@ -91,6 +91,7 @@ _TOKEN_REASON_TEXT = {
     "already_used": "this token has already authorised a commit",
     "wrong_actor": "this token was issued to another user",
     "wrong_tool": "this token was issued by a dry-run of another tool",
+    "wrong_scope": "this token was issued for a preview of other arguments",
     "expired": "this token is older than 15 minutes",
 }
 
@@ -143,6 +144,7 @@ async def open_batch(
             body.confirm_token or "",
             actor_id=user.id,
             tool_name=body.tool_name,
+            scope=body.scope,
         )
         if reason is not None:
             raise _confirm_token_error(reason)
@@ -154,6 +156,7 @@ async def open_batch(
         origin=_origin(),
         dry_run=body.dry_run,
         confirm_token=token,
+        scope=body.scope,
     )
     if issuing is not None:
         mark_token_used(issuing, batch.id)

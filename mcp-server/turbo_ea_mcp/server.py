@@ -8226,6 +8226,10 @@ async def start_ai_translation(
         confirm_token: For a commit above the confirmation threshold, the
             token the dry run returned.
 
+    The ``confirm_token`` is bound to the language, ``mode`` and
+    ``include_manual`` of the preview that issued it: a start with other
+    arguments is refused, so run the preview again.
+
     Returns: JSON with ``strings`` (an estimate on the preview: with mode
     "all", strings corrected by hand that the job skips are still counted;
     the job's own count after it started), ``mode``, ``already_running`` on a
@@ -8267,6 +8271,7 @@ async def start_ai_translation(
         row_count=rows,
         dry_run=dry_run,
         confirm_token=confirm_token or None,
+        scope=_ai_translation_scope(locale, body),
     ) as batch:
         if dry_run:
             batch.summary = {"status": "preview", "strings": count}
@@ -8305,6 +8310,11 @@ async def start_ai_translation(
                 "batch_id": batch.batch_id,
             }
         )
+
+
+def _ai_translation_scope(locale: str, body: dict) -> str:
+    """What a ``start_ai_translation`` preview's token is bound to."""
+    return f"{locale}|{body['mode']}|{'manual' if body['include_manual'] else 'keep'}"
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
