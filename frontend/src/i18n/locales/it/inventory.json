@@ -337,6 +337,7 @@
   "export.currentViewHint": "Rispecchia la griglia visualizzata — non adatta al reimport",
   "export.waitingForRelations": "In attesa del caricamento delle colonne delle relazioni…",
   "export.viewSheetName": "Vista",
+  "export.failed": "Impossibile creare l'esportazione: {{message}}",
   "columns.id": "ID",
   "columns.eol": "Fine vita",
   "columns.eolSupport": "Fine del supporto",

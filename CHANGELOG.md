@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.217.1] - 2026-11-26
+
+### Fixed
+- Inventory **Export → All fields**, and other requests that send a long list of cards, no longer fail behind a sign-in proxy that adds large headers, such as Azure App Service authentication (#1445).
+- An Inventory export that fails now says why, instead of producing no file and no message (#1445).
+
 ## [2.217.0] - 2026-11-26
 
 ### Added

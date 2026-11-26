@@ -2624,3 +2624,37 @@ describe("relations: one rule for every relation type (#1089)", () => {
     });
   });
 });
+
+describe("buildExportWorkbook relation requests (#1445)", () => {
+  const getMock = api.get as unknown as ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    getMock.mockReset();
+  });
+
+  it("chunks a large export's relation fetch so no request line passes 8 KB", async () => {
+    const cards = Array.from({ length: 201 }, (_, i) =>
+      makeCard({ id: crypto.randomUUID(), type: "Application", name: `App ${i}` }),
+    );
+    getMock.mockImplementation(async (url: string): Promise<unknown> => {
+      if (url.startsWith("/cards?")) return { items: [] };
+      return [];
+    });
+
+    await buildExportWorkbook(cards, APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]);
+
+    const relationUrls = getMock.mock.calls
+      .map(([url]) => url as string)
+      .filter((url) => url.startsWith("/relations?card_ids="));
+    expect(relationUrls).toHaveLength(2);
+    const sent = relationUrls.flatMap((url) =>
+      url.slice("/relations?card_ids=".length).split(","),
+    );
+    expect(sent).toEqual(cards.map((c) => c.id));
+    // The 200-id chunk keeps the line inside the 8 KB an nginx on default
+    // buffers allows — the budget kept for proxies in front of the edge.
+    const line = `GET /api/v1${relationUrls[0]} HTTP/1.1`;
+    expect(line.length).toBeLessThan(8192);
+    expect(line.length).toBeGreaterThan(7000);
+  });
+});

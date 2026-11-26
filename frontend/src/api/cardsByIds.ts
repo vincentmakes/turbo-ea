@@ -4,11 +4,12 @@ import type { Card, CardListResponse } from "@/types";
 /**
  * Ids per `GET /cards?ids=` request.
  *
- * The bundled edge nginx runs the default `large_client_header_buffers 4 8k`,
- * so a request line over 8 KB is refused with 414 before it ever reaches the
- * backend. An encoded UUID costs 39 bytes (36 + `%2C`): 200 of them make a
- * 7.8 KB request line, which fits; 210 do not. `GET /relations?card_ids=`
- * caps at 500 server-side, so this stays comfortably inside both (#1093).
+ * A request line over 8 KB is refused with 414 by an nginx on its default
+ * `large_client_header_buffers 4 8k`, and operators put such proxies in front.
+ * An encoded UUID costs 39 bytes (36 + `%2C`): 200 of them make a 7.8 KB
+ * request line, which fits; 210 do not (#1093). The bundled edge nginx allows
+ * 16 KB per header line, so the headers a sign-in proxy adds still fit beside
+ * that line (#1445). `GET /relations?card_ids=` caps at 500 server-side.
  */
 export const CARD_IDS_CHUNK = 200;
 

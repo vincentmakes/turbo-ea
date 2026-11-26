@@ -337,6 +337,7 @@
   "export.currentViewHint": "Mirrors the on-screen grid — not for re-import",
   "export.waitingForRelations": "Waiting for relation columns to finish loading…",
   "export.viewSheetName": "View",
+  "export.failed": "Could not create the export: {{message}}",
   "columns.id": "ID",
   "columns.eol": "End of life",
   "columns.eolSupport": "Support ends",

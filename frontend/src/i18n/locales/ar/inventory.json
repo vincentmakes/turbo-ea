@@ -433,6 +433,7 @@
   "export.currentViewHint": "يطابق الجدول المعروض — غير مناسب لإعادة الاستيراد",
   "export.waitingForRelations": "في انتظار انتهاء تحميل أعمدة العلاقات…",
   "export.viewSheetName": "عرض",
+  "export.failed": "تعذّر إنشاء التصدير: {{message}}",
   "columns.id": "المعرّف",
   "columns.eol": "نهاية العمر",
   "columns.eolSupport": "انتهاء الدعم",

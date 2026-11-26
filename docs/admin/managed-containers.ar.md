@@ -164,3 +164,4 @@ aws cloudformation deploy --template-file deploy/ecs-fargate/template.yaml \
 | تتوقف التحديثات الفورية كل أربع دقائق على Container Apps | مهلة الطلب في المدخل؛ يعيد المتصفح الاتصال ولا يُفقد شيء. |
 | يفشل استيراد مساحة العمل عند 32 ميبيبايت على Cloud Run | حد المنصة لجسم الطلب عبر HTTP/1؛ نفّذ عمليات الاستيراد الكبيرة على Kubernetes أو على آلة افتراضية. |
 | تسجّل الخلفية `too many connections` | تحدّ الخطة المُدارة الاتصالات دون `DB_POOL_SIZE + DB_MAX_OVERFLOW`؛ قلّل المجمّع ([ميزانية الاتصالات](operations.md#check-the-connection-limit)). |
+| يفشل تصدير المخزون أو مخطط كبير برسالة `400 Request Header Or Cookie Too Large` | يضيف تسجيل الدخول المدمج في المنصة (مصادقة App Service أو Container Apps) ترويسات رموز وملفات تعريف ارتباط كبيرة إلى كل طلب، وتحمل أطول طلبات Turbo EA في عنوان URL قائمة من معرّفات البطاقات تقارب 8 كيلوبايت. يقبل nginx الطرفي الاثنين معًا منذ الإصدار 2.217.1 — حدّث الصور. |

@@ -106,6 +106,8 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - 未经加密学验证的身份可以让现有用户登录，但永远不会创建新账户，且待处理的邀请在此路径上不会授予其预设角色。
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` 是用户点击**退出登录**后 Turbo EA 将浏览器重定向到的地址，以便同时结束代理会话。如果不设置，代理仍会认为用户处于登录状态——用户会回到登录页面，并且只需一次点击即可重新进入。
 
+**请求头大小。** 登录代理会为每个请求添加 Cookie 和令牌头。Turbo EA 最长的请求在 URL 中携带一个卡片 ID 列表 —— 请求行接近 8 KB —— 因此浏览器与 Turbo EA 之间的每一跳都必须能接受 8 KB 的请求行以及这些请求头。自带的边缘 nginx 可以做到（自 2.217.1 起每行请求头 16 KB）。如果您在前面还运行了自己的 nginx 或 ingress-nginx，请给它同样的空间：`large_client_header_buffers 4 16k;`，或在 ingress-nginx 的 ConfigMap 中设置 `large-client-header-buffers: "4 16k"`。如果某一跳太小，库存导出和大型图表会返回 `400 Request Header Or Cookie Too Large` 或 `414`，而其他功能一切正常。
+
 **角色映射（可选）。** 默认情况下，所有人都落在配置的默认角色上，再由管理员逐个提升。如果您的身份提供方已经知道答案 —— 例如声明了自有应用角色的 Entra 应用注册，或转发组成员身份的 oauth2-proxy —— Turbo EA 可以读取它并自行分配角色：
 
 ```

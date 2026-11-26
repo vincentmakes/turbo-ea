@@ -164,3 +164,4 @@ Point the hostname at the `AlbDnsName` output (CNAME or Route 53 alias) and open
 | Real-time updates pause every four minutes on Container Apps | The ingress request timeout; the browser reconnects and nothing is lost. |
 | A workspace import fails at 32 MiB on Cloud Run | The platform's HTTP/1 request-body limit; run large imports on Kubernetes or a VM. |
 | Backend logs `too many connections` | The managed plan caps connections below `DB_POOL_SIZE + DB_MAX_OVERFLOW`; shrink the pool ([connection budget](operations.md#check-the-connection-limit)). |
+| An Inventory export or a large diagram fails with `400 Request Header Or Cookie Too Large` | The platform's built-in sign-in (App Service or Container Apps authentication) adds large token headers and cookies to every request, and Turbo EA's longest requests carry a list of card ids of just under 8 KB in the URL. The edge nginx accepts both together from 2.217.1 — upgrade the images. |

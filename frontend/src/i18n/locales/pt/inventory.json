@@ -337,6 +337,7 @@
   "export.currentViewHint": "Espelha a grade exibida — não adequada para reimportação",
   "export.waitingForRelations": "A aguardar o carregamento das colunas de relações…",
   "export.viewSheetName": "Vista",
+  "export.failed": "Não foi possível criar a exportação: {{message}}",
   "columns.id": "ID",
   "columns.eol": "Fim de vida",
   "columns.eolSupport": "Fim do suporte",

@@ -416,6 +416,8 @@ ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     server_tokens off;
 ${nginx_real_ip_lines}
+    # Same header buffers as the HTTPS server block below (#1445).
+    large_client_header_buffers 4 16k;
     return 301 https://\$host:${NGINX_TLS_HOST_PORT}\$request_uri;
 }"
         export NGINX_HTTPS_SERVER_BLOCK="server {
@@ -425,6 +427,13 @@ ${nginx_https_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     server_tokens off;
 ${nginx_real_ip_lines}
+    # A list of card ids travels in the request line, just under 8 KB, and a
+    # sign-in proxy in front adds large token headers and cookies to every
+    # request. The default of four 8 KB buffers could not hold both, and the
+    # request was refused here with a 400 (#1445). One 16 KB buffer takes the
+    # longest request line and still has 8 KB to spare.
+    large_client_header_buffers 4 16k;
+
     # Attachments are capped at 20 MB by the backend
     # (services/attachment_validation.py); the extra megabyte lets a slightly
     # oversized upload reach it, so the user gets its readable 400 instead of
@@ -679,6 +688,13 @@ ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     server_tokens off;
 ${nginx_real_ip_lines}
+    # A list of card ids travels in the request line, just under 8 KB, and a
+    # sign-in proxy in front adds large token headers and cookies to every
+    # request. The default of four 8 KB buffers could not hold both, and the
+    # request was refused here with a 400 (#1445). One 16 KB buffer takes the
+    # longest request line and still has 8 KB to spare.
+    large_client_header_buffers 4 16k;
+
     # Attachments are capped at 20 MB by the backend
     # (services/attachment_validation.py); the extra megabyte lets a slightly
     # oversized upload reach it, so the user gets its readable 400 instead of

@@ -110,6 +110,8 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - An identity that was not cryptographically verified can sign in existing users but never creates a new account, and pending invitations do not confer their role on this path.
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` is where Turbo EA sends the browser after **Sign out** so the proxy session ends too. Without it, the proxy still considers the user signed in — they land back on the login page and can re-enter with one click.
 
+**Request header size.** A sign-in proxy adds cookies and token headers to every request. Turbo EA's longest requests carry a list of card ids in the URL — a request line of just under 8 KB — so every hop between the browser and Turbo EA must accept an 8 KB request line together with those headers. The bundled edge nginx does (16 KB per header line since 2.217.1). If you run your own nginx or ingress-nginx in front as well, give it the same room: `large_client_header_buffers 4 16k;`, or `large-client-header-buffers: "4 16k"` in the ingress-nginx ConfigMap. A hop that is too small answers `400 Request Header Or Cookie Too Large` or `414` on Inventory exports and large diagrams while everything else works.
+
 **Role mapping (optional).** By default everyone arrives on the configured default role and an administrator promotes from there. If your identity provider already knows the answer — an Entra app registration that declares its own app roles, an oauth2-proxy that forwards group membership — Turbo EA can read it and assign the role itself:
 
 ```

@@ -59,9 +59,11 @@ import { escapeListItem, LIST_SEPARATOR, WORKBOOK_FORMAT_VERSION } from "./listC
 const FORMAT_VERSION = WORKBOOK_FORMAT_VERSION;
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 const MAX_PATH_DEPTH = 8;
-// Card ids per `GET /relations?card_ids=` request. Keeps URLs reasonable and
-// stays under the endpoint's 500-id cap. (Cards by id go through
-// `fetchCardsByIdsLenient`, which chunks on its own.)
+// Card ids per `GET /relations?card_ids=` request: the same 8 KB request-line
+// budget as `CARD_IDS_CHUNK`, kept for proxies in front on nginx's default
+// buffers (the bundled edge allows 16 KB per line so a sign-in proxy's headers
+// fit beside it, #1445), and under the endpoint's 500-id cap. (Cards by id go
+// through `fetchCardsByIdsLenient`, which chunks on its own.)
 const RELATION_ID_CHUNK = 200;
 const META_SHEET_NAME = "_Meta";
 const RELATIONS_SHEET_NAME = "Relations";

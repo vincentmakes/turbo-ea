@@ -164,3 +164,4 @@ aws cloudformation deploy --template-file deploy/ecs-fargate/template.yaml \
 | Container Apps 上实时更新每四分钟暂停一次 | 入口的请求超时；浏览器会重连，不会丢失任何内容。 |
 | Cloud Run 上工作区导入在 32 MiB 时失败 | 平台对 HTTP/1 请求体的限制；请在 Kubernetes 或虚拟机上执行大型导入。 |
 | 后端日志出现 `too many connections` | 托管套餐的连接上限低于 `DB_POOL_SIZE + DB_MAX_OVERFLOW`；请调小连接池（[连接预算](operations.md#check-the-connection-limit)）。 |
+| 库存导出或大型图表失败，提示 `400 Request Header Or Cookie Too Large` | 平台内置的登录（App Service 或 Container Apps 身份验证）会为每个请求添加较大的令牌头和 Cookie，而 Turbo EA 最长的请求在 URL 中携带一个接近 8 KB 的卡片 ID 列表。边缘 nginx 自 2.217.1 起同时接受这两者 —— 请升级镜像。 |

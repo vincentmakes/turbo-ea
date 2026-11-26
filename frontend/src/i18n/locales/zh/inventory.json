@@ -337,6 +337,7 @@
   "export.currentViewHint": "与屏幕上的表格一致 — 不适合重新导入",
   "export.waitingForRelations": "正在等待关系列加载完成…",
   "export.viewSheetName": "视图",
+  "export.failed": "无法创建导出：{{message}}",
   "columns.id": "ID",
   "columns.eol": "生命周期终止",
   "columns.eolSupport": "支持截止",

@@ -474,8 +474,8 @@ beforeEach(() => {
   holder.columns = null;
   holder.tagIds = [];
   holder.cardPick = null;
-  vi.mocked(exportToExcel).mockClear();
-  vi.mocked(exportCurrentViewToExcel).mockClear();
+  vi.mocked(exportToExcel).mockReset();
+  vi.mocked(exportCurrentViewToExcel).mockReset();
 
   withMetamodel(CARD_TYPES, RELATION_TYPES);
   hookState.auth.user = makeUser();
@@ -2803,6 +2803,44 @@ describe("InventoryPage grid handlers", () => {
     expect(types).toBe(hookState.metamodel.types);
     expect(relTypes.map((rt) => rt.key)).toEqual(RELATION_TYPES.map((rt) => rt.key));
     expect(opts).toEqual({ canViewCosts: true });
+    expect(screen.queryByText(/Could not create the export/)).toBeNull();
+  });
+
+  it("says why an all-fields export failed and closes the menu (#1445)", async () => {
+    vi.mocked(exportToExcel).mockRejectedValueOnce(new Error("Bad Request"));
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await user.click(screen.getByRole("button", { name: BTN.exportMenu }));
+    await user.click(await screen.findByText("Export all fields"));
+    expect(await screen.findByText("Could not create the export: Bad Request")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Export all fields")).toBeNull());
+  });
+
+  it("names a generic reason when the all-fields export rejects with a non-Error", async () => {
+    vi.mocked(exportToExcel).mockRejectedValueOnce("boom");
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await user.click(screen.getByRole("button", { name: BTN.exportMenu }));
+    await user.click(await screen.findByText("Export all fields"));
+    expect(
+      await screen.findByText("Could not create the export: Something went wrong"),
+    ).toBeInTheDocument();
+  });
+
+  it("says why a current-view export failed", async () => {
+    vi.mocked(exportCurrentViewToExcel).mockImplementationOnce(() => {
+      throw new Error("Text length must not exceed 32767 characters");
+    });
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await user.click(screen.getByRole("button", { name: BTN.exportMenu }));
+    await user.click(await screen.findByText("Export current view"));
+    await waitFor(() => expect(exportCurrentViewToExcel).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText(
+        "Could not create the export: Text length must not exceed 32767 characters",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("applies a view's layout and filters, resets the columns, and collapses the sidebar", async () => {
