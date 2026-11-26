@@ -352,6 +352,109 @@ class TestEachKindOfSetting:
         }
 
 
+SSO_OKTA = {"enabled": True, "provider": "okta", "domain": "dev-1.okta.com", "client_id": "c"}
+
+
+class TestSsoRoleMapping:
+    """The role map is recorded as a flat list of ``"value → Role label"``: a list
+    of objects is not a flat value, and a role is named by its label."""
+
+    async def test_the_first_save_records_claim_map_and_scopes(self, client, db, env):
+        resp = await client.patch(
+            "/api/v1/settings/sso",
+            json={
+                **SSO_OKTA,
+                "role_claim": "groups",
+                "role_map": [
+                    {"value": "EA-Admins", "role": "admin"},
+                    {"value": "Readers", "role": "viewer"},
+                ],
+                "extra_scopes": "groups",
+            },
+            headers=env["h"],
+        )
+        assert resp.status_code == 200, resp.text
+
+        [row] = await _rows(db)
+        _setting(row, "sso", env)
+        changes = row.details["changes"]
+        assert changes["role_claim"] == {"old": None, "new": "groups"}
+        assert changes["role_map"] == {
+            "old": None,
+            "new": ["EA-Admins → Admin", "Readers → Viewer"],
+        }
+        assert changes["extra_scopes"] == {"old": None, "new": "groups"}
+
+    async def test_reordering_the_map_records_only_the_map(self, client, db, env):
+        rows = [{"value": "EA-Admins", "role": "admin"}, {"value": "Readers", "role": "viewer"}]
+        for order in (rows, rows[::-1]):
+            resp = await client.patch(
+                "/api/v1/settings/sso",
+                json={**SSO_OKTA, "role_claim": "groups", "role_map": order},
+                headers=env["h"],
+            )
+            assert resp.status_code == 200, resp.text
+
+        first, second = await _rows(db)
+        assert second.details == {
+            "changes": {
+                "role_map": {
+                    "old": ["EA-Admins → Admin", "Readers → Viewer"],
+                    "new": ["Readers → Viewer", "EA-Admins → Admin"],
+                }
+            }
+        }
+
+    async def test_empty_new_fields_never_set_record_nothing(self, client, db, env):
+        resp = await client.patch(
+            "/api/v1/settings/sso",
+            json={**SSO_OKTA, "role_claim": "", "role_map": [], "extra_scopes": ""},
+            headers=env["h"],
+        )
+        assert resp.status_code == 200, resp.text
+
+        [row] = await _rows(db)
+        changes = row.details["changes"]
+        assert changes["client_id"] == {"old": None, "new": "c"}
+        assert not {"role_claim", "role_map", "extra_scopes"} & set(changes)
+
+    async def test_a_role_no_longer_defined_is_named_by_its_key(self, client, db, env):
+        from tests.seams import ai_settings
+
+        await ai_settings(
+            db,
+            general={
+                "sso": {
+                    **SSO_OKTA,
+                    "role_claim": "groups",
+                    "role_map": [{"value": "Ghosts", "role": "ghost"}],
+                }
+            },
+        )
+        resp = await client.patch(
+            "/api/v1/settings/sso",
+            json={**SSO_OKTA, "role_map": [{"value": "Readers", "role": "viewer"}]},
+            headers=env["h"],
+        )
+        assert resp.status_code == 200, resp.text
+
+        [row] = await _rows(db)
+        assert row.details["changes"]["role_map"] == {
+            "old": ["Ghosts → ghost"],
+            "new": ["Readers → Viewer"],
+        }
+        assert "role_claim" not in row.details["changes"]
+
+    async def test_a_refused_map_records_nothing(self, client, db, env):
+        resp = await client.patch(
+            "/api/v1/settings/sso",
+            json={**SSO_OKTA, "role_map": [{"value": "Readers", "role": "viewer"}]},
+            headers=env["h"],
+        )
+        assert resp.status_code == 400
+        assert await _rows(db) == []
+
+
 class TestNotRecorded:
     async def test_denied_write_records_nothing(self, client, db, env):
         resp = await client.patch(

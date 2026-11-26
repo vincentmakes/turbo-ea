@@ -20,7 +20,14 @@ from app.models.user import (
     NOTIFICATION_TYPE_SPECS,
     User,
 )
-from app.services import audit_changes, audit_labels, audit_log, custom_locale_store
+from app.services import (
+    audit_changes,
+    audit_labels,
+    audit_log,
+    custom_locale_store,
+    directory_roles,
+    proxy_auth_service,
+)
 from app.services.extensions import notification_channels, notification_types
 from app.services.permission_service import PermissionService
 from app.services.sso_service import get_sso_config
@@ -103,7 +110,12 @@ class UserBulkDelete(BaseModel):
     ids: list[str]
 
 
-def _user_response(u: User) -> dict:
+def _user_response(u: User, *, role_managed: bool = False) -> dict:
+    """The full user record, for the Users admin and the user's own profile.
+
+    ``role_managed`` is the request's ``_RoleLock`` answer for this account: the
+    role is set by the identity provider at every sign-in and cannot be edited.
+    """
     return {
         "id": str(u.id),
         "email": u.email,
@@ -122,7 +134,45 @@ def _user_response(u: User) -> dict:
         # payload: never in ``_user_response_lite``.
         "locked_until": u.locked_until.isoformat() if u.locked_until else None,
         "failed_login_attempts": u.failed_login_attempts or 0,
+        "role_managed_externally": role_managed,
     }
+
+
+class _RoleLock:
+    """Which accounts' roles a directory role map sets, for one request.
+
+    Reads the SSO settings once (``load``), never per row. A role is managed by
+    the identity provider when the account is federated and a native SSO map
+    (``directory_roles.native_role_map``) or the reverse-proxy map
+    (``proxy_auth_service.role_map_in_force``) is in force.
+    """
+
+    def __init__(self, *, native_active: bool, proxy_active: bool) -> None:
+        self.native_active = native_active
+        self.proxy_active = proxy_active
+
+    @classmethod
+    def from_sso(cls, sso: dict) -> _RoleLock:
+        """The lock for an SSO block the route has already read."""
+        return cls(
+            native_active=bool(directory_roles.native_role_map(sso)),
+            proxy_active=proxy_auth_service.role_map_in_force(),
+        )
+
+    @classmethod
+    async def load(cls, db: AsyncSession) -> _RoleLock:
+        return cls.from_sso(await get_sso_config(db))
+
+    def managed(self, auth_provider: str | None) -> bool:
+        return directory_roles.role_is_directory_managed(
+            auth_provider, native_active=self.native_active, proxy_active=self.proxy_active
+        )
+
+    def response(self, u: User) -> dict:
+        return _user_response(u, role_managed=self.managed(u.auth_provider))
+
+
+ROLE_MANAGED_DETAIL = "This user's role is managed by the identity provider"
 
 
 # The account fields whose old/new values an ``admin.user.updated`` row carries.
@@ -205,8 +255,10 @@ async def list_users(
     # record; everyone else gets the lite payload the pickers need — never the
     # PII / attacker-surface metadata.
     is_admin = await PermissionService.has_app_permission(db, user, "admin.users")
-    serialize = _user_response if is_admin else _user_response_lite
-    return [serialize(u) for u in users]
+    if not is_admin:
+        return [_user_response_lite(u) for u in users]
+    lock = await _RoleLock.load(db)
+    return [lock.response(u) for u in users]
 
 
 @router.get("/invitations")
@@ -492,6 +544,20 @@ async def bulk_update_users(
                 "yourself first.",
             )
 
+    # A role a directory role map sets cannot be changed by hand: the next sign-in
+    # would revert it. Refused for the whole call, like the guards around it.
+    lock = await _RoleLock.load(db)
+    if "role" in data:
+        managed = sorted(
+            u.email for u in users if u.role != data["role"] and lock.managed(u.auth_provider)
+        )
+        if managed:
+            raise HTTPException(
+                400,
+                "The role of these users is managed by the identity provider: "
+                f"{', '.join(managed)}. Deselect them first.",
+            )
+
     # Guard against losing the last admin via bulk role change or deactivation.
     # We evaluate the *post-change* state and refuse if zero active admins
     # would remain.
@@ -566,7 +632,7 @@ async def bulk_update_users(
     await db.commit()
 
     refreshed = await db.execute(select(User).where(User.id.in_(target_uuids)))
-    return [_user_response(u) for u in refreshed.scalars().all()]
+    return [lock.response(u) for u in refreshed.scalars().all()]
 
 
 @router.post("/bulk-delete")
@@ -662,7 +728,9 @@ async def get_user(
     # everyone else gets the lite payload (mirrors list_users).
     is_admin = await PermissionService.has_app_permission(db, current_user, "admin.users")
     is_self = str(current_user.id) == user_id
-    return _user_response(u) if (is_admin or is_self) else _user_response_lite(u)
+    if not (is_admin or is_self):
+        return _user_response_lite(u)
+    return (await _RoleLock.load(db)).response(u)
 
 
 INVITE_ALLOWED_ROLES: set[str] = {"member", "viewer"}
@@ -812,7 +880,7 @@ async def create_user(
     # committed above, so we don't roll back on email failure — instead
     # we surface the SMTP error in the response so the admin can see it
     # and re-send (e.g. via the test-email endpoint after fixing creds).
-    response = _user_response(u)
+    response = _RoleLock.from_sso(sso_cfg).response(u)
     if body.send_email:
         from app.services.email_service import _get_app_title, send_notification_email
 
@@ -905,10 +973,18 @@ async def update_user(
         if not set(data.keys()).issubset(allowed):
             raise HTTPException(403, "Non-admin can only update display_name, password, and locale")
 
+    lock = await _RoleLock.load(db)
     if "role" in data:
         role_result = await db.execute(select(Role).where(Role.key == data["role"]))
         if not role_result.scalar_one_or_none():
             raise HTTPException(400, f"Unknown role '{data['role']}'")
+        # A role a directory role map sets is refused when it would change, judged
+        # on the account as this edit leaves it (the same PATCH may switch
+        # ``auth_provider``). The edit dialog re-sends the role unchanged, which
+        # stays allowed.
+        provider_after = data.get("auth_provider", u.auth_provider)
+        if data["role"] != u.role and lock.managed(provider_after):
+            raise HTTPException(400, ROLE_MANAGED_DETAIL)
         # Self-demotion guard, checked before the last-admin count so the more
         # specific message wins. An admin who drops their own role loses the
         # admin UI in the same request, and only another admin can give it back
@@ -1008,7 +1084,7 @@ async def update_user(
             changes=changes,
         )
     await db.commit()
-    return _user_response(u)
+    return lock.response(u)
 
 
 @router.post("/{user_id}/unlock")
@@ -1058,7 +1134,7 @@ async def unlock_user(
             changes=changes,
         )
     await db.commit()
-    return _user_response(u)
+    return (await _RoleLock.load(db)).response(u)
 
 
 @router.delete("/{user_id}", status_code=204)

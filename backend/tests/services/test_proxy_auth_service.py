@@ -265,6 +265,50 @@ def test_map_role_takes_the_first_match_in_map_order(cfg):
     assert pas.map_role(()) is None
 
 
+# ── role_map_in_force ───────────────────────────────────────────────────────
+
+ROLE_MAP = [("ea-admins", "admin")]
+
+
+def test_the_role_map_is_off_without_a_map(cfg):
+    assert pas.role_map_in_force() is False
+
+
+def test_the_role_map_is_in_force_with_a_shared_secret(cfg):
+    cfg(PROXY_AUTH_ROLE_MAP=ROLE_MAP)
+    assert pas.role_map_in_force() is True
+
+
+def test_the_role_map_is_off_while_proxy_auth_is_off(cfg):
+    cfg(PROXY_AUTH_ROLE_MAP=ROLE_MAP, PROXY_AUTH_ENABLED=False)
+    assert pas.role_map_in_force() is False
+
+
+def test_the_role_map_is_in_force_with_verified_tokens_and_no_secret(cfg):
+    cfg(
+        PROXY_AUTH_ROLE_MAP=ROLE_MAP,
+        PROXY_AUTH_SHARED_SECRET="",
+        PROXY_AUTH_MODE="azure_easyauth",
+        PROXY_AUTH_VERIFY_ID_TOKEN=True,
+    )
+    assert pas.role_map_in_force() is True
+
+
+@pytest.mark.parametrize(
+    "mode, verify", [("azure_easyauth", False), ("header", True), ("header", False)]
+)
+def test_the_role_map_is_off_on_the_untrusted_tier(cfg, mode, verify):
+    """No secret and no verified token: ``role_mapping_trusted`` refuses every
+    identity, so the map can never apply."""
+    cfg(
+        PROXY_AUTH_ROLE_MAP=ROLE_MAP,
+        PROXY_AUTH_SHARED_SECRET="",
+        PROXY_AUTH_MODE=mode,
+        PROXY_AUTH_VERIFY_ID_TOKEN=verify,
+    )
+    assert pas.role_map_in_force() is False
+
+
 # ── _verify_forwarded_id_token ──────────────────────────────────────────────
 
 

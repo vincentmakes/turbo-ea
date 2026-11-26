@@ -17085,6 +17085,25 @@
         "title": "SsoCallbackRequest",
         "type": "object"
       },
+      "SsoRoleMapRow": {
+        "description": "One row of the SSO role map: a directory value (group, app role) and the\nTurbo EA role key it grants.",
+        "properties": {
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "role"
+        ],
+        "title": "SsoRoleMapRow",
+        "type": "object"
+      },
       "SsoSettingsPayload": {
         "properties": {
           "authorization_endpoint": {
@@ -17112,6 +17131,17 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "extra_scopes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Scopes"
+          },
           "issuer_url": {
             "default": "",
             "title": "Issuer Url",
@@ -17126,6 +17156,31 @@
             "default": "microsoft",
             "title": "Provider",
             "type": "string"
+          },
+          "role_claim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Claim"
+          },
+          "role_map": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SsoRoleMapRow"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Map"
           },
           "tenant_id": {
             "default": "organizations",

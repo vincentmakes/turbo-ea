@@ -435,7 +435,9 @@ async def authorize(request: Request) -> Response:
         "client_id": sso_config["client_id"],
         "response_type": "code",
         "redirect_uri": callback_url,
-        "scope": "openid email profile",
+        # The scopes the app's own login asks for, extra scopes included (a groups
+        # claim for the directory role map); the base set when the backend sends none.
+        "scope": sso_config.get("scopes") or "openid email profile",
         "response_mode": "query",
         "state": internal_state,
     }

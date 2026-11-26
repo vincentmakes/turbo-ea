@@ -321,6 +321,262 @@ class TestSsoEndpoints:
         assert resp.status_code == 403
 
 
+SSO_URL = "/api/v1/settings/sso"
+OKTA = {"enabled": True, "provider": "okta", "domain": "dev-1.okta.com", "client_id": "cid"}
+MAP = [{"value": "EA-Admins", "role": "admin"}, {"value": "Readers", "role": "viewer"}]
+
+
+class TestSsoRoleMapping:
+    """The directory role map, claim name and extra scopes (discussion 1446)."""
+
+    async def _patch(self, client, env, **fields):
+        return await client.patch(
+            SSO_URL, json={**OKTA, **fields}, headers=auth_headers(env["admin"])
+        )
+
+    async def _get(self, client, env):
+        resp = await client.get(SSO_URL, headers=auth_headers(env["admin"]))
+        assert resp.status_code == 200
+        return resp.json()
+
+    async def _refused(self, client, env, detail, **fields):
+        resp = await self._patch(client, env, **fields)
+        assert resp.status_code == 400, resp.text
+        assert resp.json() == {"detail": detail}
+
+    async def test_defaults(self, client, db, ext_settings_env):
+        data = await self._get(client, ext_settings_env)
+        assert (data["role_claim"], data["role_map"], data["extra_scopes"]) == ("", [], "")
+
+    async def test_save_and_read_back(self, client, db, ext_settings_env):
+        resp = await self._patch(
+            client,
+            ext_settings_env,
+            role_claim="  groups ",
+            role_map=[{"value": " EA-Admins ", "role": " admin "}, MAP[1]],
+            extra_scopes=" groups\toffline_access groups ",
+        )
+        assert resp.status_code == 200, resp.text
+
+        data = await self._get(client, ext_settings_env)
+        assert data["role_claim"] == "groups"
+        assert data["role_map"] == MAP
+        assert data["extra_scopes"] == "groups offline_access"
+
+    async def test_omitted_fields_keep_what_is_stored(self, client, db, ext_settings_env):
+        await self._patch(
+            client, ext_settings_env, role_claim="groups", role_map=MAP, extra_scopes="groups"
+        )
+        resp = await self._patch(client, ext_settings_env, client_id="cid-2")
+        assert resp.status_code == 200, resp.text
+
+        data = await self._get(client, ext_settings_env)
+        assert data["client_id"] == "cid-2"
+        assert data["role_claim"] == "groups"
+        assert data["role_map"] == MAP
+        assert data["extra_scopes"] == "groups"
+
+    async def test_an_empty_map_and_claim_clear_the_feature(self, client, db, ext_settings_env):
+        await self._patch(
+            client, ext_settings_env, role_claim="groups", role_map=MAP, extra_scopes="groups"
+        )
+        resp = await self._patch(
+            client, ext_settings_env, role_claim="", role_map=[], extra_scopes=""
+        )
+        assert resp.status_code == 200, resp.text
+
+        data = await self._get(client, ext_settings_env)
+        assert (data["role_claim"], data["role_map"], data["extra_scopes"]) == ("", [], "")
+
+    async def test_the_map_order_is_kept(self, client, db, ext_settings_env):
+        await self._patch(client, ext_settings_env, role_claim="groups", role_map=MAP[::-1])
+        assert (await self._get(client, ext_settings_env))["role_map"] == MAP[::-1]
+
+    async def test_a_map_without_a_claim_name_is_refused(self, client, db, ext_settings_env):
+        await self._refused(
+            client,
+            ext_settings_env,
+            "A role map needs a claim name: set the ID token claim that carries "
+            "the user's groups or roles.",
+            role_map=MAP,
+        )
+        assert (await self._get(client, ext_settings_env))["role_map"] == []
+
+    async def test_clearing_the_claim_of_a_stored_map_is_refused(
+        self, client, db, ext_settings_env
+    ):
+        await self._patch(client, ext_settings_env, role_claim="groups", role_map=MAP)
+        await self._refused(
+            client,
+            ext_settings_env,
+            "A role map needs a claim name: set the ID token claim that carries "
+            "the user's groups or roles.",
+            role_claim="  ",
+        )
+        assert (await self._get(client, ext_settings_env))["role_claim"] == "groups"
+
+    @pytest.mark.parametrize("tenant", ["organizations", "common", "consumers"])
+    async def test_microsoft_multi_tenant_refuses_a_map(self, client, db, ext_settings_env, tenant):
+        await self._refused(
+            client,
+            ext_settings_env,
+            "Role mapping with Microsoft needs a specific tenant ID. With a "
+            "multi-tenant setting (organizations, common or consumers) another "
+            "tenant could assign itself this app's roles.",
+            provider="microsoft",
+            tenant_id=tenant,
+            role_claim="roles",
+            role_map=MAP,
+        )
+
+    async def test_switching_a_stored_map_to_a_multi_tenant_tenant_is_refused(
+        self, client, db, ext_settings_env
+    ):
+        resp = await self._patch(
+            client,
+            ext_settings_env,
+            provider="microsoft",
+            tenant_id="contoso.onmicrosoft.com",
+            role_claim="roles",
+            role_map=MAP,
+        )
+        assert resp.status_code == 200, resp.text
+        resp = await self._patch(client, ext_settings_env, provider="microsoft", tenant_id="common")
+        assert resp.status_code == 400
+        assert (await self._get(client, ext_settings_env))["tenant_id"] == (
+            "contoso.onmicrosoft.com"
+        )
+
+    async def test_an_unknown_role_is_refused(self, client, db, ext_settings_env):
+        await self._refused(
+            client,
+            ext_settings_env,
+            "The role map names the role 'ghost', which does not exist or is archived.",
+            role_claim="groups",
+            role_map=[MAP[0], {"value": "Ghosts", "role": "ghost"}],
+        )
+        assert (await self._get(client, ext_settings_env))["role_map"] == []
+
+    async def test_an_archived_role_is_refused_for_a_new_row_but_kept_unchanged(
+        self, client, db, ext_settings_env
+    ):
+        from sqlalchemy import select
+
+        from app.models.role import Role
+
+        await create_role(db, key="retired", label="Retired", permissions={})
+        stored = [MAP[0], {"value": "Alumni", "role": "retired"}]
+        resp = await self._patch(client, ext_settings_env, role_claim="groups", role_map=stored)
+        assert resp.status_code == 200, resp.text
+
+        retired = (await db.execute(select(Role).where(Role.key == "retired"))).scalar_one()
+        retired.is_archived = True
+        await db.flush()
+
+        # The stored row re-sent unchanged (even in another case) does not block an
+        # unrelated SSO edit.
+        resend = [MAP[0], {"value": "ALUMNI", "role": "retired"}]
+        resp = await self._patch(
+            client, ext_settings_env, client_id="cid-2", role_claim="groups", role_map=resend
+        )
+        assert resp.status_code == 200, resp.text
+        assert (await self._get(client, ext_settings_env))["role_map"] == resend
+
+        await self._refused(
+            client,
+            ext_settings_env,
+            "The role map names the role 'retired', which does not exist or is archived.",
+            role_claim="groups",
+            role_map=[*resend, {"value": "Former", "role": "retired"}],
+        )
+
+    async def test_a_duplicate_value_is_refused(self, client, db, ext_settings_env):
+        await self._refused(
+            client,
+            ext_settings_env,
+            "The directory value 'ea-admins' appears more than once in the role map "
+            "(values are compared without regard to case).",
+            role_claim="groups",
+            role_map=[MAP[0], {"value": "ea-admins", "role": "viewer"}],
+        )
+
+    async def test_an_empty_value_is_refused(self, client, db, ext_settings_env):
+        await self._refused(
+            client,
+            ext_settings_env,
+            "A role mapping row has an empty directory value.",
+            role_claim="groups",
+            role_map=[{"value": " ", "role": "admin"}],
+        )
+
+    async def test_an_empty_role_is_refused(self, client, db, ext_settings_env):
+        await self._refused(
+            client,
+            ext_settings_env,
+            "The role mapping row for 'EA-Admins' has no role.",
+            role_claim="groups",
+            role_map=[{"value": "EA-Admins", "role": ""}],
+        )
+
+    async def test_more_than_100_rows_are_refused(self, client, db, ext_settings_env):
+        rows = [{"value": f"group-{i}", "role": "viewer"} for i in range(101)]
+        await self._refused(
+            client,
+            ext_settings_env,
+            "A role map holds at most 100 rows.",
+            role_claim="groups",
+            role_map=rows,
+        )
+
+    async def test_a_value_over_256_characters_is_refused(self, client, db, ext_settings_env):
+        await self._refused(
+            client,
+            ext_settings_env,
+            f"The directory value '{'g' * 40}…' is longer than 256 characters.",
+            role_claim="groups",
+            role_map=[{"value": "g" * 257, "role": "admin"}],
+        )
+
+    async def test_an_invalid_scope_is_refused(self, client, db, ext_settings_env):
+        await self._refused(
+            client,
+            ext_settings_env,
+            "'bad\\scope' is not a valid OAuth scope.",
+            extra_scopes="groups bad\\scope",
+        )
+        assert (await self._get(client, ext_settings_env))["extra_scopes"] == ""
+
+    async def test_scopes_over_200_characters_are_refused(self, client, db, ext_settings_env):
+        await self._refused(
+            client,
+            ext_settings_env,
+            "Extra scopes may be at most 200 characters.",
+            extra_scopes="s" * 201,
+        )
+
+    async def test_a_malformed_row_is_a_validation_error(self, client, db, ext_settings_env):
+        resp = await self._patch(
+            client, ext_settings_env, role_claim="groups", role_map=[{"value": "x"}]
+        )
+        assert resp.status_code == 422
+
+    async def test_a_member_cannot_save_a_map(self, client, db, ext_settings_env):
+        resp = await client.patch(
+            SSO_URL,
+            json={**OKTA, "role_claim": "groups", "role_map": MAP},
+            headers=auth_headers(ext_settings_env["member"]),
+        )
+        assert resp.status_code == 403
+        assert (await self._get(client, ext_settings_env))["role_map"] == []
+
+    async def test_the_public_status_carries_nothing_of_the_map(self, client, db, ext_settings_env):
+        await self._patch(
+            client, ext_settings_env, role_claim="groups", role_map=MAP, extra_scopes="groups"
+        )
+        resp = await client.get("/api/v1/settings/sso/status")
+        assert resp.json() == {"enabled": True}
+
+
 # -------------------------------------------------------------------
 # BPM row-order endpoints
 # -------------------------------------------------------------------
