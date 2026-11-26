@@ -42,6 +42,18 @@ describe("computeTimelineRange with relation dates", () => {
     expect(r.hasLifecycleData).toBe(false);
   });
 
+  it("never stretches the axis to a Plan / Phase In date without Active — relation or card alike", () => {
+    const cards = [{ active: "2026-01-01" }, { plan: "2019-01-01", phaseIn: "2033-01-01" }];
+    const withRelation = computeTimelineRange(cards, TODAY, [
+      { plan: "2018-01-01", phaseIn: "2035-01-01" },
+    ]);
+    expect(withRelation).toEqual(computeTimelineRange([{ active: "2026-01-01" }], TODAY));
+    expect(withRelation.dateRange).toEqual({
+      min: ms("2026-01-01") - YEAR,
+      max: ms("2026-01-01") + YEAR,
+    });
+  });
+
   it("is unchanged when no relation dates are passed", () => {
     const cards = [{ active: "2025-01-01", endOfLife: "2028-01-01" }];
     expect(computeTimelineRange(cards, TODAY, [])).toEqual(computeTimelineRange(cards, TODAY));
@@ -213,6 +225,62 @@ describe("computeConnectionChanges with relation dates", () => {
       span.to,
     );
     expect(r.gained.size).toBe(0);
+  });
+
+  it("moves a card a relation brings into the view like one going live", () => {
+    // `app` is alive throughout, but arrives in the centred view on the day the
+    // relation from `org` starts: `org` gains the connection, `app` carries no
+    // mark of its own — it says so by arriving.
+    const r = computeConnectionChanges(
+      nodes,
+      [{ source: "org", target: "app", lifecycle: { active: "2027-01-01" } }],
+      span.from,
+      span.to,
+      { arriving: new Map([["app", span.from]]), leaving: new Map() },
+    );
+    expect([...r.gained]).toEqual(["org"]);
+    expect(r.lost.size).toBe(0);
+  });
+
+  it("moves a card whose last path ends like one retiring", () => {
+    const r = computeConnectionChanges(
+      nodes,
+      [{ source: "org", target: "app", lifecycle: { endOfLife: "2027-01-01" } }],
+      span.from,
+      span.to,
+      { arriving: new Map(), leaving: new Map([["app", span.from]]) },
+    );
+    expect([...r.lost]).toEqual(["org"]);
+    expect(r.gained.size).toBe(0);
+  });
+
+  it("loses a leaving card's connection only through a relation in effect the day before", () => {
+    const r = computeConnectionChanges(
+      [...nodes, { id: "hub", lifecycle: {} }],
+      [
+        { source: "org", target: "app", lifecycle: { endOfLife: "2026-01-01" } },
+        { source: "hub", target: "app" },
+      ],
+      span.from,
+      span.to,
+      { arriving: new Map(), leaving: new Map([["app", span.from]]) },
+    );
+    expect([...r.lost]).toEqual(["hub"]);
+  });
+
+  it("prefers the card's own end of life inside the span to the move's date", () => {
+    const r = computeConnectionChanges(
+      [
+        { id: "org", lifecycle: {} },
+        { id: "app", lifecycle: { endOfLife: "2027-01-01" } },
+      ],
+      [{ source: "org", target: "app", lifecycle: { active: "2026-06-01" } }],
+      span.from - DAY,
+      span.to,
+      // A move dated before the relation started would lose nothing.
+      { arriving: new Map(), leaving: new Map([["app", ms("2026-01-01")]]) },
+    );
+    expect([...r.lost]).toEqual(["org"]);
   });
 
   it("reads an undated edge exactly as before", () => {
