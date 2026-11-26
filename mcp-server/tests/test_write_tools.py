@@ -337,18 +337,32 @@ class TestUpsertRelationsBulkLifecycle:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("lifecycle", "fragment"),
+        ("lifecycle", "error"),
         [
-            ({"sunset": "2030-01-01"}, "unknown phase 'sunset'"),
-            ({"active": "next year"}, "'active' is not a date"),
-            ({"endOfLife": "2030-02-30"}, "'endOfLife' is not a date"),
-            ({"active": 20300101}, "'active' is not a date"),
-            ("2030-01-01", "must be an object"),
+            (
+                {"sunset": "2030-01-01"},
+                "unknown phase 'sunset' "
+                "(expected one of plan, phaseIn, active, phaseOut, endOfLife)",
+            ),
+            ({"active": "next year"}, "'active' is not a date (expected YYYY-MM-DD)"),
+            ({"endOfLife": "2030-02-30"}, "'endOfLife' is not a date (expected YYYY-MM-DD)"),
+            ({"active": 20300101}, "'active' is not a date (expected YYYY-MM-DD)"),
+            ("2030-01-01", "lifecycle must be an object of phase → date"),
+            # An empty phase is skipped, never the end of the check: what
+            # follows it is still read.
+            ({"plan": "", "active": "not-a-date"}, "'active' is not a date (expected YYYY-MM-DD)"),
+            (
+                {"phaseIn": None, "endOfLife": "2030-02-30"},
+                "'endOfLife' is not a date (expected YYYY-MM-DD)",
+            ),
+            (
+                {"plan": None, "sunset": "2030-01-01"},
+                "unknown phase 'sunset' "
+                "(expected one of plan, phaseIn, active, phaseOut, endOfLife)",
+            ),
         ],
     )
-    async def test_a_bad_lifecycle_is_refused_before_any_call(
-        self, fake_token, lifecycle, fragment
-    ):
+    async def test_a_bad_lifecycle_is_refused_before_any_call(self, fake_token, lifecycle, error):
         mock = AsyncMock()
         ops = [
             {"row_index": 0, "type": "t", "source": {"id": "s"}, "target": {"id": "x"}},
@@ -363,8 +377,8 @@ class TestUpsertRelationsBulkLifecycle:
         with patch.object(server.TurboEAClient, "post", mock):
             out = _parse(await server.upsert_relations_bulk(operations=ops))
         assert out["error"] == "invalid_lifecycle"
-        assert out["rows"] == [{"row_index": 7, "error": out["rows"][0]["error"]}]
-        assert fragment in out["rows"][0]["error"]
+        # The exact text the assistant reads, so it can fix the row it names.
+        assert out["rows"] == [{"row_index": 7, "error": error}]
         mock.assert_not_called()
 
     def test_lifecycle_check_accepts_what_the_backend_stores(self):
