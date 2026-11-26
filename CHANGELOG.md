@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Adding a stakeholder role to a card type you created no longer hides its **Responsible** and **Observer** roles and the people assigned to them; on upgrade, the roles and assignments that had disappeared come back.
 - A **Responsible** or **Observer** on a card of a type you created now gets that role's permissions, as on the built-in types.
 
+## [2.215.2] - 2026-11-26
+
+### Fixed
+- Workspace import no longer fails when the bundle holds a cost line, to-do, comment or other item saved with an empty text field, such as a cost line without a description (#1435).
+
+### Changed
+- The workspace import preview and result now say how many users will be (or were) created deactivated, and where to activate them.
+
+
 ## [2.215.1] - 2026-11-26
 
 ### Security

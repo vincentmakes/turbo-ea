@@ -78,11 +78,23 @@ def test_a_section_reports_at_most_fifty_errors_and_a_copy_of_its_reasons():
         "errors_total": 60,
         "skip_reasons": {"identical": 1},
         "references": {},
+        "notes": {},
     }
     report["skip_reasons"]["x"] = 1
     assert sr.skip_reasons == {"identical": 1}
     report["references"]["x"] = 1
     assert sr.references == {}
+    report["notes"]["x"] = 1
+    assert sr.notes == {}
+
+
+def test_a_section_tallies_its_notes_by_key():
+    sr = applier.SectionResult(sheet="Users")
+    sr.note("users_deactivated")
+    sr.note("users_deactivated", 2)
+    sr.note("other")
+    assert sr.notes == {"users_deactivated": 3, "other": 1}
+    assert sr.as_dict()["notes"] == {"users_deactivated": 3, "other": 1}
 
 
 def test_an_apply_result_totals_its_sections():
@@ -502,6 +514,17 @@ async def test_imported_users_land_deactivated_with_safe_defaults(db):
     assert (sso.auth_provider, sso.locale, sso.display_name) == ("sso", "de", "S")
     assert counts(sr) == (3, 0, 2, 0, 2)
     assert sr.skip_reasons == {"user_exists": 2}
+    # Every created user is named as deactivated; a matched one is not (#1435).
+    assert sr.notes == {"users_deactivated": 3}
+
+
+async def test_a_dry_run_counts_the_users_it_would_create_deactivated(db):
+    await create_role(db, key="member", label="Member")
+    await create_user(db, email="here@test.com")
+    rows = [{"email": "here@test.com"}, {"email": "new@x.com"}]
+    sr = section()
+    await applier._apply_users(db, bundle(schema.SHEET_USERS, rows), sr, True)
+    assert sr.notes == {"users_deactivated": 1}
 
 
 # ── settings ────────────────────────────────────────────────────────────────

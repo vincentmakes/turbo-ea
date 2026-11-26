@@ -59,7 +59,7 @@ L'import est **idempotent** : le métamodèle et la configuration sont appariés
 ## Après l'import
 
 - Ressaisissez tous les identifiants SMTP, SSO et IA dans leurs onglets de paramètres respectifs.
-- Les utilisateurs synthétiques référencés par le bundle sont créés **désactivés** ; activez-les sous **Administration → Utilisateurs** selon vos besoins.
+- Les utilisateurs que la cible ne possède pas encore sont créés **désactivés**, car les mots de passe ne sont jamais transférés. L'aperçu et le résultat de l'import indiquent leur nombre ; activez-les sous **Administration → Utilisateurs** selon vos besoins.
 - **Les données appartenant aux utilisateurs suivent l'utilisateur, apparié par e-mail.** Les tâches, vues enregistrées, fiches favorites et autres données personnelles appartiennent au compte dont l'e-mail correspond à celui du bundle. Si vous vous connectez à la cible avec un e-mail différent de celui utilisé sur la source, vos éléments personnels sembleront manquants — ils sont rattachés au compte correspondant (éventuellement désactivé). Connectez-vous avec le même e-mail, ou activez le compte correspondant sous **Administration → Utilisateurs**.
 - Les vues enregistrées privées ne sont visibles que par leur propriétaire ; les vues partagées et publiques suivent leurs paramètres de visibilité.
 

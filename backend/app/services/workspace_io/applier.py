@@ -99,6 +99,12 @@ class SectionResult:
     # How many of ``errors`` are reference notes (a diagram card the name
     # fallback could not place). Capped so they cannot crowd out a row failure.
     reference_notes: int = field(default=0, repr=False)
+    # Things the admin should act on that are neither a skip nor an error,
+    # keyed like ``skip_reasons`` (e.g. {"users_deactivated": 3}, #1435).
+    notes: dict[str, int] = field(default_factory=dict)
+
+    def note(self, key: str, n: int = 1) -> None:
+        self.notes[key] = self.notes.get(key, 0) + n
 
     def skip(self, reason: str = "already_present") -> None:
         self.skipped += 1
@@ -130,6 +136,7 @@ class SectionResult:
             "errors_total": len(self.errors),
             "skip_reasons": dict(self.skip_reasons),
             "references": dict(self.references),
+            "notes": dict(self.notes),
         }
 
 
@@ -1044,6 +1051,9 @@ async def _apply_users(
         existing[email.lower()] = user.id
         ids.record(rm.USERS, row.get(schema.SOURCE_ID_COLUMN), user.id)
         sr.created += 1
+        # No password travels, so a created user cannot sign in until an admin
+        # activates them: the preview and the result say how many (#1435).
+        sr.note("users_deactivated")
     await db.flush()
 
 

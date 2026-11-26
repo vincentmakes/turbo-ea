@@ -59,7 +59,7 @@ Import is **idempotent**: metamodel and configuration are matched by key, cards 
 ## After importing
 
 - Re-enter any SMTP, SSO, and AI credentials under their respective settings tabs.
-- Synthetic users referenced by the bundle are created **deactivated**; activate them under **Admin → Users** as needed.
+- Users the target does not have yet are created **deactivated**, because passwords are never transferred. The preview and the import result say how many; activate them under **Admin → Users** as needed.
 - **User-owned data follows the user, matched by email.** Todos, saved views, favorites, and other personal data belong to the account whose email matches the one in the bundle. If you log into the target with a different email than you used on the source, your personal items will appear to be missing — they are attached to the (possibly deactivated) matching account. Log in with the same email, or activate the matched account under **Admin → Users**.
 - Private saved views are visible only to their owner; shared and public views follow their visibility settings.
 
