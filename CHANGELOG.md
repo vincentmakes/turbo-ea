@@ -5,7 +5,7 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.216.0] - 2026-11-26
+## [2.217.0] - 2026-11-26
 
 ### Added
 - Relations can carry their own lifecycle dates — the five card phases — to record when a relation is planned, in effect and ended, for example one application adopted by several organisations at different times.
@@ -24,10 +24,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The inventory's relation cells and relation filters show only relations in effect today; a cell's edit popover still lists every relation, with its phase.
 - The PPM board's and the Lifecycle report's filters, the MCP impact analysis and the capability heatmap's counts and costs for AI assistants follow only the relations in effect today. "Today" is the UTC day everywhere, in the browser as on the server.
 
+## [2.216.0] - 2026-11-26
+
+### Added
+- Stakeholder roles can be reordered with up and down arrows in the card type editor; a card's Stakeholders tab and the role picker follow that order.
+- On a card's Stakeholders tab, roles that don't count toward data quality (Observer by default) now come last under **Following this card**, apart from the card's owners.
+
+### Fixed
+- Adding a stakeholder role to a card type you created no longer hides its **Responsible** and **Observer** roles and the people assigned to them; on upgrade, the roles and assignments that had disappeared come back.
+- A **Responsible** or **Observer** on a card of a type you created now gets that role's permissions, as on the built-in types.
+
+## [2.215.2] - 2026-11-26
+
+### Fixed
+- Workspace import no longer fails when the bundle holds a cost line, to-do, comment or other item saved with an empty text field, such as a cost line without a description (#1435).
+
+### Changed
+- The workspace import preview and result now say how many users will be (or were) created deactivated, and where to activate them.
+
 ## [2.215.1] - 2026-11-26
 
 ### Security
 - The frontend and edge nginx images now run **nginx 1.30.8**, which fixes CVE-2026-132779 (excessive CPU usage in TLS 1.3 when `ssl_early_data` is on). Turbo EA's nginx configuration does not switch that setting on, so no installation was exposed; the normal upgrade is enough.
+
 ## [2.215.0] - 2026-11-26
 
 ### Added

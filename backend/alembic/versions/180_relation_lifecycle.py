@@ -13,8 +13,8 @@ changes, so there is no seed update.
 
 Downgrade drops both columns.
 
-Revision ID: 179
-Revises: 178
+Revision ID: 180
+Revises: 179
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = "179"
-down_revision: Union[str, None] = "178"
+revision: str = "180"
+down_revision: Union[str, None] = "179"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

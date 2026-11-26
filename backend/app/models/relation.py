@@ -24,7 +24,7 @@ class Relation(Base, UUIDMixin, TimestampMixin):
     )
     attributes: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     description: Mapped[str | None] = mapped_column(Text)
-    # The same five phase dates a card's lifecycle carries (migration 179).
+    # The same five phase dates a card's lifecycle carries (migration 180).
     # Empty means "always in effect"; ``services/lifecycle.py`` owns what a
     # date means (``lifecycle_in_effect`` and its SQL twin).
     lifecycle: Mapped[dict] = mapped_column(

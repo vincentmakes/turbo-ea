@@ -231,6 +231,8 @@
   "stakeholders.user": "Utilisateur",
   "stakeholders.userPlaceholder": "Rechercher par nom ou e-mail",
   "stakeholders.noneAssigned": "Aucun {{role}} assigné",
+  "stakeholders.followingHeading": "Suivent cette fiche",
+  "stakeholders.followingHelp": "Les personnes ayant ces rôles suivent la fiche et restent informées. Elles ne comptent ni comme ses responsables ni pour sa qualité des données.",
   "stakeholders.inviteOption": "Ajouter «{{email}}» comme nouvel utilisateur",
   "stakeholders.inviteNewUser": "Ajouter un nouvel utilisateur…",
   "stakeholders.inviteFormTitle": "Ajouter un nouvel utilisateur",

@@ -59,7 +59,7 @@ L'importazione è **idempotente**: il metamodello e la configurazione sono abbin
 ## Dopo l'importazione
 
 - Reinserite le credenziali SMTP, SSO e AI nelle rispettive schede delle impostazioni.
-- Gli utenti sintetici referenziati dal bundle vengono creati **disattivati**; attivateli in **Amministrazione → Utenti** secondo necessità.
+- Gli utenti che la destinazione non ha ancora vengono creati **disattivati**, perché le password non vengono mai trasferite. L'anteprima e il risultato dell'importazione indicano quanti sono; attivateli in **Amministrazione → Utenti** secondo necessità.
 - **I dati di proprietà degli utenti seguono l'utente, abbinato per email.** Todo, viste salvate, preferiti e altri dati personali appartengono all'account la cui email corrisponde a quella nel bundle. Se accedete al target con un'email diversa da quella usata sull'origine, i vostri elementi personali sembreranno mancare — sono collegati all'account corrispondente (eventualmente disattivato). Accedete con la stessa email, oppure attivate l'account corrispondente in **Amministrazione → Utenti**.
 - Le viste salvate private sono visibili solo al loro proprietario; le viste condivise e pubbliche seguono le rispettive impostazioni di visibilità.
 

@@ -61,6 +61,7 @@ from app.services.event_bus import event_bus
 from app.services.extensions import field_gate
 from app.services.lifecycle import normalize_relation_lifecycle
 from app.services.relation_orientation import orient_endpoints
+from app.services.stakeholder_service import DEFAULT_STAKEHOLDER_ROLES, ensure_role_definitions
 
 logger = logging.getLogger(__name__)
 
@@ -978,6 +979,9 @@ async def _apply_metamodel_type_pass(
             )
             db.add(new_type)
             await db.flush()
+            # Imported subscriptions land as `responsible` / `observer`: give
+            # the type real definitions of them, as the route does (#1437).
+            await ensure_role_definitions(db, type_key, DEFAULT_STAKEHOLDER_ROLES)
             # The route refuses a category the registry lacks; adopt this one
             # so the imported type stays editable.
             await card_type_categories.ensure_categories(db, [new_type.category])

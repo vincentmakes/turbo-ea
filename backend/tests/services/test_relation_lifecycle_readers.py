@@ -1,6 +1,6 @@
 """Current-state readers of relations stop counting a relation not in effect.
 
-A relation may carry its own lifecycle (migration 179). Every service that
+A relation may carry its own lifecycle (migration 180). Every service that
 COUNTS relations — the orphaned flag, the dashboards' relation flags and the
 card query's hops, the formula context, mandatory-relation completeness, a
 portal's relation filters, PPM grouping and the TurboLens loaders — applies the

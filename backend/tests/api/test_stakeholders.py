@@ -177,6 +177,51 @@ class TestListStakeholderRoles:
         for role in resp.json():
             assert role["color"] is None
 
+    async def test_list_roles_say_which_count_toward_quality(self, client, db):
+        """A card lists passive roles apart from the owners (#1439)."""
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="responsible", label="Responsible"
+        )
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="watcher",
+            label="Watcher",
+            counts_for_quality=False,
+        )
+        headers = await _viewer_headers(db)
+        resp = await client.get(
+            "/api/v1/stakeholder-roles", params={"type_key": "Application"}, headers=headers
+        )
+        assert resp.status_code == 200
+        assert {r["key"]: r["counts_for_quality"] for r in resp.json()} == {
+            "responsible": True,
+            "watcher": False,
+        }
+
+    async def test_fallback_roles_treat_observer_as_passive(self, client, db):
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(
+            db,
+            key="Legacy",
+            label="Legacy",
+            stakeholder_roles=[
+                {"key": "owner", "label": "Owner"},
+                {"key": "observer", "label": "Observer"},
+            ],
+        )
+        headers = await _viewer_headers(db)
+        for type_key, expected in (
+            ("Application", {"responsible": True, "observer": False}),
+            ("Legacy", {"owner": True, "observer": False}),
+        ):
+            resp = await client.get(
+                "/api/v1/stakeholder-roles", params={"type_key": type_key}, headers=headers
+            )
+            assert resp.status_code == 200
+            assert {r["key"]: r["counts_for_quality"] for r in resp.json()} == expected
+
     async def test_list_roles_filtered_by_type_key_with_no_defs(self, client, db):
         """Falls back to defaults when no definitions exist for a type."""
         await create_card_type(db, key="Application", label="Application")

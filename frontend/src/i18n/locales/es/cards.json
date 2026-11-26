@@ -231,6 +231,8 @@
   "stakeholders.user": "Usuario",
   "stakeholders.userPlaceholder": "Buscar por nombre o correo electrónico",
   "stakeholders.noneAssigned": "Ningún {{role}} asignado",
+  "stakeholders.followingHeading": "Siguen esta tarjeta",
+  "stakeholders.followingHelp": "Las personas con estos roles siguen la tarjeta y se mantienen informadas. No cuentan como sus responsables ni para su calidad de datos.",
   "stakeholders.inviteOption": "Añadir a «{{email}}» como nuevo usuario",
   "stakeholders.inviteNewUser": "Añadir un nuevo usuario…",
   "stakeholders.inviteFormTitle": "Agregar nuevo usuario",

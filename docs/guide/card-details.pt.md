@@ -219,6 +219,8 @@ Atribuições de partes interessadas afetam **permissões**: as permissões efet
 
 Quando um papel tem uma **cor** definida no metamodelo, o seu grupo é marcado com ela, permitindo distinguir um proprietário de um observador num relance.
 
+Os papéis aparecem pela ordem que o seu administrador definiu para o tipo de cartão. Os papéis que não tornam ninguém responsável pelo cartão, como **Observador**, vêm em último lugar em **A seguir este cartão**: as pessoas aí listadas seguem o cartão e são mantidas informadas, mas não contam como responsáveis por ele nem para a sua qualidade dos dados.
+
 Onde um papel tem uma **descrição**, um ícone de informação aparece ao lado do seu nome: passe o cursor sobre ele para ler o que o papel significa. A descrição também aparece sob o nome do papel no seletor de papéis ao adicionar uma parte interessada.
 
 ### Pesquisar e convidar

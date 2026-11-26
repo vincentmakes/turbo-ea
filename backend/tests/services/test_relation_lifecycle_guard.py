@@ -1,6 +1,6 @@
 """Guard: every reader of the ``Relation`` model decides whether dates count.
 
-A relation can carry its own lifecycle (migration 179): a planned relation has
+A relation can carry its own lifecycle (migration 180): a planned relation has
 not started, an ended one has stopped applying. That only means something if
 the surfaces that COUNT relations — reports, flags, formulas, completeness,
 dashboards, portals, the analysis loaders — stop counting a relation that is

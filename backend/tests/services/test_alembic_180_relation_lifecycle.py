@@ -1,4 +1,4 @@
-"""Migration 179 adds a relation's lifecycle and a relation type's lifecycle
+"""Migration 180 adds a relation's lifecycle and a relation type's lifecycle
 switch exactly as the models declare them. No DB: read off the models and the
 migration module."""
 
@@ -14,9 +14,9 @@ from app.models.relation import Relation
 from app.models.relation_type import RelationType
 
 _MIG_PATH = (
-    Path(__file__).resolve().parents[2] / "alembic" / "versions" / "179_relation_lifecycle.py"
+    Path(__file__).resolve().parents[2] / "alembic" / "versions" / "180_relation_lifecycle.py"
 )
-_spec = importlib.util.spec_from_file_location("mig179", _MIG_PATH)
+_spec = importlib.util.spec_from_file_location("mig180", _MIG_PATH)
 mig = importlib.util.module_from_spec(_spec)
 assert _spec and _spec.loader
 _spec.loader.exec_module(mig)
@@ -24,7 +24,7 @@ SOURCE = _MIG_PATH.read_text()
 
 
 def test_revision_chain():
-    assert (mig.revision, mig.down_revision) == ("179", "178")
+    assert (mig.revision, mig.down_revision) == ("180", "179")
 
 
 def test_the_migration_imports_no_app_code():

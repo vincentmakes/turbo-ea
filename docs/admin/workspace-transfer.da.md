@@ -59,7 +59,7 @@ Import er **idempotent**: metamodel og konfiguration matches efter nøgle, kort 
 ## Efter import
 
 - Indtast igen eventuelle SMTP-, SSO- og AI-legitimationsoplysninger under deres respektive indstillingsfaneblade.
-- Syntetiske brugere, som bundtet refererer til, oprettes **deaktiveret**; aktivér dem under **Admin → Brugere** efter behov.
+- Brugere, som målet endnu ikke har, oprettes **deaktiveret**, fordi adgangskoder aldrig overføres. Forhåndsvisningen og importresultatet angiver hvor mange; aktivér dem under **Admin → Brugere** efter behov.
 - **Brugerejede data følger brugeren, matchet efter e-mail.** Todos, gemte visninger, favoritter og andre personlige data tilhører den konto, hvis e-mail matcher den i bundtet. Hvis du logger ind på målet med en anden e-mail, end du brugte på kilden, vil dine personlige elementer se ud til at mangle — de er knyttet til den (muligvis deaktiverede) matchende konto. Log ind med den samme e-mail, eller aktivér den matchede konto under **Admin → Brugere**.
 - Private gemte visninger er kun synlige for deres ejer; delte og offentlige visninger følger deres synlighedsindstillinger.
 

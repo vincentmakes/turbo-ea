@@ -1,6 +1,6 @@
 """Current-state endpoints stop counting a relation that is not in effect.
 
-A relation may carry its own lifecycle (migration 179). Every endpoint that
+A relation may carry its own lifecycle (migration 180). Every endpoint that
 shows "the landscape now" — the landscape, matrix, data-quality and EOL
 reports, a card's relation summary and descendant roll-up, the bulk path's
 cardinality guard, a published portal, the BPM reports and the TurboLens
