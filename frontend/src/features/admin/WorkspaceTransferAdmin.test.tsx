@@ -206,6 +206,69 @@ describe("WorkspaceTransferAdmin", () => {
     expect(screen.queryByText("References")).not.toBeInTheDocument();
   });
 
+  it("says how many users the import will create deactivated (#1435)", async () => {
+    await previewWith({ notes: { users_deactivated: 3 } });
+    expect(
+      screen.getByText(
+        "3 users will be created deactivated, because passwords are not transferred. Activate them under Admin → Users once the import is applied.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("uses the singular for one deactivated user", async () => {
+    await previewWith({ notes: { users_deactivated: 1 } });
+    expect(screen.getByText(/^1 user will be created deactivated/)).toBeInTheDocument();
+  });
+
+  it("says how many users the applied import created deactivated", async () => {
+    const result = {
+      dry_run: false,
+      sections: [
+        {
+          sheet: "Users",
+          created: 2,
+          updated: 0,
+          skipped: 1,
+          conflict: 0,
+          failed: 0,
+          errors: [],
+          notes: { users_deactivated: 2 },
+        },
+        { sheet: "Cards", created: 5, updated: 0, skipped: 0, conflict: 0, failed: 0, errors: [] },
+      ],
+      totals: { created: 7, updated: 0, skipped: 1, conflict: 0, failed: 0 },
+    };
+    (api.upload as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "t4",
+      filename: "ws.zip",
+      status: "parsing",
+    });
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "t4",
+      filename: "ws.zip",
+      status: "applied",
+      result,
+    });
+    const { container } = render(<WorkspaceTransferAdmin />);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, new File(["zip"], "ws.zip"));
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(
+            "2 users were created deactivated, because passwords are not transferred. Activate them under Admin → Users.",
+          ),
+        ).toBeInTheDocument(),
+      { timeout: 4000 },
+    );
+    expect(screen.queryByText(/will be created deactivated/)).not.toBeInTheDocument();
+  });
+
+  it("shows no deactivated-users notice when no user is created", async () => {
+    await previewWith({ notes: { users_deactivated: 0 } });
+    expect(screen.queryByText(/created deactivated/)).not.toBeInTheDocument();
+  });
+
   it("re-primes the app caches once the apply completes", { timeout: 15000 }, async () => {
     (api.upload as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "t3",
