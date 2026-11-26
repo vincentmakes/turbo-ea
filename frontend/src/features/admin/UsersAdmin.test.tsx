@@ -1334,8 +1334,31 @@ describe("UsersAdmin — directory-managed roles", () => {
 
     await user.click(within(dialog).getByRole("button", { name: t("admin:users.edit.saveChanges") }));
     await waitFor(() => expect(mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)).toHaveLength(1));
-    expect(mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)[0].body).toMatchObject({
-      role: "member",
+    const body = mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)[0].body as object;
+    // Locked again, so the role is the directory's and is not sent at all.
+    expect(body).toMatchObject({ auth_provider: "sso" });
+    expect(body).not.toHaveProperty("role");
+  });
+
+  it("renames a managed account without sending its role, so a sign-in's change survives", async () => {
+    mockApi.on("get", "/settings/sso/status", { enabled: true });
+    mockApi.on("patch", `/users/${MANAGED_USER.id}`, (_p, body) => ({
+      ...MANAGED_USER,
+      ...(body as object),
+    }));
+    const { user } = renderPage();
+    await loaded(WITH_MANAGED.length);
+    const dialog = await openEdit(user, MANAGED_USER);
+
+    const name = within(dialog).getByLabelText(/Display Name/);
+    await user.clear(name);
+    await user.type(name, "Renamed Managed");
+    await user.click(within(dialog).getByRole("button", { name: t("admin:users.edit.saveChanges") }));
+
+    await waitFor(() => expect(mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)).toHaveLength(1));
+    expect(mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)[0].body).toEqual({
+      email: MANAGED_USER.email,
+      display_name: "Renamed Managed",
       auth_provider: "sso",
     });
   });

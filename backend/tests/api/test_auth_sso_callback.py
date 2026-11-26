@@ -29,11 +29,13 @@ async def env(db):
 def _exchange(monkeypatch, claims: dict, *, provider="microsoft", sso_cfg: dict | None = None):
     cfg = {"enabled": True, "provider": provider, **(sso_cfg or {})}
 
-    async def fake(db, code, redirect_uri):
+    async def fake(db, code, redirect_uri, **kwargs):
         fake.calls.append((code, redirect_uri))
+        fake.kwargs.append(kwargs)
         return claims, cfg, provider
 
     fake.calls = []
+    fake.kwargs = []
     monkeypatch.setattr(sso, "exchange_code_for_claims", fake)
     return fake
 
@@ -57,6 +59,8 @@ class TestProvisioning:
         assert resp.json()["access_token"] and resp.json()["token_type"] == "bearer"
         assert "access_token=" in resp.headers.get("set-cookie", "")
         assert fake.calls == [("authz-code", "http://test/auth/callback")]
+        # the app's own sign-in: the token request asks for the login scopes
+        assert fake.kwargs == [{"login": True}]
 
         user = await _user(db, "new.person@acme.com")  # lowercased and stripped
         assert user is not None
@@ -187,7 +191,7 @@ class TestClaimValidation:
     async def test_exchange_errors_propagate_as_their_status(self, client, db, env, monkeypatch):
         from fastapi import HTTPException
 
-        async def refuse(db, code, redirect_uri):
+        async def refuse(db, code, redirect_uri, **_kwargs):
             raise HTTPException(502, "Cannot reach identity provider for token exchange.")
 
         monkeypatch.setattr(sso, "exchange_code_for_claims", refuse)
@@ -539,6 +543,14 @@ class TestSsoConfigEndpoint:
         body = (await client.get("/api/v1/auth/sso/config")).json()
         assert body["enabled"] is True
         assert body["scopes"] == "openid email profile groups offline_access"
+
+    async def test_google_never_gets_the_stored_extra_scopes(self, client, db, env):
+        # the admin screen hides the field for Google but keeps the stored value;
+        # Google refuses unknown scopes, so they must not reach its authorize URL
+        await self._configure(db, provider="google", extra_scopes="groups offline_access")
+        body = (await client.get("/api/v1/auth/sso/config")).json()
+        assert body["enabled"] is True and body["provider"] == "google"
+        assert body["scopes"] == "openid email profile"
 
     async def test_without_extra_scopes_the_login_scopes_are_the_base(self, client, db, env):
         await self._configure(db, provider="okta", domain="dev-1.okta.com")

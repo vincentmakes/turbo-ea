@@ -569,6 +569,82 @@ class TestSsoRoleMapping:
         assert resp.status_code == 403
         assert (await self._get(client, ext_settings_env))["role_map"] == []
 
+    async def _settings_only(self, db, *, with_users=False):
+        """A custom role holding ``admin.settings`` (and ``admin.users`` when asked)."""
+        permissions = {"admin.settings": True}
+        if with_users:
+            permissions["admin.users"] = True
+        key = "sso_users_admin" if with_users else "sso_settings_admin"
+        await create_role(db, key=key, label=key, permissions=permissions)
+        return await create_user(db, email=f"{key}@test.com", role=key)
+
+    async def _patch_as(self, client, caller, **fields):
+        return await client.patch(SSO_URL, json={**OKTA, **fields}, headers=auth_headers(caller))
+
+    async def test_settings_only_may_resend_the_stored_map_unchanged(
+        self, client, db, ext_settings_env
+    ):
+        await self._patch(
+            client, ext_settings_env, role_claim="groups", role_map=MAP, extra_scopes="groups"
+        )
+        caller = await self._settings_only(db)
+        # the admin form always re-sends the stored claim and map
+        resp = await self._patch_as(client, caller, role_claim="groups", role_map=MAP)
+        assert resp.status_code == 200, resp.text
+        assert (await self._get(client, ext_settings_env))["role_map"] == MAP
+
+    async def test_settings_only_may_edit_the_other_fields_and_scopes(
+        self, client, db, ext_settings_env
+    ):
+        await self._patch(client, ext_settings_env, role_claim="groups", role_map=MAP)
+        caller = await self._settings_only(db)
+        resp = await self._patch_as(
+            client,
+            caller,
+            client_id="cid-2",
+            extra_scopes="groups offline_access",
+            role_claim="groups",
+            role_map=MAP,
+        )
+        assert resp.status_code == 200, resp.text
+        data = await self._get(client, ext_settings_env)
+        assert data["client_id"] == "cid-2"
+        assert data["extra_scopes"] == "groups offline_access"
+        assert (data["role_claim"], data["role_map"]) == ("groups", MAP)
+
+    async def test_settings_only_cannot_change_the_map(self, client, db, ext_settings_env):
+        await self._patch(client, ext_settings_env, role_claim="groups", role_map=MAP)
+        caller = await self._settings_only(db)
+        promoted = [{"value": "Readers", "role": "admin"}]
+        resp = await self._patch_as(
+            client, caller, client_id="cid-2", role_claim="groups", role_map=promoted
+        )
+        assert resp.status_code == 403, resp.text
+        data = await self._get(client, ext_settings_env)
+        # nothing of the refused save was written
+        assert (data["role_map"], data["client_id"]) == (MAP, "cid")
+
+    async def test_settings_only_cannot_set_a_first_map(self, client, db, ext_settings_env):
+        caller = await self._settings_only(db)
+        resp = await self._patch_as(client, caller, role_claim="groups", role_map=MAP)
+        assert resp.status_code == 403, resp.text
+        assert (await self._get(client, ext_settings_env))["role_map"] == []
+
+    async def test_settings_only_cannot_change_the_claim(self, client, db, ext_settings_env):
+        await self._patch(client, ext_settings_env, role_claim="groups", role_map=MAP)
+        caller = await self._settings_only(db)
+        resp = await self._patch_as(client, caller, role_claim="roles", role_map=MAP)
+        assert resp.status_code == 403, resp.text
+        assert (await self._get(client, ext_settings_env))["role_claim"] == "groups"
+
+    async def test_settings_and_users_may_change_the_map(self, client, db, ext_settings_env):
+        await self._patch(client, ext_settings_env, role_claim="groups", role_map=MAP)
+        caller = await self._settings_only(db, with_users=True)
+        resp = await self._patch_as(client, caller, role_claim="roles", role_map=MAP[::-1])
+        assert resp.status_code == 200, resp.text
+        data = await self._get(client, ext_settings_env)
+        assert (data["role_claim"], data["role_map"]) == ("roles", MAP[::-1])
+
     async def test_the_public_status_carries_nothing_of_the_map(self, client, db, ext_settings_env):
         await self._patch(
             client, ext_settings_env, role_claim="groups", role_map=MAP, extra_scopes="groups"

@@ -9,6 +9,14 @@ import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
+// The signed-in user's permissions: the role-mapping block is read-only
+// without admin.users. Reset to the wildcard before every test.
+const mockUser = { permissions: { "*": true } as Record<string, boolean> };
+vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => mockUser,
+  useAuthContext: () => ({ user: mockUser, refreshUser: async () => {} }),
+}));
+
 import { mockApi } from "@/test/apiMock";
 import type { AppRole } from "@/types";
 import AuthAdmin from "./AuthAdmin";
@@ -82,6 +90,7 @@ async function pickProvider(user: UserEvent, option: string) {
 }
 
 beforeEach(() => {
+  mockUser.permissions = { "*": true };
   mockApi.reset();
   mockApi.on("get", SSO, SSO_OFF);
   mockApi.on("get", REGISTRATION, { enabled: true });
@@ -699,6 +708,58 @@ describe("AuthAdmin SSO role mapping", () => {
         { value: "ea-team", role: "member" },
       ],
       extra_scopes: "groups",
+    });
+  });
+
+  it("is read-only without the permission to manage users, and keeps the stored map", async () => {
+    mockUser.permissions = { "admin.settings": true };
+    mockApi.on("get", SSO, MAPPED_OKTA);
+    mockApi.on("patch", SSO, {});
+    const user = await renderPage();
+
+    expect(screen.getByTestId("sso-role-map-read-only")).toHaveTextContent(
+      "Changing the role mapping needs the permission to manage users. You can still edit the other SSO settings and the additional scopes.",
+    );
+    expect(screen.getByLabelText("Claim name")).toBeDisabled();
+    for (const input of screen.getAllByLabelText("Directory value")) expect(input).toBeDisabled();
+    await waitFor(() => expect(roleCombos()[0]).toHaveTextContent("Admin"));
+    for (const combo of roleCombos()) expect(combo).toHaveAttribute("aria-disabled", "true");
+    for (const name of ["Move mapping up", "Move mapping down", "Remove mapping"]) {
+      for (const btn of screen.getAllByRole("button", { name })) expect(btn).toBeDisabled();
+    }
+    expect(screen.getByRole("button", { name: /Add mapping$/ })).toBeDisabled();
+
+    // The extra scopes stay editable and are saved; the claim and map are not sent.
+    const scopes = screen.getByLabelText("Additional scopes");
+    expect(scopes).toBeEnabled();
+    await user.clear(scopes);
+    await user.type(scopes, "groups offline_access");
+    await user.click(screen.getByRole("button", { name: /Save$/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", SSO)).toHaveLength(1));
+    const body = mockApi.callsOf("patch", SSO)[0].body as Record<string, unknown>;
+    expect(body.extra_scopes).toBe("groups offline_access");
+    expect(body).not.toHaveProperty("role_claim");
+    expect(body).not.toHaveProperty("role_map");
+  });
+
+  it("is editable, with no read-only hint, for a role that may manage users", async () => {
+    mockUser.permissions = { "admin.settings": true, "admin.users": true };
+    mockApi.on("get", SSO, MAPPED_OKTA);
+    mockApi.on("patch", SSO, {});
+    const user = await renderPage();
+
+    expect(screen.queryByTestId("sso-role-map-read-only")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Claim name")).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Add mapping$/ })).toBeEnabled();
+    for (const btn of screen.getAllByRole("button", { name: "Remove mapping" })) {
+      expect(btn).toBeEnabled();
+    }
+
+    await user.click(screen.getByRole("button", { name: /Save$/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", SSO)).toHaveLength(1));
+    expect(mockApi.callsOf("patch", SSO)[0].body).toMatchObject({
+      role_claim: "groups",
+      role_map: MAPPED_OKTA.role_map,
     });
   });
 

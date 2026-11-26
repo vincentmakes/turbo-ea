@@ -55,11 +55,11 @@ After saving, open a new browser tab (or incognito window) and verify that the S
 
 **Role mapping:**
 
-By default every new SSO user arrives on the default role (or the role of their invitation) and an administrator changes it by hand in **Admin → Users**. If your identity provider already knows who should be an administrator, a member or a viewer — through group membership or app roles — Turbo EA can read that from the ID token and assign the role itself at each sign-in. The **Role mapping** block sits in the SSO section, below the provider fields, and is saved with the same **Save** button:
+By default every new SSO user arrives on the default role (or the role of their invitation) and an administrator changes it by hand in **Admin → Users**. If your identity provider already knows who should be an administrator, a member or a viewer — through group membership or app roles — Turbo EA can read that from the ID token and assign the role itself at each sign-in. The **Role mapping** block sits in the SSO section, below the provider fields, and is saved with the same **Save** button. Because the mapping hands out roles, changing the claim name or the mapping rows requires the permission to manage users in addition to the permission to manage settings; without it the block is read-only, and only the additional scopes can be changed.
 
-- **Claim name**: the ID-token claim that lists the user's groups or roles, for example `roles` (Microsoft Entra app roles), `groups` (Okta, Keycloak) or `cognito:groups` (Amazon Cognito). Leave it empty, or leave the mapping without rows, and roles stay entirely manual.
+- **Claim name**: the ID-token claim that lists the user's groups or roles, for example `roles` (Microsoft Entra app roles), `groups` (Okta, Keycloak) or `cognito:groups` (Amazon Cognito). A claim name is required as long as the mapping has rows. To turn role mapping off, remove all rows: roles then stay entirely manual.
 - **Mapping rows**: each row pairs a **directory value** (a group or app-role value as the claim carries it) with a Turbo EA role. Use the arrows to order the rows; the first row that matches wins.
-- **Additional scopes**: space-separated scopes requested at sign-in in addition to `openid email profile` — for example `groups` for Okta. The MCP server's sign-in requests the same scopes.
+- **Additional scopes**: space-separated scopes requested at sign-in in addition to `openid email profile` — for example `groups` for Okta. They are requested both when the user is sent to the identity provider and when the sign-in code is exchanged for the ID token. The MCP server's sign-in requests the same scopes. They are never sent to Google, which refuses scopes it does not know.
 
 The rules, all chosen so that a configuration mistake cannot lock you out:
 

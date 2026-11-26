@@ -420,6 +420,73 @@ def test_merge_scopes_skips_an_invalid_token_from_storage():
     assert dr.merge_scopes("openid", 'groups bad"one roles') == "openid groups roles"
 
 
+# ── role_mapping_changed ────────────────────────────────────────────────────
+
+_ROWS = [{"value": "EA-Admins", "role": "admin"}, {"value": "Readers", "role": "viewer"}]
+
+
+def test_an_unchanged_resend_is_no_change():
+    stored = {"role_claim": "groups", "role_map": _ROWS, "client_id": "a"}
+    updated = {"role_claim": " groups ", "role_map": list(_ROWS), "client_id": "b"}
+    assert dr.role_mapping_changed(stored, updated) is False
+
+
+def test_nothing_stored_and_empty_values_sent_is_no_change():
+    assert dr.role_mapping_changed({}, {"role_claim": "", "role_map": []}) is False
+
+
+def test_a_new_claim_name_is_a_change():
+    assert dr.role_mapping_changed({"role_claim": "groups"}, {"role_claim": "roles"}) is True
+
+
+def test_a_first_map_is_a_change():
+    assert dr.role_mapping_changed({}, {"role_map": _ROWS[:1]}) is True
+
+
+@pytest.mark.parametrize(
+    "updated",
+    [
+        _ROWS[::-1],
+        _ROWS[:1],
+        [_ROWS[0], {"value": "Readers", "role": "admin"}],
+        [_ROWS[0], {"value": "readers", "role": "viewer"}],
+    ],
+)
+def test_any_edit_of_the_rows_is_a_change(updated):
+    stored = {"role_claim": "groups", "role_map": _ROWS}
+    assert dr.role_mapping_changed(stored, {"role_claim": "groups", "role_map": updated}) is True
+
+
+def test_extra_scopes_are_not_a_role_mapping_change():
+    stored = {"role_claim": "groups", "role_map": _ROWS, "extra_scopes": ""}
+    updated = {**stored, "extra_scopes": "groups"}
+    assert dr.role_mapping_changed(stored, updated) is False
+
+
+# ── login_scopes ────────────────────────────────────────────────────────────
+
+
+def test_login_scopes_for_google_are_the_base_only():
+    sso = {"provider": "google", "extra_scopes": "groups offline_access"}
+    assert dr.login_scopes(sso, "openid email profile") == "openid email profile"
+
+
+@pytest.mark.parametrize("provider", ["microsoft", "okta", "oidc"])
+def test_login_scopes_for_other_providers_carry_the_extras(provider):
+    sso = {"provider": provider, "extra_scopes": "groups email offline_access"}
+    assert (
+        dr.login_scopes(sso, "openid email profile") == "openid email profile groups offline_access"
+    )
+
+
+def test_login_scopes_without_a_provider_key_read_as_microsoft():
+    assert dr.login_scopes({"extra_scopes": "groups"}, "openid") == "openid groups"
+
+
+def test_login_scopes_without_extras_are_the_base():
+    assert dr.login_scopes({"provider": "okta"}, "openid email") == "openid email"
+
+
 # ── role_is_directory_managed ───────────────────────────────────────────────
 
 

@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { api } from "@/api/client";
 import type { AppRole, User } from "@/types";
+import { isRoleManagedExternally } from "./userRoleManaged";
 
 export interface UserImportError {
   row: number;
@@ -286,7 +287,9 @@ export async function executeUserImport(
     if (!row.existing) continue;
     const payload: Record<string, unknown> = {};
     if (row.changes?.display_name) payload.display_name = row.display_name;
-    if (row.changes?.role) payload.role = row.role;
+    // Never send a directory-managed account's role: the API refuses the whole
+    // update for it, so the row's other changes would be lost too.
+    if (row.changes?.role && !isRoleManagedExternally(row.existing)) payload.role = row.role;
     if (row.changes?.locale && row.locale) payload.locale = row.locale;
     if (row.changes?.is_active !== undefined) {
       payload.is_active = row.changes.is_active.new;

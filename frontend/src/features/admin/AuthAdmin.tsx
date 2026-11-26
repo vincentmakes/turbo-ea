@@ -21,6 +21,8 @@ import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useApiQuery } from "@/hooks/useApiQuery";
+import { useAuthContext } from "@/hooks/AuthContext";
+import { hasPermission } from "@/components/RequirePermission";
 import { useTheme } from "@mui/material/styles";
 import type { AppRole, SsoRoleMapEntry, SsoSettings } from "@/types";
 
@@ -111,6 +113,12 @@ export default function AuthAdmin() {
   const [ssoExtraScopes, setSsoExtraScopes] = useState("");
   const [savingSso, setSavingSso] = useState(false);
 
+  // A role map hands out roles at every sign-in, so changing it is user
+  // management: the API asks for admin.users on top of admin.settings. Without
+  // it the claim and rows are read-only; the extra scopes stay editable.
+  const { user: currentUser } = useAuthContext();
+  const canEditRoleMap = hasPermission(currentUser?.permissions, "admin.users");
+
   // Stable React keys for role-map rows, so reordering moves each row's own
   // input state with it instead of leaving it at the old index.
   const nextRowId = useRef(0);
@@ -184,8 +192,10 @@ export default function AuthAdmin() {
         authorization_endpoint: ssoAuthEndpoint,
         token_endpoint: ssoTokenEndpoint,
         jwks_uri: ssoJwksUri,
-        role_claim: ssoRoleClaim.trim(),
-        role_map: roleMapPayload(roleMapRows),
+        // Omitted when read-only, so the stored claim and map are kept as they are.
+        ...(canEditRoleMap
+          ? { role_claim: ssoRoleClaim.trim(), role_map: roleMapPayload(roleMapRows) }
+          : {}),
         extra_scopes: ssoExtraScopes.trim(),
       });
       setSnack(t("settings.sso.savedSuccess"));
@@ -492,9 +502,18 @@ export default function AuthAdmin() {
                   </Alert>
                 )}
 
+                {!canEditRoleMap && (
+                  <Alert severity="info" sx={{ mb: 2 }} data-testid="sso-role-map-read-only">
+                    <Typography variant="body2">
+                      {t("settings.sso.roleMap.readOnlyHint")}
+                    </Typography>
+                  </Alert>
+                )}
+
                 <TextField
                   label={t("settings.sso.roleMap.claim")}
                   fullWidth
+                  disabled={!canEditRoleMap}
                   value={ssoRoleClaim}
                   onChange={(e) => setSsoRoleClaim(e.target.value)}
                   placeholder="groups"
@@ -524,12 +543,13 @@ export default function AuthAdmin() {
                       <TextField
                         size="small"
                         label={t("settings.sso.roleMap.value")}
+                        disabled={!canEditRoleMap}
                         value={row.value}
                         onChange={(e) => updateRoleMapRow(idx, { value: e.target.value })}
                         placeholder="ea-admins"
                         sx={{ flex: 1 }}
                       />
-                      <FormControl size="small" sx={{ flex: 1 }}>
+                      <FormControl size="small" sx={{ flex: 1 }} disabled={!canEditRoleMap}>
                         <InputLabel id={labelId}>{t("settings.sso.roleMap.role")}</InputLabel>
                         <Select
                           labelId={labelId}
@@ -561,7 +581,7 @@ export default function AuthAdmin() {
                       <IconButton
                         size="small"
                         aria-label={t("settings.sso.roleMap.moveUp")}
-                        disabled={idx === 0}
+                        disabled={!canEditRoleMap || idx === 0}
                         onClick={() => moveRoleMapRow(idx, -1)}
                       >
                         <MaterialSymbol icon="arrow_upward" size={18} />
@@ -569,7 +589,7 @@ export default function AuthAdmin() {
                       <IconButton
                         size="small"
                         aria-label={t("settings.sso.roleMap.moveDown")}
-                        disabled={idx === roleMapRows.length - 1}
+                        disabled={!canEditRoleMap || idx === roleMapRows.length - 1}
                         onClick={() => moveRoleMapRow(idx, 1)}
                       >
                         <MaterialSymbol icon="arrow_downward" size={18} />
@@ -577,6 +597,7 @@ export default function AuthAdmin() {
                       <IconButton
                         size="small"
                         aria-label={t("settings.sso.roleMap.remove")}
+                        disabled={!canEditRoleMap}
                         onClick={() => removeRoleMapRow(idx)}
                       >
                         <MaterialSymbol icon="close" size={18} />
@@ -588,6 +609,7 @@ export default function AuthAdmin() {
                   size="small"
                   startIcon={<MaterialSymbol icon="add" size={18} />}
                   sx={{ textTransform: "none", mb: 2 }}
+                  disabled={!canEditRoleMap}
                   onClick={addRoleMapRow}
                 >
                   {t("settings.sso.roleMap.add")}

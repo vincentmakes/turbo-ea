@@ -424,10 +424,19 @@ async def _apply_directory_role(
     if desired is None or desired == user.role:
         return None, None
     if user.role == "admin":
-        admins = await db.scalar(
-            select(func.count(User.id)).where(User.role == "admin", User.is_active.is_(True))
-        )
-        if (admins or 0) <= 1:
+        # Row locks on every active admin before counting: two admins signing in
+        # at once would otherwise each count two and both be demoted. The second
+        # transaction waits here until the first commits, then re-reads and sees
+        # one admin left. FOR UPDATE cannot lock an aggregate, so the ids are
+        # selected and counted. Only on this demotion path — no other sign-in waits.
+        admin_ids = (
+            await db.scalars(
+                select(User.id)
+                .where(User.role == "admin", User.is_active.is_(True))
+                .with_for_update()
+            )
+        ).all()
+        if len(admin_ids) <= 1:
             logger.warning(
                 "Directory role map: kept %s as admin instead of %r, because they are "
                 "the last active admin.",
@@ -918,9 +927,9 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
         "provider_name": PROVIDER_LABELS.get(provider, provider),
         "client_id": client_id,
         "authorization_endpoint": auth_endpoint,
-        # The app's own sign-in may ask for more (a groups claim for the role map);
-        # portal and published-diagram sign-in keep the base scopes.
-        "scopes": directory_roles.merge_scopes(provider_cfg["scopes"], sso.get("extra_scopes")),
+        # The app's own sign-in may ask for more (a groups claim for the role map),
+        # never for Google; portal and published-diagram sign-in keep the base scopes.
+        "scopes": directory_roles.login_scopes(sso, provider_cfg["scopes"]),
         "registration_enabled": registration_enabled,
         "local_login_available": local_login_available,
         "proxy_auth": proxy_auth,
@@ -955,7 +964,7 @@ async def sso_callback(
     """
     try:
         claims, sso, provider = await sso_service.exchange_code_for_claims(
-            db, body.code, body.redirect_uri
+            db, body.code, body.redirect_uri, login=True
         )
     except HTTPException as exc:
         await _fail(

@@ -519,9 +519,14 @@ export default function UsersAdmin() {
     const payload: Record<string, string> = {
       email: editForm.email.trim(),
       display_name: editForm.display_name.trim(),
-      role: editForm.role,
       auth_provider: editForm.auth_provider,
     };
+    // A directory-managed role is not ours to send: the identity provider may
+    // have changed it at a sign-in since this page loaded, and the API refuses
+    // the whole edit for a role it no longer holds.
+    if (!isRoleLockedInEdit(editingUser, editForm.auth_provider)) {
+      payload.role = editForm.role;
+    }
     if (editForm.password) {
       payload.password = editForm.password;
     }

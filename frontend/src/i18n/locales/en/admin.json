@@ -786,6 +786,7 @@
   "settings.sso.roleMap.remove": "Remove mapping",
   "settings.sso.roleMap.add": "Add mapping",
   "settings.sso.roleMap.extraScopes": "Additional scopes",
+  "settings.sso.roleMap.readOnlyHint": "Changing the role mapping needs the permission to manage users. You can still edit the other SSO settings and the additional scopes.",
   "settings.sso.roleMap.extraScopesHelper": "Space-separated scopes requested at sign-in in addition to openid email profile, e.g. groups for Okta.",
   "settings.mcp.title": "MCP Integration",
   "settings.mcp.description": "Allow AI tools (Claude, Copilot, Cursor, etc.) to query Turbo EA data on behalf of authenticated users. Each user authenticates via SSO and sees only the data their permissions allow.",

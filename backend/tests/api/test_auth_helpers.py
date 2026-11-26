@@ -587,6 +587,43 @@ async def test_an_admin_is_demoted_while_another_admin_is_active(db, roles):
     assert person.role == "viewer"
 
 
+@pytest.fixture
+def user_selects(db):
+    """Every ``SELECT … FROM users`` the session sends, rendered upper-case."""
+    from sqlalchemy import event as sa_event
+
+    statements: list[str] = []
+    bind = db.sync_session.get_bind()
+
+    def _record(conn, cursor, statement, parameters, context, executemany):
+        text_ = " ".join(statement.split()).upper()
+        if text_.startswith("SELECT") and " FROM USERS" in text_:
+            statements.append(text_)
+
+    sa_event.listen(bind, "before_cursor_execute", _record)
+    yield statements
+    sa_event.remove(bind, "before_cursor_execute", _record)
+
+
+async def test_a_demotion_locks_the_active_admin_rows_before_counting(db, roles, user_selects):
+    # two admins signing in at once must not both be demoted: the count runs
+    # under FOR UPDATE, so the second transaction waits and re-reads
+    person = await create_user(db, email="one@example.com", role="admin")
+    await create_user(db, email="two@example.com", role="admin")
+    user_selects.clear()
+    await auth._apply_directory_role(db, person, "viewer")
+    assert [s for s in user_selects if "FOR UPDATE" in s], user_selects
+    assert person.role == "viewer"
+
+
+async def test_a_promotion_takes_no_lock(db, roles, user_selects):
+    person = await create_user(db, email="a@example.com", role="viewer")
+    user_selects.clear()
+    await auth._apply_directory_role(db, person, "admin")
+    assert not [s for s in user_selects if "FOR UPDATE" in s]
+    assert person.role == "admin"
+
+
 async def test_applying_a_role_never_commits(db, roles, monkeypatch):
     person = await create_user(db, email="a@example.com", role="viewer")
 

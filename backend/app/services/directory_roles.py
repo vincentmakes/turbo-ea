@@ -212,6 +212,21 @@ def check_role_map_config(
         )
 
 
+def role_mapping_changed(stored: Mapping[str, Any], updated: Mapping[str, Any]) -> bool:
+    """Whether a save changes who the role map hands which role.
+
+    Compares the claim name and the map rows (order, value casing and role) of the
+    SSO block before (``stored``) and after (``updated``) the save. Handing out
+    roles is user management, so the settings route asks for ``admin.users`` on top
+    of ``admin.settings`` exactly when this is True. A form that re-sends the
+    stored values unchanged — the admin screen always does — is not a change, and
+    neither is an edit of the other SSO fields or of the extra scopes.
+    """
+    if role_claim(stored) != role_claim(updated):
+        return True
+    return normalise_role_map(stored.get("role_map")) != normalise_role_map(updated.get("role_map"))
+
+
 def native_role_map(sso: Any) -> RolePairs:
     """The native SSO role map in force, as ``map_role`` pairs; empty when off.
 
@@ -265,6 +280,22 @@ def merge_scopes(base: str, extra: Any) -> str:
             if _SCOPE_TOKEN.fullmatch(token) and token not in tokens:
                 tokens.append(token)
     return " ".join(tokens)
+
+
+def login_scopes(sso: Mapping[str, Any], base: str) -> str:
+    """The scopes the app's own SSO sign-in asks for: ``base`` plus the extra scopes.
+
+    The one answer for both the authorize step (``/auth/sso/config``) and the code
+    exchange (``sso_service.exchange_code_for_claims(login=True)``), so the two
+    never ask for different grants. **Google gets ``base`` only**: the admin screen
+    hides the extra-scopes field for Google but keeps the stored value, and Google
+    refuses a scope it does not know (``invalid_scope``) — a provider switch would
+    otherwise break every sign-in. Portal and published-diagram visitors never use
+    this; they keep ``base``.
+    """
+    if sso.get("provider", "microsoft") == "google":
+        return base
+    return merge_scopes(base, sso.get("extra_scopes"))
 
 
 def role_is_directory_managed(

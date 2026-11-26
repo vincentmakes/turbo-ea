@@ -1,5 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { validateUserImport } from "./userExcelImport";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("@/api/client", () => ({
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+}));
+
+import { api } from "@/api/client";
+import { executeUserImport, validateUserImport, type UserImportReport } from "./userExcelImport";
 import type { AppRole, User } from "@/types";
 
 const ROLES: AppRole[] = [
@@ -313,5 +319,66 @@ describe("validateUserImport", () => {
     expect(rpt.warnings).toHaveLength(0);
     expect(rpt.updates[0].changes).toEqual({ role: { old: "viewer", new: "member" } });
     expect(rpt.updates[0].role).toBe("member");
+  });
+});
+
+describe("executeUserImport", () => {
+  beforeEach(() => {
+    vi.mocked(api.patch).mockReset();
+    vi.mocked(api.patch).mockResolvedValue({});
+  });
+
+  const report = (existing: User): UserImportReport => ({
+    errors: [],
+    warnings: [],
+    creates: [],
+    updates: [
+      {
+        rowIndex: 2,
+        email: existing.email,
+        display_name: "Alicia",
+        role: "admin",
+        existing,
+        changes: {
+          display_name: { old: "Alice", new: "Alicia" },
+          role: { old: "viewer", new: "admin" },
+        },
+      },
+    ],
+    skipped: 0,
+    totalRows: 1,
+  });
+
+  it("never sends the role of an account whose role the identity provider sets", async () => {
+    const result = await executeUserImport(
+      report(user({ auth_provider: "sso", role_managed_externally: true })),
+      false,
+    );
+    expect(result.updated).toBe(1);
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    const body = vi.mocked(api.patch).mock.calls[0][1] as Record<string, unknown>;
+    expect(body).toEqual({ display_name: "Alicia" });
+    expect("role" in body).toBe(false);
+  });
+
+  it("sends the role change of an account the identity provider does not manage", async () => {
+    await executeUserImport(
+      report(user({ auth_provider: "sso", role_managed_externally: false })),
+      false,
+    );
+    expect(api.patch).toHaveBeenCalledWith("/users/u1", {
+      display_name: "Alicia",
+      role: "admin",
+    });
+  });
+
+  it("a validated sheet sends a managed account's other changes without its role", async () => {
+    const rpt = validateUserImport(
+      [{ email: "alice@example.com", display_name: "Alicia", role: "admin" }],
+      [user({ auth_provider: "sso", role_managed_externally: true })],
+      ROLES,
+    );
+    await executeUserImport(rpt, false);
+    expect(api.patch).toHaveBeenCalledWith("/users/u1", { display_name: "Alicia" });
   });
 });

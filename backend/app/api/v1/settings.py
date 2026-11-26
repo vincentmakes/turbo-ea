@@ -1953,6 +1953,11 @@ async def update_sso_settings(
 
     sso.update(payload)
     await _apply_sso_role_mapping(db, body, old, sso)
+    # Mapping a directory group onto a role hands that role out at every sign-in,
+    # so changing the claim or the map is user management too: a custom role with
+    # ``admin.settings`` alone could otherwise map its own group onto ``admin``.
+    if directory_roles.role_mapping_changed(old, sso):
+        await PermissionService.require_permission(db, user, "admin.users")
     general["sso"] = sso
     row.general_settings = general
     await _audit_setting(

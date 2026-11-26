@@ -275,7 +275,7 @@ async def sso_roles(db):
 def _exchange(monkeypatch, claims: dict, *, provider="microsoft", sso_cfg: dict | None = None):
     cfg = {"enabled": True, "provider": provider, **(sso_cfg or {})}
 
-    async def fake(db, code, redirect_uri):
+    async def fake(db, code, redirect_uri, **_kwargs):
         return claims, cfg, provider
 
     monkeypatch.setattr(sso, "exchange_code_for_claims", fake)
@@ -363,7 +363,7 @@ class TestSso:
         assert row.details == {"reason": "expired", "context": {"provider": "microsoft"}}
 
     async def test_exchange_failure(self, client, db, sso_roles, monkeypatch):
-        async def refuse(db, code, redirect_uri):
+        async def refuse(db, code, redirect_uri, **_kwargs):
             raise HTTPException(502, "SSO authentication failed. Identity provider is unavailable.")
 
         monkeypatch.setattr(sso, "exchange_code_for_claims", refuse)
