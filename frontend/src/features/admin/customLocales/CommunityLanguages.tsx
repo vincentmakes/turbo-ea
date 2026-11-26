@@ -147,6 +147,8 @@ export default function CommunityLanguages({ onInstalled, listVersion = 0 }: Pro
             size="small"
             startIcon={<MaterialSymbol icon="refresh" size={18} />}
             disabled={loading}
+            // The icon's ligature text would otherwise join the name.
+            aria-label={t("customLocales.community.refresh")}
             onClick={() => reread(true)}
           >
             {t("customLocales.community.refresh")}
