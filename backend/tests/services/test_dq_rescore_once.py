@@ -130,7 +130,7 @@ async def test_rescore_reruns_when_only_the_v2_marker_is_set(db):
 
 
 async def test_rescore_reruns_when_only_the_v3_marker_is_set(db):
-    """Migration 178 gave custom types the stakeholder role definitions they
+    """Migration 179 gave custom types the stakeholder role definitions they
     lacked (#1437), adding a stakeholders slot to their cards, so an install
     that already ran the V3 rescore scores once more."""
     user = await create_user(db, email="rescore-v4@test.com", role="admin")

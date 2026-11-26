@@ -3666,6 +3666,8 @@ export interface CustomLocale {
   /** `null` when the server has no English catalogue to count against. */
   stats: CustomLocaleStats | null;
   job: CustomLocaleJob | null;
+  /** `"community"` when installed from the community library. */
+  source?: string | null;
 }
 
 export interface CustomLocaleNamespaceStats extends CustomLocaleStats {
@@ -3735,4 +3737,48 @@ export interface CustomLocaleWriteResult {
   unknown: number;
   /** The first of those keys (the server caps the list at 200). */
   unknown_keys?: { namespace: string; key: string }[];
+}
+
+/** One language of the community library (`GET /custom-locales/catalogue`). */
+export interface CommunityLanguage {
+  code: string;
+  /** Native name, as the pack states it. */
+  name: string;
+  english_name: string;
+  rtl: boolean;
+  /** The Turbo EA version the pack was exported from. */
+  app_version: string;
+  sha256: string;
+  size: number;
+  commit: string | null;
+  /** When the pack last changed in the library (UTC, ISO 8601). */
+  updated: string | null;
+  /** Share of the interface translated, 0–100, when the library measured it. */
+  coverage: number | null;
+  strings: number;
+  ui_strings: number;
+  metamodel_strings: number;
+  installed: boolean;
+  installed_from_community: boolean;
+  /** Installed here, and the library has another pack than the one installed. */
+  update_available: boolean;
+}
+
+/** `GET /custom-locales/catalogue`. */
+export interface CommunityCatalogue {
+  /** False when the server has no library configured. */
+  enabled: boolean;
+  url: string | null;
+  fetched_at: string | null;
+  /** Why the last download failed (the list is then the cached one, if any). */
+  error: string | null;
+  languages: CommunityLanguage[];
+}
+
+/** `POST /custom-locales/catalogue/{code}/install`. */
+export interface CommunityInstallResult extends CustomLocaleWriteResult {
+  created: boolean;
+  /** Strings corrected by hand that the update left as they were. */
+  kept_manual: number;
+  locale: CustomLocale;
 }

@@ -4788,6 +4788,17 @@
         "title": "CardUpdate",
         "type": "object"
       },
+      "CatalogueInstall": {
+        "properties": {
+          "overwrite_manual": {
+            "default": false,
+            "title": "Overwrite Manual",
+            "type": "boolean"
+          }
+        },
+        "title": "CatalogueInstall",
+        "type": "object"
+      },
       "ComplianceBundleOut": {
         "properties": {
           "findings": {
@@ -10221,6 +10232,18 @@
             "default": false,
             "title": "Dry Run",
             "type": "boolean"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
           },
           "tool_name": {
             "maxLength": 100,
@@ -17742,6 +17765,11 @@
       },
       "StringsWrite": {
         "properties": {
+          "fill_identical": {
+            "default": false,
+            "title": "Fill Identical",
+            "type": "boolean"
+          },
           "origin": {
             "default": "manual",
             "enum": [
@@ -29718,6 +29746,99 @@
         ]
       }
     },
+    "/api/v1/custom-locales/catalogue": {
+      "get": {
+        "description": "The community library's languages, each marked installed / update\navailable. The index is downloaded only here \u2014 on the first visit and on\n``refresh`` \u2014 and cached; ``enabled`` is false when no library is\nconfigured. Registered before ``/{code}``.",
+        "operationId": "list_language_catalogue_api_v1_custom_locales_catalogue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Language Catalogue",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
+    "/api/v1/custom-locales/catalogue/{code}/install": {
+      "post": {
+        "description": "Install (or update) a language from the community library: its pack is\ndownloaded, checked like an imported file and merged; a new language is\nadded disabled. Answers the merge report with ``created``,\n``kept_manual`` and the language.",
+        "operationId": "install_from_catalogue_api_v1_custom_locales_catalogue__code__install_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogueInstall"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Install From Catalogue",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
     "/api/v1/custom-locales/{code}": {
       "delete": {
         "description": "Delete a locale, its strings and its translations of the database\nlabels; its users go back to English.",
@@ -29958,7 +30079,7 @@
     },
     "/api/v1/custom-locales/{code}/strings": {
       "get": {
-        "description": "The review rows, the English source beside the translation.",
+        "description": "The review rows, the English source beside the translation. With\n``collapse`` each English text is listed once (``same_text`` says how many\nrows it stands for); ``total`` and paging then count texts.",
         "operationId": "list_custom_locale_strings_api_v1_custom_locales__code__strings_get",
         "parameters": [
           {
@@ -30036,6 +30157,16 @@
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "collapse",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Collapse",
+              "type": "boolean"
             }
           }
         ],
@@ -36816,7 +36947,7 @@
         ]
       },
       "post": {
-        "description": "Open a mutation batch. Returns the batch id and, when the row\ncount exceeds the confirmation threshold on a dry-run, a one-shot\n``confirm_token``. A real batch above the threshold must present that\ntoken, or the open is refused before any write happens.",
+        "description": "Open a mutation batch. Returns the batch id and, when the row\ncount exceeds the confirmation threshold on a dry-run, a one-shot\n``confirm_token``. A real batch above the threshold must present that\ntoken, or the open is refused before any write happens \u2014 except a tool\nin ``CONFIRMATION_EXEMPT_TOOLS``, which is neither issued nor asked one.",
         "operationId": "open_batch_api_v1_mutation_batches_post",
         "parameters": [
           {

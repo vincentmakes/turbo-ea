@@ -96,6 +96,7 @@ L'elenco completo e commentato è nel [`values.yaml`](https://github.com/vincent
 | `backend.persistence.*` | Il volume `/app/data`: `size`, `storageClass` oppure `existingClaim` per portarne uno vostro. Conservato con `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Qualsiasi variabile backend della configurazione Compose: `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Endpoint LLM esterno per i suggerimenti IA. |
+| `customLanguages.catalogueUrl` | La libreria di lingue della community elencata in [Lingue personalizzate](custom-languages.md#installing-a-language-from-the-community-library). `""` la disattiva, come in un cluster isolato da internet. |
 | `mcp.enabled` | Distribuire il server MCP su `<publicUrl>/mcp`. |
 | `ingress.*` | Classe, annotazioni, TLS. Gli host valgono per impostazione predefinita l'host di `publicUrl`, percorso `/`. |
 | `frontend.replicaCount` / `nginx.replicaCount`, `autoscaling`, `pdb` | Scalabilità dei livelli senza stato. |
@@ -156,7 +157,7 @@ Le migrazioni girano all'avvio del nuovo pod backend, esattamente come in Compos
 
 ## Hardening
 
-Ogni container gira come uid 1000 con file system radice in sola lettura, senza capability, senza escalation di privilegi e con il profilo seccomp `RuntimeDefault`; il token della ServiceAccount non viene montato. Ciò soddisfa da subito il Pod Security Standard *restricted*. `networkPolicy.enabled: true` aggiunge policy di rifiuto predefinito tra i livelli (impostate `networkPolicy.ingressController` sull'etichetta di namespace del vostro controller); le regole di egress sono opzionali perché il backend parla anche con lo store delle estensioni, endoflife.date, l'NVD, il vostro server SMTP e il vostro endpoint LLM. I controller di ammissione che verificano le firme possono vincolare immagini e chart all'identità cosign indicata sopra.
+Ogni container gira come uid 1000 con file system radice in sola lettura, senza capability, senza escalation di privilegi e con il profilo seccomp `RuntimeDefault`; il token della ServiceAccount non viene montato. Ciò soddisfa da subito il Pod Security Standard *restricted*. `networkPolicy.enabled: true` aggiunge policy di rifiuto predefinito tra i livelli (impostate `networkPolicy.ingressController` sull'etichetta di namespace del vostro controller); le regole di egress sono opzionali perché il backend parla anche con lo store delle estensioni, endoflife.date, l'NVD, la libreria di lingue della community (raw.githubusercontent.com), il vostro server SMTP e il vostro endpoint LLM. I controller di ammissione che verificano le firme possono vincolare immagini e chart all'identità cosign indicata sopra.
 
 ## AWS (EKS)
 

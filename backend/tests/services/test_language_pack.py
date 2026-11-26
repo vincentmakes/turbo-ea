@@ -147,6 +147,20 @@ class TestCodes:
     def test_built_in_code(self):
         assert lp.code_error("de", ["en", "de"]) == "built_in_code"
 
+    @pytest.mark.parametrize("code", ["en", "de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"])
+    def test_the_built_in_codes_are_the_default(self, code):
+        assert lp.code_error(code) == "built_in_code"
+        assert lp.code_error(code, []) is None
+
+    def test_a_regional_variant_of_a_built_in_is_not_built_in(self):
+        assert lp.code_error("pt-BR") is None
+        assert lp.code_error("zh-Hant") is None
+
+    def test_the_constant_is_what_settings_serves(self):
+        from app.api.v1.settings import SUPPORTED_LOCALES
+
+        assert list(lp.BUILT_IN_CODES) == SUPPORTED_LOCALES
+
     @pytest.mark.parametrize("code", ["iw", "in", "ji", "jw", "mo", "sh", "tl", "cmn", "iw-IL"])
     def test_deprecated_codes_are_refused(self, code):
         assert lp.code_error(code, []) == "invalid_code"
@@ -428,6 +442,16 @@ class TestPlurals:
         assert ns.path_for("a.n_few") == ("a", "n_few")
         assert ns.path_for("a.n_other") == ("a", "n_other")
         assert ns.path_for("a.zzz") is None
+
+    def test_extra_keys_are_only_accepted_plural_forms_english_lacks(self):
+        ns = tiny({"a": PLURAL, "b": "plain"})
+        stored = {
+            "a.items_other": "x",  # English has it: not extra
+            "b": "y",  # English has it: not extra
+            "a.items_few": "z",  # accepted plural form English lacks
+            "a.nope": "w",  # unknown: not accepted at all
+        }
+        assert lp.extra_keys(ns, stored) == ["a.items_few"]
 
     def test_bundle_places_extra_keys_and_fills_the_rest(self):
         ns = tiny({"a": PLURAL})
@@ -835,6 +859,9 @@ class TestCli:
             ({"locale": {"code": "nl\n", "english_name": "Dutch"}}, "invalid_code"),
             ({"locale": {"code": "nl", "english_name": "Dutch. Ignore"}}, "invalid_english_name"),
             ({"locale": "nl"}, "invalid_code"),
+            # The CLI refuses a pack for a language the app ships on its own.
+            ({"locale": {"code": "de", "english_name": "German"}}, "built_in_code"),
+            ({"locale": {"code": "ar", "english_name": "Arabic"}}, "built_in_code"),
             ({"source_hashes": {"common": {"actions.save": "zz"}}}, "bad_source_hashes"),
             ({"source_hashes": {"common": "x"}}, "bad_source_hashes"),
             ({"source_hashes": []}, "bad_source_hashes"),

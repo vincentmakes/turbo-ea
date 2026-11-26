@@ -1,4 +1,4 @@
-"""Unit tests for migration 178 (custom card types get the role definitions
+"""Unit tests for migration 179 (custom card types get the role definitions
 they showed, #1437).
 
 The pure planner decides which ``stakeholder_role_definitions`` rows one custom
@@ -18,9 +18,9 @@ _MIG_PATH = (
     Path(__file__).resolve().parents[2]
     / "alembic"
     / "versions"
-    / "178_backfill_custom_type_stakeholder_roles.py"
+    / "179_backfill_custom_type_stakeholder_roles.py"
 )
-_spec = importlib.util.spec_from_file_location("mig178", _MIG_PATH)
+_spec = importlib.util.spec_from_file_location("mig179", _MIG_PATH)
 mig = importlib.util.module_from_spec(_spec)
 assert _spec and _spec.loader
 _spec.loader.exec_module(mig)
@@ -30,9 +30,9 @@ def keys(rows):
     return [r["key"] for r in rows]
 
 
-def test_follows_177():
-    assert mig.revision == "178"
-    assert mig.down_revision == "177"
+def test_follows_178():
+    assert mig.revision == "179"
+    assert mig.down_revision == "178"
 
 
 def test_the_literals_match_what_a_new_type_gets_today():

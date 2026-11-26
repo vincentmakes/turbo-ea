@@ -34,8 +34,8 @@ V4 in the same release and every card is rescored once on the next boot.
 Downgrade is a no-op: the rows are ordinary role definitions an admin may have
 edited since, and the older code reads them correctly.
 
-Revision ID: 178
-Revises: 177
+Revision ID: 179
+Revises: 178
 Create Date: 2026-11-26
 """
 
@@ -50,8 +50,8 @@ from sqlalchemy.sql import text
 
 from alembic import op
 
-revision: str = "178"
-down_revision: Union[str, None] = "177"
+revision: str = "179"
+down_revision: Union[str, None] = "178"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
