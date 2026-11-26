@@ -37,10 +37,6 @@ from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/custom-locales", tags=["Custom languages"])
 
-#: Recorded by ``language_catalogue.install`` (named here, where the Security
-#: log's label guard reads the actions from).
-_COMMUNITY_INSTALLED = "admin.custom_locale.community_installed"
-
 
 def _clean_name(value: str) -> str:
     value = value.strip()
@@ -210,6 +206,32 @@ async def create_custom_locale(
     return await store.serialize_one(db, locale)
 
 
+def _install_recorder(actor: User) -> community.Recorder:
+    """What ``language_catalogue.install`` records in the Security log for
+    ``actor``: one row per install, ``success`` with what was merged or
+    ``failure`` with why the pack was refused. Written on the session the
+    service hands in, so a success row commits with the install."""
+
+    async def record(
+        db: AsyncSession,
+        *,
+        outcome: str,
+        target: tuple[str, str | None, str],
+        context: dict[str, Any],
+    ) -> None:
+        await audit_log.record(
+            db,
+            action="admin.custom_locale.community_installed",
+            category="admin",
+            outcome=outcome,
+            actor=actor,
+            target=target,
+            context=context,
+        )
+
+    return record
+
+
 def _catalogue_url() -> str:
     from app.config import settings as app_config
 
@@ -255,8 +277,7 @@ async def install_from_catalogue(
             _catalogue_url(),
             code,
             overwrite_manual=body.overwrite_manual,
-            actor=user,
-            action=_COMMUNITY_INSTALLED,
+            record=_install_recorder(user),
         )
     except community.CatalogueError as exc:
         raise HTTPException(community.STATUS.get(exc.code, 502), exc.code) from exc

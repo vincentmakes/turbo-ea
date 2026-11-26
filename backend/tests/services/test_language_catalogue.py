@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.api.v1.custom_locales import _install_recorder
 from app.models.audit_log import AuditLogEntry
 from app.models.card_type import CardType
 from app.models.catalogue_cache import CatalogueCache
@@ -725,7 +726,7 @@ class TestCatalogue:
 
 async def _install(code="nl", *, overwrite_manual=False, actor=None, url=INDEX_URL):
     return await lc.install(
-        url, code, overwrite_manual=overwrite_manual, actor=actor, action=ACTION
+        url, code, overwrite_manual=overwrite_manual, record=_install_recorder(actor)
     )
 
 
@@ -1072,7 +1073,7 @@ class TestInstall:
             raise RuntimeError("audit down")
 
         monkeypatch.setattr(db, "commit", commit)
-        monkeypatch.setattr(lc.audit_log, "record", boom)
+        monkeypatch.setattr("app.services.audit_log.record", boom)
         with pytest.raises(RuntimeError):
             await _install(actor=admin)
         assert commits == []

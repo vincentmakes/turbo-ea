@@ -38,7 +38,7 @@ import asyncio
 import hashlib
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -49,7 +49,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.custom_locale import CustomLocale
-from app.services import audit_log
 from app.services import catalogue_common as cc
 from app.services import custom_locale_store as store
 from app.services import language_pack as lp
@@ -115,6 +114,13 @@ _VERSION = re.compile(r"(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{
 _STAMP = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
 _COUNT_FIELDS = ("strings", "ui_strings", "metamodel_strings")
 _OPTIONAL_COUNT_FIELDS = ("english_strings", "translated", "current")
+
+
+#: Writes the install's Security-log row on the session it is given:
+#: ``record(db, outcome=..., target=(type, id, label), context={...})``. The
+#: route module owns it (its action, its category), so the audit guard sees an
+#: admin write route that records.
+Recorder = Callable[..., Awaitable[None]]
 
 
 class CatalogueError(Exception):
@@ -535,8 +541,7 @@ async def apply_pack(
     cat: lp.Catalog,
     *,
     overwrite_manual: bool,
-    actor: Any,
-    action: str,
+    record: Recorder,
 ) -> dict[str, Any]:
     """Merge a checked pack into its language — created, **disabled**, from the
     pack's header when it does not exist yet — and record where it came from.
@@ -579,11 +584,9 @@ async def apply_pack(
     locale.source = store.ORIGIN_COMMUNITY
     locale.source_sha256 = entry["sha256"]
     locale.source_commit = entry["commit"]
-    await audit_log.record(
+    await record(
         db,
-        action=action,
-        category="admin",
-        actor=actor,
+        outcome="success",
         target=("custom_locale", str(locale.id), locale.name),
         context={
             "code": code,
@@ -607,13 +610,13 @@ async def apply_pack(
 
 
 async def install(
-    url: str, code: str, *, overwrite_manual: bool, actor: Any, action: str
+    url: str, code: str, *, overwrite_manual: bool, record: Recorder
 ) -> dict[str, Any]:
     """Download the library's pack of ``code`` and merge it (see the module
     docstring for every check). The language must be in the cached index —
     list it first. One short session reads the index entry, the download runs
     with none open, and one transaction writes everything or nothing.
-    ``action`` is the audit action the route names."""
+    ``record`` writes the Security-log row (:data:`Recorder`)."""
     if not url:
         raise CatalogueError(DISABLED)
     async with _session() as db:
@@ -626,11 +629,11 @@ async def install(
     except CatalogueError as exc:
         # A refused download is worth a line in the Security log: a checksum
         # mismatch is what a tampered library looks like.
-        await _record_refusal(entry, exc.code, actor=actor, action=action)
+        await _record_refusal(entry, exc.code, record=record)
         raise
     async with _session() as db:
         result = await apply_pack(
-            db, pack, entry, cat, overwrite_manual=overwrite_manual, actor=actor, action=action
+            db, pack, entry, cat, overwrite_manual=overwrite_manual, record=record
         )
         await db.commit()
     return result
@@ -653,17 +656,12 @@ async def _fetch_pack(url: str, entry: Mapping[str, Any]) -> tuple[dict[str, Any
     return read_pack(data, code, cat), cat
 
 
-async def _record_refusal(
-    entry: Mapping[str, Any], reason: str, *, actor: Any, action: str
-) -> None:
-    """A ``failure`` row of the install action, in a short session of its own."""
+async def _record_refusal(entry: Mapping[str, Any], reason: str, *, record: Recorder) -> None:
+    """A ``failure`` row of the install, in a short session of its own."""
     async with _session() as db:
-        await audit_log.record(
+        await record(
             db,
-            action=action,
-            category="admin",
             outcome="failure",
-            actor=actor,
             target=("custom_locale", None, entry["name"]),
             context={
                 "code": entry["code"],

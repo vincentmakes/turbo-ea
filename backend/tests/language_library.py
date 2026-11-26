@@ -145,7 +145,13 @@ class FakeLibrary:
         if url in self.responders:
             return self.responders[url](request)
         status, body, headers = self.routes.get(url, (404, b"", {}))
-        return httpx.Response(status, content=body, headers=headers)
+        # A stream, as a real server's body: the app reads it with
+        # ``aiter_raw``, which a response built from ``content=`` refuses.
+        return httpx.Response(
+            status,
+            stream=httpx.ByteStream(body),
+            headers={"content-length": str(len(body)), **headers},
+        )
 
     def install(self, monkeypatch) -> FakeLibrary:
         transport = httpx.MockTransport(self.handler)
