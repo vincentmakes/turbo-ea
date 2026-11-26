@@ -725,9 +725,12 @@ class TestMatrixFilters:
 
         data = await _matrix(client, e["admin"], attr="app_to_do.usage:__empty__")
 
-        assert _cell(data, e["app_b"].id, e["do_x"].id)["e"]
-        assert _cell(data, e["app_a"].id, e["do_y"].id)["e"]
-        assert _cell(data, e["app_a"].id, e["do_x"].id)["e"] == []
+        # A pair whose only relation is filtered out carries no intersection.
+        linked = {(ix["row_id"], ix["col_id"]) for ix in data["intersections"] if ix["e"]}
+        assert linked == {
+            (str(e["app_b"].id), str(e["do_x"].id)),
+            (str(e["app_a"].id), str(e["do_y"].id)),
+        }
 
     async def test_filter_by_number_value(self, client, db, matrix_env):
         """A number matches by value; a filter value that is no number matches
