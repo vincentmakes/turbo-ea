@@ -334,12 +334,30 @@ class TestGetUntranslatedStrings:
         page = {
             "total": 2,
             "items": [
-                {"namespace": "common", "key": "level.high", "source": "High",
-                 "source_hash": "aaaaaaaaaaaa", "status": "missing", "same_text": 12},
-                {"namespace": "admin", "key": "title", "source": "Admin",
-                 "source_hash": "bbbbbbbbbbbb", "status": "missing", "same_text": 1},
-                {"namespace": "admin", "key": "odd", "source": "Odd",
-                 "source_hash": "cccccccccccc", "status": "missing", "same_text": "3"},
+                {
+                    "namespace": "common",
+                    "key": "level.high",
+                    "source": "High",
+                    "source_hash": "aaaaaaaaaaaa",
+                    "status": "missing",
+                    "same_text": 12,
+                },
+                {
+                    "namespace": "admin",
+                    "key": "title",
+                    "source": "Admin",
+                    "source_hash": "bbbbbbbbbbbb",
+                    "status": "missing",
+                    "same_text": 1,
+                },
+                {
+                    "namespace": "admin",
+                    "key": "odd",
+                    "source": "Odd",
+                    "source_hash": "cccccccccccc",
+                    "status": "missing",
+                    "same_text": "3",
+                },
             ],
         }
         out = await _Reads(page=page).run(locale="nl")
@@ -532,9 +550,7 @@ class TestSubmitTranslations:
             "/mutation-batches?row_count=2",
             {"tool_name": "submit_translations", "dry_run": True},
         )
-        assert backend.writes() == [
-            ("/custom-locales/nl/strings?dry_run=true", SENT_TWO)
-        ]
+        assert backend.writes() == [("/custom-locales/nl/strings?dry_run=true", SENT_TWO)]
         assert backend.posts[-1][0] == "/mutation-batches/B-1/commit"
         assert backend.closed_summary() == {"rows": 2, "would_apply": 1, "rejected": 1}
         assert out == {
@@ -559,9 +575,7 @@ class TestSubmitTranslations:
         backend = _Backend(answer={**REPORT, "applied": 1, "unchanged": 3})
         out = await backend.run(locale="pt-BR", translations=TWO)
         assert backend.posts[0][1] == {"tool_name": "submit_translations", "dry_run": False}
-        assert backend.writes() == [
-            ("/custom-locales/pt-BR/strings?dry_run=false", SENT_TWO)
-        ]
+        assert backend.writes() == [("/custom-locales/pt-BR/strings?dry_run=false", SENT_TWO)]
         assert backend.closed_summary() == {"rows": 2, "applied": 1, "rejected": 1}
         assert out["dry_run"] is False
         assert out["applied"] == 1
@@ -775,10 +789,20 @@ class TestRememberedSourceHashes:
     PAGE = {
         "total": 2,
         "items": [
-            {"namespace": "common", "key": "actions.save", "source": "Save",
-             "source_hash": "aaaaaaaaaaaa", "status": "missing"},
-            {"namespace": "metamodel", "key": "type.A.label", "source": "A",
-             "source_hash": "bbbbbbbbbbbb", "status": "missing"},
+            {
+                "namespace": "common",
+                "key": "actions.save",
+                "source": "Save",
+                "source_hash": "aaaaaaaaaaaa",
+                "status": "missing",
+            },
+            {
+                "namespace": "metamodel",
+                "key": "type.A.label",
+                "source": "A",
+                "source_hash": "bbbbbbbbbbbb",
+                "status": "missing",
+            },
         ],
     }
 
@@ -1126,7 +1150,6 @@ class TestStopAiTranslation:
         out = await backend.run("stop_ai_translation", locale="nl", dry_run=False)
         assert out["error"] == "writes_disabled"
         assert backend.posts == []
-
 
 
 class TestJobHelpers:
