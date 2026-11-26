@@ -33,6 +33,7 @@ from starlette.routing import Route
 from turbo_ea_mcp import oauth
 from turbo_ea_mcp.api_client import CARD_IDS_CHUNK, TurboEAClient, chunked
 from turbo_ea_mcp.batches import BatchContext, mutation_batch
+from turbo_ea_mcp.hash_memory import MEMORY as _HASH_MEMORY
 from turbo_ea_mcp.config import (
     APP_VERSION,
     MCP_ALLOW_EXTENSION_DESTRUCTIVE,
@@ -231,7 +232,11 @@ mcp = _StrictFastMCP(
 
         Write tools default to dry_run=True: they validate and return a
         preview without persisting. Surface the preview to the user, then
-        call again with dry_run=False to commit. Always call list_card_types
+        call again with dry_run=False to commit. One exception:
+        submit_translations saves on the first call (no preview needed),
+        because every string is validated on its own and a language is
+        thousands of strings; to fill a whole language at once, use
+        start_ai_translation instead. Always call list_card_types
         and get_relation_types first to make sure the data you propose fits
         the existing metamodel — the backend will reject unknown types and
         invalid source/target combinations.
@@ -7819,13 +7824,23 @@ async def get_untranslated_strings(
     limit: int = 100,
     include_stale: bool = True,
     offset: int = 0,
+    include_source_hashes: bool = False,
 ) -> str:
     """Get English UI strings a custom language still needs, to translate them.
 
     Translate each value of ``strings`` into ``language`` following
     ``instructions``, then send them back with ``submit_translations`` in the
-    same ``{namespace: {key: text}}`` shape, passing ``source_hashes`` back
-    as well. ``remaining`` says how many more are waiting after this page.
+    same ``{namespace: {key: text}}`` shape — the whole page in one call.
+    ``remaining`` says how many more are waiting after this page.
+
+    The loop: fetch a page (up to 500 strings), submit it in one call, then
+    call this again with ``offset=0``. The server remembers which English
+    text each string was taken from and attaches it when you submit, so you
+    do not send it back yourself.
+
+    To translate a whole language in one step instead, use
+    ``start_ai_translation`` (the server-side job on the configured AI
+    provider).
 
     Paging: a string that is accepted leaves this list, so after submitting
     call again with ``offset=0``. ``offset`` is the number of strings you are
@@ -7846,12 +7861,14 @@ async def get_untranslated_strings(
         include_stale: Also return strings whose English text changed since
             they were translated (default True); False = missing ones only.
         offset: Strings to skip from the start of the list (default 0).
+        include_source_hashes: Also return ``source_hashes`` (default False:
+            the server remembers them for ``submit_translations``). Only for
+            a client that submits through another server.
 
     Returns: JSON with ``locale``, ``language`` (English name), ``native_name``,
-    ``rtl``, ``instructions``, ``strings``, ``source_hashes`` (the English
-    each string was taken from, to pass to ``submit_translations``),
-    ``returned``, ``remaining``, ``next_offset`` while more remain and, for
-    stale strings, the old wording under ``previous_translations``.
+    ``rtl``, ``instructions``, ``strings``, ``returned``, ``remaining``,
+    ``next_offset`` while more remain, for stale strings the old wording
+    under ``previous_translations`` and, when asked, ``source_hashes``.
     Requires ``admin.settings``.
     """
     token = await _get_current_token()
@@ -7891,6 +7908,7 @@ async def get_untranslated_strings(
     if not isinstance(total, int):
         total = len(items)
     language = info.get("english_name") or locale
+    _HASH_MEMORY.remember(token, locale, hashes)
     out = {
         "locale": locale,
         "language": language,
@@ -7898,7 +7916,6 @@ async def get_untranslated_strings(
         "rtl": info.get("rtl") is True,
         "instructions": _translation_instructions(language),
         "strings": strings,
-        "source_hashes": hashes,
         "returned": len(items),
         "remaining": max(total - offset - len(items), 0),
     }
@@ -7906,6 +7923,8 @@ async def get_untranslated_strings(
         out["next_offset"] = offset + len(items)
     if previous:
         out["previous_translations"] = previous
+    if include_source_hashes:
+        out["source_hashes"] = hashes
     return _fmt(out)
 
 
@@ -7953,14 +7972,33 @@ def _refused_keys(body: dict) -> set[tuple[object, object]]:
     return refused
 
 
-def _accepted_keys(translations: dict, body: dict) -> dict[str, list[str]]:
-    """Per namespace, the submitted keys the backend took (applied or unchanged)."""
+def _accepted_counts(translations: dict, body: dict) -> dict[str, int]:
+    """Per namespace, how many submitted keys the backend took (applied or
+    unchanged). Counts, not the keys: echoing thousands of keys back costs the
+    assistant tokens and tells it nothing ``rejected`` / ``unknown_keys`` do
+    not."""
     refused = _refused_keys(body)
     accepted = {
-        namespace: sorted(key for key in keys if (namespace, key) not in refused)
+        namespace: sum(1 for key in keys if (namespace, key) not in refused)
         for namespace, keys in translations.items()
     }
-    return {namespace: keys for namespace, keys in accepted.items() if keys}
+    return {namespace: count for namespace, count in accepted.items() if count}
+
+
+def _outdated_backend(exc: httpx.HTTPStatusError) -> dict | None:
+    """A backend older than this server still asks ``submit_translations`` for
+    a confirm token: say so plainly instead of retrying."""
+    detail = _detail(exc)
+    if exc.response.status_code == 400 and str(detail).startswith("confirm_token_required"):
+        return {
+            "error": "backend_needs_update",
+            "message": (
+                "This Turbo EA backend still asks for a preview before large "
+                "translation submits. Update the backend to the version of this "
+                "MCP server, or submit at most 20 strings per call until then."
+            ),
+        }
+    return None
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
@@ -7968,10 +8006,13 @@ async def submit_translations(
     locale: str,
     translations: dict,
     source_hashes: dict | None = None,
-    dry_run: bool = True,
-    confirm_token: str = "",
+    dry_run: bool = False,
 ) -> str:
-    """Save translated strings into a custom language.
+    """Save translated strings into a custom language — on the first call.
+
+    Unlike the other write tools this one needs no preview: every string is
+    checked on its own and only a valid one is stored, so submit a whole page
+    of ``get_untranslated_strings`` at once and move on.
 
     ``translations`` is ``{namespace: {key: translated text}}`` — the keys and
     namespaces ``get_untranslated_strings`` returned. Each string is checked
@@ -7989,21 +8030,21 @@ async def submit_translations(
 
     Args:
         locale: The custom language code (from ``list_custom_languages``).
-        translations: The strings, at most ``MCP_MAX_TRANSLATIONS_PER_CALL``.
-        source_hashes: The ``source_hashes`` ``get_untranslated_strings``
-            returned, ``{namespace: {key: hash}}``. Pass them: a ``metamodel``
-            name renamed since you read it is then skipped as
-            ``source_changed`` instead of landing on the new name.
-        dry_run: When True (default), the backend validates every string and
-            stores nothing, so the preview's report is what a commit would do.
-        confirm_token: For commits above the per-call confirmation threshold
-            (counted in strings), the token the dry run returned.
+        translations: The strings, at most ``MCP_MAX_TRANSLATIONS_PER_CALL``
+            (default 2000).
+        source_hashes: Leave it out: the server attaches the hashes
+            ``get_untranslated_strings`` handed out, so a ``metamodel`` name
+            renamed since you read it is skipped as ``source_changed``
+            instead of landing on the new name. Passed explicitly
+            (``{namespace: {key: hash}}``), they are used as given.
+        dry_run: True only to check strings without storing them (default
+            False: the call saves).
 
-    Returns: JSON with ``would_apply`` / ``applied``, ``unchanged``,
-    ``rejected[]`` (``namespace``, ``key``, ``reason``), ``unknown`` (the
-    number of keys the backend did not recognise), ``unknown_keys`` (the
-    first 200 of them, ``namespace`` and ``key``), ``accepted`` (per
-    namespace, the keys taken), ``dry_run`` and ``batch_id``.
+    Returns: JSON with ``applied`` (``would_apply`` on a dry run),
+    ``unchanged``, ``rejected[]`` (``namespace``, ``key``, ``reason``),
+    ``unknown`` (the number of keys the backend did not recognise),
+    ``unknown_keys`` (the first 200 of them), ``accepted`` (per namespace,
+    how many strings were taken), ``dry_run`` and ``batch_id``.
     """
     token = await _get_current_token()
     if not token:
@@ -8027,18 +8068,30 @@ async def submit_translations(
                 "received": rows,
             }
         )
-    if not dry_run:
-        gate = _confirmation_required_message("submit_translations", rows)
-        if gate is not None and not confirm_token:
-            return gate
+    if source_hashes is None:
+        source_hashes = _HASH_MEMORY.recall(token, locale, translations) or None
+    try:
+        return await _submit_translations(locale, translations, source_hashes, rows, dry_run, token)
+    except httpx.HTTPStatusError as exc:
+        # The batch itself was refused before anything was written.
+        if (outdated := _outdated_backend(exc)) is not None:
+            return _fmt(outdated)
+        raise
+
+
+async def _submit_translations(
+    locale: str,
+    translations: dict,
+    source_hashes: dict | None,
+    rows: int,
+    dry_run: bool,
+    token: str,
+) -> str:
+    """The batch and the write of ``submit_translations`` (its checks done)."""
     async with mutation_batch(
-        token,
-        tool_name="submit_translations",
-        row_count=rows,
-        dry_run=dry_run,
-        confirm_token=confirm_token or None,
+        token, tool_name="submit_translations", row_count=rows, dry_run=dry_run
     ) as batch:
-        fields = _preview_fields(batch) if dry_run else {"batch_id": batch.batch_id}
+        fields = {"batch_id": batch.batch_id}
         try:
             data = await batch.client().post(
                 _locale_path(locale, f"/strings?dry_run={_bool_param(dry_run)}"),
@@ -8067,10 +8120,187 @@ async def submit_translations(
                 "rejected": rejected,
                 "unknown": body.get("unknown"),
                 "unknown_keys": body.get("unknown_keys") or [],
-                "accepted": _accepted_keys(translations, body),
+                "accepted": _accepted_counts(translations, body),
                 "reversible": False,
                 "note": _TRANSLATIONS_NOT_REVERSIBLE,
                 **fields,
+            }
+        )
+
+
+_AI_TRANSLATION_MODES = ("missing", "all")
+
+
+def _ai_translation_count(detail: object, mode: str) -> int | None:
+    """How many strings the AI job would send: new and changed ones, or all."""
+    stats = detail.get("stats") if isinstance(detail, dict) else None
+    if not isinstance(stats, dict):
+        return None
+    if mode == "all":
+        total = stats.get("total")
+        return total if isinstance(total, int) else None
+    missing, stale = stats.get("missing"), stats.get("stale")
+    if isinstance(missing, int) and isinstance(stale, int):
+        return missing + stale
+    return None
+
+
+def _job_running(detail: object) -> bool:
+    job = detail.get("job") if isinstance(detail, dict) else None
+    return isinstance(job, dict) and job.get("status") == "running"
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def start_ai_translation(
+    locale: str,
+    mode: str = "missing",
+    include_manual: bool = False,
+    dry_run: bool = True,
+) -> str:
+    """Translate a whole custom language with the server's AI translation job.
+
+    One call instead of many ``submit_translations``: the Turbo EA server sends
+    the strings to the AI provider configured in its Settings (not to you),
+    checks every answer with the same rules as any other translation and
+    stores the valid ones. It runs in the background; read its progress
+    (``job``: ``status``, ``done``, ``total``, ``failed``) with
+    ``list_custom_languages``, and stop it with ``stop_ai_translation``.
+
+    It spends the configured provider's budget, so it previews first: the
+    dry run reports how many strings would be sent and starts nothing.
+
+    Args:
+        locale: The custom language code (from ``list_custom_languages``).
+        mode: "missing" (default) — new strings and those whose English
+            changed; "all" — every string again.
+        include_manual: With mode "all", also replace strings an admin
+            corrected by hand (default False).
+        dry_run: When True (default), report what would be sent; False starts
+            the job.
+
+    Returns: JSON with ``strings`` (how many would be / are sent), ``mode``,
+    ``already_running`` on a preview, the started ``job`` on a commit,
+    ``dry_run`` and ``batch_id``. Requires ``admin.settings``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    if (problem := _locale_problem(locale)) is not None:
+        return _fmt(problem)
+    if mode not in _AI_TRANSLATION_MODES:
+        return _fmt(
+            {
+                "error": "invalid_mode",
+                "message": 'mode must be "missing" (new and changed strings) or "all".',
+                "mode": mode,
+            }
+        )
+    async with mutation_batch(
+        token, tool_name="start_ai_translation", row_count=1, dry_run=dry_run
+    ) as batch:
+        try:
+            detail = await batch.client().get(_locale_path(locale))
+        except httpx.HTTPStatusError as exc:
+            batch.summary = {"status": "refused"}
+            refused = _custom_locale_refusal(exc, "start_ai_translation_refused")
+            return _fmt({**refused, "batch_id": batch.batch_id})
+        count = _ai_translation_count(detail, mode)
+        body = {"mode": mode, "include_manual": mode == "all" and include_manual}
+        if dry_run:
+            batch.summary = {"status": "preview", "strings": count}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "locale": locale,
+                    "mode": mode,
+                    "include_manual": body["include_manual"],
+                    "strings": count,
+                    "already_running": _job_running(detail),
+                    **_preview_fields(batch),
+                }
+            )
+        try:
+            data = await batch.client().post(_locale_path(locale, "/translate"), json=body)
+        except httpx.HTTPStatusError as exc:
+            batch.summary = {"status": "refused"}
+            return _fmt(
+                {
+                    **_custom_locale_refusal(exc, "start_ai_translation_refused"),
+                    "batch_id": batch.batch_id,
+                }
+            )
+        job = data.get("job") if isinstance(data, dict) else None
+        batch.summary = {"status": "started", "strings": count}
+        return _fmt(
+            {
+                "dry_run": False,
+                "locale": locale,
+                "mode": mode,
+                "strings": count,
+                "job": job,
+                "note": (
+                    "The job runs in the background; follow it with "
+                    "list_custom_languages and stop it with stop_ai_translation."
+                ),
+                "batch_id": batch.batch_id,
+            }
+        )
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def stop_ai_translation(locale: str, dry_run: bool = True) -> str:
+    """Stop a custom language's AI translation job (``start_ai_translation``).
+
+    Strings it already stored stay; the rest stay untranslated. The dry run
+    (default) reports whether a job is running; ``dry_run=False`` stops it.
+
+    Args:
+        locale: The custom language code (from ``list_custom_languages``).
+        dry_run: When True (default), report only; False stops the job.
+
+    Returns: JSON with ``running`` (preview) or the ``job`` as it stands after
+    stopping, ``dry_run`` and ``batch_id``. Requires ``admin.settings``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    if (problem := _locale_problem(locale)) is not None:
+        return _fmt(problem)
+    async with mutation_batch(
+        token, tool_name="stop_ai_translation", row_count=1, dry_run=dry_run
+    ) as batch:
+        try:
+            if dry_run:
+                detail = await batch.client().get(_locale_path(locale))
+                batch.summary = {"status": "preview"}
+                return _fmt(
+                    {
+                        "dry_run": True,
+                        "locale": locale,
+                        "running": _job_running(detail),
+                        **_preview_fields(batch),
+                    }
+                )
+            data = await batch.client().post(_locale_path(locale, "/translate/cancel"), json={})
+        except httpx.HTTPStatusError as exc:
+            batch.summary = {"status": "refused"}
+            return _fmt(
+                {
+                    **_custom_locale_refusal(exc, "stop_ai_translation_refused"),
+                    "batch_id": batch.batch_id,
+                }
+            )
+        batch.summary = {"status": "stopped"}
+        return _fmt(
+            {
+                "dry_run": False,
+                "locale": locale,
+                "job": data.get("job") if isinstance(data, dict) else None,
+                "batch_id": batch.batch_id,
             }
         )
 

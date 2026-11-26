@@ -51,14 +51,36 @@ CONFIRM_TOKEN_THRESHOLD = 20
 CONFIRMED_BATCH_KEY = "confirmed_batch_id"
 
 
-def needs_confirmation(dry_run: bool, row_count: int) -> bool:
-    """A real (non-dry-run) batch above the threshold must present a token."""
-    return not dry_run and row_count > CONFIRM_TOKEN_THRESHOLD
+#: Tools whose commits need no confirm token, however many rows they carry.
+#: ``submit_translations`` only: it writes language data through
+#: ``POST /custom-locales/{code}/strings``, which has protections of its own —
+#: ``admin.settings``, the per-key validator every value goes through, an audit
+#: row and ``MAX_KEYS_PER_WRITE`` — and it touches no card. A full language is
+#: thousands of strings, and a preview before every batch of them doubled every
+#: call for no safety a reviewer could act on. The batch is still opened and
+#: closed, so the ledger records every call. A second tool joins this set only
+#: with the same reasoning, and the guards in both test suites pin it.
+CONFIRMATION_EXEMPT_TOOLS: frozenset[str] = frozenset({"submit_translations"})
 
 
-def issues_token(dry_run: bool, row_count: int) -> bool:
-    """A dry-run batch above the threshold is issued a token."""
-    return dry_run and row_count > CONFIRM_TOKEN_THRESHOLD
+def needs_confirmation(dry_run: bool, row_count: int, tool_name: str) -> bool:
+    """A real (non-dry-run) batch above the threshold must present a token,
+    unless its tool is in :data:`CONFIRMATION_EXEMPT_TOOLS`."""
+    return (
+        not dry_run
+        and row_count > CONFIRM_TOKEN_THRESHOLD
+        and tool_name not in CONFIRMATION_EXEMPT_TOOLS
+    )
+
+
+def issues_token(dry_run: bool, row_count: int, tool_name: str) -> bool:
+    """A dry-run batch above the threshold is issued a token — never one of
+    an exempt tool, whose commit would not ask for it."""
+    return (
+        dry_run
+        and row_count > CONFIRM_TOKEN_THRESHOLD
+        and tool_name not in CONFIRMATION_EXEMPT_TOOLS
+    )
 
 
 async def create_batch(

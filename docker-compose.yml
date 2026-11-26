@@ -155,7 +155,7 @@ services:
       MCP_ALLOW_RELATION_DELETE: ${MCP_ALLOW_RELATION_DELETE:-false}
       MCP_ALLOW_EXTENSION_DESTRUCTIVE: ${MCP_ALLOW_EXTENSION_DESTRUCTIVE:-false}
       # Strings submit_translations may send to a custom language in one call.
-      MCP_MAX_TRANSLATIONS_PER_CALL: ${MCP_MAX_TRANSLATIONS_PER_CALL:-200}
+      MCP_MAX_TRANSLATIONS_PER_CALL: ${MCP_MAX_TRANSLATIONS_PER_CALL:-2000}
       # Extra Host names / browser origins the MCP endpoint accepts beyond the
       # two public URLs, and static OAuth redirect URIs. Empty = none.
       MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-}

@@ -11,6 +11,7 @@ import pytest
 from app.services.mutation_batch_service import (
     CONFIRM_TOKEN_THRESHOLD,
     CONFIRM_TOKEN_TTL,
+    CONFIRMATION_EXEMPT_TOOLS,
     CONFIRMED_BATCH_KEY,
     close_summary,
     commit_batch,
@@ -94,8 +95,23 @@ def test_the_backend_threshold_is_twenty():
     ],
 )
 def test_needs_confirmation_and_issues_token(dry_run, rows, needs, issues):
-    assert needs_confirmation(dry_run, rows) is needs
-    assert issues_token(dry_run, rows) is issues
+    assert needs_confirmation(dry_run, rows, "update_cards_bulk") is needs
+    assert issues_token(dry_run, rows, "update_cards_bulk") is issues
+
+
+def test_only_submit_translations_is_exempt():
+    """Pinned: a second tool joining the exemption must change this test (and
+    the MCP side's ``test_only_submit_translations_skips_the_confirm_cycle``)."""
+    assert CONFIRMATION_EXEMPT_TOOLS == frozenset({"submit_translations"})
+
+
+@pytest.mark.parametrize("rows", [21, 2000, 10_000])
+def test_an_exempt_tool_is_never_asked_or_issued_a_token(rows):
+    assert needs_confirmation(False, rows, "submit_translations") is False
+    assert issues_token(True, rows, "submit_translations") is False
+    # The exemption is by exact name.
+    assert needs_confirmation(False, rows, "submit_translations_x") is True
+    assert issues_token(True, rows, "Submit_Translations") is True
 
 
 # ── resolve_confirm_token ────────────────────────────────────────────────

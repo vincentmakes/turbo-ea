@@ -90,11 +90,12 @@ This option does not depend on the AI description suggestions for cards being sw
 
 ### 3. Through an AI assistant (MCP)
 
-An AI assistant connected through the [MCP integration](mcp.md) can translate the language for you, using three tools:
+An AI assistant connected through the [MCP integration](mcp.md) can translate the language for you, using these tools:
 
 - `list_custom_languages` — which custom languages exist and how far each one is translated.
-- `get_untranslated_strings` — the English strings still to translate, page by page, with the translation instructions.
-- `submit_translations` — sends the translations back. It previews first and saves on confirmation, like every MCP write tool.
+- `get_untranslated_strings` — the English strings still to translate, page by page (up to 500 at a time), with the translation instructions.
+- `submit_translations` — sends a page of translations back and saves them at once, without a preview: each string is checked on its own, and only valid ones are stored.
+- `start_ai_translation` and `stop_ai_translation` — start or stop the server's own **Translate with AI** job, so a whole language is one request. The job runs on the AI provider configured under [AI Capabilities](ai.md), not on the assistant; the assistant previews first how many strings would be sent.
 
 Ask the assistant, for example: *"Translate the missing strings of our Dutch custom language, starting with the metamodel names."* The assistant works with your own permissions, and every change it makes is recorded in the audit log.
 

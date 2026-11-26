@@ -41,6 +41,25 @@ async def test_open_dry_run_batch_above_threshold_issues_token(client, admin_use
     assert len(payload["confirm_token"]) >= 16
 
 
+@pytest.mark.asyncio
+async def test_submit_translations_commits_above_the_threshold_without_a_token(client, admin_user):
+    """The one exempt tool: a preview is issued no token, a real batch of any
+    size opens without one — and the batch is still recorded."""
+    preview = await _open(client, admin_user, rows=500, dry_run=True, tool="submit_translations")
+    assert preview.status_code == 201, preview.text
+    assert preview.json()["confirm_token"] is None
+    real = await _open(client, admin_user, rows=2000, dry_run=False, tool="submit_translations")
+    assert real.status_code == 201, real.text
+    assert (real.json()["tool_name"], real.json()["dry_run"]) == ("submit_translations", False)
+
+
+@pytest.mark.asyncio
+async def test_every_other_tool_still_needs_its_token(client, admin_user):
+    resp = await _open(client, admin_user, rows=21, dry_run=False, tool="create_cards_bulk")
+    assert resp.status_code == 400
+    assert resp.json()["detail"].startswith("confirm_token_required")
+
+
 async def _open(client, user, *, rows, dry_run, tool="update_cards_bulk", token=None):
     body: dict = {"tool_name": tool, "dry_run": dry_run}
     if token is not None:

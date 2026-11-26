@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Custom languages: a **Community languages** block lists the language packs of the community library, with each one's coverage and the version it was made for, and installs or updates one in a click — checked like an imported file, added switched off, marked as community-provided and not reviewed.
 - An update from the community library keeps the strings you corrected by hand, unless you choose to replace them; the review table now shows where each translation came from.
 - `LANGUAGE_CATALOGUE_URL` (Helm `customLanguages.catalogueUrl`) sets the community library's address; empty switches the feature off.
+- MCP: `start_ai_translation` and `stop_ai_translation` run the server's AI translation job for a whole custom language in one call.
+
+### Changed
+- MCP: `submit_translations` saves on its first call with no preview or confirm token, takes up to 2000 strings per call (`MCP_MAX_TRANSLATIONS_PER_CALL`), attaches the source hashes itself and answers with counts per section instead of every key.
 
 ### Fixed
 - Importing a language pack the browser cannot read now says so, instead of reporting invalid JSON.

@@ -121,12 +121,13 @@ async def open_batch(
     """Open a mutation batch. Returns the batch id and, when the row
     count exceeds the confirmation threshold on a dry-run, a one-shot
     ``confirm_token``. A real batch above the threshold must present that
-    token, or the open is refused before any write happens."""
+    token, or the open is refused before any write happens — except a tool
+    in ``CONFIRMATION_EXEMPT_TOOLS``, which is neither issued nor asked one."""
     token: str | None = None
     issuing: MutationBatch | None = None
-    if issues_token(body.dry_run, row_count):
+    if issues_token(body.dry_run, row_count, body.tool_name):
         token = issue_confirm_token()
-    elif needs_confirmation(body.dry_run, row_count):
+    elif needs_confirmation(body.dry_run, row_count, body.tool_name):
         candidates: list[MutationBatch] = []
         if body.confirm_token:
             # Row lock: a second open presenting the same token waits here,
