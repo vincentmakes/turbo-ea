@@ -337,6 +337,8 @@
   "export.currentViewHint": "Mirrors the on-screen grid — not for re-import",
   "export.waitingForRelations": "Waiting for relation columns to finish loading…",
   "export.viewSheetName": "View",
+  "export.failed": "Could not create the export: {{message}}",
+  "export.cellTooLong": "{{row}}: column \"{{column}}\" holds {{length}} characters, and an Excel cell takes at most 32,767. Shorten the value or filter that card out, then export again.",
   "columns.id": "ID",
   "columns.eol": "End of life",
   "columns.eolSupport": "Support ends",

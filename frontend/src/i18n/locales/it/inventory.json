@@ -337,6 +337,8 @@
   "export.currentViewHint": "Rispecchia la griglia visualizzata — non adatta al reimport",
   "export.waitingForRelations": "In attesa del caricamento delle colonne delle relazioni…",
   "export.viewSheetName": "Vista",
+  "export.failed": "Impossibile creare l'esportazione: {{message}}",
+  "export.cellTooLong": "{{row}}: la colonna «{{column}}» contiene {{length}} caratteri, mentre una cella Excel ne accetta al massimo 32.767. Accorcia il valore o escludi quella scheda con un filtro, poi esporta di nuovo.",
   "columns.id": "ID",
   "columns.eol": "Fine vita",
   "columns.eolSupport": "Fine del supporto",

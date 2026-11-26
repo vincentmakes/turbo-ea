@@ -5,7 +5,10 @@ import { fetchCardsByIdsLenient } from "@/api/cardsByIds";
 import i18n from "@/i18n";
 import { typeLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } from "@/types";
+import { assertCellsFitExcel } from "./excelCellLimit";
 import { escapeListItem, LIST_SEPARATOR, WORKBOOK_FORMAT_VERSION } from "./listCell";
+
+export { EXCEL_CELL_MAX_LENGTH, ExportCellTooLongError } from "./excelCellLimit";
 
 /**
  * Excel export — LeanIX-style multi-sheet workbook.
@@ -59,9 +62,11 @@ import { escapeListItem, LIST_SEPARATOR, WORKBOOK_FORMAT_VERSION } from "./listC
 const FORMAT_VERSION = WORKBOOK_FORMAT_VERSION;
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 const MAX_PATH_DEPTH = 8;
-// Card ids per `GET /relations?card_ids=` request. Keeps URLs reasonable and
-// stays under the endpoint's 500-id cap. (Cards by id go through
-// `fetchCardsByIdsLenient`, which chunks on its own.)
+// Card ids per `GET /relations?card_ids=` request: the same 8 KB request-line
+// budget as `CARD_IDS_CHUNK`, kept for proxies in front on nginx's default
+// buffers (the bundled edge allows 16 KB per line so a sign-in proxy's headers
+// fit beside it, #1445), and under the endpoint's 500-id cap. (Cards by id go
+// through `fetchCardsByIdsLenient`, which chunks on its own.)
 const RELATION_ID_CHUNK = 200;
 const META_SHEET_NAME = "_Meta";
 const RELATIONS_SHEET_NAME = "Relations";
@@ -579,6 +584,9 @@ export async function buildExportWorkbook(
             stakeholderRoleKeys,
           ),
         ];
+    const sheetName = sheetNameForType(type, takenSheetNames);
+    // `rows[i]` is `cardsOfType[i]`; the placeholder row holds no values.
+    assertCellsFitExcel(sheetName, rows, (_row, i) => cardsOfType[i].name);
     const ws = XLSX.utils.json_to_sheet(headerSeed);
     if (rows.length === 0) {
       // Strip the placeholder row but keep the header.
@@ -587,7 +595,7 @@ export async function buildExportWorkbook(
       ws["!ref"] = XLSX.utils.encode_range(range);
     }
     ws["!cols"] = autoSizeColumns(headerSeed);
-    XLSX.utils.book_append_sheet(wb, ws, sheetNameForType(type, takenSheetNames));
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
   }
 
   // Relations sheet — what a relation HOLDS, never who is linked.
@@ -673,6 +681,11 @@ export async function buildExportWorkbook(
       return 0;
     });
     for (const { row } of sortable) relRows.push(row);
+    assertCellsFitExcel(
+      RELATIONS_SHEET_NAME,
+      relRows,
+      (row) => `${row.source_ref} → ${row.target_ref}`,
+    );
     if (relRows.length > 0) {
       const ws = XLSX.utils.json_to_sheet(relRows);
       ws["!cols"] = autoSizeColumns(relRows);
@@ -788,6 +801,8 @@ export function buildCurrentViewWorkbook(
   );
   const wb = XLSX.utils.book_new();
   const label = (options.sheetLabel || "View").replace(/[\\/?*[\]:]/g, "_").slice(0, 31) || "View";
+  // The data rows start under the header, so row 1 is the first grid row.
+  assertCellsFitExcel(label, sheetRows, (_row, i) => String(i + 1));
   XLSX.utils.book_append_sheet(wb, ws, label);
   return wb;
 }

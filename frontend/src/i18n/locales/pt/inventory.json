@@ -337,6 +337,8 @@
   "export.currentViewHint": "Espelha a grade exibida — não adequada para reimportação",
   "export.waitingForRelations": "A aguardar o carregamento das colunas de relações…",
   "export.viewSheetName": "Vista",
+  "export.failed": "Não foi possível criar a exportação: {{message}}",
+  "export.cellTooLong": "{{row}}: a coluna «{{column}}» contém {{length}} carateres, e uma célula do Excel aceita no máximo 32.767. Encurte o valor ou exclua essa ficha com um filtro e exporte novamente.",
   "columns.id": "ID",
   "columns.eol": "Fim de vida",
   "columns.eolSupport": "Fim do suporte",

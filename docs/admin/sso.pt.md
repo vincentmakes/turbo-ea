@@ -108,6 +108,8 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - Uma identidade que não foi verificada criptograficamente pode autenticar usuários existentes, mas nunca cria uma nova conta, e convites pendentes não conferem seu papel por esse caminho.
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` é para onde o Turbo EA envia o navegador após **Sair**, para que a sessão do proxy também seja encerrada. Sem ele, o proxy ainda considera o usuário autenticado — ele volta para a página de login e pode entrar de novo com um clique.
 
+**Tamanho dos cabeçalhos do pedido.** Um proxy de início de sessão acrescenta cookies e cabeçalhos de token a cada pedido. Os pedidos mais longos do Turbo EA levam no URL uma lista de IDs de cards — uma linha de pedido de quase 8 KB —, pelo que cada salto entre o navegador e o Turbo EA tem de aceitar uma linha de pedido de 8 KB juntamente com esses cabeçalhos. O nginx de borda incluído aceita (16 KB por linha de cabeçalho desde a versão 2.217.1). Se executar também o seu próprio nginx ou ingress-nginx à frente, dê-lhe a mesma margem: `large_client_header_buffers 4 16k;`, ou `large-client-header-buffers: "4 16k"` no ConfigMap do ingress-nginx. Um salto demasiado pequeno responde `400 Request Header Or Cookie Too Large` ou `414` nas exportações do Inventário e nos diagramas grandes, enquanto tudo o resto funciona.
+
 **Mapeamento de funções (opcional).** Por predefinição, todos aterram na função predefinida configurada e um administrador promove a partir daí. Se o seu fornecedor de identidade já sabe a resposta — um registo de aplicação Entra que declara as suas próprias funções de aplicação, um oauth2-proxy que reencaminha a pertença a grupos — o Turbo EA pode lê-la e atribuir a função por si:
 
 ```

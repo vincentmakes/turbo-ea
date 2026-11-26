@@ -571,6 +571,7 @@ MCP 容器上的防护栏环境变量：
 | 工具调用失败并提示 `Unknown argument(s): …` | AI 工具传入了该工具不接受的参数；错误信息会列出有效参数，且未执行任何操作。如需设置流程图的步骤链接，请使用 `link_process_flow_elements`，而不是 `import_bpmn`。 |
 | 用户获得空结果 | MCP 遵循 RBAC 权限。如果用户访问受限，他们只能看到其角色允许的卡片。 |
 | 连接在 1 小时后断开 | AI 工具应自动处理令牌刷新。如果不行，请重新连接。 |
+| 在登录代理（例如 Azure App Service 身份验证）之后，MCP 端点返回 `400` 和 *Invalid HTTP request received* | 代理会在每个请求中添加大型令牌头和 Cookie，超出了 MCP 服务器可接受的范围。请升级到 2.217.1 或更高版本。 |
 | Copilot Studio 报告「Connection creation failed」 | Copilot Studio 从 Microsoft 云端发起调用。请检查 `https://your-domain.example.com/mcp` 能否从互联网通过公共受信任的证书访问，以及 `MCP_PUBLIC_URL` 是否就是该公共地址。尝试连接期间的 Nginx 日志会显示最后到达的请求；如果没有任何请求到达，说明实例无法访问。 |
 | 升级到 2.175.2 后 Copilot Studio 工具停止工作 | 在 2.175.2 之前创建的工具持有的客户端 ID 无法在重启后保留。请删除该工具并重新添加一次；新的 ID 可在之后的重启中保留。 |
 | MCP 连接失败并返回 `421 Misdirected Request`，MCP 日志显示 `Invalid Host header` | Turbo EA 前面的代理转发了不同于公开主机名的主机名。请将日志行中的名称添加到 `MCP_ALLOWED_HOSTS` 并重启 MCP 容器；参见[位于会更改主机名的代理之后](#proxy-host-name)。 |

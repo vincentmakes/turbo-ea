@@ -433,6 +433,8 @@
   "export.currentViewHint": "يطابق الجدول المعروض — غير مناسب لإعادة الاستيراد",
   "export.waitingForRelations": "في انتظار انتهاء تحميل أعمدة العلاقات…",
   "export.viewSheetName": "عرض",
+  "export.failed": "تعذّر إنشاء التصدير: {{message}}",
+  "export.cellTooLong": "{{row}}: يحتوي العمود «{{column}}» على {{length}} حرفًا، بينما تتسع خلية Excel لما لا يزيد على 32,767. اختصر القيمة أو استبعد هذه البطاقة بالتصفية ثم صدّر مرة أخرى.",
   "columns.id": "المعرّف",
   "columns.eol": "نهاية العمر",
   "columns.eolSupport": "انتهاء الدعم",

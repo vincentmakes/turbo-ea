@@ -142,6 +142,8 @@ chart 生成一条 Ingress 规则——`publicUrl` 的主机、路径 `/`、`pat
 
 2 GB 是边缘 nginx 接受的上限；前置的负载均衡器或 WAF 可能设置更低的请求限制，后端还需要约两倍于包大小的临时空间（上传先写入 `/tmp`，再写入 `data/workspace_transfers/`）。在依赖此功能前，请按实际包大小测试一次导入。
 
+请求头是第三个限制。Turbo EA 会在 URL 中发送卡片 ID 列表，因此其最长的请求行略低于 8 KB，而登录代理还会在此之上添加 Cookie 和令牌头。边缘 nginx 同时接受这两者。只要没有此类代理，ingress-nginx 的默认值就够用；一旦有，请在控制器的 ConfigMap 中设置 `large-client-header-buffers: "4 16k"` —— 这是控制器级别的全局设置，而不是 Ingress 注解。
+
 TLS 方面，要么在 Ingress 上使用 cert-manager 的 `tls:` 块，要么使用云平台的托管证书（ACM、GKE ManagedCertificate）并在负载均衡器上终止 TLS。集群内到 nginx 的流量是明文 HTTP；以 `https://` 开头的 `publicUrl` 才是让 Cookie 变为 `secure` 的关键。
 
 **让 Ingress 保持私有。** Turbo EA 无需从互联网访问（参见[网络暴露面](../getting-started/setup.md)）。在 **EKS** 上，设置 `alb.ingress.kubernetes.io/scheme: internal`，就像下面的 AWS 示例那样；控制器随后会把 ALB 放在带有 `kubernetes.io/role/internal-elb` 标签的子网中。在 **GKE** 上，使用 `gce-internal` Ingress 类，它会创建内部应用负载均衡器，并需要该区域中的一个仅代理子网。使用 **AKS 应用路由**时，创建一个 `NginxIngressController`，在其 `loadBalancerAnnotations` 中设置 `service.beta.kubernetes.io/azure-load-balancer-internal: "true"`，并让 Ingress 指向它的类。用户随后通过您的 VPN 或零信任访问网关访问该主机名。
@@ -285,3 +287,4 @@ Azure Container Apps、Google Cloud Run 和 AWS ECS Fargate 无需 Kubernetes �
 | 工作区导入在几 MB 时失败 | 是 Ingress 控制器的请求体限制，而非 nginx 的——见 *Ingress 与 TLS* 下的表格。 |
 | 实时更新在固定间隔后停止 | 负载均衡器的空闲或请求超时关闭了事件流；按同一表格调高。浏览器会重连，不会丢失数据，但重连间隔会表现为延迟。 |
 | 重启后扩展消失 | `backend.persistence.enabled` 为 `false`，或 PVC 已被删除。 |
+| 库存导出失败并提示 *Bad Request* / *HTTP 400*，或浏览器网络面板显示 `400 Request Header Or Cookie Too Large` 或 `414` | 代理拒绝了请求头：URL 中的长卡片 ID 列表，加上登录代理的 Cookie 和令牌头。请升级到 2.217.1 或更高版本，其边缘 nginx 同时接受这两者；如果响应来自 Ingress 控制器，请增大其请求头缓冲区 —— 参见 *Ingress 与 TLS*。 |

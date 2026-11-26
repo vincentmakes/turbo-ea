@@ -12,9 +12,11 @@ from turbo_ea_mcp.config import TURBO_EA_URL
 
 T = TypeVar("T")
 
-# Ids per ``GET /cards?ids=`` request. The bundled edge nginx runs the default
-# ``large_client_header_buffers 4 8k``, so a request line over 8 KB is refused
-# with 414 before it ever reaches the backend. httpx percent-encodes the comma,
+# Ids per ``GET /cards?ids=`` request. A request line over 8 KB is refused with
+# 414 by an nginx on its default ``large_client_header_buffers 4 8k``, and
+# operators put such proxies in front; the bundled edge nginx allows 16 KB per
+# header line so a sign-in proxy's headers fit beside it (#1445). httpx
+# percent-encodes the comma,
 # so an encoded UUID costs 39 bytes: 200 of them make a 7.8 KB request line,
 # which fits; 210 do not. The frontend's ``fetchCardsByIds`` uses the same
 # figure (#1093).

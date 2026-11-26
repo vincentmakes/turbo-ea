@@ -407,6 +407,8 @@ Click **Export** in the toolbar and choose one of two options:
     - **No filter or multi-type filter** → one sheet per type present, plus the `Relations` sheet, plus `_Meta`. The workbook is fully editable and can be re-imported without losing per-type attributes.
 - **Export current view** — a flat, single-sheet snapshot that mirrors exactly what's on screen: only the **visible columns**, in their current **left-to-right order**, with the displayed column headers, for the **filtered rows**. Use this to share an organized view with stakeholders. This format carries no card IDs and only the columns you chose, so it is **not suitable for re-import** — use *Export all fields* when you intend to edit and re-import. If relation columns are still loading, the export waits for them, so they can never come out blank.
 
+An Excel cell holds at most 32,767 characters. When a value is longer — a very long description, or one card with around a thousand relations of one type — the export stops and names the card and the column instead of writing a broken file.
+
 ### Round-trip tips
 
 - Edit the workbook in Excel, save as `.xlsx`, re-import. Cards land via `(type, parent_path, name)` matching even if you didn't keep the `id` column.

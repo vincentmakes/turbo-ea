@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 
-import { buildCurrentViewWorkbook } from "./excelExport";
+import { buildCurrentViewWorkbook, ExportCellTooLongError } from "./excelExport";
 
 function sheetOf(
   rows: Record<string, unknown>[],
@@ -121,5 +121,48 @@ describe("buildCurrentViewWorkbook", () => {
     const sheet = sheetOf([], [{ colId: "core_name", headerName: "Name" }]);
     expect(sheet["A1"].v).toBe("Name");
     expect(XLSX.utils.sheet_to_json(sheet, { defval: "" })).toEqual([]);
+  });
+});
+
+describe("buildCurrentViewWorkbook and the Excel cell limit (#1445)", () => {
+  const columns = [
+    { colId: "core_name", headerName: "Name" },
+    { colId: "core_description", headerName: "Description" },
+  ];
+
+  function thrown(fn: () => unknown): ExportCellTooLongError {
+    try {
+      fn();
+    } catch (err) {
+      expect(err).toBeInstanceOf(ExportCellTooLongError);
+      return err as ExportCellTooLongError;
+    }
+    throw new Error("expected the export to refuse the over-long cell");
+  }
+
+  it("writes a cell of exactly 32,767 characters", () => {
+    const wb = buildCurrentViewWorkbook(
+      [{ core_name: "Alpha", core_description: "d".repeat(32767) }],
+      columns,
+      { sheetLabel: "Application" },
+    );
+    expect(() => XLSX.write(wb, { type: "array", bookType: "xlsx" })).not.toThrow();
+    expect(String(wb.Sheets["Application"]["B2"].v)).toHaveLength(32767);
+  });
+
+  it("names the row number, displayed header and length of the first longer cell", () => {
+    const err = thrown(() =>
+      buildCurrentViewWorkbook(
+        [
+          { core_name: "Alpha", core_description: "fits" },
+          { core_name: "Beta", core_description: "d".repeat(32768) },
+          { core_name: "g".repeat(40000), core_description: "d".repeat(40000) },
+        ],
+        columns,
+        { sheetLabel: "App/Portfolio" },
+      ),
+    );
+    expect({ sheet: err.sheet, column: err.column, rowLabel: err.rowLabel, length: err.length })
+      .toEqual({ sheet: "App_Portfolio", column: "Description", rowLabel: "2", length: 32768 });
   });
 });

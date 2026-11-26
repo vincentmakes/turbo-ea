@@ -20,6 +20,8 @@ import type {
 import {
   buildExportWorkbook,
   encodePathSegment as exportEncode,
+  EXCEL_CELL_MAX_LENGTH,
+  ExportCellTooLongError,
 } from "./excelExport";
 
 vi.mock("@/api/client", () => ({
@@ -2622,5 +2624,192 @@ describe("relations: one rule for every relation type (#1089)", () => {
       ]);
       expect(report.relationOps).toHaveLength(0);
     });
+  });
+});
+
+describe("buildExportWorkbook relation requests (#1445)", () => {
+  const getMock = api.get as unknown as ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    getMock.mockReset();
+  });
+
+  it("chunks a large export's relation fetch so no request line passes 8 KB", async () => {
+    const cards = Array.from({ length: 201 }, (_, i) =>
+      makeCard({ id: crypto.randomUUID(), type: "Application", name: `App ${i}` }),
+    );
+    getMock.mockImplementation(async (url: string): Promise<unknown> => {
+      if (url.startsWith("/cards?")) return { items: [] };
+      return [];
+    });
+
+    await buildExportWorkbook(cards, APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]);
+
+    const relationUrls = getMock.mock.calls
+      .map(([url]) => url as string)
+      .filter((url) => url.startsWith("/relations?card_ids="));
+    expect(relationUrls).toHaveLength(2);
+    const sent = relationUrls.flatMap((url) =>
+      url.slice("/relations?card_ids=".length).split(","),
+    );
+    expect(sent).toEqual(cards.map((c) => c.id));
+    // The 200-id chunk keeps the line inside the 8 KB an nginx on default
+    // buffers allows — the budget kept for proxies in front of the edge.
+    const line = `GET /api/v1${relationUrls[0]} HTTP/1.1`;
+    expect(line.length).toBeLessThan(8192);
+    expect(line.length).toBeGreaterThan(7000);
+  });
+});
+
+describe("a value longer than an Excel cell takes (#1445)", () => {
+  const getMock = api.get as unknown as ReturnType<typeof vi.fn>;
+
+  const erp = makeCard({ id: "11111111-1111-1111-1111-111111111111", type: "Application", name: "ERP" });
+  const crm = makeCard({ id: "33333333-3333-3333-3333-333333333333", type: "Application", name: "CRM" });
+  const db = makeCard({ id: "22222222-2222-2222-2222-222222222222", type: "ITComponent", name: "DB" });
+
+  /** A relation type whose rows reach the `Relations` sheet. */
+  const RUNS_ON: RelationType = {
+    ...DEPENDS_ON_TYPE,
+    key: "runs_on",
+    label: "runs on",
+    attributes_schema: [{ key: "note", label: "Note", type: "text" } as FieldDef],
+  };
+
+  function relation(id: string, source: Card, target: Card, extra: Partial<Relation> = {}) {
+    return {
+      id,
+      type: "depends_on",
+      source_id: source.id,
+      target_id: target.id,
+      source: { id: source.id, type: source.type, name: source.name },
+      target: { id: target.id, type: target.type, name: target.name },
+      ...extra,
+    };
+  }
+
+  function mockBackend(relations: unknown[], offSheet: Card[] = []) {
+    getMock.mockImplementation(async (url: string): Promise<unknown> => {
+      if (url.startsWith("/relations?")) return relations;
+      if (url.startsWith("/cards?ids=")) return { items: offSheet };
+      return [];
+    });
+  }
+
+  async function rejection(promise: Promise<unknown>): Promise<ExportCellTooLongError> {
+    const err = await promise.then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(ExportCellTooLongError);
+    return err as ExportCellTooLongError;
+  }
+
+  /** `count` IT Components whose `; `-joined names are exactly `length` long. */
+  function targetsJoinedTo(length: number, count: number): Card[] {
+    const filler = length - 2 * (count - 1);
+    const each = Math.floor(filler / count);
+    return Array.from({ length: count }, (_, i) => {
+      const width = i === count - 1 ? filler - each * (count - 1) : each;
+      const name = `T${i}-`.padEnd(width, "x");
+      return makeCard({ id: `itc-${i}`, type: "ITComponent", name });
+    });
+  }
+
+  beforeEach(() => {
+    getMock.mockReset();
+  });
+
+  it("is 32,767 characters", () => {
+    expect(EXCEL_CELL_MAX_LENGTH).toBe(32767);
+  });
+
+  it("writes a description of exactly 32,767 characters", async () => {
+    mockBackend([]);
+    const card = { ...erp, description: "d".repeat(32767) };
+    const wb = await buildExportWorkbook([card], APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]);
+    expect(() => XLSX.write(wb, { type: "array", bookType: "xlsx" })).not.toThrow();
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets["Application"]);
+    expect(String(rows[0].description)).toHaveLength(32767);
+  });
+
+  it("names the card, column and length of a description one character longer", async () => {
+    mockBackend([]);
+    const card = { ...erp, description: "d".repeat(32768) };
+    const err = await rejection(
+      buildExportWorkbook([card], APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]),
+    );
+    expect({ sheet: err.sheet, column: err.column, rowLabel: err.rowLabel, length: err.length })
+      .toEqual({ sheet: "Application", column: "description", rowLabel: "ERP", length: 32768 });
+    expect(err.name).toBe("ExportCellTooLongError");
+    expect(err.message).toBe(
+      'ERP: column "description" on sheet "Application" holds 32768 characters, ' +
+        "more than the 32767 an Excel cell takes",
+    );
+  });
+
+  it("reports the first offending cell, by row and then by column", async () => {
+    // ERP fits. CRM's description and rel: cell are both too long, and so is
+    // HR's description further down: CRM's description comes first.
+    const hr = makeCard({ id: "55555555-5555-5555-5555-555555555555", type: "Application", name: "HR" });
+    const targets = targetsJoinedTo(40000, 1000);
+    mockBackend(targets.map((t, i) => relation(`r${i}`, crm, t)), targets);
+    const cards = [
+      { ...erp, description: "fits" },
+      { ...crm, description: "c".repeat(40001) },
+      { ...hr, description: "h".repeat(50000) },
+    ];
+    const err = await rejection(
+      buildExportWorkbook(cards, APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]),
+    );
+    expect({ sheet: err.sheet, column: err.column, rowLabel: err.rowLabel, length: err.length })
+      .toEqual({ sheet: "Application", column: "description", rowLabel: "CRM", length: 40001 });
+  });
+
+  it("writes a rel: cell of exactly 32,767 characters", async () => {
+    const targets = targetsJoinedTo(32767, 1000);
+    mockBackend(targets.map((t, i) => relation(`r${i}`, erp, t)), targets);
+    const wb = await buildExportWorkbook([erp], APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]);
+    expect(() => XLSX.write(wb, { type: "array", bookType: "xlsx" })).not.toThrow();
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets["Application"]);
+    expect(String(rows[0]["rel:depends_on"])).toHaveLength(32767);
+  });
+
+  it("names the card and the rel: column when its targets add up to 32,768 characters", async () => {
+    const targets = targetsJoinedTo(32768, 1000);
+    mockBackend(targets.map((t, i) => relation(`r${i}`, erp, t)), targets);
+    const err = await rejection(
+      buildExportWorkbook([erp], APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]),
+    );
+    expect({ sheet: err.sheet, column: err.column, rowLabel: err.rowLabel, length: err.length })
+      .toEqual({ sheet: "Application", column: "rel:depends_on", rowLabel: "ERP", length: 32768 });
+  });
+
+  it("writes a Relations-sheet description of exactly 32,767 characters", async () => {
+    mockBackend(
+      [relation("r1", erp, db, { type: "runs_on", description: "r".repeat(32767) })],
+      [db],
+    );
+    const wb = await buildExportWorkbook([erp], APP_TYPE, [APP_TYPE, ITC_TYPE], [RUNS_ON]);
+    expect(() => XLSX.write(wb, { type: "array", bookType: "xlsx" })).not.toThrow();
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets["Relations"]);
+    expect(String(rows[0].description)).toHaveLength(32767);
+  });
+
+  it("names the relation by its two ends on the Relations sheet", async () => {
+    mockBackend(
+      [
+        relation("r1", erp, db, { type: "runs_on", description: "s".repeat(40000) }),
+        relation("r2", crm, db, { type: "runs_on", description: "r".repeat(32768) }),
+      ],
+      [db],
+    );
+    const err = await rejection(
+      buildExportWorkbook([erp, crm], APP_TYPE, [APP_TYPE, ITC_TYPE], [RUNS_ON]),
+    );
+    // Both rows are too long; the sheet sorts by source name, so CRM → DB is
+    // its first row and the one reported.
+    expect({ sheet: err.sheet, column: err.column, rowLabel: err.rowLabel, length: err.length })
+      .toEqual({ sheet: "Relations", column: "description", rowLabel: "CRM → DB", length: 32768 });
   });
 });

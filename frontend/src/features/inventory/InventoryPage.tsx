@@ -112,6 +112,7 @@ import {
   normalizeDataQualityFilter,
 } from "@/lib/dataQualityBands";
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
+import { ExportCellTooLongError } from "./excelCellLimit";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { booleanColumnDef } from "./booleanColumn";
 import RelationCellPopover from "./RelationCellPopover";
@@ -1639,8 +1640,8 @@ export default function InventoryPage() {
   const [massEditRelAttrs, setMassEditRelAttrs] = useState<RelationAttributes>({});
   // Parent mass-edit state
   const [massEditParent, setMassEditParent] = useState<CardOption | null>(null);
-  // Inline (Grid Edit) failures that the user needs a reason for — a rejected
-  // re-parent is the first, since the server owns every hierarchy rule.
+  // Failures the user needs a reason for — a rejected re-parent (the server
+  // owns every hierarchy rule), a refused logo upload, a failed export.
   const [cellEditError, setCellEditError] = useState("");
 
   // Mass archive / delete state
@@ -3314,6 +3315,32 @@ export default function InventoryPage() {
       : t("export.viewSheetName", { defaultValue: "View" });
     exportCurrentViewToExcel(rows, columns, { sheetLabel });
   }, [typeConfig, typeLabel, t]);
+
+  // Both export items used to drop their promise, so a refused request or a
+  // workbook-writer error produced no file and no message (#1445). Report the
+  // reason through the same snackbar as an inline-edit failure.
+  const reportIfExportFails = async (pending: unknown) => {
+    try {
+      await pending;
+    } catch (err) {
+      console.error(err);
+      if (err instanceof ExportCellTooLongError) {
+        setCellEditError(
+          t("export.cellTooLong", {
+            row: err.rowLabel,
+            column: err.column,
+            length: err.length.toLocaleString(i18n.language),
+          }),
+        );
+        return;
+      }
+      setCellEditError(
+        t("export.failed", {
+          message: err instanceof Error ? err.message : t("common:errors.generic"),
+        }),
+      );
+    }
+  };
 
   // Stable AG Grid config objects — prevents unnecessary grid re-renders.
   // `columnFreeze.headerComponentParams` adds the freeze pin to every column
@@ -5455,7 +5482,7 @@ export default function InventoryPage() {
             onClick={() => {
               // No `rel:` column for a relation whose other end the user may
               // not see — it could only ever be empty for them.
-              exportToExcel(
+              const pending = exportToExcel(
                 filteredData,
                 typeConfig,
                 types,
@@ -5466,6 +5493,7 @@ export default function InventoryPage() {
                 ),
                 { canViewCosts: canViewCostsGlobally },
               );
+              reportIfExportFails(pending);
               setExportMenuAnchor(null);
             }}
           >
@@ -5477,7 +5505,7 @@ export default function InventoryPage() {
           <Divider />
           <MenuItem
             onClick={() => {
-              handleExportCurrentView();
+              reportIfExportFails(handleExportCurrentView());
               setExportMenuAnchor(null);
             }}
           >
@@ -5736,7 +5764,7 @@ export default function InventoryPage() {
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       />
 
-      {/* Inline-edit failures (rejected re-parent, refused logo upload, …) */}
+      {/* Failures with a reason (rejected re-parent, refused logo upload, failed export, …) */}
       <Snackbar
         open={!!cellEditError}
         autoHideDuration={8000}

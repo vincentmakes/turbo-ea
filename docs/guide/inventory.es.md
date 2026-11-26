@@ -366,3 +366,5 @@ Algunas aclaraciones sobre la importación:
 Haga clic en **Exportar**. El filtro activo determina el contenido: con un filtro de tipo único, una hoja para ese tipo; sin filtro, una hoja por tipo presente. En todos los casos el libro incluye `Relations` y `_Meta` y puede reimportarse sin perder atributos específicos del tipo.
 
 También puede elegir **Exportar vista actual** en el menú Exportar: una instantánea plana de una sola hoja que refleja lo que está en pantalla (solo las columnas visibles, en su orden actual, para las filas filtradas). Está pensada para compartir y **no es apta para reimportar**. Si las columnas de relaciones aún se están cargando, la exportación espera a que terminen, por lo que nunca pueden salir vacías.
+
+Una celda de Excel admite como máximo 32.767 caracteres. Cuando un valor es más largo —una descripción muy extensa, o una ficha con alrededor de mil relaciones de un mismo tipo—, la exportación se detiene e indica la ficha y la columna en lugar de escribir un archivo dañado.

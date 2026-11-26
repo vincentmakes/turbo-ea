@@ -126,6 +126,7 @@ describe("phase chip on the row", () => {
   it("says planned from the go-live date", async () => {
     mockRows([relation("1", "Finance", { plan: PAST, active: FUTURE })]);
     await openSection();
+    await screen.findByText("Finance");
     const chip = await within(rowOf("Finance")).findByText(`Planned · from <${FUTURE}>`);
     expect(chip.closest("[data-phase]")).toHaveAttribute("data-phase", "plan");
   });
@@ -133,6 +134,7 @@ describe("phase chip on the row", () => {
   it("says a bare Planned when no go-live date is set, in Phase In once that date passed", async () => {
     mockRows([relation("1", "Finance", { plan: PAST, phaseIn: PAST })]);
     await openSection();
+    await screen.findByText("Finance");
     const chip = await within(rowOf("Finance")).findByText("Planned");
     expect(chip.closest("[data-phase]")).toHaveAttribute("data-phase", "phaseIn");
   });
@@ -140,6 +142,7 @@ describe("phase chip on the row", () => {
   it("says until the end date when in effect with an end ahead", async () => {
     mockRows([relation("1", "Finance", { active: PAST, endOfLife: FUTURE })]);
     await openSection();
+    await screen.findByText("Finance");
     const chip = await within(rowOf("Finance")).findByText(`Until <${FUTURE}>`);
     expect(chip.closest("[data-phase]")).toHaveAttribute("data-phase", "active");
   });
@@ -147,6 +150,7 @@ describe("phase chip on the row", () => {
   it("draws an end ahead in Phase Out once that date passed", async () => {
     mockRows([relation("1", "Finance", { active: PAST, phaseOut: PAST, endOfLife: FUTURE })]);
     await openSection();
+    await screen.findByText("Finance");
     const chip = await within(rowOf("Finance")).findByText(`Until <${FUTURE}>`);
     expect(chip.closest("[data-phase]")).toHaveAttribute("data-phase", "phaseOut");
   });
@@ -171,6 +175,7 @@ describe("phase chip on the row", () => {
     mm.relationTypes = [{ ...usedBy, lifecycle_enabled: false }];
     mockRows([relation("1", "Finance", { active: FUTURE })]);
     await openSection();
+    await screen.findByText("Finance");
     expect(await within(rowOf("Finance")).findByText(`Planned · from <${FUTURE}>`)).toBeInTheDocument();
   });
 });

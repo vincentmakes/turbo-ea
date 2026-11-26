@@ -439,7 +439,16 @@ class TestMain:
         with caplog.at_level(logging.INFO, logger="turbo_ea_mcp"):
             server.main()
         assert self.calls == [
-            ("uvicorn", "the-app", {"host": "0.0.0.0", "port": 8001, "log_level": "info"})
+            (
+                "uvicorn",
+                "the-app",
+                {
+                    "host": "0.0.0.0",
+                    "port": 8001,
+                    "log_level": "info",
+                    "h11_max_incomplete_event_size": 65536,
+                },
+            )
         ]
         assert [r.getMessage() for r in caplog.records] == [
             f"Starting Turbo EA MCP Server v{config.APP_VERSION} on 0.0.0.0:8001"
@@ -449,7 +458,16 @@ class TestMain:
         monkeypatch.setattr(sys, "argv", ["turbo-ea-mcp", "--host", "127.0.0.1", "--port", "9"])
         server.main()
         assert self.calls == [
-            ("uvicorn", "the-app", {"host": "127.0.0.1", "port": 9, "log_level": "info"})
+            (
+                "uvicorn",
+                "the-app",
+                {
+                    "host": "127.0.0.1",
+                    "port": 9,
+                    "log_level": "info",
+                    "h11_max_incomplete_event_size": 65536,
+                },
+            )
         ]
 
     def test_stdio_runs_the_stdio_transport_instead(self, monkeypatch):

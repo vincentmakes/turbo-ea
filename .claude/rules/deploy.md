@@ -76,4 +76,5 @@ All container images are built from one `/Dockerfile` at the repo root using mul
 - `/drawio/*` → static DrawIO assets (`no-cache` + ETag revalidation — DrawIO files are not content-hashed, so a long TTL serves a stale editor for weeks after an upgrade)
 - `/*` → SPA fallback to `index.html`
 - Security headers on all responses
+- **Request header buffers are `large_client_header_buffers 4 16k;`** in every generated edge server block (after `${nginx_real_ip_lines}`) and in `frontend/nginx.conf`, which receives every header the edge forwards. Turbo EA's id-list GETs carry a request line of just under 8 KB, and a sign-in proxy in front (Azure App Service authentication) adds large token headers and cookies; on nginx's default `4 8k` the edge answered `400 Request Header Or Cookie Too Large` and the Inventory export failed ([#1445](https://github.com/vincentmakes/turbo-ea/issues/1445), 2.217.1). Guard: `backend/tests/services/test_nginx_headers.py::TestLargeClientHeaderBuffers` (one per server block, equal values, floors of 4 and 16k, same pair in `frontend/nginx.conf`).
 - Static assets → 1-year cache with `immutable`

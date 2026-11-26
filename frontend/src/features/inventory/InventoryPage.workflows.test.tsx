@@ -50,6 +50,7 @@ import {
   makeSection,
 } from "@/test/fixtures/metamodel";
 import { exportCurrentViewToExcel, exportToExcel } from "./excelExport";
+import { ExportCellTooLongError } from "./excelCellLimit";
 import type { Card } from "@/types";
 import { createTheme } from "@mui/material/styles";
 import { APPROVAL_STATUS_COLORS, STATUS_CHIP_COLORS, STATUS_COLORS } from "@/theme/tokens";
@@ -474,8 +475,8 @@ beforeEach(() => {
   holder.columns = null;
   holder.tagIds = [];
   holder.cardPick = null;
-  vi.mocked(exportToExcel).mockClear();
-  vi.mocked(exportCurrentViewToExcel).mockClear();
+  vi.mocked(exportToExcel).mockReset();
+  vi.mocked(exportCurrentViewToExcel).mockReset();
 
   withMetamodel(CARD_TYPES, RELATION_TYPES);
   hookState.auth.user = makeUser();
@@ -2803,6 +2804,74 @@ describe("InventoryPage grid handlers", () => {
     expect(types).toBe(hookState.metamodel.types);
     expect(relTypes.map((rt) => rt.key)).toEqual(RELATION_TYPES.map((rt) => rt.key));
     expect(opts).toEqual({ canViewCosts: true });
+    expect(screen.queryByText(/Could not create the export/)).toBeNull();
+  });
+
+  it("says why an all-fields export failed and closes the menu (#1445)", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failure = new Error("Bad Request");
+    vi.mocked(exportToExcel).mockRejectedValueOnce(failure);
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await user.click(screen.getByRole("button", { name: BTN.exportMenu }));
+    await user.click(await screen.findByText("Export all fields"));
+    expect(await screen.findByText("Could not create the export: Bad Request")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Export all fields")).toBeNull());
+    expect(consoleError).toHaveBeenCalledWith(failure);
+    consoleError.mockRestore();
+  });
+
+  it("names a generic reason when the all-fields export rejects with a non-Error", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(exportToExcel).mockRejectedValueOnce("boom");
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await user.click(screen.getByRole("button", { name: BTN.exportMenu }));
+    await user.click(await screen.findByText("Export all fields"));
+    expect(
+      await screen.findByText("Could not create the export: Something went wrong"),
+    ).toBeInTheDocument();
+    expect(consoleError).toHaveBeenCalledWith("boom");
+    consoleError.mockRestore();
+  });
+
+  it("says why a current-view export failed", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failure = new Error("Text length must not exceed 32767 characters");
+    vi.mocked(exportCurrentViewToExcel).mockImplementationOnce(() => {
+      throw failure;
+    });
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await user.click(screen.getByRole("button", { name: BTN.exportMenu }));
+    await user.click(await screen.findByText("Export current view"));
+    await waitFor(() => expect(exportCurrentViewToExcel).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText(
+        "Could not create the export: Text length must not exceed 32767 characters",
+      ),
+    ).toBeInTheDocument();
+    expect(consoleError).toHaveBeenCalledWith(failure);
+    consoleError.mockRestore();
+  });
+
+  it("names the card, column and length when a value is too long for an Excel cell", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failure = new ExportCellTooLongError("Application", "description", "ERP Core", 40000);
+    vi.mocked(exportToExcel).mockRejectedValueOnce(failure);
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await user.click(screen.getByRole("button", { name: BTN.exportMenu }));
+    await user.click(await screen.findByText("Export all fields"));
+    expect(
+      await screen.findByText(
+        'ERP Core: column "description" holds 40,000 characters, and an Excel cell takes ' +
+          "at most 32,767. Shorten the value or filter that card out, then export again.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Could not create the export/)).toBeNull();
+    expect(consoleError).toHaveBeenCalledWith(failure);
+    consoleError.mockRestore();
   });
 
   it("applies a view's layout and filters, resets the columns, and collapses the sidebar", async () => {

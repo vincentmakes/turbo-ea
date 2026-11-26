@@ -385,6 +385,8 @@
   "export.currentViewHint": "Отражает таблицу на экране — не подходит для повторного импорта",
   "export.waitingForRelations": "Ожидание загрузки столбцов связей…",
   "export.viewSheetName": "Вид",
+  "export.failed": "Не удалось создать экспорт: {{message}}",
+  "export.cellTooLong": "{{row}}: столбец «{{column}}» содержит {{length}} символов, а ячейка Excel вмещает не более 32 767. Сократите значение или отфильтруйте эту карточку и повторите экспорт.",
   "columns.id": "ID",
   "columns.eol": "Окончание поддержки",
   "columns.eolSupport": "Поддержка до",

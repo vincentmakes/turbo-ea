@@ -192,3 +192,39 @@ class TestOAuthDiscoveryRouting:
         for body in blocks:
             assert f"rewrite ^ /.well-known/{prefix} break;" in body
             assert "proxy_pass \\$mcp_upstream;" in body
+
+
+_HEADER_BUFFERS_RE = re.compile(r"^    large_client_header_buffers (\d+) (\d+)k;$", re.M)
+
+
+class TestLargeClientHeaderBuffers:
+    """The id-list GETs (``/relations?card_ids=``, ``/cards?ids=``) carry a request
+    line of just under 8 KB, and a sign-in proxy in front adds large token headers
+    and cookies to every request. On nginx's default ``4 8k`` the edge refused the
+    Inventory export with ``400 Request Header Or Cookie Too Large`` behind Azure
+    App Service authentication (#1445). One 16 KB buffer holds the longest request
+    line with 8 KB to spare, so every server block, and the frontend nginx the edge
+    forwards every header to, carries at least that."""
+
+    def test_every_edge_server_block_sets_the_same_buffers(self):
+        script = _entrypoint()
+        server_names = script.count("server_name ${NGINX_SERVER_NAME};")
+        assert server_names >= 3, "expected the redirect, HTTPS and plain-HTTP server blocks"
+        found = _HEADER_BUFFERS_RE.findall(script)
+        assert len(found) == server_names, (
+            "every server block must set `large_client_header_buffers` (#1445)"
+        )
+        assert len(set(found)) == 1, f"server blocks disagree: {found}"
+
+    def test_the_edge_buffers_hold_a_long_request_line_and_proxy_headers(self):
+        number, size = _HEADER_BUFFERS_RE.findall(_entrypoint())[0]
+        assert int(size) >= 16, "one buffer must hold the ~7.8 KB id-list request line and more"
+        assert int(number) >= 4, "fewer buffers than nginx's default would refuse more headers"
+
+    def test_frontend_nginx_matches_the_edge(self):
+        edge = _HEADER_BUFFERS_RE.findall(_entrypoint())[0]
+        frontend = _HEADER_BUFFERS_RE.findall(_FRONTEND_NGINX.read_text(encoding="utf-8"))
+        assert frontend == [edge], (
+            "frontend/nginx.conf receives every header the edge forwards; keep its "
+            "`large_client_header_buffers` equal to the edge value"
+        )

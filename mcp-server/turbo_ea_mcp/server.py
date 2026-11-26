@@ -8773,6 +8773,14 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Largest request head (request line plus headers) uvicorn's h11 parser takes.
+# The edge nginx forwards up to four 16 KB header buffers
+# (``large_client_header_buffers 4 16k``) so a sign-in proxy's token headers
+# and cookies fit (#1445); h11's 16 KB default would refuse such a request with
+# "400 Invalid HTTP request received." before it reached the app.
+MAX_REQUEST_HEAD_BYTES = 64 * 1024
+
+
 def main():
     args = _build_parser().parse_args()
 
@@ -8787,7 +8795,13 @@ def main():
             args.host,
             args.port,
         )
-        uvicorn.run(create_app(), host=args.host, port=args.port, log_level="info")
+        uvicorn.run(
+            create_app(),
+            host=args.host,
+            port=args.port,
+            log_level="info",
+            h11_max_incomplete_event_size=MAX_REQUEST_HEAD_BYTES,
+        )
 
 
 if __name__ == "__main__":

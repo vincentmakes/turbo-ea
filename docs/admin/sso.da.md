@@ -108,6 +108,8 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - En identitet, der ikke er kryptografisk verificeret, kan logge eksisterende brugere på, men opretter aldrig en ny konto, og afventende invitationer tildeler ikke deres rolle ad denne vej.
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` er der, hvor Turbo EA sender browseren hen efter **Log ud**, så proxy-sessionen også afsluttes. Uden den betragter proxyen stadig brugeren som logget på — de lander tilbage på loginsiden og kan komme ind igen med ét klik.
 
+**Størrelse på anmodningens headere.** En login-proxy tilføjer cookies og token-headere til hver anmodning. Turbo EA's længste anmodninger bærer en liste af kort-id'er i URL'en — en anmodningslinje på knap 8 KB — så hvert led mellem browseren og Turbo EA skal acceptere en anmodningslinje på 8 KB sammen med disse headere. Den medfølgende edge-nginx gør det (16 KB pr. header-linje siden 2.217.1). Kører du desuden din egen nginx eller ingress-nginx foran, så giv den samme plads: `large_client_header_buffers 4 16k;` eller `large-client-header-buffers: "4 16k"` i ingress-nginx' ConfigMap. Et led, der er for småt, svarer `400 Request Header Or Cookie Too Large` eller `414` på eksporter fra Inventar og store diagrammer, mens alt andet virker.
+
 **Rollekortlægning (valgfrit).** Som standard lander alle på den konfigurerede standardrolle, og en administrator forfremmer derfra. Hvis jeres identitetsudbyder allerede kender svaret — en Entra-appregistrering, der erklærer sine egne approller, eller en oauth2-proxy, der videresender gruppemedlemskab — kan Turbo EA læse det og tildele rollen selv:
 
 ```

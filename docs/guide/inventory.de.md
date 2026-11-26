@@ -366,3 +366,5 @@ Ein paar Hinweise zum Importieren:
 Klicken Sie in der Werkzeugleiste auf **Export**. Der aktuelle Grid-Filter bestimmt den Inhalt: Bei Einzeltyp-Filter ein Blatt für diesen Typ, sonst ein Blatt pro vorhandenem Typ, jeweils zusätzlich mit `Relations` und `_Meta`. Die Datei ist vollständig editierbar und kann ohne Verlust von typspezifischen Attributen wieder importiert werden.
 
 Sie können im Export-Menü auch **Aktuelle Ansicht exportieren** wählen — eine flache Einzelblatt-Momentaufnahme, die genau das Angezeigte abbildet (nur die sichtbaren Spalten, in ihrer aktuellen Reihenfolge, für die gefilterten Zeilen). Sie ist zum Teilen gedacht und **nicht für den Reimport geeignet**. Wenn die Beziehungsspalten noch geladen werden, wartet der Export darauf – sie können also nie leer bleiben.
+
+Eine Excel-Zelle fasst höchstens 32.767 Zeichen. Ist ein Wert länger — etwa eine sehr lange Beschreibung oder eine Karte mit rund tausend Beziehungen eines Typs —, bricht der Export ab und nennt die Karte und die Spalte, statt eine fehlerhafte Datei zu schreiben.
