@@ -3819,7 +3819,14 @@ async def test_a_bundle_without_relation_dates_imports_them_empty(db):
     raw = _make_bundle(
         {
             schema.SHEET_RELATION_TYPES: (
-                exp.RELATION_TYPE_COLUMNS,
+                # The switch's column first: an empty cell at the END of a row
+                # is not read back at all (the row is shorter), so only here is
+                # it read as a present, empty value — the case the applier must
+                # not write as NULL.
+                (
+                    "lifecycle_enabled",
+                    *(c for c in exp.RELATION_TYPE_COLUMNS if c != "lifecycle_enabled"),
+                ),
                 exp.RELATION_TYPE_JSON,
                 relation_types,
             ),
