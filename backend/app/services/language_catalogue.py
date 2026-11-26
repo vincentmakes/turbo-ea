@@ -601,6 +601,9 @@ async def apply_pack(
         },
     )
     await db.flush()
+    # An UPDATE expires ``updated_at`` (``onupdate=now()``): read it back here,
+    # in the async context, before the payload is built from it.
+    await db.refresh(locale)
     return {
         **report,
         "created": created,
