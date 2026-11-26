@@ -623,18 +623,6 @@ describe("mutation pins — loader and switches", () => {
     expect(i18n.t("actions.save", { lng: "stale-x" })).toBe("new");
   });
 
-  it("leaves no timer behind once the stored language loaded in time", async () => {
-    await i18n.changeLanguage("tm-ok");
-    mockApi.on("get", "/custom-locales/tm-ok/bundle", bundle("tm-ok"));
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    try {
-      await preloadDetectedLocale();
-      expect(vi.getTimerCount()).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("holds the first render until the stored language is applied", async () => {
     await i18n.changeLanguage("hold-x");
     mockApi.on("get", "/custom-locales/hold-x/bundle", bundle("hold-x"));

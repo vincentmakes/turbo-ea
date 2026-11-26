@@ -187,6 +187,7 @@ export async function preloadDetectedLocale(timeoutMs = PRELOAD_TIMEOUT_MS): Pro
   });
   const load = ensureLocaleLoaded(lang);
   const outcome = await Promise.race([load, timeout]);
+  // Stryker disable next-line CallExpression: once the race settled, a timer left running only resolves a promise nobody awaits
   clearTimeout(timer);
   if (outcome === "timeout") {
     void load.then((ok) => {

@@ -119,7 +119,7 @@ describe("ReviewStringsDialog", () => {
   });
 
   it("colours each status chip by what it means", async () => {
-    serve([SAVED, TYPE_LABEL, STALE, { ...SAVED, key: "odd", status: "weird" as never }]);
+    serve([SAVED, TYPE_LABEL, STALE, { ...SAVED, key: "odd", source: "Odd", value: "מוזר", status: "weird" as never }]);
     renderDialog();
     await screen.findByText("שמור");
     const chip = (row: HTMLElement, label: string) =>
