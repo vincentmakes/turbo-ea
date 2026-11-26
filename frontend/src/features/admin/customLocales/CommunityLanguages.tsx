@@ -18,17 +18,31 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useApiQuery } from "@/hooks/useApiQuery";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { CommunityCatalogue, CommunityLanguage } from "@/types";
 import CommunityInstallDialog from "./CommunityInstallDialog";
 import UnreviewedChip from "./UnreviewedChip";
-import { errorMessage, isKnownErrorCode } from "./customLocaleUtils";
+import { communityAction, errorMessage, isKnownErrorCode } from "./customLocaleUtils";
 
 export const CATALOGUE_PATH = "/custom-locales/catalogue";
 
 interface Props {
   /** Called after a pack was installed into the language `code`. */
   onInstalled: (code: string) => void;
+  /**
+   * Bumped by the section when its own languages changed (added, deleted…):
+   * the block then re-reads its list — the cached one, no new download — so
+   * "Installed" follows.
+   */
+  listVersion?: number;
 }
+
+/** The status chip of an installed language: its label key and colour. */
+const STATUS_CHIP = {
+  installed: { label: "customLocales.community.installed", color: "success" },
+  update: { label: "customLocales.community.updateAvailable", color: "info" },
+  merge: { label: "customLocales.community.addedHere", color: "default" },
+} as const;
 
 function LanguageRow({
   language,
@@ -38,11 +52,9 @@ function LanguageRow({
   onInstall: (language: CommunityLanguage) => void;
 }) {
   const { t } = useTranslation("admin");
-  const action = !language.installed
-    ? "customLocales.community.install"
-    : language.update_available
-      ? "customLocales.community.update"
-      : null;
+  const action = communityAction(language);
+  // The chip follows the action an installed language offers (none: current).
+  const status = action === "install" ? null : STATUS_CHIP[action ?? "installed"];
   return (
     <Box
       data-testid={`community-language-${language.code}`}
@@ -78,16 +90,13 @@ function LanguageRow({
         </Typography>
       </Box>
       <UnreviewedChip />
-      {language.installed && (
+      {status && (
         <Chip
           size="small"
-          color={language.update_available ? "info" : "success"}
+          color={status.color}
           variant="outlined"
-          label={t(
-            language.update_available
-              ? "customLocales.community.updateAvailable"
-              : "customLocales.community.installed",
-          )}
+          label={t(status.label)}
+          data-testid="community-status"
         />
       )}
       {action && (
@@ -96,23 +105,26 @@ function LanguageRow({
           variant="outlined"
           startIcon={<MaterialSymbol icon="download" size={18} />}
           onClick={() => onInstall(language)}
-          aria-label={`${t(action)} ${language.name}`}
+          aria-label={t(`customLocales.community.${action}Named`, { name: language.name })}
         >
-          {t(action)}
+          {t(`customLocales.community.${action}`)}
         </Button>
       )}
     </Box>
   );
 }
 
-export default function CommunityLanguages({ onInstalled }: Props) {
+export default function CommunityLanguages({ onInstalled, listVersion = 0 }: Props) {
   const { t } = useTranslation(["admin", "common"]);
+  const { formatDateTime } = useDateFormat();
   // Refresh asks the server to download the library's list again; any other
   // read (the first, the one after an install) takes the list it cached.
   const [refresh, setRefresh] = useState(false);
   const [reads, setReads] = useState(0);
   const path = refresh ? `${CATALOGUE_PATH}?refresh=true` : CATALOGUE_PATH;
-  const { data, loading, error } = useApiQuery<CommunityCatalogue>(path, { refetchKey: reads });
+  const { data, loading, error } = useApiQuery<CommunityCatalogue>(path, {
+    refetchKey: `${reads}:${listVersion}`,
+  });
   const reread = (download: boolean) => {
     setRefresh(download);
     setReads((n) => n + 1);
@@ -129,7 +141,8 @@ export default function CommunityLanguages({ onInstalled }: Props) {
         <Typography variant="subtitle1" fontWeight={600} sx={{ flex: 1 }}>
           {t("customLocales.community.title")}
         </Typography>
-        {data?.enabled && (
+        {/* Also after a failed request: the admin needs a way to try again. */}
+        {(data ? data.enabled : !!error) && (
           <Button
             size="small"
             startIcon={<MaterialSymbol icon="refresh" size={18} />}
@@ -140,9 +153,14 @@ export default function CommunityLanguages({ onInstalled }: Props) {
           </Button>
         )}
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: data?.fetched_at ? 0.5 : 2 }}>
         {t("customLocales.community.description")}
       </Typography>
+      {data?.enabled && data.fetched_at && (
+        <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2 }}>
+          {t("customLocales.community.fetchedAt", { date: formatDateTime(data.fetched_at) })}
+        </Typography>
+      )}
 
       {loading && <LinearProgress sx={{ mb: 2 }} aria-label={t("customLocales.community.loading")} />}
       {error && (

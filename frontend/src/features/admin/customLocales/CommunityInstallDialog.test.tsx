@@ -32,7 +32,14 @@ const DUTCH: CommunityLanguage = {
   installed_from_community: false,
   update_available: false,
 };
-const INSTALLED: CommunityLanguage = { ...DUTCH, installed: true, update_available: true };
+const INSTALLED: CommunityLanguage = {
+  ...DUTCH,
+  installed: true,
+  installed_from_community: true,
+  update_available: true,
+};
+/** The same code added here by hand. */
+const HAND_MADE: CommunityLanguage = { ...DUTCH, installed: true, update_available: true };
 const PATH = "/custom-locales/catalogue/nl/install";
 
 function result(over: Partial<CommunityInstallResult> = {}): CommunityInstallResult {
@@ -125,6 +132,34 @@ describe("CommunityInstallDialog", () => {
     ).toBeInTheDocument();
     expect(mockApi.callsOf("post", PATH)[0].body).toEqual({ overwrite_manual: false });
     expect(screen.getByText(t("customLocales.community.keptManual", { count: 2 }))).toBeInTheDocument();
+  });
+
+  it("says that a pack is merged into a language added here by hand", async () => {
+    mockApi.on("post", PATH, result({ created: false }));
+    const { user } = renderDialog(HAND_MADE);
+    expect(
+      screen.getByText(t("customLocales.community.mergeTitle", { name: "Nederlands" })),
+    ).toBeInTheDocument();
+    expect(screen.getByText(t("customLocales.community.mergeExplain"))).toBeInTheDocument();
+    expect(screen.queryByText(t("customLocales.community.updateExplain"))).toBeNull();
+    await user.click(screen.getByRole("checkbox", { name: t("customLocales.community.overwriteManual") }));
+    await user.click(screen.getByRole("button", { name: t("customLocales.community.merge") }));
+    await screen.findByTestId("import-report");
+    expect(mockApi.callsOf("post", PATH)[0].body).toEqual({ overwrite_manual: true });
+  });
+
+  it("closes on Escape, but not while it installs", async () => {
+    let release!: (v: CommunityInstallResult) => void;
+    mockApi.on("post", PATH, () => new Promise((r) => (release = r)));
+    const { user } = renderDialog();
+    await user.click(screen.getByRole("button", { name: t("customLocales.community.install") }));
+    await screen.findByRole("progressbar");
+    await user.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+    release(result());
+    await screen.findByTestId("import-report");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
   it("replaces them when the admin ticks the box", async () => {

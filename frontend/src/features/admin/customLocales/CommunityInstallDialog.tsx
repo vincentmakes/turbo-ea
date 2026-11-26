@@ -20,7 +20,13 @@ import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import type { CommunityInstallResult, CommunityLanguage } from "@/types";
 import ImportReport from "./ImportReport";
-import { addResult, emptyReport, errorMessage, installPath } from "./customLocaleUtils";
+import {
+  addResult,
+  communityAction,
+  emptyReport,
+  errorMessage,
+  installPath,
+} from "./customLocaleUtils";
 
 interface Props {
   language: CommunityLanguage;
@@ -31,7 +37,11 @@ interface Props {
 
 export default function CommunityInstallDialog({ language, onClose, onInstalled }: Props) {
   const { t } = useTranslation(["admin", "common"]);
-  const update = language.installed;
+  // `install` a new language; `update` one installed from the library; `merge`
+  // the pack into one added here by hand. (A current one offers no button.)
+  const mode = communityAction(language) ?? "update";
+  // Both of the last two have strings of their own to keep.
+  const existing = mode !== "install";
   const [overwrite, setOverwrite] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -42,7 +52,7 @@ export default function CommunityInstallDialog({ language, onClose, onInstalled 
     setError("");
     try {
       const res = await api.post<CommunityInstallResult>(installPath(language.code), {
-        overwrite_manual: update && overwrite,
+        overwrite_manual: existing && overwrite,
       });
       setResult(res);
       onInstalled(language.code);
@@ -59,9 +69,7 @@ export default function CommunityInstallDialog({ language, onClose, onInstalled 
   return (
     <Dialog open onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {t(update ? "customLocales.community.updateTitle" : "customLocales.community.installTitle", {
-          name: language.name,
-        })}
+        {t(`customLocales.community.${mode}Title`, { name: language.name })}
       </DialogTitle>
       <DialogContent>
         {!result && (
@@ -69,14 +77,8 @@ export default function CommunityInstallDialog({ language, onClose, onInstalled 
             <Alert severity="warning" sx={{ mb: 2 }}>
               {t("customLocales.community.unreviewedWarning")}
             </Alert>
-            <Typography variant="body2">
-              {t(
-                update
-                  ? "customLocales.community.updateExplain"
-                  : "customLocales.community.installExplain",
-              )}
-            </Typography>
-            {update && (
+            <Typography variant="body2">{t(`customLocales.community.${mode}Explain`)}</Typography>
+            {existing && (
               <FormControlLabel
                 sx={{ mt: 1 }}
                 control={
@@ -124,7 +126,7 @@ export default function CommunityInstallDialog({ language, onClose, onInstalled 
         </Button>
         {!result && (
           <Button variant="contained" onClick={handleInstall} disabled={busy}>
-            {t(update ? "customLocales.community.update" : "customLocales.community.install")}
+            {t(`customLocales.community.${mode}`)}
           </Button>
         )}
       </DialogActions>

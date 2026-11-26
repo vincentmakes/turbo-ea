@@ -8,12 +8,14 @@ install path on the database is covered here too; the routes are in
 
 from __future__ import annotations
 
+import asyncio
 import json
 from types import SimpleNamespace
 
 import httpx
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.models.audit_log import AuditLogEntry
 from app.models.card_type import CardType
@@ -287,6 +289,63 @@ class TestFetch:
             await self.fetch()
         assert err.value.code == "big"
 
+    async def test_an_undeclared_length_is_counted_while_it_streams(self, library):
+        async def body():
+            for _ in range(3):
+                yield b"x" * 40
+
+        library.responders[INDEX_URL] = lambda request: httpx.Response(200, content=body())
+        with pytest.raises(lc.CatalogueError) as err:
+            await self.fetch()
+        assert err.value.code == "big"
+
+    async def test_a_length_that_lies_does_not_help(self, library):
+        async def body():
+            yield b"x" * 60
+            yield b"x" * 60
+
+        library.responders[INDEX_URL] = lambda request: httpx.Response(
+            200, content=body(), headers={"content-length": "10"}
+        )
+        with pytest.raises(lc.CatalogueError) as err:
+            await self.fetch()
+        assert err.value.code == "big"
+
+    async def test_streamed_chunks_within_the_cap_are_joined(self, library):
+        async def body():
+            yield b"ab"
+            yield b"cd"
+
+        library.responders[INDEX_URL] = lambda request: httpx.Response(200, content=body())
+        assert await self.fetch() == b"abcd"
+
+    async def test_only_an_uncompressed_body_is_asked_for_and_accepted(self, library):
+        library.serve(INDEX_URL, b"ok")
+        assert await self.fetch() == b"ok"
+        assert library.headers[0]["accept-encoding"] == "identity"
+        for encoding in ("gzip", "gzip, gzip", "br", "deflate"):
+            library.serve(INDEX_URL, b"\x1f\x8b", **{"content-encoding": encoding})
+            with pytest.raises(lc.CatalogueError) as err:
+                await self.fetch()
+            assert err.value.code == "down", encoding
+        library.serve(INDEX_URL, b"ok", **{"content-encoding": " Identity "})
+        assert await self.fetch() == b"ok"
+
+    async def test_a_download_has_a_total_time_limit(self, library, monkeypatch):
+        monkeypatch.setattr(lc, "TOTAL_TIMEOUT", 0.05)
+
+        async def slow(request):
+            await asyncio.sleep(5)
+            return httpx.Response(200, content=b"late")
+
+        library.responders[INDEX_URL] = slow
+        with pytest.raises(lc.CatalogueError) as err:
+            await self.fetch()
+        assert err.value.code == "down"
+
+    def test_the_total_time_limit(self):
+        assert lc.TOTAL_TIMEOUT == 60.0
+
     async def test_a_declared_length_over_the_cap_is_refused(self, library):
         library.routes[INDEX_URL] = (200, b"x", {"content-length": "101"})
         with pytest.raises(lc.CatalogueError) as err:
@@ -326,6 +385,7 @@ class TestFetch:
             "http://raw.githubusercontent.com/o/r/main/index.json",
             "//evil.example/index.json",
             "https://raw.githubusercontent.com.evil.example/index.json",
+            "https://raw.githubusercontent.com:8443/o/r/main/index.json",
         ],
     )
     async def test_a_redirect_elsewhere_is_refused(self, library, location):
@@ -335,6 +395,13 @@ class TestFetch:
             await self.fetch()
         assert err.value.code == "down"
         assert library.requested == [INDEX_URL]
+
+    async def test_the_default_port_written_out_is_the_same_origin(self, library):
+        moved = "https://raw.githubusercontent.com:443/o/r/main/moved.json"
+        library.serve(INDEX_URL, b"", status=302, location=moved)
+        library.serve(moved, b"ok")
+        library.serve("https://raw.githubusercontent.com/o/r/main/moved.json", b"ok")
+        assert await self.fetch() == b"ok"
 
     async def test_a_redirect_loop_stops(self, library):
         library.serve(INDEX_URL, b"", status=307, location=INDEX_URL)
@@ -417,6 +484,44 @@ class TestReadPack:
         with pytest.raises(lc.CatalogueError) as err:
             lc.read_pack(data, "nl", cat)
         assert err.value.code == code
+
+    def test_the_key_count_is_bounded(self, cat, monkeypatch):
+        monkeypatch.setattr(lc, "MAX_PACK_KEYS", 3)
+        three = {"common": {"actions.save": "a", "actions.cancel": "b"}, "nav": {"x": "c"}}
+        assert lc.read_pack(pack_bytes(make_pack(strings=three, hashes={})), "nl", cat)
+        four = {**three, "admin": {"y": "d"}}
+        with pytest.raises(lc.CatalogueError) as err:
+            lc.read_pack(pack_bytes(make_pack(strings=four, hashes={})), "nl", cat)
+        assert err.value.code == lc.PACK_INVALID
+        hashes = {"common": {f"k{i}": SAVE_HASH for i in range(4)}}
+        with pytest.raises(lc.CatalogueError):
+            lc.read_pack(pack_bytes(make_pack(strings={}, hashes=hashes)), "nl", cat)
+
+    def test_the_bounds(self):
+        assert (lc.MAX_PACK_KEYS, lc.MAX_PACK_KEY_LENGTH) == (20_000, 300)
+
+    @pytest.mark.parametrize(
+        "strings",
+        [
+            {"common": {"k" * 301: "x"}},
+            {"c" * 301: {"a": "x"}},
+        ],
+    )
+    def test_an_overlong_key_is_refused(self, cat, strings):
+        with pytest.raises(lc.CatalogueError) as err:
+            lc.read_pack(pack_bytes(make_pack(strings=strings, hashes={})), "nl", cat)
+        assert err.value.code == lc.PACK_INVALID
+
+    def test_a_key_at_the_length_bound_is_read(self, cat):
+        strings = {"common": {"k" * 300: "x"}}
+        assert lc.read_pack(pack_bytes(make_pack(strings=strings, hashes={})), "nl", cat)
+
+    @pytest.mark.parametrize("key", ["actions.save\n", "actions.\u202esave", "a\u0000b"])
+    def test_a_key_no_export_could_hold_is_refused(self, cat, key):
+        data = pack_bytes(make_pack(strings={"common": {key: "x"}}, hashes={}))
+        with pytest.raises(lc.CatalogueError) as err:
+            lc.read_pack(data, "nl", cat)
+        assert err.value.code == lc.PACK_INVALID
 
     def test_a_pack_for_a_built_in_language_is_refused(self, cat):
         data = pack_bytes(
@@ -575,6 +680,23 @@ class TestCatalogue:
         assert online.requested == [INDEX_URL, other]
         assert await lc.read_cached(db, INDEX_URL) is None
 
+    async def test_a_concurrent_first_read_is_not_an_error(self, online, db, monkeypatch):
+        online.publish(make_pack())
+        rolled_back: list[int] = []
+
+        async def collide(*args, **kwargs):
+            raise IntegrityError("INSERT", {}, Exception("duplicate key"))
+
+        async def rollback():
+            rolled_back.append(1)
+
+        monkeypatch.setattr(lc, "write_cached", collide)
+        monkeypatch.setattr(db, "rollback", rollback)
+        out = await lc.catalogue(INDEX_URL, refresh=False)
+        assert [e["code"] for e in out["languages"]] == ["nl"]
+        assert (out["error"], out["fetched_at"]) == (None, None)
+        assert rolled_back == [1]
+
     async def test_a_tampered_cache_row_is_validated_again(self, db):
         await lc.write_cached(db, INDEX_URL, [make_entry("nl"), make_entry("de"), {"code": 1}])
         cached = await lc.read_cached(db, INDEX_URL)
@@ -680,6 +802,7 @@ class TestInstall:
         assert row.details["context"] == {
             "code": "nl",
             "created": True,
+            "previous_source": None,
             "sha256": sha(data),
             "commit": COMMIT,
             "overwrite_manual": False,
@@ -723,6 +846,29 @@ class TestInstall:
         # The admin's own name, switch and direction are kept on an update.
         assert (locale.name, locale.enabled, locale.rtl) == ("Eigen naam", True, False)
         assert locale.source == "community"
+        # The audit row says the pack was merged into a language added by hand.
+        (row,) = (
+            await db.execute(select(AuditLogEntry).where(AuditLogEntry.action == ACTION))
+        ).scalars()
+        context = row.details["context"]
+        assert (context["created"], context["previous_source"]) == (False, None)
+
+    async def test_a_second_install_names_the_community_as_the_previous_source(
+        self, online, db, admin
+    ):
+        online.publish(make_pack())
+        await lc.catalogue(INDEX_URL, refresh=False)
+        await _install(actor=admin)
+        await _install(actor=admin)
+        rows = (
+            (await db.execute(select(AuditLogEntry).where(AuditLogEntry.action == ACTION)))
+            .scalars()
+            .all()
+        )
+        assert sorted(r.details["context"]["previous_source"] or "" for r in rows) == [
+            "",
+            "community",
+        ]
 
     async def test_an_update_may_replace_them_when_asked(self, online, db, admin):
         locale = CustomLocale(code="nl", name="N", english_name="Dutch")
@@ -857,12 +1003,34 @@ class TestInstall:
         assert (await db.execute(select(CustomLocaleString))).first() is None
 
     async def test_a_checksum_mismatch_installs_nothing(self, online, db, admin):
-        online.publish(make_pack())
+        data = online.publish(make_pack())["nl"]
         await lc.catalogue(INDEX_URL, refresh=False)
         online.serve(
             pack_url_for(), pack_bytes(make_pack(strings={"common": {"actions.save": "X"}}))
         )
         await self._refused(online, db, admin, lc.PACK_CHECKSUM)
+        # ...but the refusal is in the Security log, with what was expected.
+        (row,) = (
+            await db.execute(select(AuditLogEntry).where(AuditLogEntry.action == ACTION))
+        ).scalars()
+        assert row.outcome == "failure"
+        assert row.details["context"] == {
+            "code": "nl",
+            "refusal": lc.PACK_CHECKSUM,
+            "sha256": sha(data),
+            "commit": COMMIT,
+        }
+        assert (row.target_type, row.target_id, row.target_label) == (
+            "custom_locale",
+            None,
+            "Nederlands",
+        )
+
+    async def test_a_language_not_listed_is_not_logged(self, online, db, admin):
+        with pytest.raises(lc.CatalogueError):
+            await _install(actor=admin)
+        found = await db.execute(select(AuditLogEntry).where(AuditLogEntry.action == ACTION))
+        assert found.first() is None
 
     async def test_an_oversized_pack_installs_nothing(self, online, db, admin):
         online.publish(make_pack())

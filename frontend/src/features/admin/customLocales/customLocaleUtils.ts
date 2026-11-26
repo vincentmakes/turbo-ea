@@ -7,7 +7,12 @@
  * and is the only gate.
  */
 import { ApiError } from "@/api/client";
-import type { CustomLocaleRejectedString, CustomLocaleWriteResult, LanguagePack } from "@/types";
+import type {
+  CommunityLanguage,
+  CustomLocaleRejectedString,
+  CustomLocaleWriteResult,
+  LanguagePack,
+} from "@/types";
 
 export const PACK_FORMAT = "turbo-ea-language-pack";
 export const PACK_FORMAT_VERSION = 1;
@@ -326,4 +331,18 @@ export function addResult(report: ImportReportData, r: CustomLocaleWriteResult |
 /** Where the community library's pack of `code` is installed from. */
 export function installPath(code: string): string {
   return `/custom-locales/catalogue/${encodeURIComponent(code)}/install`;
+}
+
+/**
+ * What installing a library language does here: `install` a new language,
+ * `update` one installed from the library when the library has another pack,
+ * `merge` the pack into a language added here by hand with the same code —
+ * or nothing, when the installed pack is the library's.
+ */
+export type CommunityAction = "install" | "update" | "merge";
+
+export function communityAction(language: CommunityLanguage): CommunityAction | null {
+  if (!language.installed) return "install";
+  if (!language.installed_from_community) return "merge";
+  return language.update_available ? "update" : null;
 }

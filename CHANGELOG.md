@@ -12,9 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - An update from the community library keeps the strings you corrected by hand, unless you choose to replace them; the review table now shows where each translation came from.
 - `LANGUAGE_CATALOGUE_URL` (Helm `customLanguages.catalogueUrl`) sets the community library's address; empty switches the feature off.
 
-### Changed
-- The `validate` command of the language-pack checker refuses a pack for a language Turbo EA ships itself.
-
 ### Fixed
 - Importing a language pack the browser cannot read now says so, instead of reporting invalid JSON.
 

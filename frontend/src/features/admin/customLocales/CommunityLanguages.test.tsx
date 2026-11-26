@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useDateFormat", () => ({
+  useDateFormat: () => ({ formatDateTime: (v: string) => `D(${v})` }),
+}));
 
 import { api } from "@/api/client";
 import i18n from "@/i18n";
@@ -41,6 +45,16 @@ const HEBREW: CommunityLanguage = {
   installed_from_community: true,
   update_available: true,
 };
+/** Added on this server by hand; the library has the same code. */
+const POLISH: CommunityLanguage = {
+  ...DUTCH,
+  code: "pl",
+  name: "Polski",
+  english_name: "Polish",
+  installed: true,
+  installed_from_community: false,
+  update_available: true,
+};
 const SWEDISH: CommunityLanguage = {
   ...DUTCH,
   code: "sv",
@@ -56,7 +70,7 @@ function catalogue(over: Partial<CommunityCatalogue> = {}): CommunityCatalogue {
     url: "https://example.org/index.json",
     fetched_at: "2026-11-26T08:00:00+00:00",
     error: null,
-    languages: [DUTCH, HEBREW, SWEDISH],
+    languages: [DUTCH, HEBREW, SWEDISH, POLISH],
     ...over,
   };
 }
@@ -96,7 +110,7 @@ describe("CommunityLanguages", () => {
       ),
     ).toBeInTheDocument();
     expect(nl.getByText(t("customLocales.community.unreviewed"))).toBeInTheDocument();
-    expect(nl.getByRole("button", { name: `${t("customLocales.community.install")} Nederlands` })).toBeEnabled();
+    expect(nl.getByRole("button", { name: t("customLocales.community.installNamed", { name: "Nederlands" }) })).toBeEnabled();
     expect(nl.queryByText(t("customLocales.community.installed"))).toBeNull();
     expect(nl.getByText("Nederlands")).toHaveAttribute("lang", "nl");
     expect(nl.getByText("Nederlands")).toHaveAttribute("dir", "ltr");
@@ -110,7 +124,8 @@ describe("CommunityLanguages", () => {
       ),
     ).toBeInTheDocument();
     expect(he.getByText(t("customLocales.community.updateAvailable"))).toBeInTheDocument();
-    expect(he.getByRole("button", { name: `${t("customLocales.community.update")} עברית` })).toBeEnabled();
+    expect(he.getByTestId("community-status")).toHaveClass("MuiChip-colorInfo");
+    expect(he.getByRole("button", { name: t("customLocales.community.updateNamed", { name: "עברית" }) })).toBeEnabled();
     expect(he.getByText(t("customLocales.community.unreviewed"))).toBeInTheDocument();
 
     // Installed and current: no action.
@@ -118,6 +133,22 @@ describe("CommunityLanguages", () => {
     expect(sv.getByText(t("customLocales.community.installed"))).toBeInTheDocument();
     expect(sv.queryByRole("button")).toBeNull();
     expect(sv.queryByText(t("customLocales.community.updateAvailable"))).toBeNull();
+    expect(sv.getByTestId("community-status")).toHaveClass("MuiChip-colorSuccess");
+
+    // Added here by hand: never "Update available" — the pack would be merged
+    // into the admin's own language, and the button says so.
+    const pl = row("pl");
+    expect(pl.getByText(t("customLocales.community.addedHere"))).toBeInTheDocument();
+    expect(pl.queryByText(t("customLocales.community.updateAvailable"))).toBeNull();
+    expect(pl.getByTestId("community-status")).toHaveClass("MuiChip-colorDefault");
+    expect(
+      pl.getByRole("button", { name: t("customLocales.community.mergeNamed", { name: "Polski" }) }),
+    ).toHaveTextContent(t("customLocales.community.merge"));
+    expect(nl.queryByTestId("community-status")).toBeNull();
+
+    expect(
+      screen.getByText(t("customLocales.community.fetchedAt", { date: "D(2026-11-26T08:00:00+00:00)" })),
+    ).toBeInTheDocument();
 
     // Not loading any more: no bar.
     expect(screen.queryByRole("progressbar")).toBeNull();
@@ -133,6 +164,46 @@ describe("CommunityLanguages", () => {
     release(catalogue());
     await screen.findByText("Nederlands");
     expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("shows no date for a list it has never downloaded", async () => {
+    mockApi.on("get", CATALOGUE_PATH, catalogue({ fetched_at: null, error: "catalogue_unreachable", languages: [] }));
+    renderBlock();
+    await screen.findByRole("alert");
+    expect(screen.queryByText(/D\(/)).toBeNull();
+  });
+
+  it("re-reads the cached list when the section's languages changed", async () => {
+    mockApi.on("get", CATALOGUE_PATH, catalogue());
+    function Harness() {
+      const [version, setVersion] = useState(0);
+      return (
+        <>
+          <button onClick={() => setVersion((v) => v + 1)}>bump</button>
+          <CommunityLanguages onInstalled={onInstalled} listVersion={version} />
+        </>
+      );
+    }
+    const { user } = renderWithProviders(<Harness />);
+    await screen.findByText("Nederlands");
+    expect(mockApi.callsOf("get", CATALOGUE_PATH)).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "bump" }));
+    await waitFor(() => expect(mockApi.callsOf("get", CATALOGUE_PATH)).toHaveLength(2));
+    expect(mockApi.callsOf("get", REFRESH)).toHaveLength(0);
+  });
+
+  it("locks Refresh while a read is out", async () => {
+    let release!: (v: CommunityCatalogue) => void;
+    mockApi.on("get", CATALOGUE_PATH, catalogue());
+    mockApi.on("get", REFRESH, () => new Promise((r) => (release = r)));
+    const { user } = renderBlock();
+    await screen.findByText("Nederlands");
+    const refresh = screen.getByRole("button", { name: t("customLocales.community.refresh") });
+    expect(refresh).toBeEnabled();
+    await user.click(refresh);
+    await waitFor(() => expect(refresh).toBeDisabled());
+    release(catalogue());
+    await waitFor(() => expect(refresh).toBeEnabled());
   });
 
   it("downloads the library's list again only on Refresh", async () => {
@@ -188,11 +259,39 @@ describe("CommunityLanguages", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(t("customLocales.community.loadFailed"));
   });
 
-  it("says when the request itself fails", async () => {
-    mockApi.fail("get", CATALOGUE_PATH, 500, "boom");
-    renderBlock();
+  it("says when the request itself fails, and offers to try again", async () => {
+    mockApi.fail("get", CATALOGUE_PATH, 429, "boom");
+    mockApi.on("get", REFRESH, catalogue());
+    const { user } = renderBlock();
     expect(await screen.findByRole("alert")).toHaveTextContent(t("customLocales.community.loadFailed"));
     expect(screen.queryByText(t("customLocales.community.disabled"))).toBeNull();
+    await user.click(screen.getByRole("button", { name: t("customLocales.community.refresh") }));
+    expect(await screen.findByText("Nederlands")).toBeInTheDocument();
+  });
+
+  it("after Refresh, an install re-reads the cached list, not a new download", async () => {
+    mockApi.on("get", CATALOGUE_PATH, catalogue({ languages: [DUTCH] }));
+    mockApi.on("get", REFRESH, catalogue({ languages: [DUTCH] }));
+    mockApi.on("post", "/custom-locales/catalogue/nl/install", {
+      applied: 1,
+      unchanged: 0,
+      cleared: 0,
+      rejected: [],
+      unknown: 0,
+      created: true,
+      kept_manual: 0,
+      locale: { code: "nl" },
+    });
+    const { user } = renderBlock();
+    await screen.findByText("Nederlands");
+    await user.click(screen.getByRole("button", { name: t("customLocales.community.refresh") }));
+    await waitFor(() => expect(mockApi.callsOf("get", REFRESH)).toHaveLength(1));
+    await user.click(row("nl").getByRole("button"));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: t("customLocales.community.install") }));
+    await within(dialog).findByTestId("import-report");
+    await waitFor(() => expect(mockApi.callsOf("get", CATALOGUE_PATH)).toHaveLength(2));
+    expect(mockApi.callsOf("get", REFRESH)).toHaveLength(1);
   });
 
   it("installs through the dialog, then re-reads the cached list and tells the section", async () => {

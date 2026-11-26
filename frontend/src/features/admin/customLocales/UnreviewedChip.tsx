@@ -13,6 +13,8 @@ export default function UnreviewedChip() {
   return (
     <Tooltip title={t("customLocales.community.unreviewedHint")}>
       <Chip
+        // Focusable, so the explanation is not for mouse users only.
+        tabIndex={0}
         size="small"
         color="warning"
         variant="outlined"

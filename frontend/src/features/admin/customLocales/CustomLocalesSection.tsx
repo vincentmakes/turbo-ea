@@ -88,11 +88,15 @@ export default function CustomLocalesSection() {
     null,
   );
   const [error, setError] = useState("");
+  // Bumped on every change made here, so the community block re-reads which
+  // of its languages are installed.
+  const [listVersion, setListVersion] = useState(0);
 
   /** Re-read the list, then everything the change can have moved. */
   const afterChange = useCallback(
     (code?: string, labels = false) => {
       refetch();
+      setListVersion((n) => n + 1);
       refreshAfterChange(code, labels);
     },
     // Stryker disable next-line ArrayDeclaration: `refetch` is a stable useCallback, so [] and [refetch] memoise the same function
@@ -355,7 +359,14 @@ export default function CustomLocalesSection() {
         );
       })}
 
-      <CommunityLanguages onInstalled={(code) => afterChange(code, true)} />
+      <CommunityLanguages
+        listVersion={listVersion}
+        // Not `afterChange`: the block has already re-read its own list.
+        onInstalled={(code) => {
+          refetch();
+          refreshAfterChange(code, true);
+        }}
+      />
 
       <Menu
         anchorEl={exportAnchor?.el}

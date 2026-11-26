@@ -70,8 +70,8 @@ vi.mock("./TranslateDialog", () => ({
   ),
 }));
 vi.mock("./CommunityLanguages", () => ({
-  default: ({ onInstalled }: { onInstalled: (code: string) => void }) => (
-    <div data-testid="community-languages">
+  default: ({ onInstalled, listVersion }: { onInstalled: (code: string) => void; listVersion: number }) => (
+    <div data-testid="community-languages" data-version={listVersion}>
       <button onClick={() => onInstalled("nl")}>stub-installed</button>
     </div>
   ),
@@ -433,6 +433,16 @@ describe("CustomLocalesSection — dialogs", () => {
     await waitFor(() => expect(listReads()).toBe(2));
   });
 
+  it("tells the community block to re-read after a change made here", async () => {
+    const { user } = await renderSection();
+    mockApi.on("patch", "/custom-locales/he", { ...HEBREW, enabled: false });
+    expect(screen.getByTestId("community-languages")).toHaveAttribute("data-version", "0");
+    await user.click(row("he").getByRole("checkbox"));
+    await waitFor(() =>
+      expect(screen.getByTestId("community-languages")).toHaveAttribute("data-version", "1"),
+    );
+  });
+
   it("marks a language installed from the community library, and only that one", async () => {
     await renderSection([{ ...HEBREW, source: "community" }, HINDI_IDLE]);
     expect(row("he").getByText(t("customLocales.community.unreviewed"))).toBeInTheDocument();
@@ -442,8 +452,11 @@ describe("CustomLocalesSection — dialogs", () => {
 
   it("after an install from the community library refreshes the list, the language and the labels", async () => {
     const { user } = await renderSection();
+    expect(screen.getByTestId("community-languages")).toHaveAttribute("data-version", "0");
     await user.click(screen.getByText("stub-installed"));
     expect(spies.refreshCustomLocale).toHaveBeenCalledWith("nl");
+    // The block re-read its own list already: no second read asked for.
+    expect(screen.getByTestId("community-languages")).toHaveAttribute("data-version", "0");
     expect(spies.invalidateMetamodel).toHaveBeenCalledTimes(1);
     expect(spies.refreshBootstrap).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(listReads()).toBe(2));

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -103,7 +104,13 @@ class FakeLibrary:
     """``url → (status, body, headers)``; anything else is a 404."""
 
     routes: dict[str, tuple[int, bytes, dict[str, str]]] = field(default_factory=dict)
+    #: ``url → handler`` for a response the tuple cannot describe (a stream
+    #: with no length, a slow body); wins over ``routes``.
+    responders: dict[str, Callable[[httpx.Request], Any]] = field(default_factory=dict)
     requested: list[str] = field(default_factory=list)
+    headers: list[httpx.Headers] = field(default_factory=list)
+    #: Called with the request before it is answered (to observe the caller).
+    on_request: Callable[[httpx.Request], None] | None = None
     #: Sessions open at the moment of each request (see ``count_sessions``).
     open_at_request: list[int] = field(default_factory=list)
     open_sessions: int = 0
@@ -126,12 +133,17 @@ class FakeLibrary:
         self.serve(index_url, make_index(*entries))
         return out
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx.Request) -> Any:
         url = str(request.url)
         self.requested.append(url)
+        self.headers.append(request.headers)
         self.open_at_request.append(self.open_sessions)
+        if self.on_request is not None:
+            self.on_request(request)
         if self.error is not None:
             raise self.error
+        if url in self.responders:
+            return self.responders[url](request)
         status, body, headers = self.routes.get(url, (404, b"", {}))
         return httpx.Response(status, content=body, headers=headers)
 

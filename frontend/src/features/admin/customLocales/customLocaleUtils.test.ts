@@ -24,6 +24,7 @@ import {
   parseLanguagePack,
   percent,
   readFileText,
+  communityAction,
   originLabel,
   reasonLabel,
   STRING_ORIGINS,
@@ -368,6 +369,35 @@ describe("apiErrorCode / errorMessage", () => {
     );
     expect(errorMessage(new ApiError("m", 500, "boom"), t, "fallback")).toBe("fallback");
     expect(errorMessage(new Error("x"), t, "fallback")).toBe("fallback");
+  });
+});
+
+describe("communityAction", () => {
+  const base = {
+    code: "nl",
+    name: "N",
+    english_name: "Dutch",
+    rtl: false,
+    app_version: "2.214.0",
+    sha256: "a",
+    size: 1,
+    commit: null,
+    updated: null,
+    coverage: null,
+    strings: 1,
+    ui_strings: 1,
+    metamodel_strings: 0,
+    installed: false,
+    installed_from_community: false,
+    update_available: false,
+  };
+  it("installs, updates, merges or offers nothing", () => {
+    expect(communityAction(base)).toBe("install");
+    expect(communityAction({ ...base, installed: true, update_available: true })).toBe("merge");
+    expect(communityAction({ ...base, installed: true })).toBe("merge");
+    const fromLibrary = { ...base, installed: true, installed_from_community: true };
+    expect(communityAction({ ...fromLibrary, update_available: true })).toBe("update");
+    expect(communityAction(fromLibrary)).toBeNull();
   });
 });
 

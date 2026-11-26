@@ -46,11 +46,13 @@ Other Turbo EA users share their translations in the [community language library
 - A new language is added **switched off**. Look at it in **Review strings**, then switch it on for your users.
 - The report shows what was applied, what was rejected and why, and what is not in your version of Turbo EA.
 
-The language then shows as **installed**, and its row in your own list carries the **Community-provided, not reviewed** marker. In **Review strings**, each translation shows where it came from — *Community library*, *Corrected by hand*, *AI translation*, *Imported file* or *MCP*.
+The language then shows as **installed**, and its row in your own list carries the **Community-provided, not reviewed** marker. A failed install — a pack that cannot be downloaded, does not match the library's checksum or is not a valid pack — installs nothing and is recorded in the [Security & admin log](audit-log.md). In **Review strings**, each translation shows where it came from — *Community library*, *Corrected by hand*, *AI translation*, *Imported file* or *MCP*.
 
-When the library has a newer pack of a language you installed, the language shows **Update available**. **Update** merges the new pack into your language. Strings you corrected by hand are kept, unless you tick **Also replace the strings corrected by hand**. The name, direction and switch of your language are left as they are.
+When the library has a newer pack of a language you installed from it, the language shows **Update available**. **Update** merges the new pack into your language. Strings you corrected by hand are kept, unless you tick **Also replace the strings corrected by hand**. The name, direction and switch of your language are left as they are.
 
-Turbo EA contacts the library only when you open this section or click **Refresh** — never in the background. If the library cannot be reached, the block says so and keeps showing the list from the last successful download.
+If you added a language yourself and the library has the same code, its row shows **Added on this server** and offers **Add community strings**: the pack is merged into your language the same way — strings you corrected by hand are kept unless you choose otherwise — and the language is then marked as community-provided.
+
+Turbo EA contacts the library only when you ask: the first time the section is shown, the list is downloaded and kept; after that, the kept list is shown (with the date it was downloaded) until you click **Refresh**. Nothing is checked in the background, so a newer pack shows as **Update available** only after a refresh. If the library cannot be reached, the block says so and keeps showing the list from the last successful download.
 
 ### Turning the library off
 

@@ -10,9 +10,11 @@ project**, so everything read from the network here is untrusted:
   Refresh) — never on a timer, never at startup — and cached in its own
   ``catalogue_cache`` row (``catalogue_common.set_cached_remote``), never in
   ``general_settings``.
-* Every download is https only, follows no redirect to another host, has a
-  timeout, and is capped while it streams (:data:`MAX_INDEX_BYTES`,
-  :data:`MAX_PACK_BYTES` — the library's own cap on a pack).
+* Every download is https only, follows no redirect to another host or port,
+  has a timeout per operation and in total, takes only an uncompressed body
+  (so no gzip bomb is ever inflated), and is capped while it streams
+  (:data:`MAX_INDEX_BYTES`, :data:`MAX_PACK_BYTES` — the library's own cap on
+  a pack).
 * The index is validated field by field (:func:`parse_entry`): a bad entry is
   dropped, a bad file is an error the UI shows. Nothing in it steers where the
   app downloads from — its ``pack_url`` and ``path`` are ignored: a pack's URL
@@ -32,6 +34,7 @@ project**, so everything read from the network here is untrusted:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -67,7 +70,17 @@ MAX_LANGUAGES = 500
 MAX_NAME_LENGTH = 100
 MAX_COUNT = 1_000_000
 MAX_REDIRECTS = 3
+#: Per network operation; :data:`TOTAL_TIMEOUT` bounds a whole download, so a
+#: server sending a byte every few seconds cannot hold it for hours.
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)
+TOTAL_TIMEOUT = 60.0
+#: A real pack has the English catalogue's keys (about 7 700), its plural
+#: extras and a few hundred database labels; the library caps the labels at
+#: 5 000. Anything beyond is not a pack, and its per-key report would be huge.
+MAX_PACK_KEYS = 20_000
+#: The longest English key is under 70 characters; a database-label key under
+#: a few hundred.
+MAX_PACK_KEY_LENGTH = 300
 #: Where a pack can be pinned to the commit the index names.
 RAW_GITHUB_HOST = "raw.githubusercontent.com"
 
@@ -135,42 +148,60 @@ def _client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False)
 
 
+def _origin(url: str) -> tuple[str | None, int]:
+    """Host and port of an https URL (443 when none is given)."""
+    parts = urlsplit(url)
+    return parts.hostname, parts.port or 443
+
+
+async def _download(url: str, limit: int, *, unreachable: str, too_large: str) -> bytes:
+    origin = _origin(url)
+    current = url
+    async with _client() as client:
+        for _hop in range(MAX_REDIRECTS + 1):
+            # ``identity``: the body is counted as it arrives on the wire,
+            # never inflated first (``aiter_raw`` does not decode either).
+            async with client.stream(
+                "GET", current, headers={"Accept-Encoding": "identity"}
+            ) as resp:
+                if resp.is_redirect:
+                    target = urljoin(current, resp.headers.get("location", ""))
+                    if not is_https_url(target) or _origin(target) != origin:
+                        raise CatalogueError(unreachable)
+                    current = target
+                    continue
+                if resp.status_code != 200:
+                    raise CatalogueError(unreachable)
+                if resp.headers.get("content-encoding", "identity").strip().lower() != "identity":
+                    raise CatalogueError(unreachable)
+                declared = resp.headers.get("content-length", "")
+                if declared.isdigit() and int(declared) > limit:
+                    raise CatalogueError(too_large)
+                body = bytearray()
+                async for chunk in resp.aiter_raw():
+                    body.extend(chunk)
+                    if len(body) > limit:
+                        raise CatalogueError(too_large)
+                return bytes(body)
+    raise CatalogueError(unreachable)
+
+
 async def fetch_limited(url: str, limit: int, *, unreachable: str, too_large: str) -> bytes:
     """GET ``url`` and return at most ``limit`` bytes of body.
 
     https only; a redirect is followed (at most :data:`MAX_REDIRECTS`) only to
-    another https URL on the same host; anything but a 200 is ``unreachable``;
-    a body over ``limit`` — declared, or counted while it streams — is
-    ``too_large``."""
+    another https URL on the same host and port; anything but a 200, a
+    compressed body, a network error or a download longer than
+    :data:`TOTAL_TIMEOUT` is ``unreachable``; a body over ``limit`` — declared,
+    or counted while it streams — is ``too_large``."""
     if not is_https_url(url):
         raise CatalogueError(unreachable)
-    host = urlsplit(url).hostname
-    current = url
     try:
-        async with _client() as client:
-            for _hop in range(MAX_REDIRECTS + 1):
-                async with client.stream("GET", current) as resp:
-                    if resp.is_redirect:
-                        target = urljoin(current, resp.headers.get("location", ""))
-                        if not is_https_url(target) or urlsplit(target).hostname != host:
-                            raise CatalogueError(unreachable)
-                        current = target
-                        continue
-                    if resp.status_code != 200:
-                        raise CatalogueError(unreachable)
-                    declared = resp.headers.get("content-length", "")
-                    if declared.isdigit() and int(declared) > limit:
-                        raise CatalogueError(too_large)
-                    body = bytearray()
-                    async for chunk in resp.aiter_bytes():
-                        body.extend(chunk)
-                        if len(body) > limit:
-                            raise CatalogueError(too_large)
-                    return bytes(body)
-    except httpx.HTTPError as exc:
+        async with asyncio.timeout(TOTAL_TIMEOUT):
+            return await _download(url, limit, unreachable=unreachable, too_large=too_large)
+    except (httpx.HTTPError, TimeoutError) as exc:
         logger.warning("Language library download failed: %s", type(exc).__name__)
         raise CatalogueError(unreachable) from exc
-    raise CatalogueError(unreachable)
 
 
 def pack_url(index_url: str, code: str, commit: str | None) -> str:
@@ -382,8 +413,13 @@ async def catalogue(url: str, *, refresh: bool) -> dict[str, Any]:
             error = exc.code
         else:
             async with _session() as db:
-                stamp = await write_cached(db, url, languages)
-                await db.commit()
+                try:
+                    stamp = await write_cached(db, url, languages)
+                    await db.commit()
+                except IntegrityError:
+                    # A concurrent first read cached it in the meantime.
+                    await db.rollback()
+                    stamp = None
             cached = Cached(languages=languages, fetched_at=stamp)
     async with _session() as db:
         installed = {loc.code: loc for loc in await store.list_locales(db)}
@@ -414,10 +450,32 @@ def read_pack(data: bytes, code: str, cat: lp.Catalog) -> dict[str, Any]:
         raise CatalogueError(PACK_CODE_MISMATCH)
     if not _is_name(locale.get("name")) or not isinstance(locale.get("rtl"), bool):
         raise CatalogueError(PACK_INVALID)
+    if not _within_bounds(pack.get("strings")) or not _within_bounds(pack.get("source_hashes")):
+        raise CatalogueError(PACK_INVALID)
     problems = lp.validate_pack(pack, cat)
-    if any(not p["namespace"] and not p["key"] for p in problems):
+    # A problem with the file itself, or a key no export can hold (control or
+    # bidi characters): the pack is not a genuine export.
+    if any((not p["namespace"] and not p["key"]) or p["reason"] == "bad_key" for p in problems):
         raise CatalogueError(PACK_INVALID)
     return pack
+
+
+def _within_bounds(sections: Any) -> bool:
+    """At most :data:`MAX_PACK_KEYS` keys of at most
+    :data:`MAX_PACK_KEY_LENGTH` characters (a missing section is the file
+    checks' business)."""
+    if not isinstance(sections, Mapping):
+        return True
+    total = 0
+    for name, entries in sections.items():
+        if len(str(name)) > MAX_PACK_KEY_LENGTH:
+            return False
+        if not isinstance(entries, Mapping):
+            continue
+        total += len(entries)
+        if total > MAX_PACK_KEYS or any(len(k) > MAX_PACK_KEY_LENGTH for k in entries):
+            return False
+    return True
 
 
 @dataclass
@@ -486,6 +544,8 @@ async def apply_pack(
     code = entry["code"]
     locale = await store.get_locale(db, code, lock=True)
     created = locale is None
+    # ``None`` for a language added here by hand that the pack is merged into.
+    previous_source = locale.source if locale is not None else None
     if locale is None:
         header = pack["locale"]
         locale = CustomLocale(
@@ -528,6 +588,7 @@ async def apply_pack(
         context={
             "code": code,
             "created": created,
+            "previous_source": previous_source,
             "sha256": entry["sha256"],
             "commit": entry["commit"],
             "overwrite_manual": overwrite_manual,
@@ -560,6 +621,24 @@ async def install(
     entry = next((e for e in cached.languages if e["code"] == code), None) if cached else None
     if entry is None:
         raise CatalogueError(NOT_LISTED)
+    try:
+        pack, cat = await _fetch_pack(url, entry)
+    except CatalogueError as exc:
+        # A refused download is worth a line in the Security log: a checksum
+        # mismatch is what a tampered library looks like.
+        await _record_refusal(entry, exc.code, actor=actor, action=action)
+        raise
+    async with _session() as db:
+        result = await apply_pack(
+            db, pack, entry, cat, overwrite_manual=overwrite_manual, actor=actor, action=action
+        )
+        await db.commit()
+    return result
+
+
+async def _fetch_pack(url: str, entry: Mapping[str, Any]) -> tuple[dict[str, Any], lp.Catalog]:
+    """Download, verify and read the pack of ``entry`` (no session open)."""
+    code = entry["code"]
     data = await fetch_limited(
         pack_url(url, code, entry["commit"]),
         MAX_PACK_BYTES,
@@ -571,10 +650,27 @@ async def install(
     cat = store.catalog()
     if cat is None:
         raise CatalogueError(CATALOG_UNAVAILABLE)
-    pack = read_pack(data, code, cat)
+    return read_pack(data, code, cat), cat
+
+
+async def _record_refusal(
+    entry: Mapping[str, Any], reason: str, *, actor: Any, action: str
+) -> None:
+    """A ``failure`` row of the install action, in a short session of its own."""
     async with _session() as db:
-        result = await apply_pack(
-            db, pack, entry, cat, overwrite_manual=overwrite_manual, actor=actor, action=action
+        await audit_log.record(
+            db,
+            action=action,
+            category="admin",
+            outcome="failure",
+            actor=actor,
+            target=("custom_locale", None, entry["name"]),
+            context={
+                "code": entry["code"],
+                # An enumeration code, labelled through securityLog.values.*.
+                "refusal": reason,
+                "sha256": entry["sha256"],
+                "commit": entry["commit"],
+            },
         )
         await db.commit()
-    return result

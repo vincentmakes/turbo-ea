@@ -67,6 +67,38 @@ class TestPermissions:
         assert (await client.post(f"{BASE}/nl/install", json={})).status_code == 401
 
 
+class TestNoConnectionHeldAcrossADownload:
+    """The route's own session read the user and the permission; it commits
+    (handing the pooled connection back) before the service downloads."""
+
+    @pytest.fixture
+    def timeline(self, library, db, monkeypatch):
+        events: list[str] = []
+        commit = db.commit
+
+        async def recording_commit():
+            events.append("commit")
+            await commit()
+
+        monkeypatch.setattr(db, "commit", recording_commit)
+        library.on_request = lambda request: events.append("download")
+        return events
+
+    async def test_listing(self, client, env, library, timeline):
+        library.publish(make_pack())
+        await _list(client, env["admin"])
+        assert timeline[:2] == ["commit", "download"]
+        assert library.open_at_request == [0]
+
+    async def test_installing(self, client, env, library, timeline):
+        library.publish(make_pack())
+        await _list(client, env["admin"])
+        timeline.clear()
+        await _install(client, env["admin"])
+        assert timeline[:2] == ["commit", "download"]
+        assert library.open_at_request == [0, 0]
+
+
 class TestList:
     async def test_the_library_is_listed(self, client, env, library):
         library.publish(make_pack(), make_pack("fy"))

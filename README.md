@@ -610,8 +610,8 @@ npm run build         # TypeScript check + production build
 | `AI_MODEL` | *(empty)* | LLM model name (e.g., `gemma3:4b`) |
 | `AI_SEARCH_PROVIDER` | `duckduckgo` | Web search provider: `duckduckgo`, `google`, or `searxng` |
 | `AI_SEARCH_URL` | *(empty)* | Search provider URL (SearXNG URL or `API_KEY:CX` for Google) |
-| `LANGUAGE_CATALOGUE_URL` | community library | `index.json` of the community language library listed in Custom Languages; empty switches it off |
 | `AI_AUTO_CONFIGURE` | `false` | Auto-enable AI on startup if provider is reachable |
+| `LANGUAGE_CATALOGUE_URL` | community library | `index.json` of the community language library listed in Custom Languages; empty switches it off |
 | `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose; code default `http://localhost:8001`) | (MCP server) Public URL for OAuth metadata |
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Public-facing Turbo EA URL (also drives bundled nginx hostname/proto, and is the base of links MCP tools return; unset, the MCP server uses the origin of `MCP_PUBLIC_URL`) |
