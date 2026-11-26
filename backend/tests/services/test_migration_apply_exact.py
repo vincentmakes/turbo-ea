@@ -948,6 +948,36 @@ async def test_the_imported_category_is_adopted_into_the_registry(db, env):
     assert (rows[0].label, rows[0].built_in) == ("Imported", False)
 
 
+async def test_an_imported_type_defines_the_roles_its_subscriptions_use(db, env):
+    """Imported subscriptions land as ``responsible`` / ``observer``. Without a
+    definition row each such role granted nothing and vanished from the type
+    the moment an admin added a role of their own (#1437)."""
+    from app.core.permissions import OBSERVER_CARD_PERMISSIONS, RESPONSIBLE_CARD_PERMISSIONS
+    from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+    await stage(db, env, "metamodel_type", "Server", data={"proposed_tea_key": "Server"})
+    await stage(db, env, "metamodel_type", "App", data={"proposed_tea_key": "Application"})
+    await ap._apply_metamodel_type_pass(db, env.m, env.admin)
+    rows = (
+        (
+            await db.execute(
+                select(StakeholderRoleDefinition).order_by(
+                    StakeholderRoleDefinition.card_type_key, StakeholderRoleDefinition.sort_order
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    # The existing Application type is matched, not created, so it gets none.
+    assert [(r.card_type_key, r.key, r.counts_for_quality) for r in rows] == [
+        ("Server", "responsible", True),
+        ("Server", "observer", False),
+    ]
+    assert rows[0].permissions == RESPONSIBLE_CARD_PERMISSIONS
+    assert rows[1].permissions == OBSERVER_CARD_PERMISSIONS
+
+
 async def test_custom_fields_land_in_an_imported_section(db, env):
     env.m.field_mappings = {"LXApp": {"mapped": "description", "dropped": "__skip__"}}
     await db.flush()

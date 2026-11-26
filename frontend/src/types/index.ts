@@ -133,6 +133,10 @@ export interface StakeholderRoleDef {
   /** What the role means; translated under `translations.description`. */
   description?: string | null;
   translations?: MetamodelTranslations;
+  /** Whether holding the role fills the data-quality slot. Off for passive
+   *  roles (Observer by default), which a card lists apart from the owners.
+   *  Absent means counting. */
+  counts_for_quality?: boolean;
 }
 
 /**

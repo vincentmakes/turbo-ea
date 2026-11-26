@@ -207,6 +207,8 @@ Stakeholder assignments affect **permissions**: a user's effective permissions o
 
 Where a role has a **colour** set in the metamodel, its group is marked with it, so you can pick out an owner from an observer at a glance.
 
+Roles appear in the order your administrator set for the card type. Roles that don't make anyone an owner of the card, such as **Observer**, come last under **Following this card**: the people listed there follow the card and are kept informed, but they don't count as its owners or toward its data quality.
+
 Where a role has a **description**, an info icon appears beside its name: hover over it to read what the role means. The description also shows under the role's name in the role picker when you add a stakeholder.
 
 ### Searching and inviting

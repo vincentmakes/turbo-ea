@@ -222,6 +222,32 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
   /* --- Filter by archived --- */
   const displayRoles = showArchived ? roles : roles.filter((r) => !r.is_archived);
 
+  /* --- Reorder (#1439) ---
+   * A role swaps places with its visible neighbour; the PUT takes every key of
+   * the type, archived roles included, so hidden ones keep their place. */
+  const [moving, setMoving] = useState(false);
+  const moveRole = async (roleKey: string, delta: -1 | 1) => {
+    const index = displayRoles.findIndex((r) => r.key === roleKey);
+    const neighbour = displayRoles[index + delta];
+    if (index < 0 || !neighbour) return;
+    const keys = roles.map((r) => r.key);
+    const a = keys.indexOf(roleKey);
+    const b = keys.indexOf(neighbour.key);
+    [keys[a], keys[b]] = [keys[b], keys[a]];
+    setMoving(true);
+    try {
+      const list = await api.put<StakeholderRoleDefinitionFull[]>(
+        `/metamodel/types/${typeKey}/stakeholder-roles/order`,
+        { keys },
+      );
+      setRoles(list);
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToReorder"));
+    } finally {
+      setMoving(false);
+    }
+  };
+
   /* --- Create role --- */
   const createFormValid = isValidRoleKey(createForm.key) && !!createForm.label;
   const createFormDirty =
@@ -543,13 +569,18 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
       </Box>
 
       {/* Role list */}
+      {displayRoles.length > 1 && (
+        <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
+          {t("metamodel.stakeholderPanel.orderHelp")}
+        </Typography>
+      )}
       {displayRoles.length === 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           {showArchived ? t("metamodel.stakeholderPanel.noRoles") : t("metamodel.stakeholderPanel.noActiveRoles")}
         </Typography>
       )}
 
-      {displayRoles.map((role) => {
+      {displayRoles.map((role, roleIndex) => {
         const isEditing = editRoleKey === role.key;
         const isExpanded = expandedRole === role.key;
 
@@ -602,6 +633,30 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
                     sx={{ height: 20, fontSize: 11 }}
                   />
                 )}
+                <Tooltip title={t("metamodel.stakeholderPanel.moveUp")}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      aria-label={`${t("metamodel.stakeholderPanel.moveUp")}: ${role.label}`}
+                      disabled={moving || roleIndex === 0}
+                      onClick={() => moveRole(role.key, -1)}
+                    >
+                      <MaterialSymbol icon="arrow_upward" size={18} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title={t("metamodel.stakeholderPanel.moveDown")}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      aria-label={`${t("metamodel.stakeholderPanel.moveDown")}: ${role.label}`}
+                      disabled={moving || roleIndex === displayRoles.length - 1}
+                      onClick={() => moveRole(role.key, 1)}
+                    >
+                      <MaterialSymbol icon="arrow_downward" size={18} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
                 <IconButton
                   size="small"
                   onClick={() => setExpandedRole(isExpanded ? null : role.key)}

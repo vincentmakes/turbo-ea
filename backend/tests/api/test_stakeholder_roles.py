@@ -1097,3 +1097,108 @@ class TestLegacyPermissionKeys:
         messages = " ".join(d.get("msg", "") for d in response.json()["detail"])
         assert "fake.permission" in messages
         assert "card.quality_seal" not in messages
+
+
+# ---------------------------------------------------------------------------
+# PUT /metamodel/types/{type_key}/stakeholder-roles/order (#1439)
+# ---------------------------------------------------------------------------
+
+
+class TestReorderStakeholderRoles:
+    URL = "/api/v1/metamodel/types/Application/stakeholder-roles/order"
+
+    async def _env(self, db):
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        for i, (key, label) in enumerate(
+            [("responsible", "Responsible"), ("observer", "Observer"), ("dataSteward", "Steward")]
+        ):
+            await create_stakeholder_role_def(
+                db, card_type_key="Application", key=key, label=label, sort_order=i
+            )
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="formerOwner",
+            label="Former",
+            sort_order=3,
+            is_archived=True,
+        )
+        return admin
+
+    async def _audit(self, db):
+        from sqlalchemy import select
+
+        from app.models.audit_log import AuditLogEntry
+
+        await db.rollback()
+        rows = await db.execute(
+            select(AuditLogEntry).where(AuditLogEntry.action == "admin.stakeholder_role.reordered")
+        )
+        return list(rows.scalars().all())
+
+    async def test_reorder_persists_and_is_audited(self, client, db):
+        admin = await self._env(db)
+        order = ["dataSteward", "responsible", "formerOwner", "observer"]
+        r = await client.put(self.URL, json={"keys": order}, headers=auth_headers(admin))
+        assert r.status_code == 200, r.text
+        assert [x["key"] for x in r.json()] == order
+        assert [x["sort_order"] for x in r.json()] == [0, 1, 2, 3]
+        # The archived role comes back too: the panel lists it under its toggle.
+        assert r.json()[2]["is_archived"] is True
+
+        picker = await client.get(
+            "/api/v1/stakeholder-roles?type_key=Application", headers=auth_headers(admin)
+        )
+        assert [x["key"] for x in picker.json()] == ["dataSteward", "responsible", "observer"]
+
+        (row,) = await self._audit(db)
+        assert (row.target_type, row.target_id, row.target_label) == (
+            "card_type",
+            "Application",
+            "Application",
+        )
+        assert row.details == {
+            "context": {
+                "card_type": "Application",
+                "order": ["Steward", "Responsible", "Former", "Observer"],
+            }
+        }
+
+    async def test_an_unchanged_order_writes_no_audit_row(self, client, db):
+        admin = await self._env(db)
+        order = ["responsible", "observer", "dataSteward", "formerOwner"]
+        r = await client.put(self.URL, json={"keys": order}, headers=auth_headers(admin))
+        assert r.status_code == 200, r.text
+        assert await self._audit(db) == []
+
+    async def test_every_role_must_be_listed_once(self, client, db):
+        admin = await self._env(db)
+        for keys in (
+            ["responsible", "observer", "dataSteward"],  # archived role left out
+            ["responsible", "observer", "dataSteward", "formerOwner", "ghost"],
+            ["responsible", "observer", "dataSteward", "formerOwner", "observer"],
+        ):
+            r = await client.put(self.URL, json={"keys": keys}, headers=auth_headers(admin))
+            assert r.status_code == 400, keys
+
+    async def test_unknown_type_is_404(self, client, db):
+        admin = await self._env(db)
+        r = await client.put(
+            "/api/v1/metamodel/types/Nope/stakeholder-roles/order",
+            json={"keys": []},
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 404
+
+    async def test_requires_admin_metamodel(self, client, db):
+        await self._env(db)
+        await create_role(db, key="viewer", label="Viewer", permissions={"inventory.view": True})
+        viewer = await create_user(db, email="viewer@test.com", role="viewer")
+        r = await client.put(
+            self.URL,
+            json={"keys": ["observer", "responsible", "dataSteward", "formerOwner"]},
+            headers=auth_headers(viewer),
+        )
+        assert r.status_code == 403

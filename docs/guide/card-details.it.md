@@ -207,6 +207,8 @@ Le assegnazioni degli stakeholder influenzano i **permessi**: i permessi effetti
 
 Quando un ruolo ha un **colore** impostato nel metamodello, il suo gruppo ne viene contrassegnato, così da distinguere a colpo d'occhio un proprietario da un osservatore.
 
+I ruoli compaiono nell'ordine impostato dal vostro amministratore per il tipo di scheda. I ruoli che non rendono nessuno responsabile della scheda, come **Osservatore**, vengono per ultimi sotto **Seguono questa scheda**: le persone elencate seguono la scheda e restano informate, ma non contano come responsabili né per la sua qualità dei dati.
+
 Dove un ruolo ha una **descrizione**, accanto al suo nome compare un'icona informativa: passaci sopra il cursore per leggere che cosa significa il ruolo. La descrizione compare anche sotto il nome del ruolo nel selettore dei ruoli quando aggiungi uno stakeholder.
 
 ### Ricerca e invito

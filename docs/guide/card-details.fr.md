@@ -207,6 +207,8 @@ Les affectations de parties prenantes affectent les **permissions** : les permis
 
 Lorsqu'une **couleur** est définie pour un rôle dans le métamodèle, son groupe en est marqué, ce qui permet de distinguer un propriétaire d'un observateur d'un coup d'œil.
 
+Les rôles apparaissent dans l'ordre défini par votre administrateur pour le type de fiche. Les rôles qui ne font de personne un responsable de la fiche, comme **Observateur**, viennent en dernier sous **Suivent cette fiche** : les personnes listées ici suivent la fiche et restent informées, mais elles ne comptent ni comme ses responsables ni pour sa qualité des données.
+
 Lorsqu'un rôle possède une **description**, une icône d'information apparaît à côté de son nom : survolez-la pour lire ce que signifie le rôle. La description s'affiche aussi sous le nom du rôle dans le sélecteur de rôle lorsque vous ajoutez une partie prenante.
 
 ### Recherche et invitation

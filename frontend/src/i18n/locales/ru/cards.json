@@ -248,6 +248,8 @@
   "stakeholders.user": "Пользователь",
   "stakeholders.userPlaceholder": "Поиск по имени или email",
   "stakeholders.noneAssigned": "{{role}} не назначен",
+  "stakeholders.followingHeading": "Следят за этой карточкой",
+  "stakeholders.followingHelp": "Люди с этими ролями следят за карточкой и получают информацию о ней. Они не считаются её владельцами и не учитываются в качестве её данных.",
   "stakeholders.inviteOption": "Добавить «{{email}}» как нового пользователя",
   "stakeholders.inviteNewUser": "Добавить нового пользователя…",
   "stakeholders.inviteFormTitle": "Добавить нового пользователя",

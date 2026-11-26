@@ -17354,6 +17354,23 @@
         "title": "StakeholderRoleCreate",
         "type": "object"
       },
+      "StakeholderRoleOrder": {
+        "properties": {
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "title": "StakeholderRoleOrder",
+        "type": "object"
+      },
       "StakeholderRoleUpdate": {
         "properties": {
           "color": {
@@ -35563,6 +35580,57 @@
           }
         },
         "summary": "Create Stakeholder Role",
+        "tags": [
+          "stakeholder-roles"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{type_key}/stakeholder-roles/order": {
+      "put": {
+        "description": "Rewrite the order of a type's stakeholder roles (#1439).\n\n``keys`` must list every role of the type exactly once, archived roles\nincluded, so a reorder can never drop or double one \u2014 the rule\n``PUT /metamodel/categories/order`` follows. Cards, the role picker and the\ninventory's stakeholder columns all read this order.",
+        "operationId": "reorder_stakeholder_roles_api_v1_metamodel_types__type_key__stakeholder_roles_order_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type_key",
+            "required": true,
+            "schema": {
+              "title": "Type Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StakeholderRoleOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reorder Stakeholder Roles",
         "tags": [
           "stakeholder-roles"
         ]

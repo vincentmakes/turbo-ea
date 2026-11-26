@@ -218,6 +218,8 @@
   "stakeholders.user": "Bruger",
   "stakeholders.userPlaceholder": "Søg efter navn eller e-mail",
   "stakeholders.noneAssigned": "Ingen {{role}} tildelt",
+  "stakeholders.followingHeading": "Følger dette kort",
+  "stakeholders.followingHelp": "Personer i disse roller følger kortet og holdes orienteret. De tæller ikke som kortets ejere eller med i dets datakvalitet.",
   "stakeholders.inviteOption": "Tilføj «{{email}}» som ny bruger",
   "stakeholders.inviteNewUser": "Tilføj en ny bruger…",
   "stakeholders.inviteFormTitle": "Tilføj ny bruger",

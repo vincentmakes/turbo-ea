@@ -53,6 +53,8 @@ async def list_roles(
                 # The legacy JSONB list and the defaults carry no description.
                 "description": r.get("description"),
                 "translations": r.get("translations", {}),
+                # Passive roles (Observer by default) are shown apart on a card.
+                "counts_for_quality": r.get("counts_for_quality", True),
             }
             for r in roles
         ]

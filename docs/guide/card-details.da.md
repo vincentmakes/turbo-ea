@@ -204,6 +204,8 @@ Interessenttildelinger påvirker **tilladelser**: en brugers effektive tilladels
 
 Når en rolle har en **farve** angivet i metamodellen, markeres dens gruppe med den, så du med et enkelt blik kan skelne en ejer fra en observatør.
 
+Roller vises i den rækkefølge, din administrator har fastsat for korttypen. Roller, der ikke gør nogen til ejer af kortet, fx **Observatør**, kommer sidst under **Følger dette kort**: de personer, der er opført der, følger kortet og holdes orienteret, men tæller ikke som kortets ejere eller med i dets datakvalitet.
+
 Hvor en rolle har en **beskrivelse**, vises et infoikon ved siden af dens navn: hold musen over det for at læse, hvad rollen betyder. Beskrivelsen vises også under rollens navn i rollevælgeren, når du tilføjer en interessent.
 
 ### Søgning og invitation

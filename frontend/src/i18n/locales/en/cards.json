@@ -218,6 +218,8 @@
   "stakeholders.user": "User",
   "stakeholders.userPlaceholder": "Search by name or email",
   "stakeholders.noneAssigned": "No {{role}} assigned",
+  "stakeholders.followingHeading": "Following this card",
+  "stakeholders.followingHelp": "People in these roles follow the card and are kept informed. They don't count as its owners or toward its data quality.",
   "stakeholders.inviteOption": "Add «{{email}}» as a new user",
   "stakeholders.inviteNewUser": "Add a new user…",
   "stakeholders.inviteFormTitle": "Add new user",

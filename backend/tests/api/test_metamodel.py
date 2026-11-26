@@ -11,8 +11,14 @@ import json
 import pytest
 from sqlalchemy import select
 
-from app.core.permissions import VIEWER_PERMISSIONS
+from app.core.permissions import (
+    OBSERVER_CARD_PERMISSIONS,
+    RESPONSIBLE_CARD_PERMISSIONS,
+    VIEWER_PERMISSIONS,
+)
 from app.models.card_type import CardType
+from app.models.stakeholder import Stakeholder
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -95,6 +101,141 @@ class TestCreateType:
         role_keys = [r["key"] for r in data["stakeholder_roles"]]
         assert "responsible" in role_keys
         assert "observer" in role_keys
+
+    async def test_new_type_defines_its_default_roles(self, client, db, metamodel_env):
+        # #1437: the defaults were stored in the legacy JSONB list only, so they
+        # had no definition row — no permissions, and gone once a role was added.
+        admin = metamodel_env["admin"]
+        r = await client.post(
+            "/api/v1/metamodel/types",
+            json={"key": "CustomWidget", "label": "Custom Widget"},
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 201, r.text
+        rows = (
+            (
+                await db.execute(
+                    select(StakeholderRoleDefinition)
+                    .where(StakeholderRoleDefinition.card_type_key == "CustomWidget")
+                    .order_by(StakeholderRoleDefinition.sort_order)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [(s.key, s.label, s.sort_order) for s in rows] == [
+            ("responsible", "Responsible", 0),
+            ("observer", "Observer", 1),
+        ]
+        by_key = {s.key: s for s in rows}
+        assert by_key["responsible"].permissions == RESPONSIBLE_CARD_PERMISSIONS
+        assert by_key["observer"].permissions == OBSERVER_CARD_PERMISSIONS
+        assert by_key["responsible"].counts_for_quality is True
+        assert by_key["observer"].counts_for_quality is False
+
+    async def test_adding_a_role_keeps_the_defaults(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        r = await client.post(
+            "/api/v1/metamodel/types",
+            json={"key": "CustomWidget", "label": "Custom Widget"},
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 201, r.text
+        r = await client.post(
+            "/api/v1/metamodel/types/CustomWidget/stakeholder-roles",
+            json={"key": "dataSteward", "label": "Data Steward", "permissions": {}},
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 201, r.text
+
+        picker = await client.get(
+            "/api/v1/stakeholder-roles?type_key=CustomWidget", headers=auth_headers(admin)
+        )
+        assert picker.status_code == 200
+        assert [x["key"] for x in picker.json()] == ["responsible", "observer", "dataSteward"]
+        admin_list = await client.get(
+            "/api/v1/metamodel/types/CustomWidget/stakeholder-roles",
+            headers=auth_headers(admin),
+        )
+        assert [x["key"] for x in admin_list.json()] == [
+            "responsible",
+            "observer",
+            "dataSteward",
+        ]
+
+    async def test_a_responsible_on_a_new_type_can_edit(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        r = await client.post(
+            "/api/v1/metamodel/types",
+            json={"key": "CustomWidget", "label": "Custom Widget"},
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 201, r.text
+        viewer = metamodel_env["viewer"]
+        card = await create_card(db, card_type="CustomWidget", name="W1", user_id=admin.id)
+        db.add(Stakeholder(card_id=card.id, user_id=viewer.id, role="responsible"))
+        await db.flush()
+
+        r = await client.get(
+            f"/api/v1/cards/{card.id}/my-permissions", headers=auth_headers(viewer)
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["stakeholder_roles"] == ["responsible"]
+        assert body["effective"]["can_edit"] is True
+
+    async def test_named_roles_are_defined_and_bad_entries_skipped(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        r = await client.post(
+            "/api/v1/metamodel/types",
+            json={
+                "key": "CustomWidget",
+                "label": "Custom Widget",
+                "stakeholder_roles": [
+                    {"key": "owner", "label": "Owner"},
+                    {"key": "owner", "label": "Twice"},
+                    {"label": "No key"},
+                    "observer",
+                    {"key": "x" * 51},
+                    {"key": "steward", "label": "  "},
+                ],
+            },
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 201, r.text
+        rows = (
+            (
+                await db.execute(
+                    select(StakeholderRoleDefinition).where(
+                        StakeholderRoleDefinition.card_type_key == "CustomWidget"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        # An unknown key starts with no permissions, for the admin to tick.
+        assert {(s.key, s.label, json.dumps(s.permissions)) for s in rows} == {
+            ("owner", "Owner", "{}"),
+            ("steward", "steward", "{}"),
+        }
+
+    async def test_an_empty_role_list_gets_the_defaults(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        r = await client.post(
+            "/api/v1/metamodel/types",
+            json={"key": "CustomWidget", "label": "Custom Widget", "stakeholder_roles": []},
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 201, r.text
+        keys = (
+            await db.execute(
+                select(StakeholderRoleDefinition.key).where(
+                    StakeholderRoleDefinition.card_type_key == "CustomWidget"
+                )
+            )
+        ).scalars()
+        assert set(keys) == {"responsible", "observer"}
 
     async def test_duplicate_key_rejected(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]
@@ -2328,7 +2469,8 @@ class TestMetamodelAudit:
                 "relation_count": 0,
                 "relation_types_removed": ["depends on"],
                 "calculation_count": 0,
-                "stakeholder_role_count": 0,
+                # Responsible and Observer, defined when the type was created (#1437).
+                "stakeholder_role_count": 2,
             }
         }
 

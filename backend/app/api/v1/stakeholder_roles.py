@@ -23,7 +23,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey
 from app.models.user import User
-from app.services import audit_changes, audit_labels, audit_log
+from app.services import audit_changes, audit_labels, audit_log, stakeholder_service
 from app.services.card_read_scope import CardReadScope
 from app.services.data_quality import rescore_card_type
 from app.services.permission_service import PermissionService
@@ -151,6 +151,11 @@ class StakeholderRoleUpdate(BaseModel):
             if unknown:
                 raise ValueError(f"Unknown permission keys: {', '.join(sorted(unknown))}")
         return v
+
+
+class StakeholderRoleOrder(BaseModel):
+    # Every role key of the type, archived ones included, in the new order.
+    keys: list[str] = Field(..., max_length=500)
 
 
 # ---------------------------------------------------------------------------
@@ -710,6 +715,60 @@ async def restore_stakeholder_role(
     PermissionService.invalidate_srd_cache(type_key, role_key)
 
     return _srd_response(srd)
+
+
+@router.put("/metamodel/types/{type_key}/stakeholder-roles/order")
+async def reorder_stakeholder_roles(
+    type_key: str,
+    body: StakeholderRoleOrder,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Rewrite the order of a type's stakeholder roles (#1439).
+
+    ``keys`` must list every role of the type exactly once, archived roles
+    included, so a reorder can never drop or double one — the rule
+    ``PUT /metamodel/categories/order`` follows. Cards, the role picker and the
+    inventory's stakeholder columns all read this order.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    await _ensure_type_exists(db, type_key)
+
+    rows = (
+        (
+            await db.execute(
+                select(StakeholderRoleDefinition)
+                .where(StakeholderRoleDefinition.card_type_key == type_key)
+                .order_by(StakeholderRoleDefinition.sort_order, StakeholderRoleDefinition.key)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    try:
+        order = stakeholder_service.validate_role_order([r.key for r in rows], body.keys)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    by_key = {r.key: r for r in rows}
+    before = [r.key for r in rows]
+    for index, key in enumerate(order):
+        by_key[key].sort_order = index
+    if order != before:
+        type_label = await audit_labels.card_type_label(db, type_key)
+        await audit_log.record(
+            db,
+            action="admin.stakeholder_role.reordered",
+            category="admin",
+            actor=user,
+            target=("card_type", type_key, type_label),
+            context={
+                "card_type": type_label,
+                "order": [by_key[k].label or k for k in order],
+            },
+        )
+    await db.commit()
+    return await list_stakeholder_roles(type_key, include_archived=True, db=db, user=user)
 
 
 @router.get("/stakeholder-roles/permissions-schema")

@@ -13,6 +13,7 @@ import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
 import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Divider from "@mui/material/Divider";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
@@ -188,27 +189,22 @@ function StakeholdersTab({
     }
   };
 
-  // Group displayed stakeholders by role (same as before)
+  // Group displayed stakeholders by role, in the order the admin set. Passive
+  // roles (those not counting toward data quality: Observer by default) follow
+  // the owners under their own heading, so watching a card never reads as
+  // owning it (#1439).
   const grouped = roles.map((role) => ({
     role,
     items: subs.filter((s) => s.role === role.key),
   }));
+  const owning = grouped.filter(({ role }) => role.counts_for_quality !== false);
+  const following = grouped.filter(({ role }) => role.counts_for_quality === false);
 
-  return (
-    <Box>
-      {canManageStakeholders && (
-        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<MaterialSymbol icon="person_add" size={16} />}
-            onClick={() => setAddOpen(true)}
-          >
-            {t("stakeholders.add")}
-          </Button>
-        </Box>
-      )}
-      {grouped.map(({ role, items }) => (
+  const renderRole = (
+    role: StakeholderRoleDef,
+    items: StakeholderRef[],
+    passive: boolean,
+  ) => (
         <MuiCard
           key={role.key}
           // `color` is null for a role with no definition row (the legacy
@@ -216,9 +212,14 @@ function StakeholdersTab({
           // accent is omitted rather than invented — matching how the survey
           // builder renders the same payload. Spread, not interpolated: a bare
           // `4px solid undefined` is invalid CSS.
-          sx={{ mb: 2, ...(role.color ? { borderLeft: `4px solid ${role.color}` } : {}) }}
+          variant={passive ? "outlined" : undefined}
+          data-testid={`stakeholder-role-${role.key}`}
+          sx={{
+            mb: passive ? 1 : 2,
+            ...(role.color ? { borderLeft: `4px solid ${role.color}` } : {}),
+          }}
         >
-          <CardContent>
+          <CardContent sx={passive ? { py: 1, "&:last-child": { pb: 1 } } : undefined}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
               {role.color && (
                 <Box
@@ -238,11 +239,15 @@ function StakeholdersTab({
               </Typography>
             </Box>
             {items.length === 0 ? (
+              // A passive role nobody holds is just its title: "No observer
+              // assigned" is not a gap to fill.
+              !passive && (
               <Typography variant="body2" color="text.secondary">
                 {t("stakeholders.noneAssigned", {
                   role: roleLabel(role).toLowerCase(),
                 })}
               </Typography>
+              )
             ) : (
               <List dense disablePadding>
                 {items.map((s) => (
@@ -282,7 +287,38 @@ function StakeholdersTab({
             )}
           </CardContent>
         </MuiCard>
-      ))}
+      );
+
+  return (
+    <Box>
+      {canManageStakeholders && (
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="person_add" size={16} />}
+            onClick={() => setAddOpen(true)}
+          >
+            {t("stakeholders.add")}
+          </Button>
+        </Box>
+      )}
+      {owning.map(({ role, items }) => renderRole(role, items, false))}
+      {following.length > 0 && (
+        <Box data-testid="stakeholders-following" sx={{ mt: owning.length ? 3 : 0 }}>
+          {owning.length > 0 && <Divider sx={{ mb: 1.5 }} />}
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            component="h3"
+            sx={{ display: "flex", alignItems: "center", lineHeight: 2 }}
+          >
+            {t("stakeholders.followingHeading")}
+            <HelpTip text={t("stakeholders.followingHelp")} />
+          </Typography>
+          {following.map(({ role, items }) => renderRole(role, items, true))}
+        </Box>
+      )}
       {/* Add stakeholder inline */}
       {addOpen && (
         <MuiCard

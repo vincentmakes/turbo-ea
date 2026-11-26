@@ -59,6 +59,7 @@ from app.services.seed import (
     SUCCESSOR_TRANSLATIONS,
     _inject_english_translations_relation,
 )
+from app.services.stakeholder_service import DEFAULT_STAKEHOLDER_ROLES, ensure_role_definitions
 
 logger = logging.getLogger("turboea.metamodel")
 
@@ -1297,10 +1298,7 @@ async def create_type(
     max_order = await db.execute(select(func.max(CardType.sort_order)))
     next_order = (max_order.scalar() or 0) + 1
 
-    default_roles = [
-        {"key": "responsible", "label": "Responsible"},
-        {"key": "observer", "label": "Observer"},
-    ]
+    default_roles = [dict(r) for r in DEFAULT_STAKEHOLDER_ROLES]
     await extension_registry.refresh_from_db(db)
     # Nothing is stored yet, so the guard strips every stamp a body sends: a
     # new type cannot claim fields or subtypes for an extension.
@@ -1343,6 +1341,12 @@ async def create_type(
         translations=body.get("translations", {}),
     )
     db.add(t)
+    await db.flush()
+    # The roles need definition rows, not just the legacy JSONB list: without
+    # them they grant nothing and vanish once an admin adds a role (#1437).
+    # An empty or malformed list gets the defaults the picker showed for it.
+    roles = t.stakeholder_roles if isinstance(t.stakeholder_roles, list) else []
+    await ensure_role_definitions(db, t.key, roles or default_roles)
     if t.has_successors:
         # Auto-provide the lineage relation type so the card detail lineage
         # section renders (issue #729).

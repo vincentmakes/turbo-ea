@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.216.0] - 2026-11-26
+
+### Added
+- Stakeholder roles can be reordered with up and down arrows in the card type editor; a card's Stakeholders tab and the role picker follow that order.
+- On a card's Stakeholders tab, roles that don't count toward data quality (Observer by default) now come last under **Following this card**, apart from the card's owners.
+
+### Fixed
+- Adding a stakeholder role to a card type you created no longer hides its **Responsible** and **Observer** roles and the people assigned to them; on upgrade, the roles and assignments that had disappeared come back.
+- A **Responsible** or **Observer** on a card of a type you created now gets that role's permissions, as on the built-in types.
+
 ## [2.215.2] - 2026-11-26
 
 ### Fixed
@@ -13,10 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - The workspace import preview and result now say how many users will be (or were) created deactivated, and where to activate them.
 
+
 ## [2.215.1] - 2026-11-26
 
 ### Security
 - The frontend and edge nginx images now run **nginx 1.30.8**, which fixes CVE-2026-132779 (excessive CPU usage in TLS 1.3 when `ssl_early_data` is on). Turbo EA's nginx configuration does not switch that setting on, so no installation was exposed; the normal upgrade is enough.
+
 ## [2.215.0] - 2026-11-26
 
 ### Added
