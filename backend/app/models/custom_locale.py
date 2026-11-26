@@ -21,6 +21,12 @@ class CustomLocale(Base, UUIDMixin, TimestampMixin):
     the AI translation job and AI suggestions write into a prompt, so it is
     validated to letters, spaces, brackets and hyphens. ``translate_job`` is
     the state of the last AI translation run (transient: never transferred).
+
+    ``source`` is ``"community"`` for a language installed from the community
+    library (``services/language_catalogue.py``), ``None`` for one added by
+    hand; ``source_sha256`` is the SHA-256 of the pack installed last (an index
+    entry with another hash is an update) and ``source_commit`` the library
+    commit it was taken from.
     """
 
     __tablename__ = "custom_locales"
@@ -35,6 +41,9 @@ class CustomLocale(Base, UUIDMixin, TimestampMixin):
         Boolean, nullable=False, default=False, server_default="false"
     )
     translate_job: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    source: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    source_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_commit: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
 class CustomLocaleString(Base, UUIDMixin, TimestampMixin):

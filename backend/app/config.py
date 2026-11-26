@@ -41,6 +41,10 @@ APP_VERSION = _read_version()
 # unreachable catalogue degrades to a friendly offline hint and the
 # file-based install flow is always fully functional.
 EXTENSION_STORE_URL = "https://store.turbo-ea.org"
+#: The index of the community language library (services/language_catalogue.py).
+DEFAULT_LANGUAGE_CATALOGUE_URL = (
+    "https://raw.githubusercontent.com/vincentmakes/turbo-ea-translations/main/index.json"
+)
 
 
 def _parse_role_map(raw: str) -> list[tuple[str, str]]:
@@ -297,6 +301,12 @@ class Settings:
     # the image's /app/i18n/en, else the frontend sources in a checkout
     # (services/language_pack.py).
     I18N_EN_DIR: str = os.getenv("I18N_EN_DIR", "")
+    # Custom languages: the community library's index.json. Read only when an
+    # administrator opens or refreshes the list; empty switches the feature
+    # off (air-gapped installs). Packs are downloaded from beside it.
+    LANGUAGE_CATALOGUE_URL: str = os.getenv(
+        "LANGUAGE_CATALOGUE_URL", DEFAULT_LANGUAGE_CATALOGUE_URL
+    ).strip()
 
     @property
     def database_url(self) -> str:

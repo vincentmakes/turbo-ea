@@ -22,6 +22,13 @@ younger than 15 minutes and has not authorised a commit already.
 issuing dry-run row (``summary["confirmed_batch_id"]``); the real batch
 stores the token it was opened with in its own ``confirm_token`` column as
 the audit cross-reference ("authorised by this preview").
+
+A tool can also bind its token to what was previewed: a dry-run opened
+with a ``scope`` (a short string the tool builds from its arguments, e.g.
+the language and mode of ``start_ai_translation``) keeps it on its summary
+(``summary["confirm_scope"]``), and only a real batch presenting the same
+scope may spend the token. A preview of one language cannot authorise a
+start on another.
 """
 
 from __future__ import annotations
@@ -50,15 +57,43 @@ CONFIRM_TOKEN_THRESHOLD = 20
 # authorised a real batch. Its presence is what makes the token single-use.
 CONFIRMED_BATCH_KEY = "confirmed_batch_id"
 
+# Key on a dry-run batch's summary holding the scope its token is bound to.
+SCOPE_KEY = "confirm_scope"
 
-def needs_confirmation(dry_run: bool, row_count: int) -> bool:
-    """A real (non-dry-run) batch above the threshold must present a token."""
-    return not dry_run and row_count > CONFIRM_TOKEN_THRESHOLD
+# Summary keys the server writes and a caller's summary never replaces.
+_PROTECTED_SUMMARY_KEYS = (CONFIRMED_BATCH_KEY, SCOPE_KEY)
 
 
-def issues_token(dry_run: bool, row_count: int) -> bool:
-    """A dry-run batch above the threshold is issued a token."""
-    return dry_run and row_count > CONFIRM_TOKEN_THRESHOLD
+#: Tools whose commits need no confirm token, however many rows they carry.
+#: ``submit_translations`` only: it writes language data through
+#: ``POST /custom-locales/{code}/strings``, which has protections of its own —
+#: ``admin.settings``, the per-key validator every value goes through, an audit
+#: row and ``MAX_KEYS_PER_WRITE`` — and it touches no card. A full language is
+#: thousands of strings, and a preview before every batch of them doubled every
+#: call for no safety a reviewer could act on. The batch is still opened and
+#: closed, so the ledger records every call. A second tool joins this set only
+#: with the same reasoning, and the guards in both test suites pin it.
+CONFIRMATION_EXEMPT_TOOLS: frozenset[str] = frozenset({"submit_translations"})
+
+
+def needs_confirmation(dry_run: bool, row_count: int, tool_name: str) -> bool:
+    """A real (non-dry-run) batch above the threshold must present a token,
+    unless its tool is in :data:`CONFIRMATION_EXEMPT_TOOLS`."""
+    return (
+        not dry_run
+        and row_count > CONFIRM_TOKEN_THRESHOLD
+        and tool_name not in CONFIRMATION_EXEMPT_TOOLS
+    )
+
+
+def issues_token(dry_run: bool, row_count: int, tool_name: str) -> bool:
+    """A dry-run batch above the threshold is issued a token — never one of
+    an exempt tool, whose commit would not ask for it."""
+    return (
+        dry_run
+        and row_count > CONFIRM_TOKEN_THRESHOLD
+        and tool_name not in CONFIRMATION_EXEMPT_TOOLS
+    )
 
 
 async def create_batch(
@@ -68,16 +103,19 @@ async def create_batch(
     origin: str,
     dry_run: bool = False,
     confirm_token: str | None = None,
+    scope: str | None = None,
 ) -> MutationBatch:
     """Open a new batch row. The caller is responsible for setting
     ``request_batch_id`` on the contextvar so subsequent ``publish``
-    calls in the same request stamp the id."""
+    calls in the same request stamp the id. A dry-run keeps its ``scope``
+    (:data:`SCOPE_KEY`) for :func:`resolve_confirm_token`."""
     batch = MutationBatch(
         tool_name=tool_name,
         actor_user_id=actor.id if actor else None,
         origin=origin,
         dry_run=dry_run,
         confirm_token=confirm_token,
+        summary={SCOPE_KEY: scope} if dry_run and scope is not None else None,
     )
     db.add(batch)
     await db.flush()
@@ -95,13 +133,15 @@ def close_summary(
     existing: dict[str, Any] | None, incoming: dict[str, Any] | None
 ) -> dict[str, Any] | None:
     """The summary a batch keeps when it is closed. The caller's summary
-    replaces the stored one, except that a single-use stamp survives — a
-    preview closed after its token was spent must not become reusable."""
+    replaces the stored one, except the keys the server wrote: a single-use
+    stamp survives — a preview closed after its token was spent must not
+    become reusable — and so does the scope its token is bound to, which a
+    caller can neither drop nor set."""
     if incoming is None:
         return existing
-    if existing and CONFIRMED_BATCH_KEY in existing:
-        return {**incoming, CONFIRMED_BATCH_KEY: existing[CONFIRMED_BATCH_KEY]}
-    return incoming
+    kept = {k: existing[k] for k in _PROTECTED_SUMMARY_KEYS if existing and k in existing}
+    sent = {k: v for k, v in incoming.items() if k not in _PROTECTED_SUMMARY_KEYS}
+    return {**sent, **kept}
 
 
 async def commit_batch(
@@ -140,6 +180,7 @@ def resolve_confirm_token(
     *,
     actor_id: uuid.UUID | None,
     tool_name: str,
+    scope: str | None = None,
     now: datetime | None = None,
 ) -> tuple[MutationBatch | None, str | None]:
     """Find the dry-run batch that authorises a real batch to open.
@@ -147,8 +188,9 @@ def resolve_confirm_token(
     ``candidates`` are every batch whose ``confirm_token`` equals ``token``
     (the issuing dry-run and any real batch it already authorised). Returns
     ``(dry_run_batch, None)`` when the token is valid for this actor and
-    tool, else ``(None, reason)`` — ``missing``, ``unknown``,
-    ``already_used``, ``wrong_actor``, ``wrong_tool`` or ``expired``, checked
+    tool, and for the ``scope`` the preview was bound to (none for none),
+    else ``(None, reason)`` — ``missing``, ``unknown``, ``already_used``,
+    ``wrong_actor``, ``wrong_tool``, ``wrong_scope`` or ``expired``, checked
     in that order.
     """
     if not token:
@@ -162,6 +204,8 @@ def resolve_confirm_token(
         return None, "wrong_actor"
     if issuing.tool_name != tool_name:
         return None, "wrong_tool"
+    if (issuing.summary or {}).get(SCOPE_KEY) != scope:
+        return None, "wrong_scope"
     if not verify_confirm_token(issuing, token, now=now):
         return None, "expired"
     return issuing, None

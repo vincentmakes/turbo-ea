@@ -96,6 +96,7 @@ kubectl get ingress -n turbo-ea           # انتظر ظهور عنوان ثم 
 | `backend.persistence.*` | وحدة التخزين `/app/data`: `size` و`storageClass`، أو `existingClaim` لإحضار وحدتك. تُحفَظ عند `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | أي متغير للخلفية من إعداد Compose — `SMTP_*` و`TURBO_EA_PROXY_AUTH_*` و`NVD_API_KEY` و`EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | نقطة نهاية LLM خارجية لاقتراحات الذكاء الاصطناعي. |
+| `customLanguages.catalogueUrl` | مكتبة لغات المجتمع المدرجة ضمن [اللغات المخصصة](custom-languages.md#installing-a-language-from-the-community-library). تؤدي القيمة `""` إلى إيقافها، كما في عنقود بلا اتصال بالإنترنت. |
 | `mcp.enabled` | نشر خادم MCP على `<publicUrl>/mcp`. |
 | `ingress.*` | الفئة والتعليقات التوضيحية وTLS. المضيفون افتراضيًا هم مضيف `publicUrl` بالمسار `/`. |
 | `frontend.replicaCount` / `nginx.replicaCount` و`autoscaling` و`pdb` | توسيع الطبقات عديمة الحالة. |
@@ -156,7 +157,7 @@ helm upgrade turbo-ea oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea \
 
 ## التحصين
 
-يعمل كل حاوٍ بمعرّف المستخدم 1000 مع نظام ملفات جذر للقراءة فقط، وبلا قدرات (capabilities)، وبلا تصعيد للامتيازات، وبملف تعريف seccomp من نوع `RuntimeDefault`؛ ولا يُحمَّل رمز ServiceAccount. هذا يستوفي معيار أمان الـ Pod *restricted* مباشرة. يضيف `networkPolicy.enabled: true` سياسات رفض افتراضي بين الطبقات (اضبط `networkPolicy.ingressController` على تسمية مساحة أسماء متحكمك)؛ وقواعد الخروج اختيارية لأن الخلفية تتواصل أيضًا مع متجر الامتدادات وendoflife.date وNVD وخادم SMTP لديك ونقطة نهاية LLM. يمكن لمتحكمات القبول التي تتحقق من التواقيع تثبيت الصور والمخطط على هوية cosign المذكورة أعلاه.
+يعمل كل حاوٍ بمعرّف المستخدم 1000 مع نظام ملفات جذر للقراءة فقط، وبلا قدرات (capabilities)، وبلا تصعيد للامتيازات، وبملف تعريف seccomp من نوع `RuntimeDefault`؛ ولا يُحمَّل رمز ServiceAccount. هذا يستوفي معيار أمان الـ Pod *restricted* مباشرة. يضيف `networkPolicy.enabled: true` سياسات رفض افتراضي بين الطبقات (اضبط `networkPolicy.ingressController` على تسمية مساحة أسماء متحكمك)؛ وقواعد الخروج اختيارية لأن الخلفية تتواصل أيضًا مع متجر الامتدادات وendoflife.date وNVD ومكتبة لغات المجتمع (raw.githubusercontent.com) وخادم SMTP لديك ونقطة نهاية LLM. يمكن لمتحكمات القبول التي تتحقق من التواقيع تثبيت الصور والمخطط على هوية cosign المذكورة أعلاه.
 
 ## AWS (EKS)
 

@@ -40,6 +40,14 @@ _UNCHECKABLE = re.compile(r"[<{}]|\$t\(")
 SOURCE_CHANGED = "source_changed"
 SOURCE_HASH_MISSING = "source_hash_missing"
 
+#: The origin of a string installed from the community library
+#: (``services/language_catalogue.py``). Like ``import``, it comes from a
+#: language-pack file, so the ``metamodel`` rules of a file import apply.
+ORIGIN_COMMUNITY = "community"
+#: Origins whose strings come from a pack file: every ``metamodel`` value must
+#: carry the hash of the English it translates.
+FILE_ORIGINS = frozenset({"import", ORIGIN_COMMUNITY})
+
 
 def catalog() -> lp.Catalog | None:
     """The English catalogue (``I18N_EN_DIR`` overrides where it is read)."""
@@ -77,7 +85,36 @@ def transfer_problem(row: Mapping[str, Any]) -> str | None:
         return f"language {code!r}: invalid English name"
     if not lp.is_valid_native_name(row.get("name")):  # type: ignore[arg-type]
         return f"language {code!r}: invalid name"
+    if not is_valid_provenance(
+        row.get("source"), row.get("source_sha256"), row.get("source_commit")
+    ):
+        return f"language {code!r}: invalid source"
     return None
+
+
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+_COMMIT = re.compile(r"[0-9a-f]{40}")
+
+
+def is_sha256(value: Any) -> bool:
+    """A lower-case hex SHA-256 digest."""
+    return isinstance(value, str) and bool(_SHA256.fullmatch(value))
+
+
+def is_commit(value: Any) -> bool:
+    """A full lower-case hex git commit id."""
+    return isinstance(value, str) and bool(_COMMIT.fullmatch(value))
+
+
+def is_valid_provenance(source: Any, sha256: Any, commit: Any) -> bool:
+    """Whether a language's ``source`` / ``source_sha256`` / ``source_commit``
+    have the shape an install writes: all empty (added by hand), or the
+    community origin with a digest and, where the library named one, a commit."""
+    if source is None:
+        return sha256 is None and commit is None
+    return (
+        source == ORIGIN_COMMUNITY and is_sha256(sha256) and (commit is None or is_commit(commit))
+    )
 
 
 #: Bounds of one ``POST …/strings``: keys across all namespaces, and the
@@ -242,6 +279,8 @@ def serialize(
         "updated_at": stamp.isoformat() if stamp else None,
         "stats": lp.sum_stats(per_ns) if views is not None else None,
         "job": locale.translate_job,
+        # ``"community"`` for a language installed from the community library.
+        "source": locale.source,
     }
     if with_namespaces:
         out["namespaces"] = per_ns
@@ -283,6 +322,113 @@ def list_strings(
             continue
         out.extend(lp.list_entries(v.ns, v.strings, v.meta, status=status, search=search))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Identical English text: shown once, translated once
+# ---------------------------------------------------------------------------
+
+
+def _text_class(source_hash: Any, key: str) -> tuple[Any, str | None]:
+    """What makes two keys "the same text": the hash of their English and their
+    plural category, so a ``_few`` form never stands for an ``_other`` key or a
+    plain one with the same English."""
+    parts = lp.plural_parts(key)
+    return source_hash, parts[1] if parts else None
+
+
+def collapse_identical(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The review rows with each English text once: the first row of every
+    text stands for the others and carries ``same_text``, how many rows have
+    it (itself included). For a translator who fills all of them with one
+    answer (``POST …/strings`` with ``fill_identical``)."""
+    first: dict[tuple[Any, str | None], dict[str, Any]] = {}
+    out: list[dict[str, Any]] = []
+    for item in items:
+        kind = _text_class(item.get("source_hash"), item["key"])
+        if kind in first:
+            first[kind]["same_text"] += 1
+            continue
+        row = {**item, "same_text": 1}
+        first[kind] = row
+        out.append(row)
+    return out
+
+
+def _given_hash(source_hashes: Mapping[str, Any] | None, name: str, key: str) -> Any:
+    given = (source_hashes or {}).get(name)
+    return given.get(key) if isinstance(given, Mapping) else None
+
+
+def identical_text_fills(
+    views: Mapping[str, View],
+    submitted: Mapping[str, Any],
+    skip: set[tuple[str, str]],
+    source_hashes: Mapping[str, Any] | None = None,
+) -> dict[str, dict[str, str]]:
+    """For every text value submitted for a key English has (and not in
+    ``skip``, the keys the merge refused), the same value for every OTHER key
+    of the language with the same English and plural category that holds no
+    translation at all — never one already translated, whatever its origin.
+
+    A value translated from older English (its ``source_hashes`` entry is not
+    the current hash) fills nothing: its twins would read as current. Two
+    different values for one text fill nothing either — which is right is
+    not ours to guess."""
+    by_text: dict[tuple[Any, str | None], str | None] = {}
+    for name, entries in submitted.items():
+        view = views.get(name)
+        if view is None or not isinstance(entries, Mapping):
+            continue
+        for key, value in entries.items():
+            if not isinstance(value, str) or key not in view.ns.strings or (name, key) in skip:
+                continue
+            current = view.ns.current_hash(key)
+            given = _given_hash(source_hashes, name, key)
+            if given is not None and given != current:
+                continue
+            kind = _text_class(current, key)
+            by_text[kind] = value if by_text.get(kind, value) == value else None
+    fills: dict[str, dict[str, str]] = {}
+    for name, view in views.items():
+        sent = submitted.get(name)
+        sent = sent if isinstance(sent, Mapping) else {}
+        for key in view.ns.strings:
+            if key in sent or view.strings.get(key):
+                continue
+            value = by_text.get(_text_class(view.ns.current_hash(key), key))
+            if value is not None:
+                fills.setdefault(name, {})[key] = value
+    return fills
+
+
+async def fill_identical(
+    db: AsyncSession,
+    locale: CustomLocale,
+    cat: lp.Catalog,
+    submitted: Mapping[str, Any],
+    report: Mapping[str, Any],
+    *,
+    origin: str,
+    dry_run: bool,
+    source_hashes: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, int], list[str]]:
+    """After a write, give its accepted translations to every key with the
+    same English and no translation (:func:`identical_text_fills`), through
+    the same merge and validator. Returns ``({filled, fill_rejected}, the
+    namespaces filled)``. The write is conditional on each key still being
+    empty (``expected``), so a label the field editor set meanwhile stays."""
+    skip = {(r.get("namespace"), r.get("key")) for r in report.get("rejected") or []}
+    views = await load_views(db, locale, cat)
+    fills = identical_text_fills(views, submitted, skip, source_hashes)  # type: ignore[arg-type]
+    if not fills:
+        return {"filled": 0, "fill_rejected": 0}, []
+    empty = {name: dict.fromkeys(keys) for name, keys in fills.items()}
+    filled = await apply_strings(
+        db, locale, cat, fills, origin=origin, dry_run=dry_run, expected=empty
+    )
+    counts = {"filled": filled["applied"], "fill_rejected": len(filled["rejected"])}
+    return counts, sorted(fills)
 
 
 def export_parts(views: Mapping[str, View], mode: str) -> dict[str, tuple[dict, dict]]:
@@ -463,7 +609,8 @@ def bundle_body(
         "hash": tag,
         "resources": bundle_resources(cat, rows, locale.code),
     }
-    return json.dumps(payload, ensure_ascii=False).encode()
+    text = json.dumps(payload, ensure_ascii=False)  # pragma: no mutate, None is falsy like False
+    return text.encode()
 
 
 class BundleCache:
@@ -572,8 +719,8 @@ def source_changed(
     * A given source hash that is not the current English hash means the value
       was translated from a label that has changed since (an admin renamed the
       type): ``source_changed``.
-    * An import must carry the hash of every ``metamodel`` value (every export
-      writes one): ``source_hash_missing``.
+    * An import or a community install must carry the hash of every
+      ``metamodel`` value (every export writes one): ``source_hash_missing``.
     * A manual or MCP write without a hash, a clear (``None``) and a key the
       namespace does not have (the merge counts it unknown) pass through."""
     split = MetamodelSplit()
@@ -583,11 +730,11 @@ def source_changed(
         has_hash = lp.is_source_hash(given)
         if value is None or current is None:
             split.kept[key] = value
-        elif view.strings.get(key) == value and (has_hash or origin == "import"):
+        elif view.strings.get(key) == value and (has_hash or origin in FILE_ORIGINS):
             split.unchanged += 1
         elif has_hash and given != current:
             split.refused.append({"namespace": METAMODEL, "key": key, "reason": SOURCE_CHANGED})
-        elif origin == "import" and not has_hash:
+        elif origin in FILE_ORIGINS and not has_hash:
             split.refused.append(
                 {"namespace": METAMODEL, "key": key, "reason": SOURCE_HASH_MISSING}
             )

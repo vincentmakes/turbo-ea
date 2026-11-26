@@ -29,6 +29,7 @@ from app.models.user import User
 from app.services import audit_log
 from app.services import custom_locale_store as store
 from app.services import custom_locale_translate as translate
+from app.services import language_catalogue as community
 from app.services import language_pack as lp
 from app.services import metamodel_strings as mm
 from app.services.ai_service import ai_config_from_settings, provider_usable
@@ -92,6 +93,9 @@ class StringsWrite(BaseModel):
     strings: dict[str, dict[str, Any]]
     source_hashes: dict[str, dict[str, Any]] | None = None
     origin: Literal["manual", "import", "mcp"] = "manual"
+    #: Also give each accepted translation to every untranslated key of the
+    #: language with the same English text (the MCP tool turns it on).
+    fill_identical: bool = False
 
     @model_validator(mode="after")
     def _bounded(self) -> StringsWrite:
@@ -99,6 +103,11 @@ class StringsWrite(BaseModel):
         if problem is not None:
             raise ValueError(problem)
         return self
+
+
+class CatalogueInstall(BaseModel):
+    #: On an update, also replace the strings an administrator corrected by hand.
+    overwrite_manual: bool = False
 
 
 class TranslateRequest(BaseModel):
@@ -198,6 +207,83 @@ async def create_custom_locale(
     await db.commit()
     await db.refresh(locale)
     return await store.serialize_one(db, locale)
+
+
+def _install_recorder(actor: User) -> community.Recorder:
+    """What ``language_catalogue.install`` records in the Security log for
+    ``actor``: one row per install, ``success`` with what was merged or
+    ``failure`` with why the pack was refused. Written on the session the
+    service hands in, so a success row commits with the install."""
+
+    async def record(
+        db: AsyncSession,
+        *,
+        outcome: str,
+        target: tuple[str, str | None, str],
+        context: dict[str, Any],
+    ) -> None:
+        await audit_log.record(
+            db,
+            action="admin.custom_locale.community_installed",
+            category="admin",
+            outcome=outcome,
+            actor=actor,
+            target=target,
+            context=context,
+        )
+
+    return record
+
+
+def _catalogue_url() -> str:
+    from app.config import settings as app_config
+
+    return app_config.LANGUAGE_CATALOGUE_URL
+
+
+@router.get("/catalogue")
+@limiter.limit("30/minute")
+async def list_language_catalogue(
+    request: Request,
+    refresh: bool = False,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The community library's languages, each marked installed / update
+    available. The index is downloaded only here — on the first visit and on
+    ``refresh`` — and cached; ``enabled`` is false when no library is
+    configured. Registered before ``/{code}``."""
+    await _require_admin(db, user)
+    # Hand the pooled connection back: the service downloads with no session
+    # open and opens its own short ones.
+    await db.commit()
+    return await community.catalogue(_catalogue_url(), refresh=refresh)
+
+
+@router.post("/catalogue/{code}/install")
+@limiter.limit("10/minute")
+async def install_from_catalogue(
+    request: Request,
+    code: str,
+    body: CatalogueInstall,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Install (or update) a language from the community library: its pack is
+    downloaded, checked like an imported file and merged; a new language is
+    added disabled. Answers the merge report with ``created``,
+    ``kept_manual`` and the language."""
+    await _require_admin(db, user)
+    await db.commit()
+    try:
+        return await community.install(
+            _catalogue_url(),
+            code,
+            overwrite_manual=body.overwrite_manual,
+            record=_install_recorder(user),
+        )
+    except community.CatalogueError as exc:
+        raise HTTPException(community.STATUS.get(exc.code, 502), exc.code) from exc
 
 
 @router.get("/{code}")
@@ -311,10 +397,13 @@ async def list_custom_locale_strings(
     search: str = Query(default="", max_length=200),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
+    collapse: bool = False,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """The review rows, the English source beside the translation."""
+    """The review rows, the English source beside the translation. With
+    ``collapse`` each English text is listed once (``same_text`` says how many
+    rows it stands for); ``total`` and paging then count texts."""
     await _require_admin(db, user)
     locale = await _locale_or_404(db, code)
     cat = _catalog_or_503()
@@ -322,6 +411,8 @@ async def list_custom_locale_strings(
         raise HTTPException(400, "unknown_namespace")
     views = await store.load_views(db, locale, cat, [namespace] if namespace else None)
     items = store.list_strings(views, namespace=namespace, status=status, search=search)
+    if collapse:
+        items = store.collapse_identical(items)
     return {"total": len(items), "items": items[offset : offset + limit]}
 
 
@@ -347,7 +438,21 @@ async def write_custom_locale_strings(
         source_hashes=body.source_hashes,
         dry_run=dry_run,
     )
-    if not dry_run and (report["applied"] or report["cleared"]):
+    filled_namespaces: list[str] = []
+    if body.fill_identical:
+        counts, filled_namespaces = await store.fill_identical(
+            db,
+            locale,
+            cat,
+            body.strings,
+            report,
+            origin=body.origin,
+            dry_run=dry_run,
+            source_hashes=body.source_hashes,
+        )
+        report.update(counts)
+    filled = report.get("filled", 0)
+    if not dry_run and (report["applied"] or report["cleared"] or filled):
         await audit_log.record(
             db,
             action="admin.custom_locale.strings_updated",
@@ -358,10 +463,15 @@ async def write_custom_locale_strings(
                 "code": locale.code,
                 "origin": body.origin,
                 # Only names the instance knows: the payload is the caller's.
-                "namespaces": sorted(n for n in body.strings if store.known_namespace(cat, n)),
+                "namespaces": sorted(
+                    {n for n in body.strings if store.known_namespace(cat, n)}
+                    | set(filled_namespaces)
+                ),
                 "applied": report["applied"],
                 "cleared": report["cleared"],
                 "rejected": len(report["rejected"]),
+                "filled": filled,
+                "fill_rejected": report.get("fill_rejected", 0),
             },
         )
     if not dry_run:

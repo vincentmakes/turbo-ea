@@ -32,6 +32,36 @@ A new language starts switched off: users do not see it until you offer it. Each
 
 Offer a language to your users with its switch. Users can then pick it from the language menu, like any built-in language. Strings that are still missing appear in English.
 
+## Installing a language from the community library
+
+Other Turbo EA users share their translations in the [community language library](https://github.com/vincentmakes/turbo-ea-translations). Below your own languages, the **Community languages** block lists the languages it holds, each with its native name and code, how much of the interface it translates, and the Turbo EA version its pack was made with.
+
+!!! warning "Community-provided, not reviewed"
+    The packs are written by members of the community. **The Turbo EA project does not review them.** Automatic checks make sure a pack cannot add markup, links or broken placeholders that the English text does not have, but nobody checks whether the translations are accurate or complete. Review a language before you offer it to your users.
+
+**Install** downloads the language's pack and imports it. What happens:
+
+- The pack is downloaded from the community library — exactly the file the library lists, checked against its checksum.
+- Every string goes through the same checks as an [imported file](#the-language-pack-file); a rejected string is listed in the report and never saved.
+- A new language is added **switched off**. Look at it in **Review strings**, then switch it on for your users.
+- The report shows what was applied, what was rejected and why, and what is not in your version of Turbo EA.
+
+The language then shows as **installed**, and its row in your own list carries the **Community-provided, not reviewed** marker. A failed install — a pack that cannot be downloaded, does not match the library's checksum or is not a valid pack — installs nothing and is recorded in the [Security & admin log](audit-log.md). In **Review strings**, each translation shows where it came from — *Community library*, *Corrected by hand*, *AI translation*, *Imported file* or *MCP*.
+
+When the library has a newer pack of a language you installed from it, the language shows **Update available**. **Update** merges the new pack into your language. Strings you corrected by hand are kept, unless you tick **Also replace the strings corrected by hand**. The name, direction and switch of your language are left as they are.
+
+If you added a language yourself and the library has the same code, its row shows **Added on this server** and offers **Add community strings**: the pack is merged into your language the same way — strings you corrected by hand are kept unless you choose otherwise — and the language is then marked as community-provided.
+
+Turbo EA contacts the library only when you ask: the first time the section is shown, the list is downloaded and kept; after that, the kept list is shown (with the date it was downloaded) until you click **Refresh**. Nothing is checked in the background, so a newer pack shows as **Update available** only after a refresh. If the library cannot be reached, the block says so and keeps showing the list from the last successful download.
+
+### Turning the library off
+
+The library's address is set by the `LANGUAGE_CATALOGUE_URL` environment variable (Helm value `customLanguages.catalogueUrl`). Set it to an empty value to switch the feature off, for example on an installation without internet access; the block then says that the community library is switched off. You can also point it at a copy of the library on your own server: packs are downloaded from the `packs/<code>/pack.json` files beside its `index.json`.
+
+### Contributing a language
+
+Translated a language that is not in the library yet, or improved one? Export it with **Export language pack > Share (community pack)** and propose it to the library — see its [contributing guide](https://github.com/vincentmakes/turbo-ea-translations/blob/main/CONTRIBUTING.md).
+
 ## Three ways to translate
 
 Use whichever suits you; they can be combined, and the result is the same.
@@ -60,11 +90,12 @@ This option does not depend on the AI description suggestions for cards being sw
 
 ### 3. Through an AI assistant (MCP)
 
-An AI assistant connected through the [MCP integration](mcp.md) can translate the language for you, using three tools:
+An AI assistant connected through the [MCP integration](mcp.md) can translate the language for you, using these tools:
 
 - `list_custom_languages` — which custom languages exist and how far each one is translated.
-- `get_untranslated_strings` — the English strings still to translate, page by page, with the translation instructions.
-- `submit_translations` — sends the translations back. It previews first and saves on confirmation, like every MCP write tool.
+- `get_untranslated_strings` — the English strings still to translate, page by page (up to 500 at a time), with the translation instructions. A text that appears in many places, such as "High" or "Description", is listed once.
+- `submit_translations` — sends a page of translations back and saves them at once, without a preview: each string is checked on its own, and only valid ones are stored. A translation also fills every other string with the same English text that has no translation at all; a string that already has a translation, even an outdated one, is never changed, and a wrong fill is corrected in the review table.
+- `start_ai_translation` and `stop_ai_translation` — start or stop the server's own **Translate with AI** job, so a whole language is one request. The job runs on the AI provider configured under [AI Capabilities](ai.md), not on the assistant; the assistant previews first how many strings would be sent, and for a large job passes the preview's confirmation back when it starts.
 
 Ask the assistant, for example: *"Translate the missing strings of our Dutch custom language, starting with the metamodel names."* The assistant works with your own permissions, and every change it makes is recorded in the audit log.
 

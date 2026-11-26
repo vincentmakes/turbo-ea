@@ -96,6 +96,7 @@ Die vollständige, kommentierte Liste steht in der [`values.yaml`](https://githu
 | `backend.persistence.*` | Das Volume `/app/data`: `size`, `storageClass` oder `existingClaim` für ein eigenes Volume. Bleibt bei `helm uninstall` erhalten. |
 | `backend.extraEnv` / `extraEnvFrom` | Jede Backend-Variable aus dem Compose-Setup — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Externer LLM-Endpunkt für KI-Vorschläge. |
+| `customLanguages.catalogueUrl` | Die unter [Benutzerdefinierte Sprachen](custom-languages.md#installing-a-language-from-the-community-library) aufgeführte Community-Sprachbibliothek. `""` schaltet sie aus, etwa in einem Cluster ohne Internetzugang. |
 | `mcp.enabled` | Den MCP-Server unter `<publicUrl>/mcp` bereitstellen. |
 | `ingress.*` | Klasse, Annotationen, TLS. Hosts standardmäßig der Host von `publicUrl`, Pfad `/`. |
 | `frontend.replicaCount` / `nginx.replicaCount`, `autoscaling`, `pdb` | Skalierung der zustandslosen Schichten. |
@@ -156,7 +157,7 @@ Migrationen laufen beim Start des neuen Backend-Pods, genau wie in Compose: *Rec
 
 ## Härtung
 
-Jeder Container läuft als uid 1000 mit schreibgeschütztem Root-Dateisystem, ohne Capabilities, ohne Privilegien-Eskalation und mit dem seccomp-Profil `RuntimeDefault`; das ServiceAccount-Token wird nicht eingehängt. Das erfüllt den Pod-Security-Standard *restricted* ohne weiteres Zutun. `networkPolicy.enabled: true` ergänzt Default-Deny-Richtlinien zwischen den Schichten (setzen Sie `networkPolicy.ingressController` auf das Namespace-Label Ihres Controllers); Egress-Regeln sind Opt-in, weil das Backend auch mit dem Extension Store, endoflife.date, der NVD, Ihrem SMTP-Server und Ihrem LLM-Endpunkt spricht. Admission-Controller, die Signaturen prüfen, können Images und Chart an die obige cosign-Identität binden.
+Jeder Container läuft als uid 1000 mit schreibgeschütztem Root-Dateisystem, ohne Capabilities, ohne Privilegien-Eskalation und mit dem seccomp-Profil `RuntimeDefault`; das ServiceAccount-Token wird nicht eingehängt. Das erfüllt den Pod-Security-Standard *restricted* ohne weiteres Zutun. `networkPolicy.enabled: true` ergänzt Default-Deny-Richtlinien zwischen den Schichten (setzen Sie `networkPolicy.ingressController` auf das Namespace-Label Ihres Controllers); Egress-Regeln sind Opt-in, weil das Backend auch mit dem Extension Store, endoflife.date, der NVD, der Community-Sprachbibliothek (raw.githubusercontent.com), Ihrem SMTP-Server und Ihrem LLM-Endpunkt spricht. Admission-Controller, die Signaturen prüfen, können Images und Chart an die obige cosign-Identität binden.
 
 ## AWS (EKS)
 

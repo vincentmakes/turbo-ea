@@ -15,6 +15,9 @@ class MutationBatchOpen(BaseModel):
     # Required on a real (non-dry-run) batch above the confirmation
     # threshold: the token a dry-run of the same tool was issued.
     confirm_token: str | None = Field(default=None, max_length=64)
+    # What a dry-run's token is bound to (a tool's own summary of its
+    # arguments); the real batch spending the token must send the same.
+    scope: str | None = Field(default=None, max_length=200)
 
 
 class MutationBatchCommit(BaseModel):

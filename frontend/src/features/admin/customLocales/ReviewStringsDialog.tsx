@@ -40,7 +40,7 @@ import type {
   CustomLocaleStringsPage,
   CustomLocaleWriteResult,
 } from "@/types";
-import { errorMessage, namespaceLabel, reasonLabel } from "./customLocaleUtils";
+import { errorMessage, namespaceLabel, originLabel, reasonLabel } from "./customLocaleUtils";
 
 const STATUS_FILTERS = ["untranslated", "missing", "stale", "translated", "all"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
@@ -263,6 +263,17 @@ export default function ReviewStringsDialog({ locale, onClose, onChanged }: Prop
                       color={STATUS_CHIP_COLOR[row.status] ?? "default"}
                       label={t(`customLocales.status.${row.status}`)}
                     />
+                    {row.value && row.origin && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                        sx={{ mt: 0.5 }}
+                        data-testid="string-origin"
+                      >
+                        {originLabel(row.origin, t)}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell sx={{ verticalAlign: "top", whiteSpace: "nowrap" }}>
                     {isEditing ? (

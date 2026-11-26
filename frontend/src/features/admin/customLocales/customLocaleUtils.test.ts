@@ -24,7 +24,10 @@ import {
   parseLanguagePack,
   percent,
   readFileText,
+  communityAction,
+  originLabel,
   reasonLabel,
+  STRING_ORIGINS,
   usuallyRtl,
 } from "./customLocaleUtils";
 import type { LanguagePack } from "@/types";
@@ -64,7 +67,18 @@ describe("constants", () => {
       "catalog_unavailable",
       "locale_not_found",
       "unknown_namespace",
+      "catalogue_disabled",
+      "catalogue_unreachable",
+      "catalogue_too_large",
+      "catalogue_invalid",
+      "not_in_catalogue",
+      "pack_unreachable",
+      "pack_too_large",
+      "pack_checksum_mismatch",
+      "pack_invalid",
+      "pack_code_mismatch",
     ]);
+    expect([...STRING_ORIGINS]).toEqual(["manual", "ai", "import", "mcp", "community"]);
     expect([...REJECT_REASONS]).toEqual([
       "unknown_key",
       "empty",
@@ -355,6 +369,44 @@ describe("apiErrorCode / errorMessage", () => {
     );
     expect(errorMessage(new ApiError("m", 500, "boom"), t, "fallback")).toBe("fallback");
     expect(errorMessage(new Error("x"), t, "fallback")).toBe("fallback");
+  });
+});
+
+describe("communityAction", () => {
+  const base = {
+    code: "nl",
+    name: "N",
+    english_name: "Dutch",
+    rtl: false,
+    app_version: "2.214.0",
+    sha256: "a",
+    size: 1,
+    commit: null,
+    updated: null,
+    coverage: null,
+    strings: 1,
+    ui_strings: 1,
+    metamodel_strings: 0,
+    installed: false,
+    installed_from_community: false,
+    update_available: false,
+  };
+  it("installs, updates, merges or offers nothing", () => {
+    expect(communityAction(base)).toBe("install");
+    expect(communityAction({ ...base, installed: true, update_available: true })).toBe("merge");
+    expect(communityAction({ ...base, installed: true })).toBe("merge");
+    const fromLibrary = { ...base, installed: true, installed_from_community: true };
+    expect(communityAction({ ...fromLibrary, update_available: true })).toBe("update");
+    expect(communityAction(fromLibrary)).toBeNull();
+  });
+});
+
+describe("originLabel", () => {
+  it("labels each origin the server writes and shows an unknown one as sent", () => {
+    expect(originLabel("community", t)).toBe("T:customLocales.origins.community");
+    expect(originLabel("manual", t)).toBe("T:customLocales.origins.manual");
+    expect(originLabel("ai", t)).toBe("T:customLocales.origins.ai");
+    expect(originLabel("something", t)).toBe("something");
   });
 });
 

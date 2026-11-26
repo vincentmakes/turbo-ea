@@ -96,6 +96,7 @@ Den fulde, kommenterede liste findes i chartets [`values.yaml`](https://github.c
 | `backend.persistence.*` | Volumenet `/app/data`: `size`, `storageClass` eller `existingClaim` for at medbringe dit eget. Bevares ved `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Enhver backend-variabel fra Compose-opsætningen — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Eksternt LLM-endpoint til AI-forslag. |
+| `customLanguages.catalogueUrl` | Fællesskabets sprogbibliotek, som er beskrevet under [Brugerdefinerede sprog](custom-languages.md#installing-a-language-from-the-community-library). `""` slår det fra, som i en klynge uden internetadgang. |
 | `mcp.enabled` | Udrul MCP-serveren på `<publicUrl>/mcp`. |
 | `ingress.*` | Klasse, annotationer, TLS. Værter er som standard værten fra `publicUrl`, sti `/`. |
 | `frontend.replicaCount` / `nginx.replicaCount`, `autoscaling`, `pdb` | Skalering af de tilstandsløse lag. |
@@ -156,7 +157,7 @@ Migreringer kører, når den nye backend-pod starter, præcis som i Compose: *Re
 
 ## Hærdning
 
-Hver container kører som uid 1000 med skrivebeskyttet rodfilsystem, uden capabilities, uden privilegieeskalering og med seccomp-profilen `RuntimeDefault`; ServiceAccount-tokenet monteres ikke. Det opfylder Pod Security Standard *restricted* fra start. `networkPolicy.enabled: true` tilføjer standard-afvisningspolitikker mellem lagene (sæt `networkPolicy.ingressController` til din controllers namespace-label); udgående regler er tilvalg, fordi backend også taler med udvidelsesbutikken, endoflife.date, NVD, din SMTP-server og dit LLM-endpoint. Admission-controllere, der verificerer signaturer, kan fastlåse images og chart til cosign-identiteten ovenfor.
+Hver container kører som uid 1000 med skrivebeskyttet rodfilsystem, uden capabilities, uden privilegieeskalering og med seccomp-profilen `RuntimeDefault`; ServiceAccount-tokenet monteres ikke. Det opfylder Pod Security Standard *restricted* fra start. `networkPolicy.enabled: true` tilføjer standard-afvisningspolitikker mellem lagene (sæt `networkPolicy.ingressController` til din controllers namespace-label); udgående regler er tilvalg, fordi backend også taler med udvidelsesbutikken, endoflife.date, NVD, fællesskabets sprogbibliotek (raw.githubusercontent.com), din SMTP-server og dit LLM-endpoint. Admission-controllere, der verificerer signaturer, kan fastlåse images og chart til cosign-identiteten ovenfor.
 
 ## AWS (EKS)
 

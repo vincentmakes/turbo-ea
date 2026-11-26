@@ -78,6 +78,7 @@ async def mutation_batch(
     row_count: int,
     dry_run: bool,
     confirm_token: str | None = None,
+    scope: str | None = None,
 ):
     """Open a mutation batch, yield a :class:`BatchContext`, commit on exit.
 
@@ -95,6 +96,10 @@ async def mutation_batch(
             dry-run was issued. It travels in the open body, where the
             backend checks it (same user, same tool, 15 minutes, single
             use) before any write happens.
+        scope: What the preview's token is bound to, sent on the dry run
+            and the commit alike (e.g. ``start_ai_translation``'s language
+            and mode); the backend refuses a token whose preview had
+            another scope.
     """
     # Use a fresh client for the open/commit calls — the batch id is
     # not yet known so no ``X-Turbo-EA-Batch`` header.
@@ -102,6 +107,8 @@ async def mutation_batch(
     open_payload: dict[str, Any] = {"tool_name": tool_name, "dry_run": dry_run}
     if confirm_token:
         open_payload["confirm_token"] = confirm_token
+    if scope is not None:
+        open_payload["scope"] = scope
     open_resp = await bootstrap.post(f"/mutation-batches?row_count={row_count}", json=open_payload)
     batch_id = open_resp.get("id") if isinstance(open_resp, dict) else None
     ctx = BatchContext(

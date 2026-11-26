@@ -19,26 +19,20 @@ import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import LinearProgress from "@mui/material/LinearProgress";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type {
-  CustomLocale,
-  CustomLocaleRejectedString,
-  CustomLocaleWriteResult,
-  LanguagePack,
-} from "@/types";
+import type { CustomLocale, CustomLocaleWriteResult, LanguagePack } from "@/types";
+import ImportReport from "./ImportReport";
 import {
+  addResult,
+  emptyReport,
+  type ImportReportData,
   errorMessage,
   importBody,
-  namespaceLabel,
   parseLanguagePack,
   percent,
   readFileText,
-  reasonLabel,
   type PackParseError,
   FATAL_IMPORT_STATUSES,
   MAX_PACK_BYTES,
@@ -60,33 +54,12 @@ interface Parsed {
   skipped: number;
 }
 
-interface Report {
-  applied: number;
-  unchanged: number;
-  cleared: number;
-  unknown: number;
-  unknownKeys: { namespace: string; key: string }[];
-  rejected: CustomLocaleRejectedString[];
-  failedNamespaces: { namespace: string; message: string }[];
-  /** Set when a failure that would repeat for every namespace stopped the import. */
-  stopped: string | null;
-}
-
 const PARSE_ERROR_KEYS: Record<PackParseError, string> = {
   invalid_json: "customLocales.import.invalidJson",
   not_a_pack: "customLocales.import.notAPack",
   unsupported_version: "customLocales.import.unsupportedVersion",
   no_strings: "customLocales.import.noStrings",
 };
-
-/** Rejections listed in the report; the rest are summarised by count. */
-const MAX_LISTED_REJECTIONS = 100;
-/** Unknown keys named under their count. */
-const MAX_LISTED_UNKNOWN = 10;
-
-function count(value: unknown): number {
-  return typeof value === "number" ? value : 0;
-}
 
 export default function ImportPackDialog({ locale, onClose, onImported }: Props) {
   const { t } = useTranslation(["admin", "common"]);
@@ -97,7 +70,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
   const [confirmMismatch, setConfirmMismatch] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [report, setReport] = useState<Report | null>(null);
+  const [report, setReport] = useState<ImportReportData | null>(null);
 
   const mismatch = parsed !== null && parsed.pack.locale.code !== locale.code;
 
@@ -114,9 +87,9 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
     let text: string;
     try {
       text = await readFileText(file);
-      // Stryker disable next-line BlockStatement: with an empty catch `text` stays undefined, and parseLanguagePack answers invalid_json — the same message
     } catch {
-      setParseError(t("customLocales.import.invalidJson"));
+      // A file the browser cannot read is not a JSON problem: say so.
+      setParseError(t("customLocales.import.readFailed"));
       return;
     }
     const result = parseLanguagePack(text);
@@ -138,27 +111,12 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
     if (!parsed) return;
     setRunning(true);
     setProgress(0);
-    const total: Report = {
-      applied: 0,
-      unchanged: 0,
-      cleared: 0,
-      unknown: 0,
-      unknownKeys: [],
-      rejected: [],
-      failedNamespaces: [],
-      stopped: null,
-    };
+    const total = emptyReport();
     const path = `/custom-locales/${encodeURIComponent(locale.code)}/strings`;
     for (let i = 0; i < parsed.namespaces.length; i++) {
       const ns = parsed.namespaces[i];
       try {
-        const r = await api.post<CustomLocaleWriteResult>(path, importBody(parsed.pack, ns));
-        total.applied += count(r?.applied);
-        total.unchanged += count(r?.unchanged);
-        total.cleared += count(r?.cleared);
-        total.unknown += count(r?.unknown);
-        if (Array.isArray(r?.unknown_keys)) total.unknownKeys.push(...r.unknown_keys);
-        if (Array.isArray(r?.rejected)) total.rejected.push(...r.rejected);
+        addResult(total, await api.post<CustomLocaleWriteResult>(path, importBody(parsed.pack, ns)));
       } catch (e) {
         const message = errorMessage(
           e,
@@ -263,72 +221,7 @@ export default function ImportPackDialog({ locale, onClose, onImported }: Props)
           </Box>
         )}
 
-        {report && (
-          <Box sx={{ mt: 2 }} data-testid="import-report">
-            <Alert
-              severity={
-                report.rejected.length || report.failedNamespaces.length || report.stopped
-                  ? "warning"
-                  : "success"
-              }
-            >
-              {t("customLocales.import.result", {
-                applied: report.applied,
-                unchanged: report.unchanged,
-                cleared: report.cleared,
-                rejected: report.rejected.length,
-                unknown: report.unknown,
-              })}
-            </Alert>
-            {report.stopped && (
-              <Alert severity="error" sx={{ mt: 1 }}>
-                {t("customLocales.import.stopped", { message: report.stopped })}
-              </Alert>
-            )}
-            {report.unknownKeys.length > 0 && (
-              <Box sx={{ mt: 1 }} data-testid="import-unknown-keys">
-                <Typography variant="subtitle2">{t("customLocales.import.unknownTitle")}</Typography>
-                {report.unknownKeys.slice(0, MAX_LISTED_UNKNOWN).map((u) => (
-                  <Typography key={`${u.namespace}:${u.key}`} variant="body2" color="text.secondary">
-                    {`${namespaceLabel(u.namespace, t)} · ${u.key}`}
-                  </Typography>
-                ))}
-              </Box>
-            )}
-            {report.failedNamespaces.map((f) => (
-              <Alert severity="error" sx={{ mt: 1 }} key={f.namespace}>
-                {t("customLocales.import.namespaceFailed", {
-                  namespace: namespaceLabel(f.namespace, t),
-                  message: f.message,
-                })}
-              </Alert>
-            ))}
-            {report.rejected.length > 0 && (
-              <>
-                <Typography variant="subtitle2" sx={{ mt: 2 }}>
-                  {t("customLocales.import.rejectedTitle")}
-                </Typography>
-                <List dense disablePadding>
-                  {report.rejected.slice(0, MAX_LISTED_REJECTIONS).map((r) => (
-                    <ListItem key={`${r.namespace}:${r.key}`} disableGutters>
-                      <ListItemText
-                        primary={`${namespaceLabel(r.namespace, t)} · ${r.key}`}
-                        secondary={reasonLabel(r.reason, t)}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-                {report.rejected.length > MAX_LISTED_REJECTIONS && (
-                  <Typography variant="caption" color="text.secondary">
-                    {t("customLocales.import.moreRejected", {
-                      count: report.rejected.length - MAX_LISTED_REJECTIONS,
-                    })}
-                  </Typography>
-                )}
-              </>
-            )}
-          </Box>
-        )}
+        {report && <ImportReport report={report} />}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={running}>
