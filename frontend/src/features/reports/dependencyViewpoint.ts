@@ -95,6 +95,27 @@ export interface InstanceReach {
   today: Reach | null;
 }
 
+/**
+ * The tree's path readings for a viewed date: the best relation per pair at
+ * that date, and — only when the date lies in the future — the same today, so
+ * a card whose path comes into effect between the two is drawn "arriving".
+ */
+export function treePathsAt(
+  edges: readonly ViewEdge[],
+  dateMs: number,
+  todayMs: number,
+  opts: { span: Span | null; visibility: TimelineVisibility; forceShown: ReadonlySet<string> },
+): TreePaths {
+  return {
+    at: pairReaches(edges, dateMs, opts.span),
+    today: dateMs > todayMs ? pairReaches(edges, todayMs) : null,
+    visibility: opts.visibility,
+    forceShown: opts.forceShown,
+    dateMs,
+    todayMs,
+  };
+}
+
 /** A tree child's path state through `parent`, or null when it is not drawn. */
 export function treeChildReach(
   paths: TreePaths | null,

@@ -8,6 +8,7 @@ import {
   pairReaches,
   relationReach,
   treeChildReach,
+  treePathsAt,
   viewHopsFor,
   viewMovesBetween,
   viewScopeFor,
@@ -688,5 +689,35 @@ describe("viewHopsFor", () => {
 
   it("follows the tree's expanded instances, by card", () => {
     expect(viewHopsFor({ ...base, chartMode: "tree" })).toEqual({ center: "c", expanded: ["a", "b"] });
+  });
+});
+
+describe("treePathsAt", () => {
+  const TODAY = ms("2026-08-22");
+  // In effect from 2028: not today, but at a viewed date in 2029.
+  const edges: ViewEdge[] = [{ source: "c", target: "a", lifecycle: { active: "2028-01-01" } }];
+  const opts = { span: null, visibility: SHOW_NONE, forceShown: new Set<string>() };
+  const arriving = (dateMs: number) => {
+    const paths = treePathsAt(edges, dateMs, TODAY, opts);
+    const child = treeChildReach(
+      paths,
+      { at: IN_EFFECT, today: paths.today ? IN_EFFECT : null },
+      "c",
+      "a",
+    );
+    return child && combineChangeState(undefined, child.at, child.today, dateMs, TODAY);
+  };
+
+  it("reads today's relations for a viewed date in the future, and makes the card arriving", () => {
+    const paths = treePathsAt(edges, ms("2029-01-01"), TODAY, opts);
+    expect(paths.at("c", "a")).toBe(IN_EFFECT);
+    expect(paths.today?.("c", "a")).toEqual(PLANNED);
+    expect(paths).toMatchObject({ dateMs: ms("2029-01-01"), todayMs: TODAY, visibility: SHOW_NONE });
+    expect(arriving(ms("2029-01-01"))).toBe("arriving");
+  });
+
+  it("reads no today on today itself or before it", () => {
+    expect(treePathsAt(edges, TODAY, TODAY, opts).today).toBeNull();
+    expect(treePathsAt(edges, TODAY - DAY, TODAY, opts).today).toBeNull();
   });
 });

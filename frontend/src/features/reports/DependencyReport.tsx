@@ -33,8 +33,8 @@ import {
   IN_EFFECT,
   combineChangeState,
   isReachShown,
-  pairReaches,
   treeChildReach,
+  treePathsAt,
   viewHopsFor,
   viewMovesBetween,
   viewScopeFor,
@@ -1121,14 +1121,18 @@ export default function DependencyReport() {
     // through relations not in effect is a planned / retired card on that
     // branch, drawn only when its toggle keeps it.
     const at = timelineFilterDate;
-    return computeTreeLayout(center, expanded, adjMap, nodeMap, types, {
-      at: pairReaches(rawEdges, at, span),
-      today: at > timeline.todayMs ? pairReaches(rawEdges, timeline.todayMs) : null,
-      visibility: { persistRetired, previewPlanned },
-      forceShown: revealedForPulse,
-      dateMs: at,
-      todayMs: timeline.todayMs,
-    });
+    return computeTreeLayout(
+      center,
+      expanded,
+      adjMap,
+      nodeMap,
+      types,
+      treePathsAt(rawEdges, at, timeline.todayMs, {
+        span,
+        visibility: { persistRetired, previewPlanned },
+        forceShown: revealedForPulse,
+      }),
+    );
   }, [
     center,
     expanded,

@@ -1192,6 +1192,17 @@ describe("DependencyReport time travel — a relation's own dates", () => {
       expect(treeCard("ERP Core")?.textContent).not.toMatch(/RETIRED|UPCOMING/);
     });
 
+    it("outlines a card whose path comes into effect after today as arriving", async () => {
+      // Web Portal's relation starts 2029-01-01: not in effect today, in effect
+      // at the viewed date — drawn plainly, in the arriving outline.
+      await treeAt(ms("2029-06-01"), { persistRetired: false, previewPlanned: false });
+      const portal = getComputedStyle(treeCard("Web Portal")!);
+      expect(portal.borderTop).toBe("1.5px solid rgb(124, 77, 255)");
+      expect(treeCard("Web Portal")?.textContent).not.toMatch(/RETIRED|UPCOMING/);
+      // ERP Core has been reached all along: no outline.
+      expect(getComputedStyle(treeCard("ERP Core")!).borderTop).not.toContain("rgb(124, 77, 255)");
+    });
+
     it("keeps only the retired one with keep retired alone", async () => {
       await treeAt(FUTURE, { persistRetired: true, previewPlanned: false });
       expect(treeCard("Billing")?.textContent).toContain("RETIRED");
