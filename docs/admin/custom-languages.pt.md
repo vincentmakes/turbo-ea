@@ -32,6 +32,36 @@ Um idioma novo começa desativado: os usuários não o veem até você o oferece
 
 Ofereça um idioma aos seus usuários com o respetivo interruptor. Os usuários poderão então escolhê-lo no menu de idioma, como qualquer idioma integrado. Os textos que ainda faltam aparecem em inglês.
 
+## Instalar um idioma a partir da biblioteca da comunidade
+
+Outros usuários do Turbo EA compartilham suas traduções na [biblioteca de idiomas da comunidade](https://github.com/vincentmakes/turbo-ea-translations). Abaixo dos seus próprios idiomas, o bloco **Idiomas da comunidade** lista os idiomas que ela contém, cada um com seu nome nativo e seu código, a parte da interface que traduz e a versão do Turbo EA com que seu pacote foi criado.
+
+!!! warning "Fornecido pela comunidade, não revisado"
+    Os pacotes são escritos por membros da comunidade. **O projeto Turbo EA não os revisa.** Verificações automáticas garantem que um pacote não possa adicionar marcação, links ou marcadores de posição quebrados que o texto em inglês não tenha, mas ninguém verifica se as traduções são precisas ou completas. Revise um idioma antes de oferecê-lo aos seus usuários.
+
+**Instalar** baixa o pacote do idioma e o importa. O que acontece:
+
+- O pacote é baixado da biblioteca da comunidade — exatamente o arquivo que a biblioteca lista, verificado pela soma de verificação dela.
+- Cada texto passa pelas mesmas verificações de um [arquivo importado](#the-language-pack-file); um texto rejeitado aparece no relatório e nunca é salvo.
+- Um idioma novo é adicionado **desativado**. Veja-o em **Revisar textos** e depois ative-o para seus usuários.
+- O relatório mostra o que foi aplicado, o que foi rejeitado e por quê, e o que não existe na sua versão do Turbo EA.
+
+O idioma passa então a constar como **instalado**, e sua linha na sua própria lista traz a marca **Fornecido pela comunidade, não revisado**. Uma instalação com falha — um pacote que não pode ser baixado, não corresponde à soma de verificação da biblioteca ou não é um pacote válido — não instala nada e é registrada no [registro de Segurança e administração](audit-log.md). Em **Revisar textos**, cada tradução mostra de onde veio — *Biblioteca da comunidade*, *Corrigido à mão*, *Tradução por IA*, *Arquivo importado* ou *MCP*.
+
+Quando a biblioteca tem um pacote mais recente de um idioma que você instalou a partir dela, o idioma mostra **Atualização disponível**. **Atualizar** mescla o novo pacote no seu idioma. Os textos que você corrigiu à mão são mantidos, a menos que você marque **Substituir também os textos corrigidos à mão**. O nome, a direção e o interruptor do seu idioma permanecem como estão.
+
+Se você mesmo adicionou um idioma e a biblioteca tem o mesmo código, a linha dele mostra **Adicionado neste servidor** e oferece **Adicionar textos da comunidade**: o pacote é mesclado ao seu idioma da mesma forma — os textos corrigidos à mão são mantidos, a menos que você escolha o contrário — e o idioma passa a ser marcado como fornecido pela comunidade.
+
+O Turbo EA só contata a biblioteca quando você pede: na primeira vez que a seção é exibida, a lista é baixada e guardada; depois, a lista guardada é exibida (com a data em que foi baixada) até você clicar em **Atualizar**. Nada é verificado em segundo plano, então um pacote mais recente só aparece como **Atualização disponível** depois de uma atualização. Se a biblioteca não puder ser acessada, o bloco informa isso e continua mostrando a lista do último download bem-sucedido.
+
+### Desativar a biblioteca
+
+O endereço da biblioteca é definido pela variável de ambiente `LANGUAGE_CATALOGUE_URL` (valor do Helm `customLanguages.catalogueUrl`). Defina-a como um valor vazio para desativar o recurso, por exemplo em uma instalação sem acesso à internet; o bloco então informa que a biblioteca da comunidade está desativada. Você também pode apontá-la para uma cópia da biblioteca no seu próprio servidor: os pacotes são baixados dos arquivos `packs/<code>/pack.json` ao lado do `index.json` dela.
+
+### Contribuir com um idioma
+
+Traduziu um idioma que ainda não está na biblioteca, ou melhorou um? Exporte-o com **Exportar pacote de idioma > Compartilhar (pacote da comunidade)** e proponha-o à biblioteca — veja o [guia de contribuição](https://github.com/vincentmakes/turbo-ea-translations/blob/main/CONTRIBUTING.md) dela.
+
 ## Três formas de traduzir
 
 Use a que preferir; podem ser combinadas e o resultado é o mesmo.

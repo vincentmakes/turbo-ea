@@ -96,6 +96,7 @@ kubectl get ingress -n turbo-ea           # дождитесь адреса и �
 | `backend.persistence.*` | Том `/app/data`: `size`, `storageClass` или `existingClaim` для своего тома. Сохраняется при `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Любая переменная бэкенда из настройки Compose — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Внешняя конечная точка LLM для ИИ-подсказок. |
+| `customLanguages.catalogueUrl` | Библиотека языков сообщества, описанная в разделе [Пользовательские языки](custom-languages.md#installing-a-language-from-the-community-library). `""` отключает её, например в кластере без доступа к интернету. |
 | `mcp.enabled` | Развернуть сервер MCP по адресу `<publicUrl>/mcp`. |
 | `ingress.*` | Класс, аннотации, TLS. Хосты по умолчанию — хост из `publicUrl`, путь `/`. |
 | `frontend.replicaCount` / `nginx.replicaCount`, `autoscaling`, `pdb` | Масштабирование слоёв без состояния. |
@@ -156,7 +157,7 @@ helm upgrade turbo-ea oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea \
 
 ## Усиление защиты
 
-Каждый контейнер работает от uid 1000 с корневой файловой системой только для чтения, без capabilities, без повышения привилегий и с профилем seccomp `RuntimeDefault`; токен ServiceAccount не монтируется. Это сразу удовлетворяет стандарту Pod Security *restricted*. `networkPolicy.enabled: true` добавляет политики запрета по умолчанию между слоями (укажите в `networkPolicy.ingressController` метку пространства имён вашего контроллера); правила исходящего трафика включаются отдельно, потому что бэкенд также обращается к магазину расширений, endoflife.date, NVD, вашему SMTP-серверу и конечной точке LLM. Контроллеры допуска, проверяющие подписи, могут привязать образы и чарт к указанной выше идентичности cosign.
+Каждый контейнер работает от uid 1000 с корневой файловой системой только для чтения, без capabilities, без повышения привилегий и с профилем seccomp `RuntimeDefault`; токен ServiceAccount не монтируется. Это сразу удовлетворяет стандарту Pod Security *restricted*. `networkPolicy.enabled: true` добавляет политики запрета по умолчанию между слоями (укажите в `networkPolicy.ingressController` метку пространства имён вашего контроллера); правила исходящего трафика включаются отдельно, потому что бэкенд также обращается к магазину расширений, endoflife.date, NVD, библиотеке языков сообщества (raw.githubusercontent.com), вашему SMTP-серверу и конечной точке LLM. Контроллеры допуска, проверяющие подписи, могут привязать образы и чарт к указанной выше идентичности cosign.
 
 ## AWS (EKS)
 

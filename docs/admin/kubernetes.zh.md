@@ -96,6 +96,7 @@ kubectl get ingress -n turbo-ea           # 等待出现地址，然后打开 pu
 | `backend.persistence.*` | `/app/data` 卷：`size`、`storageClass`，或用 `existingClaim` 自带卷。`helm uninstall` 时保留。 |
 | `backend.extraEnv` / `extraEnvFrom` | Compose 配置中的任何后端变量——`SMTP_*`、`TURBO_EA_PROXY_AUTH_*`、`NVD_API_KEY`、`EXTENSION_*`。 |
 | `ai.providerUrl` / `ai.model` | 用于 AI 建议的外部 LLM 端点。 |
+| `customLanguages.catalogueUrl` | [自定义语言](custom-languages.md#installing-a-language-from-the-community-library)中列出的社区语言库。`""` 会将其关闭，例如在与互联网隔离的集群中。 |
 | `mcp.enabled` | 在 `<publicUrl>/mcp` 部署 MCP 服务器。 |
 | `ingress.*` | 类、注解、TLS。主机默认为 `publicUrl` 的主机，路径 `/`。 |
 | `frontend.replicaCount` / `nginx.replicaCount`、`autoscaling`、`pdb` | 无状态层的横向扩展。 |
@@ -156,7 +157,7 @@ helm upgrade turbo-ea oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea \
 
 ## 加固
 
-每个容器以 uid 1000 运行，根文件系统只读、无 capability、禁止提权，并使用 `RuntimeDefault` seccomp 配置；不挂载 ServiceAccount 令牌。这开箱即满足 *restricted* Pod 安全标准。`networkPolicy.enabled: true` 会在各层之间添加默认拒绝策略（把 `networkPolicy.ingressController` 设为控制器所在命名空间的标签）；出站规则需要主动开启，因为后端还要访问扩展商店、endoflife.date、NVD、您的 SMTP 服务器和 LLM 端点。校验签名的准入控制器可以把镜像和 chart 固定到上述 cosign 身份。
+每个容器以 uid 1000 运行，根文件系统只读、无 capability、禁止提权，并使用 `RuntimeDefault` seccomp 配置；不挂载 ServiceAccount 令牌。这开箱即满足 *restricted* Pod 安全标准。`networkPolicy.enabled: true` 会在各层之间添加默认拒绝策略（把 `networkPolicy.ingressController` 设为控制器所在命名空间的标签）；出站规则需要主动开启，因为后端还要访问扩展商店、endoflife.date、NVD、社区语言库（raw.githubusercontent.com）、您的 SMTP 服务器和 LLM 端点。校验签名的准入控制器可以把镜像和 chart 固定到上述 cosign 身份。
 
 ## AWS（EKS）
 

@@ -32,6 +32,36 @@ Une nouvelle langue démarre désactivée : les utilisateurs ne la voient pas ta
 
 Proposez une langue à vos utilisateurs avec son interrupteur. Ils peuvent alors la choisir dans le menu de langue, comme n'importe quelle langue intégrée. Les chaînes encore manquantes s'affichent en anglais.
 
+## Installer une langue depuis la bibliothèque communautaire
+
+D'autres utilisateurs de Turbo EA partagent leurs traductions dans la [bibliothèque de langues communautaire](https://github.com/vincentmakes/turbo-ea-translations). Sous vos propres langues, le bloc **Langues communautaires** liste les langues qu'elle contient, chacune avec son nom natif et son code, la part de l'interface qu'elle traduit et la version de Turbo EA avec laquelle son pack a été créé.
+
+!!! warning "Fourni par la communauté, non vérifié"
+    Les packs sont rédigés par des membres de la communauté. **Le projet Turbo EA ne les vérifie pas.** Des contrôles automatiques garantissent qu'un pack ne peut pas ajouter de balisage, de liens ou de paramètres substituables cassés que le texte anglais n'a pas, mais personne ne vérifie si les traductions sont exactes ou complètes. Vérifiez une langue avant de la proposer à vos utilisateurs.
+
+**Installer** télécharge le pack de la langue et l'importe. Voici ce qui se passe :
+
+- Le pack est téléchargé depuis la bibliothèque communautaire — exactement le fichier que la bibliothèque liste, vérifié par rapport à sa somme de contrôle.
+- Chaque chaîne passe les mêmes contrôles qu'un [fichier importé](#the-language-pack-file) ; une chaîne rejetée figure dans le rapport et n'est jamais enregistrée.
+- Une nouvelle langue est ajoutée **désactivée**. Consultez-la dans **Vérifier les chaînes**, puis activez-la pour vos utilisateurs.
+- Le rapport indique ce qui a été appliqué, ce qui a été rejeté et pourquoi, et ce qui n'existe pas dans votre version de Turbo EA.
+
+La langue apparaît alors comme **installée**, et sa ligne dans votre propre liste porte le repère **Fourni par la communauté, non vérifié**. Une installation qui échoue — un pack impossible à télécharger, qui ne correspond pas à la somme de contrôle de la bibliothèque ou qui n'est pas un pack valide — n'installe rien et est consignée dans le [journal Sécurité et administration](audit-log.md). Dans **Vérifier les chaînes**, chaque traduction indique son origine — *Bibliothèque communautaire*, *Corrigée à la main*, *Traduction IA*, *Fichier importé* ou *MCP*.
+
+Lorsque la bibliothèque propose un pack plus récent d'une langue que vous en avez installée, la langue affiche **Mise à jour disponible**. **Mettre à jour** fusionne le nouveau pack dans votre langue. Les chaînes que vous avez corrigées à la main sont conservées, sauf si vous cochez **Remplacer aussi les chaînes corrigées à la main**. Le nom, le sens d'écriture et l'interrupteur de votre langue restent inchangés.
+
+Si vous avez ajouté vous-même une langue et que la bibliothèque a le même code, sa ligne affiche **Ajoutée sur ce serveur** et propose **Ajouter les chaînes communautaires** : le pack est fusionné dans votre langue de la même manière — les chaînes corrigées à la main sont conservées, sauf si vous choisissez autrement — et la langue est ensuite marquée comme fournie par la communauté.
+
+Turbo EA ne contacte la bibliothèque que lorsque vous le demandez : la première fois que la section s'affiche, la liste est téléchargée et conservée ; ensuite, la liste conservée est affichée (avec sa date de téléchargement) jusqu'à ce que vous cliquiez sur **Actualiser**. Rien n'est vérifié en arrière-plan : un pack plus récent n'apparaît donc comme **Mise à jour disponible** qu'après une actualisation. Si la bibliothèque est injoignable, le bloc l'indique et continue d'afficher la liste du dernier téléchargement réussi.
+
+### Désactiver la bibliothèque
+
+L'adresse de la bibliothèque est définie par la variable d'environnement `LANGUAGE_CATALOGUE_URL` (valeur Helm `customLanguages.catalogueUrl`). Laissez-la vide pour désactiver la fonctionnalité, par exemple sur une installation sans accès à Internet ; le bloc indique alors que la bibliothèque communautaire est désactivée. Vous pouvez aussi la faire pointer vers une copie de la bibliothèque sur votre propre serveur : les packs sont téléchargés depuis les fichiers `packs/<code>/pack.json` situés à côté de son `index.json`.
+
+### Contribuer une langue
+
+Vous avez traduit une langue qui n'est pas encore dans la bibliothèque, ou en avez amélioré une ? Exportez-la avec **Exporter le pack de langue > Partager (pack communautaire)** et proposez-la à la bibliothèque — voir son [guide de contribution](https://github.com/vincentmakes/turbo-ea-translations/blob/main/CONTRIBUTING.md).
+
 ## Trois façons de traduire
 
 Utilisez celle qui vous convient ; elles se combinent, et le résultat est le même.
