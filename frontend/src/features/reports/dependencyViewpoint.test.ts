@@ -7,10 +7,14 @@ import {
   isReachShown,
   pairReaches,
   relationReach,
+  treeChildReach,
+  viewHopsFor,
   viewMovesBetween,
+  viewScopeFor,
   viewTransitions,
   viewpointReach,
   type Reach,
+  type TreePaths,
   type ViewEdge,
 } from "./dependencyViewpoint";
 import { computeTimelineMilestones } from "./timelineRange";
@@ -447,6 +451,26 @@ describe("viewTransitions", () => {
     expect(viewTransitions(scope, edges, { center: "c" }).cards).toEqual([]);
   });
 
+  it("names a date as the first relation wrote it, however others write the same day", () => {
+    const scope = [card("c"), card("a")];
+    const edges: ViewEdge[] = [
+      { source: "c", target: "a", lifecycle: { active: "2027-01-01" } },
+      { source: "a", target: "c", lifecycle: { active: "2027-01-01T00:00:00Z" } },
+    ];
+    expect(viewTransitions(scope, edges, { center: "c" }).cards).toEqual([
+      { id: "a", name: "A", lifecycle: { active: "2027-01-01" } },
+    ]);
+  });
+
+  it("counts no connection change for a link that ends the day it starts", () => {
+    const scope = [card("c"), card("a")];
+    const edges: ViewEdge[] = [
+      { source: "c", target: "a" },
+      { source: "c", target: "a", lifecycle: { active: "2027-01-01", endOfLife: "2027-01-01" } },
+    ];
+    expect(viewTransitions(scope, edges, { center: "c" }).links).toEqual([]);
+  });
+
   it("does not count a link to a card retired at the date as a connection change", () => {
     const scope = [card("c"), card("b", { endOfLife: "2027-01-01" })];
     const edges: ViewEdge[] = [
@@ -571,5 +595,98 @@ describe("viewMovesBetween", () => {
     const m = viewMovesBetween(cards, ms("2027-01-01"), ms("2027-01-02"));
     expect([...m.arriving]).toEqual([["a", ms("2027-01-01")]]);
     expect([...m.leaving]).toEqual([["b", ms("2027-01-02")]]);
+  });
+});
+
+describe("treeChildReach", () => {
+  const paths = (over: Partial<TreePaths> = {}): TreePaths => ({
+    at: () => undefined,
+    today: null,
+    visibility: SHOW_NONE,
+    forceShown: new Set(),
+    dateMs: 0,
+    todayMs: 0,
+    ...over,
+  });
+  const root = { at: IN_EFFECT, today: IN_EFFECT };
+
+  it("passes the parent's state on unchanged without paths", () => {
+    expect(treeChildReach(null, root, "c", "a")).toBe(root);
+  });
+
+  it("lowers the child to the relation between the two, at the date and today", () => {
+    const r = treeChildReach(
+      paths({ at: () => ENDED, today: () => PLANNED, visibility: SHOW_ALL }),
+      root,
+      "c",
+      "a",
+    );
+    expect(r).toEqual({ at: ENDED, today: PLANNED });
+  });
+
+  it("reads an undated pair as in effect, and keeps no today without one", () => {
+    expect(treeChildReach(paths({ today: () => undefined }), root, "c", "a")).toEqual({
+      at: IN_EFFECT,
+      today: IN_EFFECT,
+    });
+    expect(treeChildReach(paths({ today: () => PLANNED }), { at: IN_EFFECT, today: null }, "c", "a")).toEqual({
+      at: IN_EFFECT,
+      today: null,
+    });
+  });
+
+  it("draws a child its visibility hides only when the spotlight forces it", () => {
+    const hidden = paths({ at: () => PLANNED });
+    expect(treeChildReach(hidden, root, "c", "a")).toBeNull();
+    expect(
+      treeChildReach({ ...hidden, forceShown: new Set(["a"]) }, root, "c", "a"),
+    ).toEqual({ at: PLANNED, today: IN_EFFECT });
+  });
+});
+
+describe("viewScopeFor", () => {
+  const scope = [
+    { id: "c", name: "C" },
+    { id: "a", name: "A" },
+  ];
+  const edges: ViewEdge[] = [
+    { source: "c", target: "a", lifecycle: { active: "2027-01-01" } },
+    { source: "a", target: "out", lifecycle: { active: "2028-01-01" } },
+    { source: "out", target: "c", lifecycle: { active: "2029-01-01" } },
+  ];
+
+  it("without a centre: the scope, and the relations with both ends in it", () => {
+    const v = viewScopeFor(scope, edges, null);
+    expect(v.cards).toEqual(scope);
+    expect(v.links).toEqual([{ active: "2027-01-01" }]);
+  });
+
+  it("with a centre: the cards entering and leaving the view", () => {
+    const hops = { center: "c" };
+    expect(viewScopeFor(scope, edges, hops)).toEqual(viewTransitions(scope, edges, hops));
+  });
+});
+
+describe("viewHopsFor", () => {
+  const base = {
+    view: "chart",
+    chartMode: "c4",
+    center: "c",
+    ldvExpanded: ["x"],
+    placed: ["p"],
+    treeExpanded: ["c:a", "c:a:b"],
+  };
+
+  it("is null without a centred chart", () => {
+    expect(viewHopsFor({ ...base, view: "table" })).toBeNull();
+    expect(viewHopsFor({ ...base, center: null })).toBeNull();
+  });
+
+  it("follows the Layered Dependency View's expansions and reveals", () => {
+    expect(viewHopsFor(base)).toEqual({ center: "c", expanded: ["x"], placed: ["p"] });
+  });
+
+  it("follows the tree's expanded instances, by card", () => {
+    expect(viewHopsFor({ ...base, chartMode: "tree" })).toEqual({ center: "c", expanded: ["a", "b"] });
   });
 });

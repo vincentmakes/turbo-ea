@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { edgesAtDate } from "./dependencyEdgesAtDate";
+import { edgesAtDate, relationStateLegendKeys } from "./dependencyEdgesAtDate";
 import type { GEdge } from "./layeredDependencyLayout";
 
 const ms = (iso: string) => new Date(iso).getTime();
@@ -69,5 +69,20 @@ describe("edgesAtDate", () => {
     expect(
       edgesAtDate([plannedToEnd], ALL, AT, neither, { from: 0, to: ms("2030-01-01") }),
     ).toEqual([]);
+  });
+});
+
+describe("relationStateLegendKeys", () => {
+  it("names each relation state a drawn line is in, once", () => {
+    expect(relationStateLegendKeys([{}, { relationState: undefined }])).toEqual([]);
+    expect(relationStateLegendKeys([{}, { relationState: "planned" }])).toEqual(["plannedRelation"]);
+    expect(relationStateLegendKeys([{ relationState: "ended" }, {}])).toEqual(["endedRelation"]);
+    expect(
+      relationStateLegendKeys([
+        { relationState: "ended" },
+        { relationState: "planned" },
+        { relationState: "ended" },
+      ]),
+    ).toEqual(["plannedRelation", "endedRelation"]);
   });
 });
