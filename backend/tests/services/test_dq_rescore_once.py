@@ -127,3 +127,21 @@ async def test_rescore_reruns_when_only_the_v2_marker_is_set(db):
     ).scalar_one()
     assert settings_row.general_settings.get(_DQ_RESCORE_FLAG) is True
     assert settings_row.general_settings.get("dataQualityCanonicalRescoreDoneV2") is True
+
+
+async def test_rescore_reruns_when_only_the_v3_marker_is_set(db):
+    """Migration 178 gave custom types the stakeholder role definitions they
+    lacked (#1437), adding a stakeholders slot to their cards, so an install
+    that already ran the V3 rescore scores once more."""
+    user = await create_user(db, email="rescore-v4@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application")
+    card = await create_card(db, card_type="Application", name="V3 App", user_id=user.id)
+    canonical = await calc_data_quality(db, card)
+    card.data_quality = 77.7
+    db.add(AppSettings(id="default", general_settings={"dataQualityCanonicalRescoreDoneV3": True}))
+    await db.flush()
+
+    assert _DQ_RESCORE_FLAG == "dataQualityCanonicalRescoreDoneV4"
+    assert await run_dq_rescore_once(db) == 1
+    refreshed = (await db.execute(select(Card).where(Card.id == card.id))).scalar_one()
+    assert refreshed.data_quality == canonical

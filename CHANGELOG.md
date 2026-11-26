@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.214.1] - 2026-11-26
+
+### Fixed
+- Adding a stakeholder role to a card type you created no longer hides its **Responsible** and **Observer** roles and the people assigned to them; on upgrade, the roles and assignments that had disappeared come back.
+- A **Responsible** or **Observer** on a card of a type you created now gets that role's permissions, as on the built-in types.
+
 ## [2.214.0] - 2026-11-25
 
 ### Added

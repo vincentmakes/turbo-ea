@@ -548,7 +548,10 @@ async def _promote_recurring_tasks_loop() -> None:
 #   V2 (2.52.0) — the mandatory-field gate that pins incomplete cards to 0.
 #   V3 (2.59.0) — the stakeholders bucket became a single yes/no slot instead
 #                 of one slot per role defined on the card type.
-_DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDoneV3"
+#   V4 (2.214.1) — migration 178 gave custom card types the stakeholder role
+#                 definitions they lacked (#1437), so their cards gained a
+#                 stakeholders slot.
+_DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDoneV4"
 
 
 async def _one_shot_upgrade_announcement() -> None:
