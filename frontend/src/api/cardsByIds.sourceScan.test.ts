@@ -4,8 +4,9 @@
  * a hand-built `/cards?ids=` URL".
  *
  * The shared fetcher chunks the ids (200 per request) so the request line
- * stays under the edge nginx's 8 KB limit — a hand-built URL with a few
- * hundred ids is refused with 414 before it reaches the backend (#1093) — and
+ * stays under 8 KB, the budget kept for proxies on nginx's default buffers
+ * (the bundled edge allows 16 KB per line, #1445) — a hand-built URL with a
+ * few hundred ids is refused with 414 before it reaches the backend (#1093) — and
  * reports the ids a View deny withheld. This scan fails on any string or
  * template literal that builds an `ids=` query parameter (`?ids=` / `&ids=`).
  * Comments are prose and skipped; `card_ids=` / `type_ids=` are other

@@ -112,6 +112,7 @@ import {
   normalizeDataQualityFilter,
 } from "@/lib/dataQualityBands";
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
+import { ExportCellTooLongError } from "./excelCellLimit";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { booleanColumnDef } from "./booleanColumn";
 import RelationCellPopover from "./RelationCellPopover";
@@ -3322,6 +3323,17 @@ export default function InventoryPage() {
     try {
       await pending;
     } catch (err) {
+      console.error(err);
+      if (err instanceof ExportCellTooLongError) {
+        setCellEditError(
+          t("export.cellTooLong", {
+            row: err.rowLabel,
+            column: err.column,
+            length: err.length.toLocaleString(i18n.language),
+          }),
+        );
+        return;
+      }
       setCellEditError(
         t("export.failed", {
           message: err instanceof Error ? err.message : t("common:errors.generic"),

@@ -338,6 +338,7 @@
   "export.waitingForRelations": "Venter på, at relationskolonnerne indlæses…",
   "export.viewSheetName": "Visning",
   "export.failed": "Eksporten kunne ikke oprettes: {{message}}",
+  "export.cellTooLong": "{{row}}: Kolonnen «{{column}}» indeholder {{length}} tegn, og en Excel-celle kan højst rumme 32.767. Forkort værdien, eller filtrér kortet fra, og eksportér derefter igen.",
   "columns.id": "ID",
   "columns.eol": "End of life",
   "columns.eolSupport": "Support slutter",

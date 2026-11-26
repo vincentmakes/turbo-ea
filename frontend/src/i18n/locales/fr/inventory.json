@@ -338,6 +338,7 @@
   "export.waitingForRelations": "En attente du chargement des colonnes de relations…",
   "export.viewSheetName": "Vue",
   "export.failed": "Impossible de créer l'export : {{message}}",
+  "export.cellTooLong": "{{row}} : la colonne « {{column}} » contient {{length}} caractères, alors qu'une cellule Excel en accepte au maximum 32 767. Raccourcissez la valeur ou filtrez cette fiche, puis exportez à nouveau.",
   "columns.id": "ID",
   "columns.eol": "Fin de vie",
   "columns.eolSupport": "Fin du support",

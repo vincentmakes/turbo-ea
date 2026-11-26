@@ -338,6 +338,7 @@
   "export.waitingForRelations": "Esperando a que terminen de cargarse las columnas de relaciones…",
   "export.viewSheetName": "Vista",
   "export.failed": "No se pudo crear la exportación: {{message}}",
+  "export.cellTooLong": "{{row}}: la columna «{{column}}» contiene {{length}} caracteres, y una celda de Excel admite como máximo 32.767. Acorte el valor o excluya esa ficha con un filtro y vuelva a exportar.",
   "columns.id": "ID",
   "columns.eol": "Fin de vida",
   "columns.eolSupport": "Fin del soporte",

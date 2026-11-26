@@ -395,6 +395,10 @@ Klik på **Export** i værktøjslinjen. Det aktuelle gitter-filter bestemmer ind
 
 Du kan også vælge **Eksportér aktuel visning** i Export-menuen — et fladt enkelt-ark-øjebliksbillede, der afspejler det viste (kun de synlige kolonner, i deres aktuelle rækkefølge, for de filtrerede rækker). Det er beregnet til deling og er **ikke egnet til genimport**. Hvis relationskolonnerne stadig indlæses, venter eksporten på dem, så de aldrig kan ende med at være tomme.
 
+En Excel-celle rummer højst 32.767 tegn. Når en værdi er længere — en meget lang beskrivelse eller ét kort med omkring tusind relationer af samme type — stopper eksporten og angiver kortet og kolonnen i stedet for at skrive en ødelagt fil.
+
+En Excel-celle rummer højst 32.767 tegn. Når en værdi er længere — en meget lang beskrivelse eller ét kort med omkring tusind relationer af samme type — stopper eksporten og angiver kortet og kolonnen i stedet for at skrive en ødelagt fil.
+
 ### Round-trip-tips
 
 - Rediger projektmappen i Excel, gem som `.xlsx`, re-importer. Kort lander via `(type, parent_path, name)`-matchning, selv hvis du ikke beholdt `id`-kolonnen.

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - Inventory **Export → All fields**, and other requests that send a long list of cards, no longer fail behind a sign-in proxy that adds large headers, such as Azure App Service authentication (#1445).
 - An Inventory export that fails now says why, instead of producing no file and no message (#1445).
+- An Inventory export that cannot be written because one value is longer than an Excel cell allows (32,767 characters) now names the card and the column (#1445).
+- The MCP server accepts the large request headers a sign-in proxy adds, instead of answering 400 (#1445).
 
 ## [2.217.0] - 2026-11-26
 

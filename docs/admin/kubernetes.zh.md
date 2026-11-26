@@ -287,4 +287,4 @@ Azure Container Apps、Google Cloud Run 和 AWS ECS Fargate 无需 Kubernetes �
 | 工作区导入在几 MB 时失败 | 是 Ingress 控制器的请求体限制，而非 nginx 的——见 *Ingress 与 TLS* 下的表格。 |
 | 实时更新在固定间隔后停止 | 负载均衡器的空闲或请求超时关闭了事件流；按同一表格调高。浏览器会重连，不会丢失数据，但重连间隔会表现为延迟。 |
 | 重启后扩展消失 | `backend.persistence.enabled` 为 `false`，或 PVC 已被删除。 |
-| 库存导出失败并提示 *Bad Request*，或浏览器网络面板显示 `400 Request Header Or Cookie Too Large` 或 `414` | 代理拒绝了请求头：URL 中的长卡片 ID 列表，加上登录代理的 Cookie 和令牌头。请升级到 2.217.1 或更高版本，其边缘 nginx 同时接受这两者；如果响应来自 Ingress 控制器，请增大其请求头缓冲区 —— 参见 *Ingress 与 TLS*。 |
+| 库存导出失败并提示 *Bad Request* / *HTTP 400*，或浏览器网络面板显示 `400 Request Header Or Cookie Too Large` 或 `414` | 代理拒绝了请求头：URL 中的长卡片 ID 列表，加上登录代理的 Cookie 和令牌头。请升级到 2.217.1 或更高版本，其边缘 nginx 同时接受这两者；如果响应来自 Ingress 控制器，请增大其请求头缓冲区 —— 参见 *Ingress 与 TLS*。 |

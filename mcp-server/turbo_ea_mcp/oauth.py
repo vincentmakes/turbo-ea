@@ -50,8 +50,10 @@ TURBO_JWT_REFRESH_BUFFER = 3600  # 1 hour
 
 # Registration bounds. A client id carries its redirect URIs (see
 # ``mint_client_id``), and it travels in the /oauth/authorize query string
-# beside a percent-encoded redirect_uri, so the id is capped well inside the
-# edge nginx's 8 KB request line: an id the server accepted must stay usable.
+# beside a percent-encoded redirect_uri, so the id is capped well inside an
+# 8 KB request line, the budget kept for proxies on nginx's default buffers
+# (the bundled edge allows 16 KB per line, #1445): an id the server accepted
+# must stay usable.
 MAX_REDIRECT_URIS = 10
 MAX_REDIRECT_URI_LENGTH = 1024
 MAX_CLIENT_ID_LENGTH = 2048

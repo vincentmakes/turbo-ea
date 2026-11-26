@@ -338,6 +338,7 @@
   "export.waitingForRelations": "Warten, bis die Beziehungsspalten geladen sind…",
   "export.viewSheetName": "Ansicht",
   "export.failed": "Der Export konnte nicht erstellt werden: {{message}}",
+  "export.cellTooLong": "{{row}}: Spalte „{{column}}“ enthält {{length}} Zeichen, eine Excel-Zelle fasst aber höchstens 32.767. Kürzen Sie den Wert oder filtern Sie diese Karte heraus und exportieren Sie dann erneut.",
   "columns.id": "ID",
   "columns.eol": "End of Life",
   "columns.eolSupport": "Support endet",

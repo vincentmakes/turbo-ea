@@ -338,6 +338,7 @@
   "export.waitingForRelations": "正在等待关系列加载完成…",
   "export.viewSheetName": "视图",
   "export.failed": "无法创建导出：{{message}}",
+  "export.cellTooLong": "{{row}}：列「{{column}}」包含 {{length}} 个字符，而 Excel 单元格最多只能容纳 32,767 个。请缩短该值或将该卡片筛选掉，然后重新导出。",
   "columns.id": "ID",
   "columns.eol": "生命周期终止",
   "columns.eolSupport": "支持截止",
