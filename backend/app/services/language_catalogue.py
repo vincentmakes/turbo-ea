@@ -80,6 +80,9 @@ MAX_PACK_KEYS = 20_000
 #: The longest English key is under 70 characters; a database-label key under
 #: a few hundred.
 MAX_PACK_KEY_LENGTH = 300
+#: Asked of every download: the body is counted as it arrives on the wire,
+#: never inflated first.
+IDENTITY_ONLY = {"Accept-Encoding": "identity"}
 #: Where a pack can be pinned to the commit the index names.
 RAW_GITHUB_HOST = "raw.githubusercontent.com"
 
@@ -165,13 +168,11 @@ async def _download(url: str, limit: int, *, unreachable: str, too_large: str) -
     current = url
     async with _client() as client:
         for _hop in range(MAX_REDIRECTS + 1):
-            # ``identity``: the body is counted as it arrives on the wire,
-            # never inflated first (``aiter_raw`` does not decode either).
-            async with client.stream(
-                "GET", current, headers={"Accept-Encoding": "identity"}
-            ) as resp:
+            # ``aiter_raw`` below does not decode either.
+            async with client.stream("GET", current, headers=IDENTITY_ONLY) as resp:
                 if resp.is_redirect:
-                    target = urljoin(current, resp.headers.get("location", ""))
+                    # ``is_redirect`` implies a Location header.
+                    target = urljoin(current, resp.headers["location"])
                     if not is_https_url(target) or _origin(target) != origin:
                         raise CatalogueError(unreachable)
                     current = target
@@ -519,7 +520,7 @@ async def keep_manual(
 ) -> int:
     """Leave out of ``payload`` every key the language holds a hand-corrected
     (origin ``manual``) value for; returns how many were left out."""
-    names = [n for n in payload.strings if n == store.METAMODEL or store.known_namespace(cat, n)]
+    names = [n for n in payload.strings if store.known_namespace(cat, n)]
     views = await store.load_views(db, locale, cat, names)
     kept = 0
     for name, view in views.items():

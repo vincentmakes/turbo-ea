@@ -98,6 +98,9 @@ describe("CommunityLanguages", () => {
     renderBlock();
     expect(await screen.findByText("Nederlands")).toBeInTheDocument();
     expect(CATALOGUE_PATH).toBe("/custom-locales/catalogue");
+    expect(screen.getByRole("heading", { name: t("customLocales.community.title") })).toBeInTheDocument();
+    expect(screen.getByText(t("customLocales.community.description"))).toBeInTheDocument();
+    expect(screen.queryByText(t("customLocales.community.empty"))).toBeNull();
 
     const nl = row("nl");
     expect(
@@ -206,6 +209,19 @@ describe("CommunityLanguages", () => {
     await waitFor(() => expect(refresh).toBeEnabled());
   });
 
+  it("downloads the list again on every Refresh", async () => {
+    mockApi.on("get", CATALOGUE_PATH, catalogue());
+    mockApi.on("get", REFRESH, catalogue());
+    const { user } = renderBlock();
+    await screen.findByText("Nederlands");
+    const refresh = screen.getByRole("button", { name: t("customLocales.community.refresh") });
+    await user.click(refresh);
+    await waitFor(() => expect(mockApi.callsOf("get", REFRESH)).toHaveLength(1));
+    await waitFor(() => expect(refresh).toBeEnabled());
+    await user.click(refresh);
+    await waitFor(() => expect(mockApi.callsOf("get", REFRESH)).toHaveLength(2));
+  });
+
   it("downloads the library's list again only on Refresh", async () => {
     mockApi.on("get", CATALOGUE_PATH, catalogue({ languages: [DUTCH] }));
     mockApi.on("get", REFRESH, catalogue());
@@ -223,6 +239,7 @@ describe("CommunityLanguages", () => {
     renderBlock();
     expect(await screen.findByText(t("customLocales.community.disabled"))).toBeInTheDocument();
     expect(screen.queryByText("Nederlands")).toBeNull();
+    expect(screen.queryAllByTestId(/^community-language-/)).toHaveLength(0);
     expect(screen.queryByRole("button", { name: t("customLocales.community.refresh") })).toBeNull();
     expect(screen.queryByText(t("customLocales.community.empty"))).toBeNull();
   });

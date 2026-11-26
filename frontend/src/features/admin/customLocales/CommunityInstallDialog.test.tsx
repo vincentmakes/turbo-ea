@@ -92,6 +92,8 @@ describe("CommunityInstallDialog", () => {
     expect(screen.getByText(t("customLocales.community.installExplain"))).toBeInTheDocument();
     // A first install has no hand-corrected strings to keep.
     expect(screen.queryByRole("checkbox")).toBeNull();
+    // Only the warning: no error before anything was tried.
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(mockApi.callsOf("post", PATH)).toHaveLength(0);
     expect(installPath("pt-BR")).toBe("/custom-locales/catalogue/pt-BR/install");
   });
@@ -201,6 +203,8 @@ describe("CommunityInstallDialog", () => {
     await user.click(screen.getByRole("button", { name: t("customLocales.community.install") }));
     await screen.findByTestId("import-report");
     expect(screen.queryByText(t("customLocales.errors.pack_checksum_mismatch"))).toBeNull();
+    // The outcome and the report's own alert, nothing else.
+    expect(screen.getAllByRole("alert")).toHaveLength(2);
   });
 
   it("falls back to a general message for an unknown failure", async () => {
@@ -208,6 +212,30 @@ describe("CommunityInstallDialog", () => {
     const { user } = renderDialog();
     await user.click(screen.getByRole("button", { name: t("customLocales.community.install") }));
     expect(await screen.findByText(t("customLocales.community.installFailed"))).toBeInTheDocument();
+  });
+
+  it("words a library language that is already current as an update", () => {
+    renderDialog({ ...INSTALLED, update_available: false });
+    expect(
+      screen.getByText(t("customLocales.community.updateTitle", { name: "Nederlands" })),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("customLocales.community.update") })).toBeEnabled();
+  });
+
+  it("marks the report a warning when strings were rejected, a success otherwise", async () => {
+    mockApi.on("post", PATH, result({ rejected: [{ namespace: "common", key: "k", reason: "empty" }] }));
+    const { user, unmount } = renderDialog();
+    await user.click(screen.getByRole("button", { name: t("customLocales.community.install") }));
+    const report = await screen.findByTestId("import-report");
+    expect(report.querySelector(".MuiAlert-standardWarning")).not.toBeNull();
+    expect(screen.getByText(t("customLocales.import.rejectedTitle"))).toBeInTheDocument();
+    unmount();
+    mockApi.on("post", PATH, result());
+    const second = renderDialog();
+    await second.user.click(screen.getByRole("button", { name: t("customLocales.community.install") }));
+    const clean = await screen.findByTestId("import-report");
+    expect(clean.querySelector(".MuiAlert-standardSuccess")).not.toBeNull();
+    expect(clean.querySelector(".MuiAlert-standardWarning")).toBeNull();
   });
 
   it("closes on Close", async () => {

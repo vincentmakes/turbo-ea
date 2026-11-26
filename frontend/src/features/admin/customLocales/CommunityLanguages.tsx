@@ -22,7 +22,12 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import type { CommunityCatalogue, CommunityLanguage } from "@/types";
 import CommunityInstallDialog from "./CommunityInstallDialog";
 import UnreviewedChip from "./UnreviewedChip";
-import { communityAction, errorMessage, isKnownErrorCode } from "./customLocaleUtils";
+import {
+  communityAction,
+  errorMessage,
+  isKnownErrorCode,
+  type CommunityAction,
+} from "./customLocaleUtils";
 
 export const CATALOGUE_PATH = "/custom-locales/catalogue";
 
@@ -37,12 +42,17 @@ interface Props {
   listVersion?: number;
 }
 
-/** The status chip of an installed language: its label key and colour. */
-const STATUS_CHIP = {
-  installed: { label: "customLocales.community.installed", color: "success" },
+type ChipColor = "success" | "info" | "default";
+
+/**
+ * The status chip by the action a language offers: none for one not
+ * installed (`install`), "Installed" for a current one (no action).
+ */
+const STATUS_CHIP: Partial<Record<CommunityAction | "current", { label: string; color: ChipColor }>> = {
+  current: { label: "customLocales.community.installed", color: "success" },
   update: { label: "customLocales.community.updateAvailable", color: "info" },
   merge: { label: "customLocales.community.addedHere", color: "default" },
-} as const;
+};
 
 function LanguageRow({
   language,
@@ -53,8 +63,7 @@ function LanguageRow({
 }) {
   const { t } = useTranslation("admin");
   const action = communityAction(language);
-  // The chip follows the action an installed language offers (none: current).
-  const status = action === "install" ? null : STATUS_CHIP[action ?? "installed"];
+  const status = STATUS_CHIP[action ?? "current"];
   return (
     <Box
       data-testid={`community-language-${language.code}`}
@@ -127,6 +136,7 @@ export default function CommunityLanguages({ onInstalled, listVersion = 0 }: Pro
   });
   const reread = (download: boolean) => {
     setRefresh(download);
+    // Stryker disable next-line ArithmeticOperator: the read key only has to change, down as well as up
     setReads((n) => n + 1);
   };
   const [installing, setInstalling] = useState<CommunityLanguage | null>(null);

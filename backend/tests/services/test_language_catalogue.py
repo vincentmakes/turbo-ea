@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from sqlalchemy import event as sa_event
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -57,6 +58,11 @@ def library(monkeypatch) -> FakeLibrary:
 # ---------------------------------------------------------------------------
 # URLs
 # ---------------------------------------------------------------------------
+
+
+def test_an_error_carries_its_code():
+    err = lc.CatalogueError(lc.PACK_CHECKSUM)
+    assert (err.code, str(err)) == (lc.PACK_CHECKSUM, lc.PACK_CHECKSUM)
 
 
 class TestUrls:
@@ -324,6 +330,8 @@ class TestFetch:
         library.serve(INDEX_URL, b"ok")
         assert await self.fetch() == b"ok"
         assert library.headers[0]["accept-encoding"] == "identity"
+        assert library.methods == ["GET"]
+        assert lc.IDENTITY_ONLY == {"Accept-Encoding": "identity"}
         for encoding in ("gzip", "gzip, gzip", "br", "deflate"):
             library.serve(INDEX_URL, b"\x1f\x8b", **{"content-encoding": encoding})
             with pytest.raises(lc.CatalogueError) as err:
@@ -513,6 +521,21 @@ class TestReadPack:
             lc.read_pack(pack_bytes(make_pack(strings=strings, hashes={})), "nl", cat)
         assert err.value.code == lc.PACK_INVALID
 
+    def test_a_section_name_at_the_length_bound_is_read(self, cat):
+        strings = {"c" * 300: {"a": "x"}}
+        assert lc.read_pack(pack_bytes(make_pack(strings=strings, hashes={})), "nl", cat)
+
+    def test_a_pack_without_source_hashes_is_read(self, cat):
+        pack = make_pack()
+        del pack["source_hashes"]
+        assert lc.read_pack(pack_bytes(pack), "nl", cat)["strings"]
+
+    def test_a_section_that_is_not_an_object_does_not_end_the_bound_check(self, cat):
+        strings = {"admin": [], "common": {"k" * 301: "x"}}
+        with pytest.raises(lc.CatalogueError) as err:
+            lc.read_pack(pack_bytes(make_pack(strings=strings, hashes={})), "nl", cat)
+        assert err.value.code == lc.PACK_INVALID
+
     def test_a_key_at_the_length_bound_is_read(self, cat):
         strings = {"common": {"k" * 300: "x"}}
         assert lc.read_pack(pack_bytes(make_pack(strings=strings, hashes={})), "nl", cat)
@@ -538,11 +561,12 @@ class TestReadPack:
     def test_payload_refuses_null_and_keeps_the_rest(self):
         payload = lc.pack_payload(
             make_pack(
-                strings={"common": {"actions.save": "Opslaan", "actions.cancel": None}, "x": []},
+                # A section that is not an object first: the ones after it still count.
+                strings={"x": [], "common": {"actions.save": "Opslaan", "actions.cancel": None}},
                 hashes={"common": {"actions.save": SAVE_HASH}},
             )
         )
-        assert payload.strings == {"common": {"actions.save": "Opslaan"}, "x": []}
+        assert payload.strings == {"x": [], "common": {"actions.save": "Opslaan"}}
         assert payload.hashes == {"common": {"actions.save": SAVE_HASH}}
         assert payload.refused == [
             {"namespace": "common", "key": "actions.cancel", "reason": "not_a_string"}
@@ -699,14 +723,19 @@ class TestCatalogue:
         assert rolled_back == [1]
 
     async def test_a_tampered_cache_row_is_validated_again(self, db):
-        await lc.write_cached(db, INDEX_URL, [make_entry("nl"), make_entry("de"), {"code": 1}])
+        stamp = await lc.write_cached(
+            db, INDEX_URL, [make_entry("nl"), make_entry("de"), {"code": 1}]
+        )
+        assert stamp.endswith("+00:00")
         cached = await lc.read_cached(db, INDEX_URL)
         assert [e["code"] for e in cached.languages] == ["nl"]
+        assert cached.fetched_at == stamp
         row = await _cache_row(db)
-        row.payload = {"data": {"url": INDEX_URL, "languages": "x"}, "fetched_at": 5}
-        await db.flush()
-        cached = await lc.read_cached(db, INDEX_URL)
-        assert (cached.languages, cached.fetched_at) == ([], None)
+        for odd in ("x", 5, {"nl": {}}):
+            row.payload = {"data": {"url": INDEX_URL, "languages": odd}, "fetched_at": 5}
+            await db.flush()
+            cached = await lc.read_cached(db, INDEX_URL)
+            assert (cached.languages, cached.fetched_at) == ([], None), odd
 
     async def test_installed_languages_are_marked(self, online, db):
         data = online.publish(make_pack())["nl"]
@@ -812,6 +841,13 @@ class TestInstall:
             "kept_manual": 0,
         }
         assert row.category == "admin"
+        assert (row.actor_user_id, row.actor_email) == (admin.id, admin.email)
+        locale = await _locale(db)
+        assert (row.target_type, row.target_id, row.target_label) == (
+            "custom_locale",
+            str(locale.id),
+            "Nederlands",
+        )
 
     async def test_an_update_keeps_strings_corrected_by_hand(self, online, db, admin):
         locale = CustomLocale(code="nl", name="Eigen naam", english_name="Dutch", enabled=True)
@@ -819,18 +855,31 @@ class TestInstall:
         await db.flush()
         cat = store.catalog()
         await store.apply_strings(
-            db, locale, cat, {"common": {"actions.save": "Bewaren"}}, origin="manual"
+            db,
+            locale,
+            cat,
+            {"common": {"actions.save": "Bewaren", "actions.delete": "Wissen"}},
+            origin="manual",
         )
         await store.apply_strings(
             db, locale, cat, {"common": {"actions.cancel": "Afbreken"}}, origin="ai"
         )
         online.publish(
             make_pack(
-                strings={"common": {"actions.save": "Opslaan", "actions.cancel": "Annuleren"}},
+                strings={
+                    # A section that is not an object, read before ``common``.
+                    "admin": [],
+                    "common": {
+                        "actions.save": "Opslaan",
+                        "actions.cancel": "Annuleren",
+                        "actions.delete": "Verwijderen",
+                    },
+                },
                 hashes={
                     "common": {
                         "actions.save": SAVE_HASH,
                         "actions.cancel": lp.source_hash("Cancel"),
+                        "actions.delete": lp.source_hash("Delete"),
                     }
                 },
                 locale={"code": "nl", "name": "Nederlands", "english_name": "Dutch", "rtl": True},
@@ -838,10 +887,14 @@ class TestInstall:
         )
         await lc.catalogue(INDEX_URL, refresh=False)
         result = await _install(actor=admin)
-        assert (result["created"], result["applied"], result["kept_manual"]) == (False, 1, 1)
+        assert (result["created"], result["applied"], result["kept_manual"]) == (False, 1, 2)
         locale = await _locale(db)
         strings, meta = await _strings(db, locale)
-        assert strings == {"actions.save": "Bewaren", "actions.cancel": "Annuleren"}
+        assert strings == {
+            "actions.save": "Bewaren",
+            "actions.delete": "Wissen",
+            "actions.cancel": "Annuleren",
+        }
         assert meta["actions.save"]["o"] == "manual"
         assert meta["actions.cancel"]["o"] == "community"
         # The admin's own name, switch and direction are kept on an update.
@@ -979,6 +1032,40 @@ class TestInstall:
         rows = (await db.execute(select(CustomLocaleString))).scalars().all()
         assert all("never shown" not in json.dumps(r.strings) for r in rows)
         assert all("instructions" not in r.strings for r in rows)
+
+    async def test_the_language_row_is_locked_for_the_merge(self, online, db, admin):
+        online.publish(make_pack())
+        await lc.catalogue(INDEX_URL, refresh=False)
+        statements: list[str] = []
+        bind = db.sync_session.get_bind()
+
+        def record(conn, cursor, statement, parameters, context, executemany):
+            statements.append(" ".join(statement.split()))
+
+        sa_event.listen(bind, "before_cursor_execute", record)
+        try:
+            await _install(actor=admin)
+        finally:
+            sa_event.remove(bind, "before_cursor_execute", record)
+        # The lookup by code itself (``apply_strings`` locks the row by id later).
+        assert any(
+            "WHERE custom_locales.code =" in s and s.endswith("FOR UPDATE") for s in statements
+        ), statements
+
+    async def test_a_concurrent_first_install_is_a_conflict(self, online, db, admin, monkeypatch):
+        online.publish(make_pack())
+        await lc.catalogue(INDEX_URL, refresh=False)
+        db.add(CustomLocale(code="nl", name="Nederlands", english_name="Dutch"))
+        await db.flush()
+
+        async def not_yet(*args, **kwargs):
+            return None  # what the other install saw: no row yet
+
+        monkeypatch.setattr(store, "get_locale", not_yet)
+        with pytest.raises(lc.CatalogueError) as err:
+            await _install(actor=admin)
+        assert err.value.code == lc.LOCALE_EXISTS
+        assert lc.STATUS[err.value.code] == 409
 
     async def test_the_language_must_be_listed_first(self, online, db, admin):
         online.publish(make_pack())

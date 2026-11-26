@@ -109,6 +109,7 @@ class FakeLibrary:
     responders: dict[str, Callable[[httpx.Request], Any]] = field(default_factory=dict)
     requested: list[str] = field(default_factory=list)
     headers: list[httpx.Headers] = field(default_factory=list)
+    methods: list[str] = field(default_factory=list)
     #: Called with the request before it is answered (to observe the caller).
     on_request: Callable[[httpx.Request], None] | None = None
     #: Sessions open at the moment of each request (see ``count_sessions``).
@@ -137,6 +138,7 @@ class FakeLibrary:
         url = str(request.url)
         self.requested.append(url)
         self.headers.append(request.headers)
+        self.methods.append(request.method)
         self.open_at_request.append(self.open_sessions)
         if self.on_request is not None:
             self.on_request(request)
