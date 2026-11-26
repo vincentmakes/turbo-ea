@@ -61,9 +61,13 @@ describe("edgesAtDate", () => {
     // Ending after the mark's span is not ending at it.
     const later = { from: ms("2027-05-01"), to: ms("2027-05-31") };
     expect(edgesAtDate([ended], ALL, AT, neither, later)).toEqual([]);
-    // A planned relation is never kept by a mark.
+    // A planned relation is never kept by a mark, even one whose end falls in it.
     expect(edgesAtDate([planned], ALL, AT, neither, { from: 0, to: ms("2030-01-01") })).toEqual(
       [],
     );
+    const plannedToEnd = edge("app", { active: "2027-06-02", endOfLife: "2028-01-01" });
+    expect(
+      edgesAtDate([plannedToEnd], ALL, AT, neither, { from: 0, to: ms("2030-01-01") }),
+    ).toEqual([]);
   });
 });

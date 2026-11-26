@@ -45,8 +45,9 @@ export function edgesAtDate(
     }
     const { visible, state } = relationAtDate(e.lifecycle, dateMs, visibility);
     const eol = parseDate(e.lifecycle.endOfLife);
+    // "ended" means the end date has arrived, so it is a date.
     const endsAtMark =
-      span != null && state === "ended" && eol != null && eol >= span.from && eol <= span.to;
+      span != null && state === "ended" && eol! >= span.from && eol! <= span.to;
     if (!visible && !endsAtMark) continue;
     out.push(state ? { ...e, relationState: state } : e);
   }

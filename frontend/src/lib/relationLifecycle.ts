@@ -101,7 +101,7 @@ export function relationPhaseNote(
   const state = relationLifecycleState(lifecycle, dateMs);
   if (state === "ended") return { kind: "ended", date: lifecycle!.endOfLife };
   if (state === "planned") {
-    const active = lifecycle?.active;
+    const active = lifecycle!.active;
     return active && parseDate(active) != null
       ? { kind: "planned", date: active }
       : { kind: "planned" };

@@ -16,8 +16,8 @@
 
 export function parseDate(s: string | undefined): number | null {
   // An absent or empty value is an invalid date like any other unparsable one.
-  const d = new Date(s ?? "");
-  return isNaN(d.getTime()) ? null : d.getTime();
+  const t = s === undefined ? NaN : Date.parse(s);
+  return isNaN(t) ? null : t;
 }
 
 /** A bare lifecycle map (`plan`/`phaseIn`/`active`/`phaseOut`/`endOfLife` → ISO date). */

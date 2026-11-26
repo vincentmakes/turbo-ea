@@ -451,7 +451,6 @@ export function relationsAtDate<T extends { relations: AppRelation[] }>(
   app: T,
   dateMs: number,
 ): T {
-  if (!app.relations.some((r) => r.lifecycle)) return app;
   const relations = app.relations.filter((r) => isAliveAtDate(r.lifecycle, dateMs));
   return relations.length === app.relations.length ? app : { ...app, relations };
 }

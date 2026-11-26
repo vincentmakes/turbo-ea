@@ -99,6 +99,24 @@ describe("computeTimelineMilestones with relation dates", () => {
     expect(computeTimelineMilestones([{ active: "2027-01-01" }], [undefined, {}, { plan: "2026-01-01" }])).toEqual(cardsOnly);
   });
 
+  it("gives a card's mark the relation keys when a relation only ends", () => {
+    const m = computeTimelineMilestones([{ active: "2027-01-01" }], [{ endOfLife: "2029-01-01" }]);
+    expect(m[0]).toEqual({
+      value: ms("2027-01-01"),
+      activating: 1,
+      disappearing: 0,
+      linking: 0,
+      unlinking: 0,
+    });
+  });
+
+  it("marks a relation that ended before 1970 and never had a start", () => {
+    // Epoch-negative dates are dates like any other.
+    expect(computeTimelineMilestones([], [{ endOfLife: "1969-06-30" }])).toEqual([
+      { value: ms("1969-06-30"), activating: 0, disappearing: 0, linking: 0, unlinking: 1 },
+    ]);
+  });
+
   it("gives a card's mark the relation keys once any relation marks a date", () => {
     const m = computeTimelineMilestones([{ active: "2027-01-01" }], [{ active: "2029-01-01" }]);
     expect(m[0]).toEqual({

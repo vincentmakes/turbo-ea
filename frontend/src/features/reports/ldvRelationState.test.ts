@@ -35,6 +35,9 @@ describe("withRelationStates", () => {
   it("keeps a state the consumer set at its own date", () => {
     const set = e("b", { active: "2020-01-01" }, { relationState: "ended" });
     expect(withRelationStates([set], AT)[0]).toBe(set);
+    // Even where the edge's own dates would say otherwise at this date.
+    const differs = e("c", { active: "2030-01-01" }, { relationState: "ended" });
+    expect(withRelationStates([differs], AT)[0]).toBe(differs);
   });
 });
 
@@ -76,6 +79,36 @@ describe("the layouts carry the state into the edge data", () => {
       .map((x) => (x.data as LdvEdgeData).relationState)
       .filter(Boolean);
     expect(states).toEqual(["planned"]);
+  });
+});
+
+describe("an aggregate connector merging several relations", () => {
+  const types = [
+    { key: "Application", label: "Application", color: "#000000", icon: "apps", category: "Application & Data" },
+    { key: "ITComponent", label: "IT Component", color: "#000000", icon: "dns", category: "Technical Architecture" },
+  ] as unknown as CardType[];
+  const nodes: GNode[] = [
+    { id: "a", name: "a", type: "Application" },
+    { id: "b", name: "b", type: "Application" },
+    { id: "x", name: "x", type: "ITComponent" },
+    { id: "y", name: "y", type: "ITComponent" },
+  ];
+  const link = (source: string, target: string, state?: "planned") =>
+    ({ source, target, type: "rel", ...(state ? { relationState: state } : {}) }) as GEdge;
+  const connectorStates = (edges: GEdge[]) =>
+    buildLdvAggregateFlow(nodes, edges, types, "type").edges.map(
+      (x) => (x.data as LdvEdgeData).relationState,
+    );
+
+  it("takes the state when every merged relation is in it", () => {
+    expect(connectorStates([link("a", "x", "planned"), link("b", "y", "planned")])).toEqual([
+      "planned",
+    ]);
+  });
+
+  it("draws an ordinary connector when the merged relations differ, in either order", () => {
+    expect(connectorStates([link("a", "x"), link("b", "y", "planned")])).toEqual([undefined]);
+    expect(connectorStates([link("a", "x", "planned"), link("b", "y")])).toEqual([undefined]);
   });
 });
 

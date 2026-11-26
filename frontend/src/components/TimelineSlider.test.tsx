@@ -366,6 +366,29 @@ describe("TimelineSlider step-through", () => {
     expect(bar(merged).backgroundColor).toBe("rgb(156, 39, 176)");
   });
 
+  it("counts relations merged into a mark that had no relation counts", () => {
+    // A caller may pass card-only milestones beside relation ones; merging
+    // them must start the relation counts at zero, not lose them.
+    const SECOND = GO_LIVE + 3 * 86_400_000;
+    render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={[
+          { value: GO_LIVE, activating: 1, disappearing: 0 },
+          { value: SECOND, activating: 0, disappearing: 0, linking: 2, unlinking: 1 },
+        ]}
+      />,
+    );
+    const merged = screen.getByRole("button", { name: /Jump to this change/i });
+    expect(merged).toHaveAccessibleName(
+      /1 card goes live · 2 relations start · 1 relation ends\./,
+    );
+  });
+
   it("names a single date when a mark stands for one", () => {
     renderSlider(TODAY);
     const marks = screen.getAllByRole("button", { name: /Jump to this change/i });

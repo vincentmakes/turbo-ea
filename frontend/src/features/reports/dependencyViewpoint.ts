@@ -61,11 +61,12 @@ export interface Span {
 
 /** A relation's own state at `dateMs`. Undated is in effect. */
 export function relationReach(lifecycle: Lifecycle, dateMs: number, span: Span | null = null): Reach {
-  if (!lifecycle) return IN_EFFECT;
+  // Undated reads as in effect, the shared object.
   const state = relationLifecycleState(lifecycle, dateMs);
   if (state === "inEffect") return IN_EFFECT;
   if (state === "planned") return { state, atMark: false };
-  const eol = parseDate(lifecycle.endOfLife) as number;
+  // "ended": its end date has arrived, so it is a date.
+  const eol = parseDate(lifecycle!.endOfLife) as number;
   return { state, atMark: span != null && eol >= span.from && eol <= span.to };
 }
 
@@ -73,7 +74,8 @@ export function relationReach(lifecycle: Lifecycle, dateMs: number, span: Span |
  *  if either path leaves there. Returns `a` itself when nothing improves. */
 export function bestReach(a: Reach | undefined, b: Reach): Reach {
   if (!a) return b;
-  if (RANK[a.state] !== RANK[b.state]) return RANK[a.state] > RANK[b.state] ? a : b;
+  if (RANK[a.state] > RANK[b.state]) return a;
+  if (RANK[a.state] < RANK[b.state]) return b;
   if (a.atMark || !b.atMark) return a;
   return { state: a.state, atMark: true };
 }
@@ -81,9 +83,9 @@ export function bestReach(a: Reach | undefined, b: Reach): Reach {
 /** A neighbour reached from `from` through `link`: no better than either. Equal
  *  ended states leave at the mark only if both do. */
 export function hopReach(from: Reach, link: Reach): Reach {
-  if (RANK[from.state] !== RANK[link.state]) return RANK[from.state] < RANK[link.state] ? from : link;
-  if (!from.atMark || link.atMark) return from;
-  return link;
+  if (RANK[from.state] < RANK[link.state]) return from;
+  if (RANK[from.state] > RANK[link.state]) return link;
+  return from.atMark && !link.atMark ? link : from;
 }
 
 function pairKey(a: string, b: string): string {
@@ -157,7 +159,8 @@ export function viewpointReach(
     m.set(b, bestReach(m.get(b), r));
   };
   for (const e of edges) {
-    if (e.source === e.target || !ok(e.source) || !ok(e.target)) continue;
+    // A self-loop needs no skip: a card is never reached better through itself.
+    if (!ok(e.source) || !ok(e.target)) continue;
     const r = relationReach(e.lifecycle, dateMs, span);
     link(e.source, e.target, r);
     link(e.target, e.source, r);
@@ -167,8 +170,8 @@ export function viewpointReach(
   const relax = (s: string): boolean => {
     const from = reach.get(s) as Reach;
     let changed = false;
+    // The centre needs no skip either: nothing improves on in effect.
     for (const [nb, r] of adj.get(s) ?? []) {
-      if (nb === hops.center) continue;
       const cur = reach.get(nb);
       const next = bestReach(cur, hopReach(from, r));
       if (next !== cur) {
@@ -223,7 +226,8 @@ export function combineChangeState(
         : dateMs > todayMs && today != null && today.state !== "inEffect"
           ? "arriving"
           : undefined;
-  if (presence(own) !== presence(path)) return presence(own) < presence(path) ? own : path;
+  if (presence(own) < presence(path)) return own;
+  if (presence(own) > presence(path)) return path;
   return own ?? path;
 }
 
@@ -285,7 +289,7 @@ export function viewTransitions<T extends ScopeCard>(
   };
   const byId = new Map(scope.map((c) => [c.id, c]));
   const present = (id: string, x: number) =>
-    reached(x).has(id) && isAliveAtDate(byId.get(id)?.lifecycle, x);
+    reached(x).has(id) && isAliveAtDate(byId.get(id)!.lifecycle, x);
 
   const cards: ScopeCard[] = [];
   for (const c of scope) {

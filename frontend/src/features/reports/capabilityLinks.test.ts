@@ -103,6 +103,19 @@ describe("appRelationsAtDate", () => {
     expect(at.related_by_type).toEqual({ Organization: ["o"] });
   });
 
+  it("keeps a card while any one of several rows of one type is in effect", () => {
+    const twice = {
+      org_ids: ["o"],
+      related_by_type: { Organization: ["o"] },
+      related_by_rel_type: { uses: ["o"] },
+      related_link_lifecycles: {
+        uses: { o: [{ endOfLife: "2020-01-01" }, { active: "2021-01-01" }] },
+      },
+    };
+    const at = appRelationsAtDate(twice, Date.parse("2027-01-01"));
+    expect(at.related_by_rel_type).toEqual({ uses: ["o"] });
+  });
+
   it("does not mutate the payload", () => {
     appRelationsAtDate(app, Date.parse("2027-06-01"));
     expect(app.org_ids).toEqual(["undated", "ended", "planned"]);

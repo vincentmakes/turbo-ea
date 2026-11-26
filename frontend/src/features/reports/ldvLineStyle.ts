@@ -55,10 +55,11 @@ const SEVERED_STROKE: LdvStroke = { strokeDasharray: "3 3" };
  * own colour by `edgeColors`). Planned is a dash-dot, "on its way"; ended a
  * fine round dot, fainter still, "what was".
  */
-const RELATION_STATE_STROKE: Record<"planned" | "ended", LdvStroke> = {
-  planned: { strokeDasharray: "8 3 2 3", strokeOpacity: 0.7 },
-  ended: { strokeDasharray: "1 3", strokeLinecap: "round", strokeOpacity: 0.5 },
-};
+function relationStateStroke(state: "planned" | "ended"): LdvStroke {
+  return state === "planned"
+    ? { strokeDasharray: "8 3 2 3", strokeOpacity: 0.7 }
+    : { strokeDasharray: "1 3", strokeLinecap: "round", strokeOpacity: 0.5 };
+}
 
 /**
  * Stroke for one edge. Precedence — severed (one end retired: a state) beats
@@ -71,7 +72,7 @@ export function ldvEdgeStroke(
   opts: { active?: boolean; severed?: boolean; relationState?: "planned" | "ended" } = {},
 ): LdvStroke {
   if (opts.severed) return SEVERED_STROKE;
-  if (opts.relationState) return RELATION_STATE_STROKE[opts.relationState];
+  if (opts.relationState) return relationStateStroke(opts.relationState);
   if (opts.active) return {};
   return IDLE_STROKE[style ?? "dashed"] ?? IDLE_STROKE.dashed;
 }
