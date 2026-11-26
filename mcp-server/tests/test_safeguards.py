@@ -853,7 +853,7 @@ _BATCH_TOOL_CALLS = {
 #: The tools that bind their preview's token to their arguments, with the
 #: scope their ``_BATCH_TOOL_CALLS`` arguments give. Every other tool's open
 #: body carries no scope.
-_BATCH_SCOPES = {"start_ai_translation": "nl|missing|keep"}
+_BATCH_SCOPES: dict[str, str] = {"start_ai_translation": "nl|missing|keep"}
 
 
 class _BatchRecorder(_Backend):
