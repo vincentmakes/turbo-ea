@@ -21,8 +21,9 @@ import time
 from collections import OrderedDict
 from collections.abc import Callable, Mapping
 
-#: Sessions × languages remembered at once (least recently used dropped). A
-#: refreshed token is a new session, so one administrator can use several.
+#: Sessions × languages remembered at once (least recently used dropped).
+#: Few people translate at once; a refreshed token takes a new entry, and a
+#: dropped one only costs the hashes of a submit (see the module docstring).
 MAX_ENTRIES = 16
 #: Keys remembered per session and language (a language has about 8 000).
 MAX_KEYS_PER_ENTRY = 20_000

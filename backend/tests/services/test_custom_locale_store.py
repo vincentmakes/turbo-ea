@@ -394,8 +394,36 @@ class TestIdenticalTextFills:
 
     def test_a_submitted_twin_keeps_its_own_value(self):
         views = {"common": twin_view()}
-        sent = {"common": {"a": "Hoog", "b": "Hoge"}}
+        sent = {"common": {"b": "Hoog", "a": "Hoog"}}
         assert store.identical_text_fills(views, sent, set()) == {"common": {"c": "Hoog"}}
+
+    def test_two_different_values_for_one_text_fill_nothing(self):
+        views = {"common": twin_view()}
+        for sent in (
+            {"common": {"a": "Hoog", "b": "Hoge"}},
+            {"common": {"b": "Hoge", "a": "Hoog"}},
+        ):
+            assert store.identical_text_fills(views, sent, set()) == {}
+        # Across namespaces too, and a third agreeing value does not revive it.
+        other = lp.Namespace.from_tree("admin", {"x": "High", "y": "High"})
+        views["admin"] = store.View(ns=other, strings={}, meta={})
+        sent = {"common": {"a": "Hoog", "b": "Hoog"}, "admin": {"x": "Hoge"}}
+        assert store.identical_text_fills(views, sent, set()) == {}
+
+    def test_a_value_from_older_english_fills_nothing(self):
+        views = {"common": twin_view()}
+        sent = {"common": {"a": "Hoog"}}
+        old = {"common": {"a": "0123456789ab"}}
+        assert store.identical_text_fills(views, sent, set(), old) == {}
+        current = {"common": {"a": TWINS.current_hash("a")}}
+        assert store.identical_text_fills(views, sent, set(), current) == {
+            "common": {"b": "Hoog", "c": "Hoog"}
+        }
+        # A hash for another key, or an odd hashes map, changes nothing.
+        for odd in ({"common": {"b": "0123456789ab"}}, {"common": "x"}, {"nav": {"a": "x"}}):
+            assert store.identical_text_fills(views, sent, set(), odd) == {
+                "common": {"b": "Hoog", "c": "Hoog"}
+            }
 
     def test_a_refused_value_is_never_spread(self):
         views = {"common": twin_view()}
@@ -429,6 +457,18 @@ class TestFillIdentical:
     ``dashboard.settings.description`` and ``portal.description``."""
 
     TWINS = ("dashboard.settings.description", "portal.description")
+
+    @staticmethod
+    def namespaces() -> list[str]:
+        cat = store.catalog()
+        return sorted(
+            name
+            for name in cat.names()
+            if any(
+                text == "Description" and (name, key) != ("common", "labels.description")
+                for key, text in cat.namespace(name).strings.items()
+            )
+        )
 
     @staticmethod
     def others() -> int:
@@ -465,7 +505,7 @@ class TestFillIdentical:
         sent = {"common": {"labels.description": "Beschrijving"}}
         report = await store.apply_strings(db, loc, cat, sent, origin="mcp")
         out = await store.fill_identical(db, loc, cat, sent, report, origin="mcp", dry_run=False)
-        assert out == {"filled": self.others(), "fill_rejected": 0}
+        assert out == ({"filled": self.others(), "fill_rejected": 0}, self.namespaces())
         stored = await self._stored(db, loc)
         for key in self.TWINS:
             assert stored.strings[key] == "Beschrijving"
@@ -477,7 +517,7 @@ class TestFillIdentical:
         sent = {"common": {"labels.description": "Beschrijving"}}
         report = await store.apply_strings(db, loc, cat, sent, origin="mcp", dry_run=True)
         out = await store.fill_identical(db, loc, cat, sent, report, origin="mcp", dry_run=True)
-        assert out == {"filled": self.others(), "fill_rejected": 0}
+        assert out == ({"filled": self.others(), "fill_rejected": 0}, self.namespaces())
         assert await self._stored(db, loc) is None
 
     async def test_a_rejected_value_fills_nothing(self, db):
@@ -487,4 +527,49 @@ class TestFillIdentical:
         report = await store.apply_strings(db, loc, cat, sent, origin="mcp")
         assert report["rejected"]
         out = await store.fill_identical(db, loc, cat, sent, report, origin="mcp", dry_run=False)
-        assert out == {"filled": 0, "fill_rejected": 0}
+        assert out == ({"filled": 0, "fill_rejected": 0}, [])
+
+    async def test_a_value_set_meanwhile_is_kept(self, db, monkeypatch):
+        """The views say every twin is empty, but one was written since: the
+        conditional write leaves it."""
+        loc = await self._locale(db)
+        cat = store.catalog()
+        empty = await store.load_views(db, loc, cat, None)
+        await store.apply_strings(
+            db, loc, cat, {"common": {"portal.description": "Eigen"}}, origin="manual"
+        )
+
+        async def stale_views(*_args, **_kwargs):
+            return empty
+
+        monkeypatch.setattr(store, "load_views", stale_views)
+        sent = {"common": {"labels.description": "Beschrijving"}}
+        report = await store.apply_strings(db, loc, cat, sent, origin="mcp")
+        counts, _ = await store.fill_identical(
+            db, loc, cat, sent, report, origin="mcp", dry_run=False
+        )
+        assert counts["filled"] == self.others() - 1
+        stored = await self._stored(db, loc)
+        assert stored.strings["portal.description"] == "Eigen"
+        assert stored.strings["dashboard.settings.description"] == "Beschrijving"
+
+    async def test_rejected_fills_are_counted(self, db, monkeypatch):
+        loc = await self._locale(db)
+        cat = store.catalog()
+        sent = {"common": {"labels.description": "Beschrijving"}}
+        report = await store.apply_strings(db, loc, cat, sent, origin="mcp")
+        seen: list = []
+
+        async def refusing(_db, _loc, _cat, fills, **kwargs):
+            seen.append((fills, kwargs))
+            return {"applied": 1, "rejected": [{"namespace": "common", "key": "x"}] * 2}
+
+        monkeypatch.setattr(store, "apply_strings", refusing)
+        counts, _ = await store.fill_identical(
+            db, loc, cat, sent, report, origin="import", dry_run=True
+        )
+        assert counts == {"filled": 1, "fill_rejected": 2}
+        ((fills, kwargs),) = seen
+        assert kwargs["origin"] == "import" and kwargs["dry_run"] is True
+        # Conditional on every filled key still being empty.
+        assert kwargs["expected"] == {name: dict.fromkeys(keys) for name, keys in fills.items()}

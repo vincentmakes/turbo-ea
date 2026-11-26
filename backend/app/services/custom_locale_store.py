@@ -355,24 +355,40 @@ def collapse_identical(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _given_hash(source_hashes: Mapping[str, Any] | None, name: str, key: str) -> Any:
+    given = (source_hashes or {}).get(name)
+    return given.get(key) if isinstance(given, Mapping) else None
+
+
 def identical_text_fills(
     views: Mapping[str, View],
     submitted: Mapping[str, Any],
     skip: set[tuple[str, str]],
+    source_hashes: Mapping[str, Any] | None = None,
 ) -> dict[str, dict[str, str]]:
     """For every text value submitted for a key English has (and not in
     ``skip``, the keys the merge refused), the same value for every OTHER key
     of the language with the same English and plural category that holds no
-    translation yet — never one already translated, whatever its origin."""
-    by_text: dict[tuple[Any, str | None], str] = {}
-    for name in sorted(submitted):
-        view, entries = views.get(name), submitted[name]
+    translation at all — never one already translated, whatever its origin.
+
+    A value translated from older English (its ``source_hashes`` entry is not
+    the current hash) fills nothing: its twins would read as current. Two
+    different values for one text fill nothing either — which is right is
+    not ours to guess."""
+    by_text: dict[tuple[Any, str | None], str | None] = {}
+    for name, entries in submitted.items():
+        view = views.get(name)
         if view is None or not isinstance(entries, Mapping):
             continue
-        for key in sorted(entries):
-            value = entries[key]
-            if isinstance(value, str) and key in view.ns.strings and (name, key) not in skip:
-                by_text.setdefault(_text_class(view.ns.current_hash(key), key), value)
+        for key, value in entries.items():
+            if not isinstance(value, str) or key not in view.ns.strings or (name, key) in skip:
+                continue
+            current = view.ns.current_hash(key)
+            given = _given_hash(source_hashes, name, key)
+            if given is not None and given != current:
+                continue
+            kind = _text_class(current, key)
+            by_text[kind] = value if by_text.get(kind, value) == value else None
     fills: dict[str, dict[str, str]] = {}
     for name, view in views.items():
         sent = submitted.get(name)
@@ -395,17 +411,24 @@ async def fill_identical(
     *,
     origin: str,
     dry_run: bool,
-) -> dict[str, int]:
-    """After a write, give its accepted translations to every untranslated key
-    with the same English (:func:`identical_text_fills`), through the same
-    merge and validator. Returns ``{filled, fill_rejected}``."""
+    source_hashes: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, int], list[str]]:
+    """After a write, give its accepted translations to every key with the
+    same English and no translation (:func:`identical_text_fills`), through
+    the same merge and validator. Returns ``({filled, fill_rejected}, the
+    namespaces filled)``. The write is conditional on each key still being
+    empty (``expected``), so a label the field editor set meanwhile stays."""
     skip = {(r.get("namespace"), r.get("key")) for r in report.get("rejected") or []}
     views = await load_views(db, locale, cat, None)
-    fills = identical_text_fills(views, submitted, skip)  # type: ignore[arg-type]
+    fills = identical_text_fills(views, submitted, skip, source_hashes)  # type: ignore[arg-type]
     if not fills:
-        return {"filled": 0, "fill_rejected": 0}
-    filled = await apply_strings(db, locale, cat, fills, origin=origin, dry_run=dry_run)
-    return {"filled": filled["applied"], "fill_rejected": len(filled["rejected"])}
+        return {"filled": 0, "fill_rejected": 0}, []
+    empty = {name: dict.fromkeys(keys) for name, keys in fills.items()}
+    filled = await apply_strings(
+        db, locale, cat, fills, origin=origin, dry_run=dry_run, expected=empty
+    )
+    counts = {"filled": filled["applied"], "fill_rejected": len(filled["rejected"])}
+    return counts, sorted(fills)
 
 
 def export_parts(views: Mapping[str, View], mode: str) -> dict[str, tuple[dict, dict]]:

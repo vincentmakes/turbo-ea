@@ -3046,6 +3046,7 @@
   "securityLog.fields.origin": "Source",
   "securityLog.fields.cleared": "Effacées",
   "securityLog.fields.filled": "Remplies depuis un texte identique",
+  "securityLog.fields.fill_rejected": "Reprises de texte identique refusées",
   "securityLog.fields.rejected": "Rejetées",
   "securityLog.fields.strings": "Chaînes",
   "securityLog.fields.include_manual": "Y compris les chaînes corrigées à la main",

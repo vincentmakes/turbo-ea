@@ -3046,6 +3046,7 @@
   "securityLog.fields.origin": "Quelle",
   "securityLog.fields.cleared": "Geleert",
   "securityLog.fields.filled": "Aus identischem Text gefüllt",
+  "securityLog.fields.fill_rejected": "Abgelehnte Übernahmen bei gleichem Text",
   "securityLog.fields.rejected": "Abgelehnt",
   "securityLog.fields.strings": "Zeichenfolgen",
   "securityLog.fields.include_manual": "Einschließlich von Hand korrigierter Zeichenfolgen",

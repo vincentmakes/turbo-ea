@@ -3176,6 +3176,7 @@
   "securityLog.fields.origin": "Источник",
   "securityLog.fields.cleared": "Очищено",
   "securityLog.fields.filled": "Заполнено из идентичного текста",
+  "securityLog.fields.fill_rejected": "Отклонённые заполнения одинакового текста",
   "securityLog.fields.rejected": "Отклонено",
   "securityLog.fields.strings": "Строки",
   "securityLog.fields.include_manual": "Включая строки, исправленные вручную",

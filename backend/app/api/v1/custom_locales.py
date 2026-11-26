@@ -438,12 +438,19 @@ async def write_custom_locale_strings(
         source_hashes=body.source_hashes,
         dry_run=dry_run,
     )
+    filled_namespaces: list[str] = []
     if body.fill_identical:
-        report.update(
-            await store.fill_identical(
-                db, locale, cat, body.strings, report, origin=body.origin, dry_run=dry_run
-            )
+        counts, filled_namespaces = await store.fill_identical(
+            db,
+            locale,
+            cat,
+            body.strings,
+            report,
+            origin=body.origin,
+            dry_run=dry_run,
+            source_hashes=body.source_hashes,
         )
+        report.update(counts)
     filled = report.get("filled", 0)
     if not dry_run and (report["applied"] or report["cleared"] or filled):
         await audit_log.record(
@@ -456,11 +463,15 @@ async def write_custom_locale_strings(
                 "code": locale.code,
                 "origin": body.origin,
                 # Only names the instance knows: the payload is the caller's.
-                "namespaces": sorted(n for n in body.strings if store.known_namespace(cat, n)),
+                "namespaces": sorted(
+                    {n for n in body.strings if store.known_namespace(cat, n)}
+                    | set(filled_namespaces)
+                ),
                 "applied": report["applied"],
                 "cleared": report["cleared"],
                 "rejected": len(report["rejected"]),
                 "filled": filled,
+                "fill_rejected": report.get("fill_rejected", 0),
             },
         )
     if not dry_run:

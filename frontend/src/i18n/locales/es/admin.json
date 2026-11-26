@@ -3046,6 +3046,7 @@
   "securityLog.fields.origin": "Origen",
   "securityLog.fields.cleared": "Borradas",
   "securityLog.fields.filled": "Rellenadas desde texto idéntico",
+  "securityLog.fields.fill_rejected": "Rellenos de texto idéntico rechazados",
   "securityLog.fields.rejected": "Rechazadas",
   "securityLog.fields.strings": "Cadenas",
   "securityLog.fields.include_manual": "Incluidas las cadenas corregidas a mano",

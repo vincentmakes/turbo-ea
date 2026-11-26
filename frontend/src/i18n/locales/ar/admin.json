@@ -3306,6 +3306,7 @@
   "securityLog.fields.origin": "المصدر",
   "securityLog.fields.cleared": "تم مسحها",
   "securityLog.fields.filled": "مملوءة من نص مطابق",
+  "securityLog.fields.fill_rejected": "عمليات التعبئة المرفوضة للنص المطابق",
   "securityLog.fields.rejected": "تم رفضها",
   "securityLog.fields.strings": "النصوص",
   "securityLog.fields.include_manual": "بما في ذلك النصوص المصحّحة يدويًا",

@@ -3046,6 +3046,7 @@
   "securityLog.fields.origin": "Origem",
   "securityLog.fields.cleared": "Limpos",
   "securityLog.fields.filled": "Preenchidos a partir de texto idêntico",
+  "securityLog.fields.fill_rejected": "Preenchimentos de texto idêntico rejeitados",
   "securityLog.fields.rejected": "Rejeitados",
   "securityLog.fields.strings": "Textos",
   "securityLog.fields.include_manual": "Incluindo textos corrigidos manualmente",

@@ -3046,6 +3046,7 @@
   "securityLog.fields.origin": "Kilde",
   "securityLog.fields.cleared": "Ryddet",
   "securityLog.fields.filled": "Udfyldt fra identisk tekst",
+  "securityLog.fields.fill_rejected": "Afviste udfyldninger med identisk tekst",
   "securityLog.fields.rejected": "Afvist",
   "securityLog.fields.strings": "Tekststrenge",
   "securityLog.fields.include_manual": "Inklusive tekststrenge rettet i hånden",

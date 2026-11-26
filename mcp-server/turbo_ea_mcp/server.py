@@ -7843,8 +7843,9 @@ async def get_untranslated_strings(
     Identical English text is listed once (``collapse_identical``, default
     True): "High" or "Not started" may sit under dozens of keys, and one key
     stands for all of them — ``identical`` says how many keys a text stands for
-    when more than one. ``submit_translations`` then gives that translation to
-    every untranslated key with the same English. The server remembers which English
+    when more than one (keys already holding an older translation included).
+    ``submit_translations`` then gives that translation to every key with the
+    same English that has no translation at all. The server remembers which English
     text each string was taken from and attaches it when you submit, so you
     do not send it back yourself.
 

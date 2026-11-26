@@ -1008,6 +1008,23 @@ class TestRouteHelpers:
         assert resp.status_code == 400 and resp.json()["detail"] == "ai_not_configured"
 
 
+def _description_keys() -> int:
+    """How many keys of the catalogue read "Description" in English."""
+    cat = store.catalog()
+    return sum(
+        text == "Description"
+        for name in cat.names()
+        for text in cat.namespace(name).strings.values()
+    )
+
+
+def _description_namespaces() -> list[str]:
+    cat = store.catalog()
+    return sorted(
+        name for name in cat.names() if "Description" in cat.namespace(name).strings.values()
+    )
+
+
 class TestIdenticalText:
     """English "Description" is ``labels.description`` and at least two other
     ``common`` keys of the real catalogue."""
@@ -1047,7 +1064,9 @@ class TestIdenticalText:
         assert resp.status_code == 200, resp.text
         body = resp.json()
         assert body["applied"] == 1
-        assert body["filled"] >= 1 and body["fill_rejected"] == 0
+        # Every other "Description" but the one translated by hand.
+        assert body["filled"] == _description_keys() - 2
+        assert body["fill_rejected"] == 0
         row = (
             await db.execute(
                 select(CustomLocaleString).where(
@@ -1062,7 +1081,40 @@ class TestIdenticalText:
         # Never over a translation already there.
         assert row.strings["portal.description"] == "Al vertaald"
         audits = await _audit(db, "admin.custom_locale.strings_updated")
-        assert audits[-1].details["context"]["filled"] == body["filled"]
+        context = audits[-1].details["context"]
+        assert context["filled"] == body["filled"]
+        assert context["fill_rejected"] == 0
+        # The namespaces the fill reached are named too, not only the one sent.
+        assert context["namespaces"] == _description_namespaces()
+
+    async def test_a_dry_run_counts_the_fill_and_stores_nothing(self, client, db, env):
+        await _add(db)
+        resp = await _post_strings(
+            client,
+            env["admin"],
+            {
+                "strings": {"common": {"labels.description": "Beschrijving"}},
+                "origin": "mcp",
+                "fill_identical": True,
+            },
+            dry_run="true",
+        )
+        assert resp.json()["filled"] == _description_keys() - 1
+        assert (await db.execute(select(CustomLocaleString))).first() is None
+        assert await _audit(db, "admin.custom_locale.strings_updated") == []
+
+    async def test_a_fill_alone_is_audited(self, client, db, env):
+        """The value sent is already stored (``unchanged``); only its twins
+        change, and that is still a write worth a log entry."""
+        await _add(db)
+        sent = {"strings": {"common": {"labels.description": "Beschrijving"}}, "origin": "mcp"}
+        await _post_strings(client, env["admin"], sent)
+        resp = await _post_strings(client, env["admin"], {**sent, "fill_identical": True})
+        assert resp.json()["applied"] == 0
+        assert resp.json()["filled"] == _description_keys() - 1
+        audits = await _audit(db, "admin.custom_locale.strings_updated")
+        assert len(audits) == 2
+        assert audits[-1].details["context"]["applied"] == 0
 
     async def test_off_by_default(self, client, db, env):
         await _add(db)
