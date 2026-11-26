@@ -32,6 +32,36 @@ Un idioma nuevo empieza desactivado: los usuarios no lo ven hasta que usted lo o
 
 Ofrezca un idioma a sus usuarios con su interruptor. Los usuarios podrán elegirlo en el menú de idioma, como cualquier idioma integrado. Las cadenas que aún faltan aparecen en inglés.
 
+## Instalar un idioma desde la biblioteca de la comunidad
+
+Otros usuarios de Turbo EA comparten sus traducciones en la [biblioteca de idiomas de la comunidad](https://github.com/vincentmakes/turbo-ea-translations). Debajo de sus propios idiomas, el bloque **Idiomas de la comunidad** lista los idiomas que contiene, cada uno con su nombre nativo y su código, la parte de la interfaz que traduce y la versión de Turbo EA con la que se creó su paquete.
+
+!!! warning "Aportado por la comunidad, sin revisar"
+    Los paquetes los escriben miembros de la comunidad. **El proyecto Turbo EA no los revisa.** Las comprobaciones automáticas garantizan que un paquete no pueda añadir marcado, enlaces ni marcadores de posición rotos que el texto en inglés no tenga, pero nadie comprueba si las traducciones son exactas o están completas. Revise un idioma antes de ofrecerlo a sus usuarios.
+
+**Instalar** descarga el paquete del idioma y lo importa. Esto es lo que ocurre:
+
+- El paquete se descarga de la biblioteca de la comunidad — exactamente el archivo que la biblioteca lista, comprobado con su suma de verificación.
+- Cada cadena pasa las mismas comprobaciones que un [archivo importado](#the-language-pack-file); una cadena rechazada aparece en el informe y nunca se guarda.
+- Un idioma nuevo se añade **desactivado**. Échele un vistazo en **Revisar cadenas** y después actívelo para sus usuarios.
+- El informe muestra lo que se aplicó, lo que se rechazó y por qué, y lo que no existe en su versión de Turbo EA.
+
+El idioma aparece entonces como **instalado**, y su fila en su propia lista lleva la marca **Aportado por la comunidad, sin revisar**. Una instalación fallida — un paquete que no se puede descargar, que no coincide con la suma de verificación de la biblioteca o que no es un paquete válido — no instala nada y queda registrada en el [registro de Seguridad y administración](audit-log.md). En **Revisar cadenas**, cada traducción muestra su origen — *Biblioteca de la comunidad*, *Corregida a mano*, *Traducción con IA*, *Archivo importado* o *MCP*.
+
+Cuando la biblioteca tiene un paquete más reciente de un idioma que instaló desde ella, el idioma muestra **Actualización disponible**. **Actualizar** fusiona el paquete nuevo en su idioma. Las cadenas que corrigió a mano se conservan, salvo que marque **Reemplazar también las cadenas corregidas a mano**. El nombre, la dirección y el interruptor de su idioma no se modifican.
+
+Si añadió usted mismo un idioma y la biblioteca tiene el mismo código, su fila muestra **Añadido en este servidor** y ofrece **Añadir cadenas de la comunidad**: el paquete se fusiona en su idioma de la misma manera — las cadenas corregidas a mano se conservan salvo que elija otra cosa — y el idioma queda después marcado como aportado por la comunidad.
+
+Turbo EA solo contacta con la biblioteca cuando usted lo pide: la primera vez que se muestra la sección, la lista se descarga y se conserva; después se muestra la lista conservada (con la fecha de su descarga) hasta que haga clic en **Actualizar**. No se comprueba nada en segundo plano, así que un paquete más reciente solo aparece como **Actualización disponible** tras actualizar. Si no se puede acceder a la biblioteca, el bloque lo indica y sigue mostrando la lista de la última descarga correcta.
+
+### Desactivar la biblioteca
+
+La dirección de la biblioteca se define con la variable de entorno `LANGUAGE_CATALOGUE_URL` (valor de Helm `customLanguages.catalogueUrl`). Déjela vacía para desactivar la función, por ejemplo en una instalación sin acceso a internet; el bloque indica entonces que la biblioteca de la comunidad está desactivada. También puede apuntarla a una copia de la biblioteca en su propio servidor: los paquetes se descargan de los archivos `packs/<code>/pack.json` junto a su `index.json`.
+
+### Aportar un idioma
+
+¿Ha traducido un idioma que aún no está en la biblioteca, o ha mejorado uno? Expórtelo con **Exportar paquete de idioma > Compartir (paquete de la comunidad)** y propóngalo a la biblioteca — consulte su [guía de contribución](https://github.com/vincentmakes/turbo-ea-translations/blob/main/CONTRIBUTING.md).
+
 ## Tres formas de traducir
 
 Use la que más le convenga; se pueden combinar y el resultado es el mismo.
@@ -60,11 +90,12 @@ Esta opción no depende de que estén activadas las sugerencias de descripción 
 
 ### 3. A través de un asistente de IA (MCP)
 
-Un asistente de IA conectado mediante la [integración MCP](mcp.md) puede traducir el idioma por usted, con tres herramientas:
+Un asistente de IA conectado mediante la [integración MCP](mcp.md) puede traducir el idioma por usted, con estas herramientas:
 
 - `list_custom_languages` — qué idiomas personalizados existen y cuánto está traducido cada uno.
-- `get_untranslated_strings` — las cadenas en inglés que aún faltan por traducir, página por página, con las instrucciones de traducción.
-- `submit_translations` — envía las traducciones de vuelta. Primero muestra una vista previa y guarda tras la confirmación, como toda herramienta de escritura de MCP.
+- `get_untranslated_strings` — las cadenas en inglés que aún faltan por traducir, página por página (hasta 500 a la vez), con las instrucciones de traducción. Un texto que aparece en muchos sitios, como «High» o «Description», se muestra una sola vez.
+- `submit_translations` — envía de vuelta una página de traducciones y las guarda de inmediato, sin vista previa: cada cadena se comprueba por separado y solo se almacenan las válidas. Una traducción también rellena cualquier otra cadena sin traducir con el mismo texto inglés; una cadena que ya tiene traducción nunca se modifica, y un relleno erróneo se corrige en la tabla de revisión.
+- `start_ai_translation` y `stop_ai_translation` — inician o detienen el trabajo **Traducir con IA** del propio servidor, de modo que un idioma entero es una sola petición. El trabajo se ejecuta en el proveedor de IA configurado en [Funciones de IA](ai.md), no en el asistente; el asistente muestra primero en una vista previa cuántas cadenas se enviarían y, para un trabajo grande, devuelve la confirmación de la vista previa al iniciarlo.
 
 Pida al asistente, por ejemplo: *«Traduce las cadenas que faltan de nuestro idioma personalizado neerlandés, empezando por los nombres del metamodelo.»* El asistente trabaja con sus propios permisos y cada cambio que hace queda registrado en el registro de auditoría.
 

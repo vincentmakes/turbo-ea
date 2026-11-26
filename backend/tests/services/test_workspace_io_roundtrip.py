@@ -3475,6 +3475,9 @@ async def test_custom_languages_roundtrip(db):
         rtl=True,
         enabled=True,
         translate_job={"status": "running", "total": 3},
+        source="community",
+        source_sha256="ab" * 32,
+        source_commit="cd" * 20,
     )
     db.add(loc)
     await db.flush()
@@ -3507,6 +3510,12 @@ async def test_custom_languages_roundtrip(db):
         True,
     )
     assert restored.translate_job is None
+    # Where it came from travels: the target can tell an update from it.
+    assert (restored.source, restored.source_sha256, restored.source_commit) == (
+        "community",
+        "ab" * 32,
+        "cd" * 20,
+    )
     row = (await db.execute(select(CustomLocaleString))).scalar_one()
     await db.refresh(row)
     assert (row.namespace, row.locale_id) == ("common", loc.id)

@@ -98,6 +98,12 @@ ai:
   searchUrl: ""
   autoConfigure: false
 
+# Custom languages: the community language library listed (and installed from)
+# in Admin → Settings → General → Custom Languages. Read only when an administrator opens
+# or refreshes that list. Set to "" to switch it off (air-gapped clusters).
+customLanguages:
+  catalogueUrl: "https://raw.githubusercontent.com/vincentmakes/turbo-ea-translations/main/index.json"
+
 backend:
   image:
     name: backend

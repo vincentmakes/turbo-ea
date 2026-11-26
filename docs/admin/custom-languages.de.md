@@ -32,6 +32,36 @@ Eine neue Sprache startet ausgeschaltet: Benutzer sehen sie erst, wenn Sie sie a
 
 Bieten Sie eine Sprache Ihren Benutzern mit ihrem Schalter an. Benutzer können sie dann wie jede integrierte Sprache im Sprachmenü wählen. Zeichenfolgen, die noch fehlen, erscheinen auf Englisch.
 
+## Eine Sprache aus der Community-Bibliothek installieren
+
+Andere Turbo-EA-Nutzer teilen ihre Übersetzungen in der [Community-Sprachbibliothek](https://github.com/vincentmakes/turbo-ea-translations). Unterhalb Ihrer eigenen Sprachen listet der Block **Community-Sprachen** die enthaltenen Sprachen auf, jeweils mit ihrem muttersprachlichen Namen und Code, dem Anteil der übersetzten Oberfläche und der Turbo-EA-Version, mit der ihr Paket erstellt wurde.
+
+!!! warning "Von der Community bereitgestellt, nicht geprüft"
+    Die Pakete werden von Mitgliedern der Community verfasst. **Das Turbo-EA-Projekt prüft sie nicht.** Automatische Prüfungen stellen sicher, dass ein Paket kein Markup, keine Links und keine defekten Platzhalter einschleusen kann, die der englische Text nicht hat, aber niemand prüft, ob die Übersetzungen korrekt oder vollständig sind. Prüfen Sie eine Sprache, bevor Sie sie Ihren Benutzern anbieten.
+
+**Installieren** lädt das Paket der Sprache herunter und importiert es. Dabei geschieht Folgendes:
+
+- Das Paket wird aus der Community-Bibliothek heruntergeladen — genau die Datei, die die Bibliothek auflistet, geprüft anhand ihrer Prüfsumme.
+- Jede Zeichenfolge durchläuft dieselben Prüfungen wie eine [importierte Datei](#the-language-pack-file); eine abgelehnte Zeichenfolge steht im Bericht und wird nie gespeichert.
+- Eine neue Sprache wird **ausgeschaltet** hinzugefügt. Sehen Sie sie sich unter **Zeichenfolgen prüfen** an und schalten Sie sie dann für Ihre Benutzer ein.
+- Der Bericht zeigt, was angewendet wurde, was abgelehnt wurde und warum, und was in Ihrer Version von Turbo EA nicht vorhanden ist.
+
+Die Sprache erscheint dann als **installiert**, und ihre Zeile in Ihrer eigenen Liste trägt die Markierung **Von der Community bereitgestellt, nicht geprüft**. Eine fehlgeschlagene Installation — ein Paket, das nicht heruntergeladen werden kann, nicht zur Prüfsumme der Bibliothek passt oder kein gültiges Paket ist — installiert nichts und wird im [Protokoll Sicherheit & Administration](audit-log.md) festgehalten. Unter **Zeichenfolgen prüfen** zeigt jede Übersetzung ihre Herkunft — *Community-Bibliothek*, *Von Hand korrigiert*, *KI-Übersetzung*, *Importierte Datei* oder *MCP*.
+
+Wenn die Bibliothek ein neueres Paket einer von dort installierten Sprache hat, zeigt die Sprache **Update verfügbar**. **Aktualisieren** führt das neue Paket in Ihre Sprache zusammen. Von Hand korrigierte Zeichenfolgen bleiben erhalten, es sei denn, Sie aktivieren **Auch die von Hand korrigierten Zeichenfolgen ersetzen**. Name, Richtung und Schalter Ihrer Sprache bleiben unverändert.
+
+Wenn Sie eine Sprache selbst hinzugefügt haben und die Bibliothek denselben Code führt, zeigt ihre Zeile **Auf diesem Server hinzugefügt** und bietet **Community-Zeichenfolgen hinzufügen** an: Das Paket wird auf dieselbe Weise in Ihre Sprache zusammengeführt — von Hand korrigierte Zeichenfolgen bleiben erhalten, sofern Sie nichts anderes wählen —, und die Sprache wird danach als von der Community bereitgestellt gekennzeichnet.
+
+Turbo EA kontaktiert die Bibliothek nur auf Ihre Anforderung: Beim ersten Anzeigen des Abschnitts wird die Liste heruntergeladen und gespeichert; danach wird die gespeicherte Liste (mit dem Datum ihres Downloads) angezeigt, bis Sie auf **Aktualisieren** klicken. Im Hintergrund wird nichts geprüft, ein neueres Paket erscheint also erst nach einer Aktualisierung als **Update verfügbar**. Ist die Bibliothek nicht erreichbar, weist der Block darauf hin und zeigt weiterhin die Liste des letzten erfolgreichen Downloads.
+
+### Die Bibliothek ausschalten
+
+Die Adresse der Bibliothek wird über die Umgebungsvariable `LANGUAGE_CATALOGUE_URL` gesetzt (Helm-Wert `customLanguages.catalogueUrl`). Setzen Sie sie auf einen leeren Wert, um die Funktion auszuschalten, zum Beispiel bei einer Installation ohne Internetzugang; der Block meldet dann, dass die Community-Bibliothek ausgeschaltet ist. Sie können sie auch auf eine Kopie der Bibliothek auf Ihrem eigenen Server richten: Die Pakete werden aus den Dateien `packs/<code>/pack.json` neben ihrer `index.json` heruntergeladen.
+
+### Eine Sprache beitragen
+
+Haben Sie eine Sprache übersetzt, die noch nicht in der Bibliothek ist, oder eine verbessert? Exportieren Sie sie mit **Sprachpaket exportieren > Teilen (Community-Paket)** und schlagen Sie sie der Bibliothek vor — siehe ihren [Beitragsleitfaden](https://github.com/vincentmakes/turbo-ea-translations/blob/main/CONTRIBUTING.md).
+
 ## Drei Wege zur Übersetzung
 
 Verwenden Sie, was Ihnen passt; die Wege lassen sich kombinieren, und das Ergebnis ist dasselbe.
@@ -60,11 +90,12 @@ Diese Option hängt nicht davon ab, dass die KI-Beschreibungsvorschläge für Ka
 
 ### 3. Über einen KI-Assistenten (MCP)
 
-Ein über die [MCP-Integration](mcp.md) verbundener KI-Assistent kann die Sprache für Sie übersetzen und nutzt dafür drei Werkzeuge:
+Ein über die [MCP-Integration](mcp.md) verbundener KI-Assistent kann die Sprache für Sie übersetzen und nutzt dafür diese Werkzeuge:
 
 - `list_custom_languages` — welche benutzerdefinierten Sprachen es gibt und wie weit jede übersetzt ist.
-- `get_untranslated_strings` — die noch zu übersetzenden englischen Zeichenfolgen, Seite für Seite, mit den Übersetzungsanweisungen.
-- `submit_translations` — sendet die Übersetzungen zurück. Es zeigt zuerst eine Vorschau und speichert nach Bestätigung, wie jedes MCP-Schreibwerkzeug.
+- `get_untranslated_strings` — die noch zu übersetzenden englischen Zeichenfolgen, Seite für Seite (bis zu 500 auf einmal), mit den Übersetzungsanweisungen. Ein Text, der an vielen Stellen vorkommt, etwa „High“ oder „Description“, wird einmal aufgeführt.
+- `submit_translations` — sendet eine Seite mit Übersetzungen zurück und speichert sie sofort, ohne Vorschau: Jede Zeichenfolge wird einzeln geprüft, und nur gültige werden gespeichert. Eine Übersetzung füllt außerdem jede andere unübersetzte Zeichenfolge mit demselben englischen Text; eine bereits übersetzte Zeichenfolge wird nie geändert, und eine falsche Füllung korrigieren Sie in der Prüftabelle.
+- `start_ai_translation` und `stop_ai_translation` — starten oder beenden den serverseitigen Job **Mit KI übersetzen**, sodass eine ganze Sprache eine einzige Anfrage ist. Der Job läuft auf dem unter [KI-Funktionen](ai.md) konfigurierten KI-Anbieter, nicht auf dem Assistenten; der Assistent zeigt zuerst in einer Vorschau, wie viele Zeichenfolgen gesendet würden, und gibt bei einem großen Job die Bestätigung der Vorschau beim Start zurück.
 
 Bitten Sie den Assistenten zum Beispiel: *„Übersetze die fehlenden Zeichenfolgen unserer benutzerdefinierten Sprache Niederländisch, beginnend mit den Metamodell-Namen.“* Der Assistent arbeitet mit Ihren eigenen Berechtigungen, und jede seiner Änderungen wird im Audit-Log festgehalten.
 

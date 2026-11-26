@@ -106,6 +106,8 @@ spec:
             - name: AI_AUTO_CONFIGURE
               value: {{ .autoConfigure | quote }}
             {{- end }}
+            - name: LANGUAGE_CATALOGUE_URL
+              value: {{ .Values.customLanguages.catalogueUrl | quote }}
             # The root filesystem is read-only; Python's per-user caches go to /tmp.
             - name: HOME
               value: /tmp

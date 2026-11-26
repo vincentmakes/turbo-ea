@@ -73,6 +73,12 @@
         "autoConfigure": { "type": "boolean" }
       }
     },
+    "customLanguages": {
+      "type": "object",
+      "properties": {
+        "catalogueUrl": { "type": "string" }
+      }
+    },
     "backend": {
       "type": "object",
       "properties": {

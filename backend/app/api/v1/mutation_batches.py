@@ -91,6 +91,7 @@ _TOKEN_REASON_TEXT = {
     "already_used": "this token has already authorised a commit",
     "wrong_actor": "this token was issued to another user",
     "wrong_tool": "this token was issued by a dry-run of another tool",
+    "wrong_scope": "this token was issued for a preview of other arguments",
     "expired": "this token is older than 15 minutes",
 }
 
@@ -121,12 +122,13 @@ async def open_batch(
     """Open a mutation batch. Returns the batch id and, when the row
     count exceeds the confirmation threshold on a dry-run, a one-shot
     ``confirm_token``. A real batch above the threshold must present that
-    token, or the open is refused before any write happens."""
+    token, or the open is refused before any write happens — except a tool
+    in ``CONFIRMATION_EXEMPT_TOOLS``, which is neither issued nor asked one."""
     token: str | None = None
     issuing: MutationBatch | None = None
-    if issues_token(body.dry_run, row_count):
+    if issues_token(body.dry_run, row_count, body.tool_name):
         token = issue_confirm_token()
-    elif needs_confirmation(body.dry_run, row_count):
+    elif needs_confirmation(body.dry_run, row_count, body.tool_name):
         candidates: list[MutationBatch] = []
         if body.confirm_token:
             # Row lock: a second open presenting the same token waits here,
@@ -142,6 +144,7 @@ async def open_batch(
             body.confirm_token or "",
             actor_id=user.id,
             tool_name=body.tool_name,
+            scope=body.scope,
         )
         if reason is not None:
             raise _confirm_token_error(reason)
@@ -153,6 +156,7 @@ async def open_batch(
         origin=_origin(),
         dry_run=body.dry_run,
         confirm_token=token,
+        scope=body.scope,
     )
     if issuing is not None:
         mark_token_used(issuing, batch.id)

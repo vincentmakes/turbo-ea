@@ -96,6 +96,7 @@ La liste complète et commentée se trouve dans le [`values.yaml`](https://githu
 | `backend.persistence.*` | Le volume `/app/data` : `size`, `storageClass`, ou `existingClaim` pour apporter le vôtre. Conservé au `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Toute variable backend de la configuration Compose — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Point de terminaison LLM externe pour les suggestions IA. |
+| `customLanguages.catalogueUrl` | La bibliothèque de langues communautaire listée sous [Langues personnalisées](custom-languages.md#installing-a-language-from-the-community-library). `""` la désactive, comme sur un cluster isolé d'Internet. |
 | `mcp.enabled` | Déployer le serveur MCP sur `<publicUrl>/mcp`. |
 | `ingress.*` | Classe, annotations, TLS. Les hôtes valent par défaut l'hôte de `publicUrl`, chemin `/`. |
 | `frontend.replicaCount` / `nginx.replicaCount`, `autoscaling`, `pdb` | Montée en charge des couches sans état. |
@@ -156,7 +157,7 @@ Les migrations s'exécutent au démarrage du nouveau pod backend, exactement com
 
 ## Durcissement
 
-Chaque conteneur tourne avec l'uid 1000, un système de fichiers racine en lecture seule, sans capabilities, sans élévation de privilèges et avec le profil seccomp `RuntimeDefault` ; le jeton du ServiceAccount n'est pas monté. Cela satisfait d'emblée le Pod Security Standard *restricted*. `networkPolicy.enabled: true` ajoute des politiques de refus par défaut entre les couches (définissez `networkPolicy.ingressController` sur le label d'espace de noms de votre contrôleur) ; les règles d'egress sont optionnelles car le backend parle aussi au magasin d'extensions, à endoflife.date, à la NVD, à votre serveur SMTP et à votre point de terminaison LLM. Les contrôleurs d'admission qui vérifient les signatures peuvent épingler les images et le chart à l'identité cosign ci-dessus.
+Chaque conteneur tourne avec l'uid 1000, un système de fichiers racine en lecture seule, sans capabilities, sans élévation de privilèges et avec le profil seccomp `RuntimeDefault` ; le jeton du ServiceAccount n'est pas monté. Cela satisfait d'emblée le Pod Security Standard *restricted*. `networkPolicy.enabled: true` ajoute des politiques de refus par défaut entre les couches (définissez `networkPolicy.ingressController` sur le label d'espace de noms de votre contrôleur) ; les règles d'egress sont optionnelles car le backend parle aussi au magasin d'extensions, à endoflife.date, à la NVD, à la bibliothèque de langues communautaire (raw.githubusercontent.com), à votre serveur SMTP et à votre point de terminaison LLM. Les contrôleurs d'admission qui vérifient les signatures peuvent épingler les images et le chart à l'identité cosign ci-dessus.
 
 ## AWS (EKS)
 

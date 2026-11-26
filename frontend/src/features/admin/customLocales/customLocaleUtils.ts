@@ -7,7 +7,12 @@
  * and is the only gate.
  */
 import { ApiError } from "@/api/client";
-import type { LanguagePack } from "@/types";
+import type {
+  CommunityLanguage,
+  CustomLocaleRejectedString,
+  CustomLocaleWriteResult,
+  LanguagePack,
+} from "@/types";
 
 export const PACK_FORMAT = "turbo-ea-language-pack";
 export const PACK_FORMAT_VERSION = 1;
@@ -22,7 +27,21 @@ export const KNOWN_ERROR_CODES = [
   "catalog_unavailable",
   "locale_not_found",
   "unknown_namespace",
+  // The community library (`/custom-locales/catalogue`).
+  "catalogue_disabled",
+  "catalogue_unreachable",
+  "catalogue_too_large",
+  "catalogue_invalid",
+  "not_in_catalogue",
+  "pack_unreachable",
+  "pack_too_large",
+  "pack_checksum_mismatch",
+  "pack_invalid",
+  "pack_code_mismatch",
 ] as const;
+
+/** Where a stored string came from (`meta.o` on the server). */
+export const STRING_ORIGINS = ["manual", "ai", "import", "mcp", "community"] as const;
 
 /** Reasons `POST …/strings` rejects a string with. */
 export const REJECT_REASONS = [
@@ -248,7 +267,82 @@ export function namespaceLabel(namespace: string, t: Translate): string {
   return namespace === METAMODEL_NAMESPACE ? t("customLocales.namespaces.metamodel") : namespace;
 }
 
+/** How a string's origin is named in the review table; an origin we do not know is shown as is. */
+export function originLabel(origin: string, t: Translate): string {
+  return (STRING_ORIGINS as readonly string[]).includes(origin)
+    ? t(`customLocales.origins.${origin}`)
+    : origin;
+}
+
 /** The label of a rejection reason, or the raw code when it is not one we know. */
 export function reasonLabel(reason: string, t: Translate): string {
   return isKnownReason(reason) ? t(`customLocales.reasons.${reason}`) : reason;
+}
+
+// ---------------------------------------------------------------------------
+// The report of a merge (`ImportReport`)
+// ---------------------------------------------------------------------------
+
+export interface ImportReportData {
+  applied: number;
+  unchanged: number;
+  cleared: number;
+  unknown: number;
+  unknownKeys: { namespace: string; key: string }[];
+  rejected: CustomLocaleRejectedString[];
+  failedNamespaces: { namespace: string; message: string }[];
+  /** Set when a failure that would repeat for every namespace stopped the import. */
+  stopped: string | null;
+}
+
+/** Rejections listed in the report; the rest are summarised by count. */
+export const MAX_LISTED_REJECTIONS = 100;
+/** Unknown keys named under their count. */
+export const MAX_LISTED_UNKNOWN = 10;
+
+function count(value: unknown): number {
+  return typeof value === "number" ? value : 0;
+}
+
+/** An empty report, to add each namespace's answer to. */
+export function emptyReport(): ImportReportData {
+  return {
+    applied: 0,
+    unchanged: 0,
+    cleared: 0,
+    unknown: 0,
+    unknownKeys: [],
+    rejected: [],
+    failedNamespaces: [],
+    stopped: null,
+  };
+}
+
+/** Add one server answer to `report` (a missing or odd field counts as nothing). */
+export function addResult(report: ImportReportData, r: CustomLocaleWriteResult | undefined): void {
+  report.applied += count(r?.applied);
+  report.unchanged += count(r?.unchanged);
+  report.cleared += count(r?.cleared);
+  report.unknown += count(r?.unknown);
+  if (Array.isArray(r?.unknown_keys)) report.unknownKeys.push(...r.unknown_keys);
+  if (Array.isArray(r?.rejected)) report.rejected.push(...r.rejected);
+}
+
+/** Where the community library's pack of `code` is installed from. */
+export function installPath(code: string): string {
+  return `/custom-locales/catalogue/${encodeURIComponent(code)}/install`;
+}
+
+/**
+ * What installing a library language does here: `install` a new language,
+ * `update` one installed from the library when the library has another pack,
+ * `merge` the pack into a language added here by hand with the same code —
+ * or nothing, when the installed pack is the library's.
+ */
+export type CommunityAction = "install" | "update" | "merge";
+
+export function communityAction(language: CommunityLanguage): CommunityAction | null {
+  if (!language.installed) return "install";
+  if (!language.installed_from_community) return "merge";
+  return language.update_available ? "update" : null;
 }

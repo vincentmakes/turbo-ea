@@ -69,9 +69,13 @@ class TestPure:
             enabled=True,
             updated_at=T1,
             translate_job=None,
+            source=None,
         )
         out = store.serialize(locale, {}, None)
         assert out["updated_at"] == T1.isoformat()
+        assert out["source"] is None
+        locale.source = "community"
+        assert store.serialize(locale, {}, None)["source"] == "community"
         assert out["stats"] is None and "namespaces" not in out
         locale.updated_at = None
         assert store.serialize(locale, {}, None)["updated_at"] is None
@@ -362,6 +366,39 @@ class TestWrites:
 
 
 class TestMetamodelMerge:
+    async def test_a_dry_run_on_an_existing_row_writes_nothing(self, db):
+        loc = await _locale(db)
+        ct = await create_card_type(db, key="A", label="A")
+        cat = store.catalog()
+        await store.apply_strings(
+            db, loc, cat, {"metamodel": {"type.A.label": "Aa"}}, origin="manual"
+        )
+        report = await store.apply_strings(
+            db, loc, cat, {"metamodel": {"type.A.label": "Ab"}}, origin="manual", dry_run=True
+        )
+        assert report["applied"] == 1
+        await db.refresh(ct)
+        assert ct.translations["label"]["nl"] == "Aa"
+
+    async def test_a_community_label_needs_its_hash_like_an_import(self, db):
+        loc = await _locale(db)
+        await create_card_type(db, key="A", label="A", translations={"label": {"nl": "Aa"}})
+        await create_card_type(db, key="B", label="B")
+        report = await store.apply_strings(
+            db,
+            loc,
+            store.catalog(),
+            {"metamodel": {"type.A.label": "Aa", "type.B.label": "Bb"}},
+            origin=store.ORIGIN_COMMUNITY,
+        )
+        # The value already stored is unchanged even without a hash (as for an
+        # import); a new one without a hash is refused.
+        assert report["unchanged"] == 1
+        assert report["rejected"] == [
+            {"namespace": "metamodel", "key": "type.B.label", "reason": "source_hash_missing"}
+        ]
+        assert store.FILE_ORIGINS == {"import", "community"}
+
     async def test_meta_of_an_untouched_label_is_kept(self, db):
         loc = await _locale(db)
         await create_card_type(db, key="A", label="A", translations={"label": {"nl": "Aa"}})

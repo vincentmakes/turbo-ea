@@ -714,6 +714,8 @@ _BATCH_TOOLS_EXPECTED = [
     "set_card_logos",
     "set_card_tags",
     "sign_adr",
+    "start_ai_translation",
+    "stop_ai_translation",
     "submit_process_flow",
     "submit_translations",
     "transition_card_lifecycle",
@@ -822,6 +824,10 @@ _BATCH_TOOL_CALLS = {
     "submit_translations": lambda dry_run: server.submit_translations(
         locale="nl", translations={"common": {"actions.save": "Opslaan"}}, dry_run=dry_run
     ),
+    "start_ai_translation": lambda dry_run: server.start_ai_translation(
+        locale="nl", dry_run=dry_run
+    ),
+    "stop_ai_translation": lambda dry_run: server.stop_ai_translation(locale="nl", dry_run=dry_run),
     "save_inventory_view": lambda dry_run: server.save_inventory_view(
         name="V", query={"type": "Application"}, dry_run=dry_run
     ),
@@ -842,6 +848,12 @@ _BATCH_TOOL_CALLS = {
         dry_run=dry_run,
     ),
 }
+
+
+#: The tools that bind their preview's token to their arguments, with the
+#: scope their ``_BATCH_TOOL_CALLS`` arguments give. Every other tool's open
+#: body carries no scope.
+_BATCH_SCOPES: dict[str, str] = {"start_ai_translation": "nl|missing|keep"}
 
 
 class _BatchRecorder(_Backend):
@@ -913,10 +925,10 @@ class TestEveryWriteToolIsABatch:
         writes = [c for c in rec.calls if c[0] != "get"]
         # 1. The first write opens the batch (lookups may come before it).
         assert writes[0] == ("post", "/mutation-batches?row_count=1", None), rec.calls
-        assert rec.posts[0] == (
-            "/mutation-batches?row_count=1",
-            {"tool_name": tool, "dry_run": dry_run},
-        )
+        opened = {"tool_name": tool, "dry_run": dry_run}
+        if tool in _BATCH_SCOPES:
+            opened["scope"] = _BATCH_SCOPES[tool]
+        assert rec.posts[0] == ("/mutation-batches?row_count=1", opened)
         # 3. The last call of any kind closes it.
         assert rec.calls[-1] == ("post", "/mutation-batches/B-1/commit", None), rec.calls
         assert writes[-1] == rec.calls[-1]

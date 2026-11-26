@@ -96,6 +96,7 @@ The full, commented list is in the chart's [`values.yaml`](https://github.com/vi
 | `backend.persistence.*` | The `/app/data` volume: `size`, `storageClass`, or `existingClaim` to bring your own. Kept on `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Any backend variable from the Compose setup — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | External LLM endpoint for AI suggestions. |
+| `customLanguages.catalogueUrl` | The community language library listed under [Custom Languages](custom-languages.md#installing-a-language-from-the-community-library). `""` switches it off, as on an air-gapped cluster. |
 | `mcp.enabled` | Deploy the MCP server at `<publicUrl>/mcp`. |
 | `ingress.*` | Class, annotations, TLS. Hosts default to the host of `publicUrl`, path `/`. |
 | `frontend.replicaCount` / `nginx.replicaCount`, `autoscaling`, `pdb` | Scale-out for the stateless tiers. |
@@ -156,7 +157,7 @@ Migrations run when the new backend pod boots, exactly as in Compose: *Recreate*
 
 ## Hardening
 
-Every container runs as uid 1000 with a read-only root filesystem, no capabilities, no privilege escalation and the `RuntimeDefault` seccomp profile; the ServiceAccount token is not mounted. That satisfies the *restricted* Pod Security Standard out of the box. `networkPolicy.enabled: true` adds default-deny policies between the tiers (set `networkPolicy.ingressController` to your controller's namespace label); egress rules are opt-in because the backend also talks to the extension store, endoflife.date, the NVD, your SMTP server and your LLM endpoint. Admission controllers that verify signatures can pin the images and the chart to the cosign identity above.
+Every container runs as uid 1000 with a read-only root filesystem, no capabilities, no privilege escalation and the `RuntimeDefault` seccomp profile; the ServiceAccount token is not mounted. That satisfies the *restricted* Pod Security Standard out of the box. `networkPolicy.enabled: true` adds default-deny policies between the tiers (set `networkPolicy.ingressController` to your controller's namespace label); egress rules are opt-in because the backend also talks to the extension store, endoflife.date, the NVD, the community language library (raw.githubusercontent.com), your SMTP server and your LLM endpoint. Admission controllers that verify signatures can pin the images and the chart to the cosign identity above.
 
 ## AWS (EKS)
 

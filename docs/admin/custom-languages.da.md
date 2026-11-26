@@ -32,6 +32,36 @@ Et nyt sprog starter slået fra: brugerne ser det ikke, før du tilbyder det. Hv
 
 Tilbyd et sprog til dine brugere med dets kontakt. Brugerne kan derefter vælge det i sprogmenuen som ethvert indbygget sprog. Tekststrenge, der stadig mangler, vises på engelsk.
 
+## Installér et sprog fra fællesskabsbiblioteket
+
+Andre Turbo EA-brugere deler deres oversættelser i [fællesskabets sprogbibliotek](https://github.com/vincentmakes/turbo-ea-translations). Under dine egne sprog viser blokken **Fællesskabssprog** de sprog, det indeholder, hver med sit oprindelige navn og sin kode, hvor stor en del af brugerfladen det oversætter, og den Turbo EA-version, dets pakke blev lavet med.
+
+!!! warning "Leveret af fællesskabet, ikke gennemgået"
+    Pakkerne er skrevet af medlemmer af fællesskabet. **Turbo EA-projektet gennemgår dem ikke.** Automatiske kontroller sikrer, at en pakke ikke kan tilføje markup, links eller ødelagte pladsholdere, som den engelske tekst ikke har, men ingen kontrollerer, om oversættelserne er nøjagtige eller fuldstændige. Gennemgå et sprog, før du tilbyder det til dine brugere.
+
+**Installér** downloader sprogets pakke og importerer den. Det sker der:
+
+- Pakken downloades fra fællesskabsbiblioteket — præcis den fil, biblioteket viser, kontrolleret mod dens kontrolsum.
+- Hver tekststreng gennemgår de samme kontroller som en [importeret fil](#the-language-pack-file); en afvist tekststreng står i rapporten og gemmes aldrig.
+- Et nyt sprog tilføjes **slået fra**. Se det i **Gennemgå tekststrenge**, og slå det derefter til for dine brugere.
+- Rapporten viser, hvad der blev anvendt, hvad der blev afvist og hvorfor, og hvad der ikke findes i din version af Turbo EA.
+
+Sproget vises derefter som **installeret**, og dets række på din egen liste har mærket **Leveret af fællesskabet, ikke gennemgået**. En mislykket installation — en pakke, der ikke kan downloades, ikke stemmer med bibliotekets kontrolsum eller ikke er en gyldig pakke — installerer ingenting og registreres i [Sikkerhed og administration-loggen](audit-log.md). I **Gennemgå tekststrenge** viser hver oversættelse, hvor den kom fra — *Fællesskabsbibliotek*, *Rettet manuelt*, *AI-oversættelse*, *Importeret fil* eller *MCP*.
+
+Når biblioteket har en nyere pakke til et sprog, du har installeret fra det, viser sproget **Opdatering tilgængelig**. **Opdatér** fletter den nye pakke ind i dit sprog. Tekststrenge, du har rettet manuelt, beholdes, medmindre du markerer **Erstat også de tekststrenge, der er rettet manuelt**. Dit sprogs navn, retning og kontakt forbliver uændrede.
+
+Hvis du selv har tilføjet et sprog, og biblioteket har den samme kode, viser dets række **Tilføjet på denne server** og tilbyder **Tilføj fællesskabets tekststrenge**: Pakken flettes ind i dit sprog på samme måde — tekststrenge rettet manuelt beholdes, medmindre du vælger andet — og sproget markeres derefter som leveret af fællesskabet.
+
+Turbo EA kontakter kun biblioteket, når du beder om det: Første gang afsnittet vises, downloades listen og gemmes; derefter vises den gemte liste (med datoen for downloadet), indtil du klikker på **Opdatér**. Intet kontrolleres i baggrunden, så en nyere pakke vises først som **Opdatering tilgængelig** efter en opdatering. Hvis biblioteket ikke kan nås, siger blokken det og bliver ved med at vise listen fra den seneste vellykkede download.
+
+### Slå biblioteket fra
+
+Bibliotekets adresse angives med miljøvariablen `LANGUAGE_CATALOGUE_URL` (Helm-værdi `customLanguages.catalogueUrl`). Sæt den til en tom værdi for at slå funktionen fra, for eksempel på en installation uden internetadgang; blokken siger så, at fællesskabsbiblioteket er slået fra. Du kan også pege den på en kopi af biblioteket på din egen server: Pakkerne downloades fra filerne `packs/<code>/pack.json` ved siden af dets `index.json`.
+
+### Bidrag med et sprog
+
+Har du oversat et sprog, der endnu ikke er i biblioteket, eller forbedret et? Eksportér det med **Eksportér sprogpakke > Del (fællesskabspakke)**, og foreslå det til biblioteket — se dets [bidragsvejledning](https://github.com/vincentmakes/turbo-ea-translations/blob/main/CONTRIBUTING.md).
+
 ## Tre måder at oversætte på
 
 Brug den, der passer dig; de kan kombineres, og resultatet er det samme.
@@ -60,11 +90,12 @@ Denne mulighed afhænger ikke af, om AI-beskrivelsesforslagene til kort er slåe
 
 ### 3. Via en AI-assistent (MCP)
 
-En AI-assistent, der er forbundet via [MCP-integrationen](mcp.md), kan oversætte sproget for dig ved hjælp af tre værktøjer:
+En AI-assistent, der er forbundet via [MCP-integrationen](mcp.md), kan oversætte sproget for dig ved hjælp af disse værktøjer:
 
 - `list_custom_languages` — hvilke brugerdefinerede sprog der findes, og hvor langt hvert enkelt er oversat.
-- `get_untranslated_strings` — de engelske tekststrenge, der stadig mangler at blive oversat, side for side, med oversættelsesvejledningen.
-- `submit_translations` — sender oversættelserne tilbage. Det viser først en forhåndsvisning og gemmer efter bekræftelse, som alle MCP-skriveværktøjer.
+- `get_untranslated_strings` — de engelske tekststrenge, der stadig mangler at blive oversat, side for side (op til 500 ad gangen), med oversættelsesvejledningen. En tekst, der optræder mange steder, som »High« eller »Description«, vises kun én gang.
+- `submit_translations` — sender en side med oversættelser tilbage og gemmer dem med det samme, uden forhåndsvisning: hver tekststreng kontrolleres for sig, og kun gyldige gemmes. En oversættelse udfylder også hver anden uoversat tekststreng med den samme engelske tekst; en tekststreng, der allerede har en oversættelse, ændres aldrig, og en forkert udfyldning rettes i gennemgangstabellen.
+- `start_ai_translation` og `stop_ai_translation` — starter eller stopper serverens eget job **Oversæt med AI**, så et helt sprog er én forespørgsel. Jobbet kører på den AI-udbyder, der er konfigureret under [AI-funktioner](ai.md), ikke på assistenten; assistenten viser først i en forhåndsvisning, hvor mange tekststrenge der ville blive sendt, og sender ved et stort job forhåndsvisningens bekræftelse tilbage, når det startes.
 
 Bed fx assistenten: *»Oversæt de manglende tekststrenge i vores brugerdefinerede hollandske sprog, og begynd med metamodellens navne.«* Assistenten arbejder med dine egne tilladelser, og hver ændring, den foretager, registreres i auditloggen.
 

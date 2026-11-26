@@ -32,6 +32,36 @@ Una nuova lingua parte disattivata: gli utenti non la vedono finché non la offr
 
 Offri una lingua ai tuoi utenti con il suo interruttore. Gli utenti potranno sceglierla dal menu lingua, come qualsiasi lingua integrata. Le stringhe ancora mancanti compaiono in inglese.
 
+## Installare una lingua dalla libreria della community
+
+Altri utenti di Turbo EA condividono le loro traduzioni nella [libreria di lingue della community](https://github.com/vincentmakes/turbo-ea-translations). Sotto le tue lingue, il blocco **Lingue della community** elenca le lingue che contiene, ciascuna con il suo nome nativo e il suo codice, la quota di interfaccia che traduce e la versione di Turbo EA con cui è stato creato il suo pacchetto.
+
+!!! warning "Fornita dalla community, non revisionata"
+    I pacchetti sono scritti da membri della community. **Il progetto Turbo EA non li rivede.** Controlli automatici garantiscono che un pacchetto non possa aggiungere markup, link o segnaposto non validi che il testo inglese non ha, ma nessuno verifica se le traduzioni siano accurate o complete. Rivedi una lingua prima di offrirla ai tuoi utenti.
+
+**Installa** scarica il pacchetto della lingua e lo importa. Ecco cosa succede:
+
+- Il pacchetto viene scaricato dalla libreria della community — esattamente il file che la libreria elenca, verificato con il suo checksum.
+- Ogni stringa passa gli stessi controlli di un [file importato](#the-language-pack-file); una stringa rifiutata compare nel rapporto e non viene mai salvata.
+- Una nuova lingua viene aggiunta **disattivata**. Guardala in **Rivedi le stringhe**, poi attivala per i tuoi utenti.
+- Il rapporto mostra cosa è stato applicato, cosa è stato rifiutato e perché, e cosa non esiste nella tua versione di Turbo EA.
+
+La lingua risulta quindi **installata** e la sua riga nel tuo elenco riporta l'indicazione **Fornita dalla community, non revisionata**. Un'installazione non riuscita — un pacchetto che non può essere scaricato, non corrisponde al checksum della libreria o non è un pacchetto valido — non installa nulla ed è registrata nel [registro Sicurezza e amministrazione](audit-log.md). In **Rivedi le stringhe**, ogni traduzione mostra la sua origine — *Libreria della community*, *Corretta a mano*, *Traduzione IA*, *File importato* o *MCP*.
+
+Quando la libreria ha un pacchetto più recente di una lingua che hai installato da essa, la lingua mostra **Aggiornamento disponibile**. **Aggiorna** unisce il nuovo pacchetto alla tua lingua. Le stringhe che hai corretto a mano vengono mantenute, a meno che tu non selezioni **Sostituisci anche le stringhe corrette a mano**. Nome, direzione e interruttore della tua lingua restano invariati.
+
+Se hai aggiunto tu stesso una lingua e la libreria ha lo stesso codice, la sua riga mostra **Aggiunta su questo server** e offre **Aggiungi le stringhe della community**: il pacchetto viene unito alla tua lingua allo stesso modo — le stringhe corrette a mano vengono mantenute a meno che tu non scelga diversamente — e la lingua viene poi contrassegnata come fornita dalla community.
+
+Turbo EA contatta la libreria solo quando lo chiedi: la prima volta che la sezione viene mostrata, l'elenco viene scaricato e conservato; poi viene mostrato l'elenco conservato (con la data del download) finché non fai clic su **Aggiorna**. Nulla viene controllato in background, quindi un pacchetto più recente compare come **Aggiornamento disponibile** solo dopo un aggiornamento. Se la libreria non è raggiungibile, il blocco lo segnala e continua a mostrare l'elenco dell'ultimo download riuscito.
+
+### Disattivare la libreria
+
+L'indirizzo della libreria è impostato dalla variabile d'ambiente `LANGUAGE_CATALOGUE_URL` (valore Helm `customLanguages.catalogueUrl`). Impostala su un valore vuoto per disattivare la funzione, ad esempio in un'installazione senza accesso a internet; il blocco indica allora che la libreria della community è disattivata. Puoi anche puntarla a una copia della libreria sul tuo server: i pacchetti vengono scaricati dai file `packs/<code>/pack.json` accanto al suo `index.json`.
+
+### Contribuire con una lingua
+
+Hai tradotto una lingua che non è ancora nella libreria, o ne hai migliorata una? Esportala con **Esporta pacchetto lingua > Condividi (pacchetto della community)** e proponila alla libreria — vedi la sua [guida al contributo](https://github.com/vincentmakes/turbo-ea-translations/blob/main/CONTRIBUTING.md).
+
 ## Tre modi per tradurre
 
 Usa quello che preferisci; si possono combinare e il risultato è lo stesso.
@@ -60,11 +90,12 @@ Questa opzione non dipende dall'attivazione dei suggerimenti di descrizione IA p
 
 ### 3. Tramite un assistente IA (MCP)
 
-Un assistente IA collegato tramite l'[integrazione MCP](mcp.md) può tradurre la lingua al posto tuo, usando tre strumenti:
+Un assistente IA collegato tramite l'[integrazione MCP](mcp.md) può tradurre la lingua al posto tuo, usando questi strumenti:
 
 - `list_custom_languages` — quali lingue personalizzate esistono e a che punto è la traduzione di ciascuna.
-- `get_untranslated_strings` — le stringhe inglesi ancora da tradurre, pagina per pagina, con le istruzioni di traduzione.
-- `submit_translations` — rimanda indietro le traduzioni. Mostra prima un'anteprima e salva dopo la conferma, come ogni strumento di scrittura MCP.
+- `get_untranslated_strings` — le stringhe inglesi ancora da tradurre, pagina per pagina (fino a 500 alla volta), con le istruzioni di traduzione. Un testo che compare in molti punti, come «High» o «Description», viene elencato una sola volta.
+- `submit_translations` — rimanda indietro una pagina di traduzioni e le salva subito, senza anteprima: ogni stringa viene controllata singolarmente e solo quelle valide vengono memorizzate. Una traduzione riempie anche ogni altra stringa non tradotta con lo stesso testo inglese; una stringa che ha già una traduzione non viene mai modificata, e un riempimento errato si corregge nella tabella di revisione.
+- `start_ai_translation` e `stop_ai_translation` — avviano o interrompono il job **Traduci con IA** del server, così un'intera lingua è una sola richiesta. Il job viene eseguito sul provider IA configurato in [Funzionalità IA](ai.md), non sull'assistente; l'assistente mostra prima in anteprima quante stringhe verrebbero inviate e, per un job di grandi dimensioni, rimanda la conferma dell'anteprima all'avvio.
 
 Chiedi all'assistente, per esempio: *«Traduci le stringhe mancanti della nostra lingua personalizzata olandese, partendo dai nomi del metamodello.»* L'assistente lavora con i tuoi permessi e ogni modifica che fa viene registrata nel registro di audit.
 

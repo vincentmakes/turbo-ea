@@ -32,6 +32,36 @@ Une nouvelle langue démarre désactivée : les utilisateurs ne la voient pas ta
 
 Proposez une langue à vos utilisateurs avec son interrupteur. Ils peuvent alors la choisir dans le menu de langue, comme n'importe quelle langue intégrée. Les chaînes encore manquantes s'affichent en anglais.
 
+## Installer une langue depuis la bibliothèque communautaire
+
+D'autres utilisateurs de Turbo EA partagent leurs traductions dans la [bibliothèque de langues communautaire](https://github.com/vincentmakes/turbo-ea-translations). Sous vos propres langues, le bloc **Langues communautaires** liste les langues qu'elle contient, chacune avec son nom natif et son code, la part de l'interface qu'elle traduit et la version de Turbo EA avec laquelle son pack a été créé.
+
+!!! warning "Fourni par la communauté, non vérifié"
+    Les packs sont rédigés par des membres de la communauté. **Le projet Turbo EA ne les vérifie pas.** Des contrôles automatiques garantissent qu'un pack ne peut pas ajouter de balisage, de liens ou de paramètres substituables cassés que le texte anglais n'a pas, mais personne ne vérifie si les traductions sont exactes ou complètes. Vérifiez une langue avant de la proposer à vos utilisateurs.
+
+**Installer** télécharge le pack de la langue et l'importe. Voici ce qui se passe :
+
+- Le pack est téléchargé depuis la bibliothèque communautaire — exactement le fichier que la bibliothèque liste, vérifié par rapport à sa somme de contrôle.
+- Chaque chaîne passe les mêmes contrôles qu'un [fichier importé](#the-language-pack-file) ; une chaîne rejetée figure dans le rapport et n'est jamais enregistrée.
+- Une nouvelle langue est ajoutée **désactivée**. Consultez-la dans **Vérifier les chaînes**, puis activez-la pour vos utilisateurs.
+- Le rapport indique ce qui a été appliqué, ce qui a été rejeté et pourquoi, et ce qui n'existe pas dans votre version de Turbo EA.
+
+La langue apparaît alors comme **installée**, et sa ligne dans votre propre liste porte le repère **Fourni par la communauté, non vérifié**. Une installation qui échoue — un pack impossible à télécharger, qui ne correspond pas à la somme de contrôle de la bibliothèque ou qui n'est pas un pack valide — n'installe rien et est consignée dans le [journal Sécurité et administration](audit-log.md). Dans **Vérifier les chaînes**, chaque traduction indique son origine — *Bibliothèque communautaire*, *Corrigée à la main*, *Traduction IA*, *Fichier importé* ou *MCP*.
+
+Lorsque la bibliothèque propose un pack plus récent d'une langue que vous en avez installée, la langue affiche **Mise à jour disponible**. **Mettre à jour** fusionne le nouveau pack dans votre langue. Les chaînes que vous avez corrigées à la main sont conservées, sauf si vous cochez **Remplacer aussi les chaînes corrigées à la main**. Le nom, le sens d'écriture et l'interrupteur de votre langue restent inchangés.
+
+Si vous avez ajouté vous-même une langue et que la bibliothèque a le même code, sa ligne affiche **Ajoutée sur ce serveur** et propose **Ajouter les chaînes communautaires** : le pack est fusionné dans votre langue de la même manière — les chaînes corrigées à la main sont conservées, sauf si vous choisissez autrement — et la langue est ensuite marquée comme fournie par la communauté.
+
+Turbo EA ne contacte la bibliothèque que lorsque vous le demandez : la première fois que la section s'affiche, la liste est téléchargée et conservée ; ensuite, la liste conservée est affichée (avec sa date de téléchargement) jusqu'à ce que vous cliquiez sur **Actualiser**. Rien n'est vérifié en arrière-plan : un pack plus récent n'apparaît donc comme **Mise à jour disponible** qu'après une actualisation. Si la bibliothèque est injoignable, le bloc l'indique et continue d'afficher la liste du dernier téléchargement réussi.
+
+### Désactiver la bibliothèque
+
+L'adresse de la bibliothèque est définie par la variable d'environnement `LANGUAGE_CATALOGUE_URL` (valeur Helm `customLanguages.catalogueUrl`). Laissez-la vide pour désactiver la fonctionnalité, par exemple sur une installation sans accès à Internet ; le bloc indique alors que la bibliothèque communautaire est désactivée. Vous pouvez aussi la faire pointer vers une copie de la bibliothèque sur votre propre serveur : les packs sont téléchargés depuis les fichiers `packs/<code>/pack.json` situés à côté de son `index.json`.
+
+### Contribuer une langue
+
+Vous avez traduit une langue qui n'est pas encore dans la bibliothèque, ou en avez amélioré une ? Exportez-la avec **Exporter le pack de langue > Partager (pack communautaire)** et proposez-la à la bibliothèque — voir son [guide de contribution](https://github.com/vincentmakes/turbo-ea-translations/blob/main/CONTRIBUTING.md).
+
 ## Trois façons de traduire
 
 Utilisez celle qui vous convient ; elles se combinent, et le résultat est le même.
@@ -60,11 +90,12 @@ Cette option ne dépend pas de l'activation des suggestions de description par I
 
 ### 3. Via un assistant IA (MCP)
 
-Un assistant IA connecté par l'[intégration MCP](mcp.md) peut traduire la langue à votre place, à l'aide de trois outils :
+Un assistant IA connecté par l'[intégration MCP](mcp.md) peut traduire la langue à votre place, à l'aide des outils suivants :
 
 - `list_custom_languages` — quelles langues personnalisées existent et où en est la traduction de chacune.
-- `get_untranslated_strings` — les chaînes anglaises encore à traduire, page par page, avec les instructions de traduction.
-- `submit_translations` — renvoie les traductions. Il affiche d'abord un aperçu et enregistre après confirmation, comme tout outil d'écriture MCP.
+- `get_untranslated_strings` — les chaînes anglaises encore à traduire, page par page (jusqu'à 500 à la fois), avec les instructions de traduction. Un texte qui apparaît à de nombreux endroits, comme « High » ou « Description », n'est listé qu'une fois.
+- `submit_translations` — renvoie une page de traductions et les enregistre aussitôt, sans aperçu : chaque chaîne est vérifiée individuellement, et seules les valides sont stockées. Une traduction remplit aussi toute autre chaîne non traduite ayant le même texte anglais ; une chaîne déjà traduite n'est jamais modifiée, et un remplissage erroné se corrige dans le tableau de vérification.
+- `start_ai_translation` et `stop_ai_translation` — démarrent ou arrêtent le job **Traduire avec l'IA** du serveur, de sorte qu'une langue entière tienne en une seule requête. Le job s'exécute sur le fournisseur d'IA configuré sous [Fonctionnalités IA](ai.md), pas sur l'assistant ; l'assistant indique d'abord en aperçu combien de chaînes seraient envoyées et, pour un job important, renvoie la confirmation de l'aperçu au démarrage.
 
 Demandez par exemple à l'assistant : *« Traduis les chaînes manquantes de notre langue personnalisée néerlandais, en commençant par les noms du métamodèle. »* L'assistant travaille avec vos propres permissions, et chaque modification qu'il effectue est consignée dans le journal d'audit.
 
