@@ -95,7 +95,9 @@ _AUX_SHEETS: frozenset[str] = frozenset(
 )
 
 # Relation sheets always include these columns. Anything else on the
-# relation row becomes attributes on the resulting Relation.
+# relation row becomes attributes on the resulting Relation. ``activeFrom`` /
+# ``activeUntil`` are the relation's validity window: they become its
+# lifecycle (``_REL_LIFECYCLE_COLS``), not attributes.
 _REL_CORE_COLS: frozenset[str] = frozenset(
     {
         "id",
@@ -110,6 +112,10 @@ _REL_CORE_COLS: frozenset[str] = frozenset(
         "naFields",
     }
 )
+
+# A LeanIX relation's validity window → the Turbo EA relation lifecycle phase
+# it means: in effect from ``activeFrom``, ended from ``activeUntil``.
+_REL_LIFECYCLE_COLS: dict[str, str] = {"activeFrom": "active", "activeUntil": "endOfLife"}
 
 
 # ---------------------------------------------------------------------------
@@ -579,6 +585,12 @@ def _build_relation(
             continue
         attributes[col] = _jsonify(value)
 
+    lifecycle: dict[str, str] = {}
+    for col, phase in _REL_LIFECYCLE_COLS.items():
+        dt = _coerce_datetime(row.get(col))
+        if dt is not None:
+            lifecycle[phase] = dt.date().isoformat()
+
     return Relation(
         source_id=rel_id or f"{rel_type}:{src}:{tgt}",
         type=rel_type,
@@ -586,6 +598,7 @@ def _build_relation(
         to_entity_id=tgt,
         attributes=attributes,
         raw={k: v for k, v in row.items() if v not in (None, "")},
+        lifecycle=lifecycle,
     )
 
 

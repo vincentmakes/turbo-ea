@@ -294,6 +294,24 @@ class TestStageRelations:
         assert dangling.diff["reason"] == "Endpoint not staged: target=missing"
         assert dangling.source_data["tea_type"] == "relAppToBC"
 
+    async def test_a_dangling_relation_keeps_its_dates_for_review(self, db, env):
+        """The conflict row carries the source's dates as every staged relation
+        does, so resolving it later lands them."""
+        snap = sample_snapshot()
+        snap.relations.append(
+            Relation(
+                "rel-dated",
+                "relAppToBC",
+                "app-1",
+                "nowhere",
+                lifecycle={"active": "2021-01-01"},
+            )
+        )
+        _, _, rows = await self._staged(db, env, snap)
+        dangling = rows["rel-dated"]
+        assert dangling.action == "conflict"
+        assert dangling.source_data["lifecycle"] == {"active": "2021-01-01"}
+
     async def test_an_unmapped_relation_type_is_a_conflict(self, db, env):
         snap = sample_snapshot()
         snap.relations.append(Relation("rel-x", "relMystery", "app-1", "bc-1"))
@@ -347,6 +365,49 @@ class TestStageRelations:
         snap.relations[0].attributes = {"usageType": "user"}
         _, stats, rows = await self._staged(db, env, snap)
         assert stats["skip"] == 1 and rows["rel-4"].action == "skip"
+
+    async def test_a_relation_lifecycle_is_staged_and_diffed(self, db, env):
+        app = await create_card(
+            db, card_type="Application", name="Salesforce", user_id=env["admin"].id
+        )
+        org = await create_card(
+            db, card_type="Organization", name="Sales EMEA", user_id=env["admin"].id
+        )
+        db.add(_identity("app-1", app.id))
+        db.add(_identity("org-1", org.id))
+        db.add(
+            RelationModel(
+                type="relOrgToApp",
+                source_id=org.id,
+                target_id=app.id,
+                attributes={"usageType": "owner"},
+                lifecycle={"active": "2020-01-01"},
+            )
+        )
+        await db.flush()
+        snap = sample_snapshot()
+        snap.relations = [r for r in snap.relations if r.source_id == "rel-4"]
+
+        # The source sends no dates: nothing to change, the stored ones stay.
+        _, stats, rows = await self._staged(db, env, snap)
+        assert stats["skip"] == 1 and rows["rel-4"].source_data["lifecycle"] == {}
+
+        # It sends the same dates: still a skip.
+        snap.relations[0].lifecycle = {"active": "2020-01-01"}
+        _, stats, rows = await self._staged(db, env, snap)
+        assert stats["skip"] == 1
+
+        # It sends other dates: an update naming the old and the new.
+        snap.relations[0].lifecycle = {"active": "2020-01-01", "endOfLife": "2030-06-30"}
+        _, stats, rows = await self._staged(db, env, snap)
+        assert stats["update"] == 1
+        assert rows["rel-4"].diff == {
+            "lifecycle": {
+                "old": {"active": "2020-01-01"},
+                "new": {"active": "2020-01-01", "endOfLife": "2030-06-30"},
+            }
+        }
+        assert rows["rel-4"].source_data["lifecycle"] == snap.relations[0].lifecycle
 
 
 class TestStageTags:

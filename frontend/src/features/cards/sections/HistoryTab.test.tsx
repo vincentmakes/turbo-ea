@@ -252,6 +252,43 @@ describe("HistoryTab — event detail lines", () => {
     expect(await screen.findByText(icon)).toHaveStyle({ color });
   });
 
+  it("reads a relation's lifecycle change as the relation's dates, under the relation's line", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e1", "relation.updated", {
+        directional_label: "is used by",
+        direction: "outgoing",
+        peer_id: "org-1",
+        peer_name: "Finance",
+        changes: {
+          lifecycle: { old: { active: "2027-01-01" }, new: { active: "2027-02-01" } },
+        },
+      }),
+    ]);
+    renderTab();
+    // The relation is named, so the row cannot be mistaken for the card's own.
+    expect(await screen.findByText("is used by")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Finance" })).toHaveAttribute("href", "/cards/org-1");
+    expect(screen.getByText("Active (relation)")).toBeInTheDocument();
+    expect(screen.getByText("2027-01-01")).toBeInTheDocument();
+    expect(screen.getByText("2027-02-01")).toBeInTheDocument();
+  });
+
+  it("labels a card's own lifecycle change by the bare phase, with no relation line", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e1", "card.updated", {
+        summary: "Lifecycle changed",
+        changes: {
+          lifecycle: { old: { active: "2027-01-01" }, new: { active: "2027-02-01" } },
+        },
+      }),
+    ]);
+    renderTab();
+    expect(await screen.findByText("Active")).toBeInTheDocument();
+    expect(screen.queryByText("Active (relation)")).toBeNull();
+    // The rows replace the summary line for a card's own change.
+    expect(screen.queryByText("Lifecycle changed")).toBeNull();
+  });
+
   it("links a risk by its reference and shows its level", async () => {
     vi.mocked(api.get).mockResolvedValue([
       event("e2", "risk.added", {

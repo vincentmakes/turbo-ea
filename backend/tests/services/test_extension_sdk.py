@@ -18,7 +18,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_current():
-    assert sdk.SDK_VERSION == "1.19"
+    assert sdk.SDK_VERSION == "1.20"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -213,13 +213,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.17")
     assert sdk.sdk_compatible("1.18")
     assert sdk.sdk_compatible("1.19")
+    assert sdk.sdk_compatible("1.20")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.20")
+    assert sdk.sdk_minor_newer("1.21")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.20")
     assert not sdk.sdk_minor_newer("1.19")
     assert not sdk.sdk_minor_newer("1.18")
     assert not sdk.sdk_minor_newer("1.17")
@@ -576,3 +578,35 @@ def test_sdk_1_19_surface_exists():
     finally:
         reset_contexts()
     assert not any("behalf" in grant for grant in bundle.VALID_GRANTS)
+
+
+def test_sdk_1_20_surface_exists():
+    # SDK 1.20 — relation lifecycle. ``ExtRelation.lifecycle`` is trailing and
+    # defaulted, so the seven-argument construction older extensions use
+    # still works; the relation reads take ``include_inactive`` and the
+    # relation upsert takes ``lifecycle``, all keyword-only with defaults.
+    import dataclasses
+    import inspect
+
+    rel = sdk.ExtRelation("r", "t", "s", "g", {}, None, None)
+    assert rel.lifecycle == {}
+    names = [f.name for f in dataclasses.fields(sdk.ExtRelation)]
+    assert names[-1] == "lifecycle"
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        rel.lifecycle = {"active": "2026-01-01"}  # type: ignore[misc]
+
+    from app.services.extensions.data_service import ExtensionData
+
+    for method in ("get_relations", "get_relations_for"):
+        for impl in (getattr(sdk.DataBridge, method), getattr(ExtensionData, method)):
+            param = inspect.signature(impl).parameters["include_inactive"]
+            assert param.kind is inspect.Parameter.KEYWORD_ONLY
+            assert param.default is False
+    for impl in (sdk.DataBridge.upsert_relation, ExtensionData.upsert_relation):
+        param = inspect.signature(impl).parameters["lifecycle"]
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY
+        assert param.default is None
+
+    from app.services.extensions import bundle
+
+    assert not any("lifecycle" in grant for grant in bundle.VALID_GRANTS)

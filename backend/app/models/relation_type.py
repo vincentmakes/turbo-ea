@@ -34,3 +34,9 @@ class RelationType(Base, UUIDMixin, TimestampMixin):
     source_mandatory: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     target_visible: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     target_mandatory: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Whether the UI offers the relation lifecycle editor on this type
+    # (migration 180). It governs the editor only: a relation of any type may
+    # carry dates, and they count whatever this says.
+    lifecycle_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )

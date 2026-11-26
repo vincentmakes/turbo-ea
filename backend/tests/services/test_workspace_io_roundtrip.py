@@ -267,6 +267,44 @@ async def test_export_excludes_secrets(db):
     assert "smtp_password" not in email
 
 
+async def test_the_relation_sweep_marker_is_instance_local(db):
+    """The sweep's last swept day is neither exported nor applied: a bundle
+    exported after the source swept must not make the target skip the days it
+    has not swept yet, and the target keeps its own marker."""
+    import json
+
+    from app.services.relation_lifecycle_sweep import MARKER_KEY
+
+    user = await create_user(db, email="marker@test.com", role="admin")
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={"currency": "EUR", MARKER_KEY: "2026-06-15"},
+            email_settings={},
+        )
+    )
+    await db.flush()
+
+    bundle = parse_bundle(await build_bundle(db))
+    settings_rows = {r["key"]: r for r in bundle.rows(schema.SHEET_SETTINGS)}
+    exported = json.loads(settings_rows["general_settings"]["value"])
+    assert exported["currency"] == "EUR"
+    assert MARKER_KEY not in exported
+
+    # A hand-edited bundle carrying a later marker changes nothing on the
+    # target, whose own marker (an earlier day it still has to sweep from) stays.
+    settings_rows["general_settings"]["value"] = json.dumps(
+        {"currency": "CHF", MARKER_KEY: "2026-12-31"}
+    )
+    row = (await db.execute(select(AppSettings).where(AppSettings.id == "default"))).scalar_one()
+    row.general_settings = {"currency": "EUR", MARKER_KEY: "2026-06-01"}
+    await db.flush()
+    result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+    await db.refresh(row)
+    assert row.general_settings == {"currency": "CHF", MARKER_KEY: "2026-06-01"}
+
+
 async def test_module_entities_roundtrip_and_recreate(db):
     """Generic entity sections: a comment, a risk, and a risk-card link export
     and re-import with preserved UUIDs, user remap (by email), and card-FK
@@ -3670,6 +3708,215 @@ async def test_refused_and_duplicate_language_rows_are_each_handled(db):
         r.namespace for r in (await db.execute(select(CustomLocaleString))).scalars()
     )
     assert namespaces == ["common", "grc", "nav"]
+
+
+async def test_relation_lifecycle_and_its_type_switch_round_trip(db):
+    """A relation's own dates and its type's lifecycle switch are exported and
+    land on the rows the import creates."""
+    user = await create_user(db, email="lc@test.com", role="admin")
+    await create_card_type(db, key="Organization", label="Organization")
+    await create_card_type(db, key="Application", label="Application")
+    db.add(
+        RelationType(
+            key="orgRunsApp",
+            label="runs",
+            source_type_key="Organization",
+            target_type_key="Application",
+            built_in=False,
+            lifecycle_enabled=True,
+        )
+    )
+    org = await create_card(db, card_type="Organization", name="Org DE", user_id=user.id)
+    app = await create_card(db, card_type="Application", name="ERP", user_id=user.id)
+    db.add(
+        Relation(
+            type="orgRunsApp",
+            source_id=org.id,
+            target_id=app.id,
+            lifecycle={"active": "2027-01-01", "endOfLife": "2031-12-31"},
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    exported = parse_bundle(raw)
+    [rel_row] = [r for r in exported.rows(schema.SHEET_RELATIONS) if r["type"] == "orgRunsApp"]
+    assert "lifecycle" in rel_row
+    [rt_row] = [r for r in exported.rows(schema.SHEET_RELATION_TYPES) if r["key"] == "orgRunsApp"]
+    assert rt_row["lifecycle_enabled"] is True
+
+    # Remove both, so the import has to create them.
+    await db.execute(delete(Relation).where(Relation.type == "orgRunsApp"))
+    await db.execute(delete(RelationType).where(RelationType.key == "orgRunsApp"))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    rt = (
+        await db.execute(select(RelationType).where(RelationType.key == "orgRunsApp"))
+    ).scalar_one()
+    assert rt.lifecycle_enabled is True
+    rel = (await db.execute(select(Relation).where(Relation.type == "orgRunsApp"))).scalar_one()
+    assert rel.lifecycle == {"active": "2027-01-01", "endOfLife": "2031-12-31"}
+
+    # A second import changes nothing: the relation is already present.
+    again = await apply_bundle(db, parse_bundle(raw), user)
+    rel_section = next(s for s in again.sections if s.sheet == schema.SHEET_RELATIONS)
+    assert rel_section.created == 0
+
+
+async def test_a_bundle_without_relation_dates_imports_them_empty(db):
+    """A bundle written before relations carried dates (no ``lifecycle``
+    value, an empty ``lifecycle_enabled`` cell) lands always in effect with
+    the switch off — never a NULL in either NOT NULL column."""
+    user = await create_user(db, email="old@test.com", role="admin")
+    await create_card_type(db, key="Widget", label="Widget")
+    await create_card(db, card_type="Widget", name="A", user_id=user.id)
+    await create_card(db, card_type="Widget", name="B", user_id=user.id)
+    # Already here with the switch on: an empty cell must leave it on, not
+    # write NULL over it.
+    db.add(
+        RelationType(
+            key="widget_tracked",
+            label="tracks",
+            source_type_key="Widget",
+            target_type_key="Widget",
+            built_in=False,
+            lifecycle_enabled=True,
+        )
+    )
+    await db.flush()
+    legacy_type = {c: None for c in exp.RELATION_TYPE_COLUMNS} | {
+        "source_type_key": "Widget",
+        "target_type_key": "Widget",
+        "cardinality": "n:m",
+        "attributes_schema": [],
+        "built_in": False,
+        "is_hidden": False,
+        "sort_order": 0,
+        "translations": {},
+        "source_visible": True,
+        "source_mandatory": False,
+        "target_visible": True,
+        "target_mandatory": False,
+    }
+    relation_types = [
+        legacy_type | {"key": "widget_tracked", "label": "tracks"},
+        legacy_type | {"key": "widget_old", "label": "links"},
+    ]
+    legacy_columns = tuple(c for c in exp.RELATION_COLUMNS if c != "lifecycle")
+    relations = [
+        {
+            "type": "widget_old",
+            "source_type": "Widget",
+            "source_ref": "A",
+            "target_type": "Widget",
+            "target_ref": "B",
+            "description": None,
+            "attributes": {},
+        }
+    ]
+    raw = _make_bundle(
+        {
+            schema.SHEET_RELATION_TYPES: (
+                # The switch's column first: an empty cell at the END of a row
+                # is not read back at all (the row is shorter), so only here is
+                # it read as a present, empty value — the case the applier must
+                # not write as NULL.
+                (
+                    "lifecycle_enabled",
+                    *(c for c in exp.RELATION_TYPE_COLUMNS if c != "lifecycle_enabled"),
+                ),
+                exp.RELATION_TYPE_JSON,
+                relation_types,
+            ),
+            schema.SHEET_RELATIONS: (legacy_columns, exp.RELATION_JSON, relations),
+        }
+    )
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    assert result.total_conflict == 0, result.as_dict()
+    rt = (
+        await db.execute(select(RelationType).where(RelationType.key == "widget_old"))
+    ).scalar_one()
+    assert rt.lifecycle_enabled is False
+    tracked = (
+        await db.execute(select(RelationType).where(RelationType.key == "widget_tracked"))
+    ).scalar_one()
+    assert tracked.lifecycle_enabled is True
+    rel = (await db.execute(select(Relation).where(Relation.type == "widget_old"))).scalar_one()
+    await db.refresh(rel)
+    assert rel.lifecycle == {}
+
+
+async def test_bundle_relation_dates_are_validated_like_every_relation_write(db):
+    """A hand-edited bundle or a content pack goes through the same validator
+    as the API: an unpadded date is stored zero-padded (so the Python and SQL
+    "in effect" twins agree), and a value that is not a lifecycle object is
+    dropped — the relation still lands, always in effect, and the row is named
+    in the section's errors."""
+    user = await create_user(db, email="lcv@test.com", role="admin")
+    await create_card_type(db, key="Widget", label="Widget")
+    for name in ("A", "B", "C"):
+        await create_card(db, card_type="Widget", name=name, user_id=user.id)
+    db.add(
+        RelationType(
+            key="widget_dated",
+            label="links",
+            source_type_key="Widget",
+            target_type_key="Widget",
+            built_in=False,
+        )
+    )
+    await db.flush()
+
+    def rel(source, target, lifecycle):
+        return {
+            "type": "widget_dated",
+            "source_type": "Widget",
+            "source_ref": source,
+            "target_type": "Widget",
+            "target_ref": target,
+            "description": None,
+            "attributes": {},
+            "lifecycle": lifecycle,
+        }
+
+    relations = [
+        rel("A", "B", {"active": "2027-1-5", "endOfLife": None}),
+        rel("B", "A", "next year"),
+        rel("A", "C", {"golive": "2027-01-01"}),
+        rel("C", "A", ["2027-01-01"]),
+    ]
+    raw = _make_bundle(
+        {schema.SHEET_RELATIONS: (exp.RELATION_COLUMNS, exp.RELATION_JSON, relations)}
+    )
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    section = next(s for s in result.sections if s.sheet == schema.SHEET_RELATIONS)
+    assert section.created == 4, result.as_dict()
+    assert section.failed == 0
+    assert len(section.errors) == 3, section.errors
+    assert all("lifecycle dropped" in e for e in section.errors)
+    assert any("'B' -> 'A'" in e for e in section.errors)
+    # Each error names the row by its type and both ends, then says why.
+    assert (
+        "relation 'widget_dated' ('B' -> 'A'): lifecycle dropped — "
+        "lifecycle must be an object of phase → date"
+    ) in section.errors
+
+    cards = {c.name: c.id for c in (await db.execute(select(Card))).scalars()}
+    stored = {
+        (r.source_id, r.target_id): r.lifecycle
+        for r in (
+            await db.execute(select(Relation).where(Relation.type == "widget_dated"))
+        ).scalars()
+    }
+    assert stored == {
+        (cards["A"], cards["B"]): {"active": "2027-01-05"},
+        (cards["B"], cards["A"]): {},
+        (cards["A"], cards["C"]): {},
+        (cards["C"], cards["A"]): {},
+    }
 
 
 async def test_empty_text_in_a_not_null_column_survives_export_and_import(db):

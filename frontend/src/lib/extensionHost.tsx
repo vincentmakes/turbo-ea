@@ -77,6 +77,16 @@
  * Since SDK 1.37 `CardDetailSidePanel` takes an optional plain-data `focus`
  * (`{field?, section?, relation?: {type, side?}}`) that opens the card on the
  * place to fill, as the data-quality breakdown does on the card page.
+ * Since SDK 1.38 a relation's own dates take part in time travel: an LDV edge
+ * (`GEdge`) may carry the relation's `lifecycle` and a `relationState`
+ * ("planned" / "ended"), which the view draws as its own dimmed state, and the
+ * `loadTimeline` helpers take optional relation inputs —
+ * `computeTimelineRange` and `computeTimelineMilestones` a list of relation
+ * lifecycles (milestones then count `linking` / `unlinking` apart from cards),
+ * `computeConnectionChanges` (now on the loader) edges with a `lifecycle` and
+ * an optional `moves` (cards entering / leaving a view for another reason) —
+ * plus `relationAtDate`, the planned / ended visibility rule. Every addition
+ * is optional and omitting it reproduces the previous results exactly.
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -159,7 +169,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card, CardPanelFocus, DecisionStanding } from "@/types";
 
-export const UI_SDK_VERSION = "1.37";
+export const UI_SDK_VERSION = "1.38";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -1177,6 +1187,10 @@ export function initExtensionHost(): void {
           isVisibleAtDate: range.isVisibleAtDate,
           computeTimelineMilestones: range.computeTimelineMilestones,
           cardsChangingBetween: range.cardsChangingBetween,
+          // SDK 1.38 — a relation's own dates: which connections start or end
+          // at a mark, and whether a relation is drawn at a date.
+          computeConnectionChanges: range.computeConnectionChanges,
+          relationAtDate: range.relationAtDate,
         })),
       // `loadDependencyView` resolves the house dependency notation (the
       // Layered Dependency View) plus its layout engine from core's own

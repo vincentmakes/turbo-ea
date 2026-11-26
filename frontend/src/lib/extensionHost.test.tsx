@@ -184,6 +184,20 @@ describe("extensionHost", () => {
     expect(typeof loaded.isVisibleAtDate).toBe("function");
     expect(typeof loaded.computeTimelineMilestones).toBe("function");
     expect(typeof loaded.cardsChangingBetween).toBe("function");
+    // SDK 1.38 — relation dates in time travel.
+    expect(typeof loaded.computeConnectionChanges).toBe("function");
+    expect(typeof loaded.relationAtDate).toBe("function");
+    const relationAtDate = loaded.relationAtDate as (
+      lc: Record<string, string>,
+      at: number,
+      v: { persistRetired: boolean; previewPlanned: boolean },
+    ) => { visible: boolean; state?: string };
+    expect(
+      relationAtDate({ active: "2030-01-01" }, Date.parse("2026-01-01"), {
+        persistRetired: true,
+        previewPlanned: false,
+      }),
+    ).toEqual({ visible: false, state: "planned" });
   });
 
   it("loadDependencyView resolves the layered dependency view and layout engine", async () => {
@@ -522,7 +536,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.37");
+    expect(UI_SDK_VERSION).toBe("1.38");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

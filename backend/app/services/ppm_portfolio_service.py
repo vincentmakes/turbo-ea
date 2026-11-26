@@ -31,6 +31,8 @@ from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag
 from app.models.user import User
+from app.services.lifecycle import lifecycle_in_effect_sql
+from app.services.portfolio_payload import relations_in_effect_now
 
 if TYPE_CHECKING:
     from app.services.card_read_scope import CardReadScope
@@ -418,6 +420,8 @@ async def build_group_map(
                 Relation.source_id.in_(initiative_ids),
                 Relation.target_id.in_(initiative_ids),
             ),
+            # An initiative is grouped by what it is related to now.
+            lifecycle_in_effect_sql(Relation),
         )
     )
     relations = sorted(
@@ -892,11 +896,21 @@ def card_filter_payload(payload: dict) -> dict:
     come from the metamodel the client already holds.
     """
     return {
-        "items": [{key: item[key] for key in FILTER_ITEM_KEYS} for item in payload["items"]],
+        "items": [_filter_item(item) for item in payload["items"]],
         "relation_types": payload["relation_types"],
         "groupable_types": payload["groupable_types"],
         "tag_groups": payload["tag_groups"],
     }
+
+
+def _filter_item(item: dict) -> dict:
+    """One initiative's filter data. The board is the portfolio NOW, so a
+    relation not in effect today by its own dates matches no filter, and the
+    dates themselves stay behind — the board has no time travel to spend them on.
+    """
+    out = {key: item[key] for key in FILTER_ITEM_KEYS}
+    out["relations"] = relations_in_effect_now(item["relations"])
+    return out
 
 
 def empty_filter_payload() -> dict:

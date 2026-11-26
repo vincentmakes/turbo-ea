@@ -259,6 +259,14 @@ LOOPS = [
         "Error in recurring item promotion loop",
         [None, 3600],
     ),
+    (
+        main._relation_lifecycle_sweep_loop,
+        "app.services.relation_lifecycle_sweep.run_relation_lifecycle_sweep",
+        lambda: AsyncMock(return_value=3),
+        [60, None],  # shortly after boot, then until just past midnight UTC
+        "Error in relation lifecycle sweep loop",
+        [60, None],  # no back-off: the next run is tomorrow's
+    ),
 ]
 
 
@@ -382,3 +390,51 @@ class TestOneShots:
         )
         with pytest.raises(asyncio.CancelledError):
             await main._one_shot_data_quality_rescore()
+
+
+@pytest.mark.parametrize(("swept", "logged"), [(3, True), (0, False)])
+async def test_the_relation_sweep_logs_only_when_it_recalculated(
+    db, patched_async_session, monkeypatch, caplog, swept, logged
+):
+    fake_asyncio = one_shot_asyncio()
+    monkeypatch.setattr(main, "asyncio", fake_asyncio)
+    monkeypatch.setattr(
+        "app.services.relation_lifecycle_sweep.run_relation_lifecycle_sweep",
+        AsyncMock(return_value=swept),
+    )
+    with (
+        caplog.at_level(logging.INFO, logger=main.logger.name),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await main._relation_lifecycle_sweep_loop()
+    message = f"Relation lifecycle sweep recalculated {swept} card(s)"
+    assert (message in [r.getMessage() for r in caplog.records]) is logged
+    # The second wait is the one until just past the next midnight UTC.
+    now = datetime.now(timezone.utc)
+    target = now.replace(hour=0, minute=5, second=0, microsecond=0)
+    if target <= now:
+        target += timedelta(days=1)
+    assert fake_asyncio.sleeps[0] == main._RELATION_SWEEP_STARTUP_DELAY_SECONDS == 60
+    assert abs(fake_asyncio.sleeps[1] - (target - now).total_seconds()) < 5
+
+
+async def test_the_relation_sweep_schedules_from_the_utc_clock(monkeypatch):
+    """The next run is computed from an aware UTC ``now``: a naive local time
+    would put "five past midnight" at the host's midnight, not UTC's."""
+    fake_asyncio = one_shot_asyncio()
+    monkeypatch.setattr(main, "asyncio", fake_asyncio)
+    monkeypatch.setattr(
+        "app.services.relation_lifecycle_sweep.run_relation_lifecycle_sweep",
+        AsyncMock(return_value=0),
+    )
+    seen: list[datetime] = []
+
+    def until_next(now: datetime) -> float:
+        seen.append(now)
+        return 123.0
+
+    monkeypatch.setattr("app.services.relation_lifecycle_sweep.seconds_until_next_run", until_next)
+    with pytest.raises(asyncio.CancelledError):
+        await main._relation_lifecycle_sweep_loop()
+    assert [now.tzinfo for now in seen] == [timezone.utc]
+    assert fake_asyncio.sleeps == [main._RELATION_SWEEP_STARTUP_DELAY_SECONDS, 123.0]

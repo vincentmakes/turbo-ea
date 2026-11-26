@@ -57,6 +57,7 @@ def _archive_purge_cutoff(retention_days, now):
 
 _OLLAMA_PULL_TIMEOUT = 600  # 10 minutes max for model pull
 _KPI_SNAPSHOT_HOUR_UTC = 2  # Capture daily snapshot at 02:00 UTC
+_RELATION_SWEEP_STARTUP_DELAY_SECONDS = 60  # first relation lifecycle sweep after boot
 _TASK_PROMOTION_HOUR_UTC = 3  # Promote scheduled task occurrences at 03:00 UTC
 _AUDIT_PURGE_HOUR_UTC = 4  # Purge security audit log rows past retention at 04:00 UTC
 
@@ -408,6 +409,36 @@ async def _kpi_snapshot_loop() -> None:
             logger.exception("Error in KPI snapshot loop")
             # Avoid tight retry loop if something is broken.
             await asyncio.sleep(3600)
+
+
+async def _relation_lifecycle_sweep_loop() -> None:
+    """Recalculate the cards whose relations started or ended today.
+
+    A relation's ``active`` / ``endOfLife`` date arriving changes what counts
+    without anyone writing, while calculated fields and data-quality scores are
+    stored. Runs once shortly after startup (catching up on any missed days)
+    and then just after every midnight UTC. The work and its short sessions
+    live in ``services/relation_lifecycle_sweep.py``.
+    """
+    from datetime import datetime, timezone
+
+    from app.services.relation_lifecycle_sweep import (
+        run_relation_lifecycle_sweep,
+        seconds_until_next_run,
+    )
+
+    delay = _RELATION_SWEEP_STARTUP_DELAY_SECONDS
+    while True:
+        try:
+            await asyncio.sleep(delay)
+            swept = await run_relation_lifecycle_sweep()
+            if swept:
+                logger.info("Relation lifecycle sweep recalculated %d card(s)", swept)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in relation lifecycle sweep loop")
+        delay = seconds_until_next_run(datetime.now(timezone.utc))
 
 
 async def _license_refresh_loop() -> None:
@@ -1152,6 +1183,10 @@ async def lifespan(app: FastAPI):
     await _ensure_initial_dashboard_kpi_snapshot()
     kpi_task = asyncio.create_task(_kpi_snapshot_loop())
 
+    # Daily relation lifecycle sweep: a relation whose start or end date
+    # arrives changes calculated fields and data-quality scores with no write.
+    relation_sweep_task = asyncio.create_task(_relation_lifecycle_sweep_loop())
+
     # Start the daily mitigation-task promotion loop that lifts
     # scheduled cycles to open once their lead window opens.
     promote_task = asyncio.create_task(_promote_recurring_tasks_loop())
@@ -1212,6 +1247,11 @@ async def lifespan(app: FastAPI):
     kpi_task.cancel()
     try:
         await kpi_task
+    except asyncio.CancelledError:
+        pass
+    relation_sweep_task.cancel()
+    try:
+        await relation_sweep_task
     except asyncio.CancelledError:
         pass
     promote_task.cancel()

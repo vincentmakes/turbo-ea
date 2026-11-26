@@ -145,6 +145,19 @@ Mostra tutte le connessioni con altre card, raggruppate per tipo di relazione. P
 
 ![Card collegate tramite i sottoelementi, raggruppate per sottotipo](../assets/img/it/60_scheda_sottoelementi_relazioni.png)
 
+#### Quando si applica una relazione {: #when-a-relation-applies }
+
+Una relazione può avere un proprio **ciclo di vita**: le stesse cinque fasi di una scheda (Plan, Phase In, Active, Phase Out, End of Life). Serve per fatti validi solo per un periodo: un'applicazione globale usata da più organizzazioni, ciascuna da una data diversa, o un'organizzazione che smette di usare un'applicazione l'anno prossimo mentre altre continuano. Una relazione senza date è semplicemente in vigore, come lo era ogni relazione finora.
+
+- **Impostare le date** — quando un amministratore ha attivato **Traccia il ciclo di vita** per il tipo di relazione (vedi [Tipi di relazione](../admin/metamodel.md#relation-types)), ogni riga di relazione riporta un'icona a **orologio** accanto al pulsante di rimozione, per chi può gestire le relazioni. L'icona è in grigio con contorno tratteggiato finché la relazione non ha date. Cliccate per aprire un campo data per fase; salvate per applicare, oppure usate **Cancella date** per rendere di nuovo la relazione sempre in vigore. I campi avvisano — senza bloccare il salvataggio — quando una fase è datata dopo una che dovrebbe seguirla, esattamente come per il ciclo di vita della scheda.
+- **Pianificata** — una relazione la cui data **Active** è ancora futura (o che ha una data Plan o Phase In ma non ancora Active) non è iniziata. La sua riga resta nell'elenco con un chip come *Pianificata · dal 1 mar 2027*.
+- **Fino al** — una relazione in vigore la cui data **End of Life** è ancora futura mostra *Fino al …* con quella data.
+- **Terminata** — quando arriva la data **End of Life**, la relazione è terminata. Le relazioni terminate restano registrate ma sono messe da parte: ogni gruppo offre **Mostra terminate (N)** per elencarle, con un chip *Terminata il …*.
+
+Contano solo le relazioni **in vigore oggi**. Una relazione pianificata o terminata non conta nei report, nel flag di orfana, nelle dashboard, nei campi calcolati né nel punteggio di qualità dei dati, e una relazione obbligatoria che ha solo relazioni pianificate o terminate viene comunque segnalata come mancante — il gruppo lo indica. Anche il conteggio accanto al titolo della sezione conta le relazioni in vigore. Nulla viene ricalcolato a mano: quando arriva la data di inizio o di fine di una relazione, le schede ai due estremi vengono aggiornate durante la notte.
+
+Le date di una relazione sono mostrate da qualunque fonte provengano — importazione LeanIX, trasferimento di workspace, API, assistente IA o estensione — anche se il tipo di relazione non offre l'orologio. Una coppia di schede ha una relazione per tipo di relazione, quindi una relazione ha un solo periodo: un'organizzazione che smette di usare un'applicazione e la adotta di nuovo più tardi non può essere rappresentata come due periodi sulla stessa relazione. Le modifiche alle date di una relazione compaiono nella scheda **Cronologia** di entrambe le schede, sotto la relazione a cui appartengono.
+
 ### Sezione Dipendenze
 
 Una [Layered Dependency View](reports.md) della scheda e di tutto ciò che si trova a un passo di distanza, raggruppato nei quattro livelli architetturali. Maiusc-clic su una scheda per ricentrare la vista e percorrere il panorama senza lasciare la pagina.

@@ -301,6 +301,109 @@ class TestUpsertRelationsBulk:
         assert "does not match" in _parse(out)["results"][0]["error"]
 
 
+class TestUpsertRelationsBulkLifecycle:
+    @pytest.mark.asyncio
+    async def test_lifecycle_is_passed_through_per_operation(self, fake_token):
+        patcher, write_call = _patched_post_batch_aware(
+            {"results": [], "upserted": 1, "deleted": 0, "failed": 0, "dry_run": True}
+        )
+        ops = [
+            {
+                "row_index": 0,
+                "type": "relOrgToApp",
+                "source": {"id": "org"},
+                "target": {"id": "app"},
+                "lifecycle": {"active": "2027-01-01", "endOfLife": "2031-12-31"},
+            },
+            {
+                "row_index": 1,
+                "type": "relOrgToApp",
+                "source": {"id": "org"},
+                "target": {"id": "app2"},
+                "lifecycle": {},
+            },
+            {"row_index": 2, "type": "relOrgToApp", "source": {"id": "o"}, "target": {"id": "a"}},
+        ]
+        with patcher:
+            await server.upsert_relations_bulk(operations=ops)
+        path, body = write_call()
+        assert path == "/relations/bulk"
+        assert body["operations"][0]["lifecycle"] == {
+            "active": "2027-01-01",
+            "endOfLife": "2031-12-31",
+        }
+        assert body["operations"][1]["lifecycle"] == {}
+        assert "lifecycle" not in body["operations"][2]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("lifecycle", "error"),
+        [
+            (
+                {"sunset": "2030-01-01"},
+                "unknown phase 'sunset' "
+                "(expected one of plan, phaseIn, active, phaseOut, endOfLife)",
+            ),
+            ({"active": "next year"}, "'active' is not a date (expected YYYY-MM-DD)"),
+            ({"endOfLife": "2030-02-30"}, "'endOfLife' is not a date (expected YYYY-MM-DD)"),
+            ({"active": 20300101}, "'active' is not a date (expected YYYY-MM-DD)"),
+            ("2030-01-01", "lifecycle must be an object of phase → date"),
+            # An empty phase is skipped, never the end of the check: what
+            # follows it is still read.
+            ({"plan": "", "active": "not-a-date"}, "'active' is not a date (expected YYYY-MM-DD)"),
+            (
+                {"phaseIn": None, "endOfLife": "2030-02-30"},
+                "'endOfLife' is not a date (expected YYYY-MM-DD)",
+            ),
+            (
+                {"plan": None, "sunset": "2030-01-01"},
+                "unknown phase 'sunset' "
+                "(expected one of plan, phaseIn, active, phaseOut, endOfLife)",
+            ),
+        ],
+    )
+    async def test_a_bad_lifecycle_is_refused_before_any_call(self, fake_token, lifecycle, error):
+        mock = AsyncMock()
+        ops = [
+            {"row_index": 0, "type": "t", "source": {"id": "s"}, "target": {"id": "x"}},
+            {
+                "row_index": 7,
+                "type": "t",
+                "source": {"id": "s"},
+                "target": {"id": "t"},
+                "lifecycle": lifecycle,
+            },
+        ]
+        with patch.object(server.TurboEAClient, "post", mock):
+            out = _parse(await server.upsert_relations_bulk(operations=ops))
+        assert out["error"] == "invalid_lifecycle"
+        # The exact text the assistant reads, so it can fix the row it names.
+        assert out["rows"] == [{"row_index": 7, "error": error}]
+        mock.assert_not_called()
+
+    def test_lifecycle_check_accepts_what_the_backend_stores(self):
+        ok = server._relation_lifecycle_problem
+        assert ok(None) is None
+        assert ok({}) is None
+        assert ok({"plan": None, "phaseIn": "", "active": "2026-01-01"}) is None
+        assert ok({"endOfLife": "2026-01-01T10:00:00Z"}) is None
+        assert ok({"phaseOut": "2026-1-1"}) is not None
+
+
+class TestGetCardRelationsLifecycle:
+    @pytest.mark.asyncio
+    async def test_each_relation_carries_its_lifecycle(self, fake_token):
+        rels = [
+            {"id": "r1", "type": "relOrgToApp", "lifecycle": {"endOfLife": "2020-01-01"}},
+            {"id": "r2", "type": "relOrgToApp", "lifecycle": {}},
+        ]
+        patcher, mock = _patched_get(rels)
+        with patcher:
+            out = _parse(await server.get_card_relations(card_id="card-1"))
+        mock.assert_awaited_once_with("/relations", params={"card_id": "card-1"})
+        assert [r["lifecycle"] for r in out] == [{"endOfLife": "2020-01-01"}, {}]
+
+
 # ── create_diagram ─────────────────────────────────────────────────────────
 
 

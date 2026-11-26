@@ -188,6 +188,8 @@ def build_snapshot_from_rows(
                 from_entity_id=str(rel.source_id),
                 to_entity_id=str(rel.target_id),
                 attributes=attributes,
+                # Every row, dated or not: an export is all-time.
+                lifecycle=dict(rel.lifecycle or {}),
             )
         )
 

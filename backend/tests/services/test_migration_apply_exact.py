@@ -888,6 +888,96 @@ async def test_relation_updates_skips_conflicts_and_failures(db, env, ends):
     assert gone.error_message == "target relation no longer exists"
 
 
+async def test_a_relation_lands_with_the_lifecycle_the_source_dated_it_with(db, env, ends):
+    data = {"tea_type": "app_to_itc", "from_entity_id": "app", "to_entity_id": "server"}
+    await stage(
+        db,
+        env,
+        "relation",
+        "R1",
+        data={**data, "lifecycle": {"active": "2021-03-01", "endOfLife": "2030-06-30"}},
+    )
+    await stage(
+        db,
+        env,
+        "relation",
+        "R2",
+        data={**data, "to_entity_id": "app", "from_entity_id": "server"},
+    )
+    assert await ap._apply_relation_pass(db, env.m, env.admin) == zero(created=1, updated=1)
+    [rel] = (await db.execute(select(Relation))).scalars().all()
+    # The second row (no dates) reused the first and left its dates alone.
+    assert rel.lifecycle == {"active": "2021-03-01", "endOfLife": "2030-06-30"}
+
+
+async def test_an_update_replaces_the_lifecycle_only_when_the_source_sent_one(db, env, ends):
+    existing = await create_relation(
+        db, source_id=ends.app.id, target_id=ends.server.id, lifecycle={"plan": "2020-01-01"}
+    )
+    data = {"tea_type": "app_to_itc", "from_entity_id": "app", "to_entity_id": "server"}
+    await stage(db, env, "relation", "U0", action="update", target_id=existing.id, data=data)
+    assert await ap._apply_relation_pass(db, env.m, env.admin) == zero(updated=1)
+    assert existing.lifecycle == {"plan": "2020-01-01"}
+    await stage(
+        db,
+        env,
+        "relation",
+        "U1",
+        action="update",
+        target_id=existing.id,
+        data={**data, "lifecycle": {"endOfLife": "2029-12-31"}},
+    )
+    await ap._apply_relation_pass(db, env.m, env.admin)
+    assert existing.lifecycle == {"endOfLife": "2029-12-31"}
+
+
+async def test_a_relation_already_present_takes_the_source_dates(db, env, ends):
+    """A create that lands on a row already there (here: sent the other way
+    round) replaces that row's dates with the ones the source sent."""
+    present = await create_relation(
+        db, source_id=ends.app.id, target_id=ends.server.id, lifecycle={"plan": "2019-01-01"}
+    )
+    staged = await stage(
+        db,
+        env,
+        "relation",
+        "R1",
+        data={
+            "tea_type": "app_to_itc",
+            "from_entity_id": "server",
+            "to_entity_id": "app",
+            "lifecycle": {"active": "2021-03-01"},
+        },
+    )
+    assert await ap._apply_relation_pass(db, env.m, env.admin) == zero(updated=1)
+    assert (staged.status, staged.target_id) == ("applied", present.id)
+    assert present.lifecycle == {"active": "2021-03-01"}
+
+
+async def test_an_invalid_staged_lifecycle_is_dropped_not_fatal(db, env, ends, caplog):
+    await stage(
+        db,
+        env,
+        "relation",
+        "R1",
+        data={
+            "tea_type": "app_to_itc",
+            "from_entity_id": "app",
+            "to_entity_id": "server",
+            "lifecycle": {"sunset": "2030-01-01"},
+        },
+    )
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        assert await ap._apply_relation_pass(db, env.m, env.admin) == zero(created=1)
+    [rel] = (await db.execute(select(Relation))).scalars().all()
+    await db.refresh(rel)
+    assert rel.lifecycle == {}
+    # The dropped dates are said in the log: the operator's only trace of them.
+    assert [
+        r.getMessage() for r in caplog.records if r.name == LOGGER and r.levelno == logging.WARNING
+    ] == ["migration apply: dropping an invalid relation lifecycle"]
+
+
 # ── metamodel passes ────────────────────────────────────────────────────────
 
 

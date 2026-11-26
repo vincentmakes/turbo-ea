@@ -115,3 +115,31 @@ class TestProcessMapEndpoint:
         assert item["name"] == "Order to Cash"
         assert item["app_count"] == 3
         assert item["total_cost"] == 350
+
+    async def test_an_application_pointing_at_the_process_is_on_the_map(
+        self, client, db, process_map_env
+    ):
+        """A relation type running Application → Business Process puts the
+        process at the TARGET end; the map reads it all the same."""
+        await create_relation_type(
+            db,
+            key="relAppToProcess",
+            label="automates",
+            source_type_key="Application",
+            target_type_key="BusinessProcess",
+        )
+        inbound = await create_card(db, name="Inbound", attributes={"costTotalAnnual": 50})
+        await create_relation(
+            db,
+            type_key="relAppToProcess",
+            source_id=inbound.id,
+            target_id=process_map_env["process"].id,
+        )
+        resp = await client.get(
+            "/api/v1/reports/bpm/process-map",
+            headers=auth_headers(process_map_env["admin"]),
+        )
+        assert resp.status_code == 200
+        (item,) = resp.json()["items"]
+        assert item["app_count"] == 4
+        assert item["total_cost"] == 400

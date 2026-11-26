@@ -31,6 +31,7 @@ from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.tag import CardTag, Tag, TagGroup
+from app.services.lifecycle import lifecycle_in_effect_sql
 from app.services.relation_orientation import side_key
 
 
@@ -186,11 +187,17 @@ async def load_link_facts(
     held: dict[uuid.UUID, set[tuple[str, str]]] = {cid: set() for cid in ids}
     groups: dict[uuid.UUID, set[uuid.UUID]] = {cid: set() for cid in ids}
     if ids:
+        # A mandatory side is satisfied only by a relation in effect today.
+        in_effect = lifecycle_in_effect_sql(Relation)
         source_keys = {s.key for s in config.sides if s.side == "source"}
         if source_keys:
             rows = await db.execute(
                 select(Relation.source_id, Relation.type)
-                .where(Relation.source_id.in_(ids), Relation.type.in_(source_keys))
+                .where(
+                    Relation.source_id.in_(ids),
+                    Relation.type.in_(source_keys),
+                    in_effect,
+                )
                 .distinct()
             )
             for card_id, type_key in rows:
@@ -199,7 +206,11 @@ async def load_link_facts(
         if target_keys:
             rows = await db.execute(
                 select(Relation.target_id, Relation.type)
-                .where(Relation.target_id.in_(ids), Relation.type.in_(target_keys))
+                .where(
+                    Relation.target_id.in_(ids),
+                    Relation.type.in_(target_keys),
+                    in_effect,
+                )
                 .distinct()
             )
             for card_id, type_key in rows:

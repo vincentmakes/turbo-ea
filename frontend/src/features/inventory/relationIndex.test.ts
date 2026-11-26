@@ -48,3 +48,42 @@ describe("buildRelationIndex", () => {
     expect(buildRelationIndex([r as Relation], orgToApp, "Organization").size).toBe(0);
   });
 });
+
+describe("buildRelationIndex — relation dates", () => {
+  const hq = ref("hq", "Organization");
+  const dated = (id: string, lifecycle?: Record<string, string>) =>
+    ({ ...rel("relOrgToApp", hq, ref(id, "Application")), lifecycle }) as Relation;
+  const ms = (iso: string) => new Date(iso).getTime();
+
+  it("indexes only the relations in effect at the date — the grid is the landscape now", () => {
+    const rels = [
+      dated("undated"),
+      dated("current", { active: "2026-01-01" }),
+      dated("planned", { active: "2026-06-02" }),
+      dated("ended", { endOfLife: "2026-06-01" }),
+    ];
+    const idx = buildRelationIndex(rels, orgToApp, "Organization", undefined, ms("2026-06-01"));
+    expect(idx.get("hq")?.map((x) => x.id)).toEqual(["undated", "current"]);
+    // The day after: the planned one has started, the ended one stays ended.
+    const next = buildRelationIndex(rels, orgToApp, "Organization", undefined, ms("2026-06-02"));
+    expect(next.get("hq")?.map((x) => x.id)).toEqual(["undated", "current", "planned"]);
+  });
+
+  it("drops a card whose only relation is not in effect from the index", () => {
+    const idx = buildRelationIndex(
+      [dated("ended", { endOfLife: "2000-01-01" })],
+      orgToApp,
+      "Application",
+    );
+    expect(idx.size).toBe(0);
+  });
+
+  it("reads today by default", () => {
+    const idx = buildRelationIndex(
+      [dated("later", { active: "2999-01-01" }), dated("now")],
+      orgToApp,
+      "Organization",
+    );
+    expect(idx.get("hq")?.map((x) => x.id)).toEqual(["now"]);
+  });
+});

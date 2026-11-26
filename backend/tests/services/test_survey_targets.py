@@ -155,6 +155,17 @@ class TestRelatedIds:
     async def test_either_end_counts(self, db, cards, related):
         assert await _matched(db, {"related_ids": [str(related.id)]}) == {"C10", "C20", "C30"}
 
+    async def test_only_relations_to_the_named_card_count(self, db, cards, related):
+        """A relation elsewhere, in either direction, makes no card a target."""
+        elsewhere = await create_card(db, card_type="ITComponent", name="Elsewhere")
+        await create_relation(
+            db, type_key="owns", source_id=cards["bare"].id, target_id=elsewhere.id
+        )
+        await create_relation(
+            db, type_key="feeds", source_id=elsewhere.id, target_id=cards["bare"].id
+        )
+        assert await _matched(db, {"related_ids": [str(related.id)]}) == {"C10", "C20", "C30"}
+
     async def test_a_relation_type_narrows_both_directions(self, db, cards, related):
         hub = str(related.id)
         assert await _matched(db, {"related_ids": [hub], "relation_type_key": "owns"}) == {"C10"}
@@ -238,3 +249,49 @@ class TestTargets:
         db.add(survey)
         await db.flush()
         assert await survey_service.resolve_targets(db, survey) == ([], [])
+
+
+class TestRelatedIdsFollowTheRelationLifecycle:
+    """A survey of "the cards related to X" means related NOW: a planned or an
+    ended relation does not make a card a target."""
+
+    async def test_only_relations_in_effect_reach_a_card(self, db, cards):
+        from tests.relation_windows import WINDOWS
+
+        await create_relation_type(
+            db, key="runsOn", source_type_key="Application", target_type_key="ITComponent"
+        )
+        hub = await create_card(db, card_type="ITComponent", name="Hub")
+        for card_key, window in (
+            ("c10", "undated"),
+            ("c20", "current"),
+            ("c30", "planned"),
+            ("bare", "ended"),
+        ):
+            await create_relation(
+                db,
+                type_key="runsOn",
+                source_id=cards[card_key].id,
+                target_id=hub.id,
+                lifecycle=WINDOWS[window],
+            )
+        assert await _matched(db, {"related_ids": [str(hub.id)]}) == {"C10", "C20"}
+        filters = {"related_ids": [str(hub.id)], "relation_type_key": "runsOn"}
+        assert await _matched(db, filters) == {"C10", "C20"}
+
+    async def test_either_direction_follows_the_dates(self, db, cards):
+        from tests.relation_windows import WINDOWS
+
+        await create_relation_type(
+            db, key="feedsApp", source_type_key="ITComponent", target_type_key="Application"
+        )
+        hub = await create_card(db, card_type="ITComponent", name="Hub")
+        for card_key, window in (("c10", "ended"), ("c20", "current")):
+            await create_relation(
+                db,
+                type_key="feedsApp",
+                source_id=hub.id,
+                target_id=cards[card_key].id,
+                lifecycle=WINDOWS[window],
+            )
+        assert await _matched(db, {"related_ids": [str(hub.id)]}) == {"C20"}

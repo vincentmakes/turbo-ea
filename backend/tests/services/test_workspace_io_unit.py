@@ -80,6 +80,20 @@ def test_strip_secrets_removes_known_credentials():
     assert e["oauth_client_id"] == "client-1"
 
 
+def test_strip_secrets_drops_instance_local_state():
+    """The relation sweep's last swept day is this instance's own state: a
+    bundle exported after the source swept must not make the target skip the
+    days it has not swept yet."""
+    from app.services.relation_lifecycle_sweep import MARKER_KEY
+    from app.services.workspace_io.secrets import INSTANCE_LOCAL_GENERAL_KEYS
+
+    assert MARKER_KEY in INSTANCE_LOCAL_GENERAL_KEYS
+    general = {MARKER_KEY: "2026-06-15", "currency": "EUR"}
+    g, _ = strip_secrets(general, {})
+    assert g == {"currency": "EUR"}
+    assert general[MARKER_KEY] == "2026-06-15"  # the input is not mutated
+
+
 def test_strip_secrets_scrubs_arbitrary_encrypted_value():
     general = {"nested": {"weird_secret": "enc:LEAK", "ok": "plain"}}
     g, _ = strip_secrets(general, {})

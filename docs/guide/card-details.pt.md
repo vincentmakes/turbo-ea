@@ -144,6 +144,19 @@ Mostra todas as conexões com outros cards, agrupadas por tipo de relacionamento
 
 ![Cards ligados através de subelementos, agrupados por subtipo](../assets/img/pt/60_ficha_subelementos_relacoes.png)
 
+#### Quando uma relação se aplica {: #when-a-relation-applies }
+
+Uma relação pode ter o seu próprio **ciclo de vida** — as mesmas cinco fases de um card (Planejamento, Implantação, Ativo, Desativação, Fim de Vida). Serve para factos que só valem durante um período: uma aplicação global usada por várias organizações, cada uma a partir de uma data diferente, ou uma organização que deixa de usar uma aplicação para o ano enquanto outras continuam. Uma relação sem datas está simplesmente em vigor, como toda a relação estava até agora.
+
+- **Definir as datas** — quando um administrador ativou **Acompanhar o ciclo de vida** para o tipo de relação (ver [Tipos de relação](../admin/metamodel.md#relation-types)), cada linha de relação tem um ícone de **relógio** junto ao botão de remover, para quem puder gerir relações. O ícone fica a cinzento com contorno tracejado enquanto a relação não tem datas. Clique nele para abrir um campo de data por fase; guarde para aplicar, ou use **Limpar datas** para que a relação volte a estar sempre em vigor. Os campos avisam — sem impedir a gravação — quando uma fase tem data posterior à de uma que deveria vir depois, tal como no ciclo de vida do card.
+- **Planeada** — uma relação cuja data **Ativo** ainda está por chegar (ou que tem data de Planejamento ou Implantação mas ainda não de Ativo) não começou. A sua linha permanece na lista com um chip como *Planeada · a partir de 1 mar 2027*.
+- **Até** — uma relação em vigor cuja data de **Fim de Vida** ainda está por chegar mostra *Até …* com essa data.
+- **Terminada** — quando chega a data de **Fim de Vida**, a relação terminou. As relações terminadas continuam registadas mas ficam recolhidas: cada grupo oferece **Mostrar terminadas (N)** para as listar, com um chip *Terminada em …*.
+
+Só contam as relações **em vigor hoje**. Uma relação planeada ou terminada não conta nos relatórios, no indicador de órfão, nos painéis, nos campos calculados nem na pontuação de qualidade dos dados, e uma relação obrigatória que só tem relações planeadas ou terminadas continua a ser assinalada como em falta — o grupo di-lo. A contagem junto ao título da secção também conta apenas as relações em vigor. Nada é recalculado à mão: quando chega a data de início ou de fim de uma relação, os cards nas duas pontas são atualizados durante a noite.
+
+As datas de uma relação são mostradas seja qual for a origem — importação LeanIX, transferência de espaço de trabalho, API, assistente de IA ou extensão — mesmo que o tipo de relação não ofereça o relógio. Um par de cards tem uma relação por tipo de relação, pelo que uma relação tem um único período: uma organização que deixa de usar uma aplicação e a volta a adotar mais tarde não pode ser representada como dois períodos na mesma relação. As alterações às datas de uma relação aparecem no separador **Histórico** de ambos os cards, sob a relação a que pertencem.
+
 ### Seção de Dependências
 
 Uma [Layered Dependency View](reports.md) do card e de tudo o que está a um salto de distância, agrupado nas quatro camadas de arquitetura. Shift-clique em um card para recentralizar a vista e percorrer o panorama sem sair da página.

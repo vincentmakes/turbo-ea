@@ -70,6 +70,12 @@ import {
   type RelationSide,
 } from "@/lib/relationSort";
 import { successorRelationKeys } from "@/lib/successorRelation";
+import {
+  hasLifecycleDates,
+  relationLifecycleState,
+  todayLifecycleMs,
+} from "@/lib/relationLifecycle";
+import { RelationLifecyclePopover, RelationPhaseChip } from "./RelationLifecycleControls";
 
 /* ── helpers ────────────────────────────────────────────────── */
 
@@ -177,7 +183,7 @@ function RelationGroup({
   rt,
   isSource,
   mandatory,
-  rels,
+  rels: allRels,
   fsId,
   canManageRelations,
   onReload,
@@ -185,6 +191,8 @@ function RelationGroup({
   onRelationUpdated,
   rollupCount = 0,
   multiLinked,
+  onRelationLifecycleUpdated,
+  todayMs,
 }: {
   rt: RelationType;
   isSource: boolean;
@@ -200,6 +208,10 @@ function RelationGroup({
   rollupCount?: number;
   /** Cards reached through several relation types (see `multiLinked`). */
   multiLinked?: MultiLinkedMap;
+  /** A relation's dates were saved from its clock. */
+  onRelationLifecycleUpdated?: (updated: Relation) => void;
+  /** The day the rows are read at — today, on the scale `todayLifecycleMs` uses. */
+  todayMs: number;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
   const rl = useResolveLabel();
@@ -211,6 +223,32 @@ function RelationGroup({
   const [attrsRelation, setAttrsRelation] = useState<Relation | null>(null);
   const [rollupOpen, setRollupOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [lifecycleAnchor, setLifecycleAnchor] = useState<HTMLElement | null>(null);
+  const [lifecycleRelation, setLifecycleRelation] = useState<Relation | null>(null);
+  const [showEnded, setShowEnded] = useState(false);
+
+  // A relation whose end date has arrived stays listed — it is history the
+  // person manages — but behind a per-group toggle, and it never counts: the
+  // counts and the mandatory hint below read the relations IN EFFECT, which is
+  // what the backend's completeness score, calculated fields and reports read.
+  // A planned relation stays in view with its chip, and does not count either.
+  const endedCount = useMemo(
+    () => allRels.filter((r) => relationLifecycleState(r.lifecycle, todayMs) === "ended").length,
+    [allRels, todayMs],
+  );
+  const inEffectCount = useMemo(
+    () => allRels.filter((r) => relationLifecycleState(r.lifecycle, todayMs) === "inEffect").length,
+    [allRels, todayMs],
+  );
+  const rels = useMemo(
+    () =>
+      showEnded
+        ? allRels
+        : allRels.filter((r) => relationLifecycleState(r.lifecycle, todayMs) !== "ended"),
+    [allRels, showEnded, todayMs],
+  );
+  const countInEffect = (list: Relation[]) =>
+    list.filter((r) => relationLifecycleState(r.lifecycle, todayMs) === "inEffect").length;
 
   const rtHasAttributes = hasEditableRelationAttributes(rt);
 
@@ -259,6 +297,15 @@ function RelationGroup({
   const closeAttrs = () => {
     setAttrsAnchor(null);
     setAttrsRelation(null);
+  };
+  const openLifecycle = (event: React.MouseEvent<HTMLElement>, rel: Relation) => {
+    event.stopPropagation();
+    setLifecycleAnchor(event.currentTarget);
+    setLifecycleRelation(rel);
+  };
+  const closeLifecycle = () => {
+    setLifecycleAnchor(null);
+    setLifecycleRelation(null);
   };
 
   // Bucket relations by role when the relation type carries a
@@ -320,11 +367,18 @@ function RelationGroup({
             )
             .join(", ")
         : t("relations.editAttributes");
+    const dated = hasLifecycleDates(r.lifecycle);
+    const lifecycleTooltip = t(
+      dated ? "relations.lifecycle.editDates" : "relations.lifecycle.setDates",
+    );
+    const ended = relationLifecycleState(r.lifecycle, todayMs) === "ended";
     return (
       <ListItem
         key={r.id}
+        data-ended={ended ? "true" : undefined}
         secondaryAction={
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <RelationPhaseChip lifecycle={r.lifecycle} todayMs={todayMs} />
             {attrBadges.map((b) => (
               // The shared pill, so this row and the Hierarchy section's link
               // type render identically — they are the same kind of value.
@@ -355,6 +409,24 @@ function RelationGroup({
                 </IconButton>
               </Tooltip>
             )}
+            {rt.lifecycle_enabled && canManageRelations && (
+              <Tooltip title={lifecycleTooltip}>
+                <IconButton
+                  size="small"
+                  aria-label={lifecycleTooltip}
+                  onClick={(e) => openLifecycle(e, r)}
+                  sx={{
+                    color: dated ? "primary.main" : "text.disabled",
+                    border: dated ? "none" : "1px dashed",
+                    borderColor: "divider",
+                    borderRadius: 1,
+                    px: 0.5,
+                  }}
+                >
+                  <MaterialSymbol icon="schedule" size={20} />
+                </IconButton>
+              </Tooltip>
+            )}
             {canManageRelations && (
               <IconButton
                 size="small"
@@ -366,7 +438,7 @@ function RelationGroup({
             )}
           </Box>
         }
-        sx={{ py: 0.25 }}
+        sx={{ py: 0.25, ...(ended ? { opacity: 0.7 } : null) }}
       >
         <ClickableCardName
           name={other?.name || t("relations.unknown")}
@@ -414,7 +486,7 @@ function RelationGroup({
           </Typography>
           <Chip
             size="small"
-            label={bucketRels.length}
+            label={countInEffect(bucketRels)}
             variant="outlined"
             sx={{ height: 18, fontSize: "0.65rem" }}
           />
@@ -453,7 +525,7 @@ function RelationGroup({
         key={bucket.key}
         label={label}
         isNoSubtype={bucket.isNoSubtype}
-        count={bucket.rels.length}
+        count={countInEffect(bucket.rels)}
         open={buckets.isOpen(bucket.key)}
         onToggle={() => buckets.toggle(bucket.key)}
       >
@@ -616,6 +688,36 @@ function RelationGroup({
         />
       )}
 
+      {/* Ended relations, tucked away. One toggle per group, whichever of the
+          render paths above listed the rows. */}
+      {endedCount > 0 && (
+        <Box sx={{ px: 1.5, py: 0.5, borderTop: "1px solid", borderColor: "divider" }}>
+          <Button
+            size="small"
+            color="inherit"
+            onClick={() => setShowEnded((v) => !v)}
+            startIcon={
+              <MaterialSymbol icon={showEnded ? "expand_less" : "expand_more"} size={16} />
+            }
+            sx={{ color: "text.secondary" }}
+          >
+            {showEnded
+              ? t("relations.hideEnded")
+              : t("relations.showEnded", { count: endedCount })}
+          </Button>
+        </Box>
+      )}
+
+      {rt.lifecycle_enabled && canManageRelations && lifecycleRelation && (
+        <RelationLifecyclePopover
+          anchorEl={lifecycleAnchor}
+          open={Boolean(lifecycleAnchor)}
+          onClose={closeLifecycle}
+          relation={lifecycleRelation}
+          onSaved={onRelationLifecycleUpdated ?? onRelationUpdated}
+        />
+      )}
+
       {rtHasAttributes && attrsRelation && (
         <RelationAttrsPopover
           anchorEl={attrsAnchor}
@@ -628,10 +730,19 @@ function RelationGroup({
       )}
 
       {/* Empty state for mandatory/visible relations */}
-      {rels.length === 0 && (
+      {allRels.length === 0 && (
         <Box sx={{ px: 1.5, py: 1 }}>
           <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
             {mandatory ? t("relations.emptyMandatory") : t("relations.emptyVisible")}
+          </Typography>
+        </Box>
+      )}
+      {/* A required side whose relations are all planned or ended is still
+          unmet — the completeness score says so, and so does this. */}
+      {allRels.length > 0 && inEffectCount === 0 && mandatory && (
+        <Box sx={{ px: 1.5, py: 1 }}>
+          <Typography variant="body2" color="warning.main" sx={{ fontStyle: "italic" }}>
+            {t("relations.noneInEffectMandatory")}
           </Typography>
         </Box>
       )}
@@ -796,7 +907,13 @@ function RelationsSection({
     setRawRelations((prev) =>
       prev.map((r) =>
         r.id === updated.id
-          ? { ...r, attributes: updated.attributes, description: updated.description }
+          ? {
+              ...r,
+              attributes: updated.attributes,
+              description: updated.description,
+              // A response without the key (an older backend) keeps the row's dates.
+              lifecycle: updated.lifecycle ?? r.lifecycle,
+            }
           : r,
       ),
     );
@@ -918,7 +1035,27 @@ function RelationsSection({
     if (addedCount > 0) reloadAll();
   };
 
+  // Read once per render, so every group and row classifies against one day.
+  const todayMs = todayLifecycleMs();
+
+  // A relation's dates move what the card's data-quality score counts (a
+  // mandatory side met only by a planned or ended relation is unmet), so a
+  // date save refreshes the card as well as merging the row.
+  const handleRelationLifecycleUpdated = useCallback(
+    (updated: Relation) => {
+      handleRelationUpdated(updated);
+      onCardUpdate?.();
+    },
+    [handleRelationUpdated, onCardUpdate],
+  );
+
+  // The header counts what counts: relations in effect today, as the backend's
+  // relation summary and completeness score do. Planned and ended rows stay
+  // listed below.
   const totalRelations = relations.length;
+  const inEffectTotal = relations.filter(
+    (r) => relationLifecycleState(r.lifecycle, todayMs) === "inEffect",
+  ).length;
 
   return (
     <Accordion
@@ -934,7 +1071,7 @@ function RelationsSection({
           <Typography fontWeight={600}>{t("relations.title")}</Typography>
           {loaded && !loadError && (
             // Stryker disable next-line all: the chip's spacing and size are presentation
-            <Chip size="small" label={totalRelations} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
+            <Chip size="small" label={inEffectTotal} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
           )}
         </Box>
       </AccordionSummary>
@@ -965,6 +1102,8 @@ function RelationsSection({
             onReload={reloadAll}
             onRequestAdd={() => openAddDialog({ rt, isSource })}
             onRelationUpdated={handleRelationUpdated}
+            onRelationLifecycleUpdated={handleRelationLifecycleUpdated}
+            todayMs={todayMs}
             rollupCount={rollup[`${rt.key}::${isSource ? "outgoing" : "incoming"}`] ?? 0}
             multiLinked={multiLinked}
           />
@@ -986,6 +1125,8 @@ function RelationsSection({
               onReload={reloadAll}
               onRequestAdd={() => openAddDialog({ rt, isSource })}
               onRelationUpdated={handleRelationUpdated}
+              onRelationLifecycleUpdated={handleRelationLifecycleUpdated}
+              todayMs={todayMs}
               multiLinked={multiLinked}
             />
           );

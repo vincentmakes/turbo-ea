@@ -3261,3 +3261,153 @@ class TestAuditHelpers:
         assert len(items) == 201
         assert items[0] == {"kind": "subtype.added", "label": "S0"}
         assert items[-1] == {"kind": "more", "count": 5}
+
+
+# ---------------------------------------------------------------------------
+# Relation types — the lifecycle editor switch
+# ---------------------------------------------------------------------------
+
+
+class TestRelationTypeLifecycleSwitch:
+    """``lifecycle_enabled`` decides only whether the UI offers the relation
+    date editor. It is off by default and never locked, built-ins included."""
+
+    async def _types(self, db):
+        await create_card_type(db, key="Organization", label="Organization")
+        await create_card_type(db, key="Application", label="Application")
+
+    async def test_off_by_default_and_settable_on_create(self, client, db, metamodel_env):
+        await self._types(db)
+        admin = metamodel_env["admin"]
+        plain = await client.post(
+            "/api/v1/metamodel/relation-types",
+            json={
+                "key": "orgUsesApp",
+                "label": "uses",
+                "source_type_key": "Organization",
+                "target_type_key": "Application",
+            },
+            headers=auth_headers(admin),
+        )
+        assert plain.status_code == 201
+        assert plain.json()["lifecycle_enabled"] is False
+        dated = await client.post(
+            "/api/v1/metamodel/relation-types",
+            json={
+                "key": "orgRunsApp",
+                "label": "runs",
+                "source_type_key": "Organization",
+                "target_type_key": "Application",
+                "lifecycle_enabled": True,
+            },
+            headers=auth_headers(admin),
+        )
+        assert dated.status_code == 201
+        assert dated.json()["lifecycle_enabled"] is True
+        listing = await client.get("/api/v1/metamodel/relation-types", headers=auth_headers(admin))
+        by_key = {r["key"]: r["lifecycle_enabled"] for r in listing.json()}
+        assert by_key == {"orgUsesApp": False, "orgRunsApp": True}
+
+    async def test_an_admin_can_toggle_it_on_a_built_in_type(self, client, db, metamodel_env):
+        await self._types(db)
+        await create_relation_type(
+            db,
+            key="relOrgToApp",
+            source_type_key="Organization",
+            target_type_key="Application",
+            built_in=True,
+        )
+        admin = metamodel_env["admin"]
+        on = await client.patch(
+            "/api/v1/metamodel/relation-types/relOrgToApp",
+            json={"lifecycle_enabled": True},
+            headers=auth_headers(admin),
+        )
+        assert on.status_code == 200, on.text
+        assert on.json()["lifecycle_enabled"] is True
+        assert on.json()["built_in"] is True
+        fetched = await client.get(
+            "/api/v1/metamodel/relation-types/relOrgToApp", headers=auth_headers(admin)
+        )
+        assert fetched.json()["lifecycle_enabled"] is True
+        off = await client.patch(
+            "/api/v1/metamodel/relation-types/relOrgToApp",
+            json={"lifecycle_enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert off.json()["lifecycle_enabled"] is False
+
+    async def test_the_toggle_is_audited(self, client, db, metamodel_env):
+        await self._types(db)
+        await create_relation_type(
+            db, key="relAudit", source_type_key="Organization", target_type_key="Application"
+        )
+        resp = await client.patch(
+            "/api/v1/metamodel/relation-types/relAudit",
+            json={"lifecycle_enabled": True},
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert resp.status_code == 200
+        [row] = await _audit_rows(db, "admin.metamodel.relation_type.updated")
+        assert row.details == {"changes": {"lifecycle_enabled": {"old": False, "new": True}}}
+
+    @pytest.mark.parametrize("value", ["yes", 1, None])
+    async def test_only_a_boolean_is_accepted(self, client, db, metamodel_env, value):
+        await self._types(db)
+        await create_relation_type(
+            db, key="relStrict", source_type_key="Organization", target_type_key="Application"
+        )
+        resp = await client.patch(
+            "/api/v1/metamodel/relation-types/relStrict",
+            json={"lifecycle_enabled": value},
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "lifecycle_enabled must be a boolean"
+        created = await client.post(
+            "/api/v1/metamodel/relation-types",
+            json={
+                "key": "relStrictNew",
+                "label": "x",
+                "source_type_key": "Organization",
+                "target_type_key": "Application",
+                "lifecycle_enabled": value,
+            },
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert created.status_code == 400
+        assert created.json()["detail"] == "lifecycle_enabled must be a boolean"
+
+    async def test_a_viewer_cannot_toggle_it(self, client, db, metamodel_env):
+        await self._types(db)
+        await create_relation_type(
+            db, key="relLocked", source_type_key="Organization", target_type_key="Application"
+        )
+        resp = await client.patch(
+            "/api/v1/metamodel/relation-types/relLocked",
+            json={"lifecycle_enabled": True},
+            headers=auth_headers(metamodel_env["viewer"]),
+        )
+        assert resp.status_code == 403
+
+    async def test_the_switch_does_not_gate_the_api(self, client, db, metamodel_env):
+        """Dates on a relation of a type with the switch off are accepted and
+        stored: the switch only decides whether the UI offers the editor."""
+        await self._types(db)
+        await create_relation_type(
+            db, key="relOff", source_type_key="Organization", target_type_key="Application"
+        )
+        org = await create_card(db, card_type="Organization", name="Org")
+        app = await create_card(db, card_type="Application", name="App")
+        resp = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "relOff",
+                "source_id": str(org.id),
+                "target_id": str(app.id),
+                "lifecycle": {"active": "2027-01-01"},
+            },
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["lifecycle"] == {"active": "2027-01-01"}

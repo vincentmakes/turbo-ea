@@ -133,7 +133,7 @@ from app.services.document_event_scope import document_event_read_filters
 from app.services.event_bus import event_bus
 from app.services.event_cost_scrub import scrub_event_costs
 from app.services.extensions import field_gate
-from app.services.lifecycle import lifecycle_rank
+from app.services.lifecycle import lifecycle_in_effect_sql, lifecycle_rank
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/cards", tags=["cards"])
@@ -1387,6 +1387,9 @@ async def relation_summary(
     excluded_card_sq = select(Card.id).where(
         or_(Card.type.in_(hidden_types_sq), Card.status == "ARCHIVED")
     )
+    # Counts are the landscape now: a planned or ended relation is not one of
+    # the card's current relations (the diagram expand menu reads these).
+    in_effect = lifecycle_in_effect_sql(Relation)
 
     out_rows = await db.execute(
         select(Relation.type, Card.type.label("peer_type"), func.count(Relation.id))
@@ -1394,6 +1397,7 @@ async def relation_summary(
         .where(
             Relation.source_id == uid,
             Relation.target_id.not_in(excluded_card_sq),
+            in_effect,
             *peer_readable,
         )
         .group_by(Relation.type, Card.type)
@@ -1404,6 +1408,7 @@ async def relation_summary(
         .where(
             Relation.target_id == uid,
             Relation.source_id.not_in(excluded_card_sq),
+            in_effect,
             *peer_readable,
         )
         .group_by(Relation.type, Card.type)
@@ -1562,10 +1567,14 @@ async def _descendant_relation_map(
     )
 
     desc_id_list = list(descendants.keys())
+    # A roll-up counts relations in effect today, on the descendants' side and
+    # on the root's own (a direct link that has ended no longer hides a peer).
+    in_effect = lifecycle_in_effect_sql(Relation)
     rel_q = select(Relation).where(
         or_(Relation.source_id.in_(desc_id_list), Relation.target_id.in_(desc_id_list)),
         Relation.source_id.not_in(excluded_card_sq),
         Relation.target_id.not_in(excluded_card_sq),
+        in_effect,
     )
     if readable is not None:
         readable_ids_sq = select(Card.id).where(readable)
@@ -1581,7 +1590,7 @@ async def _descendant_relation_map(
 
     # Edges the root already owns — (relation_type, peer_id) pairs to suppress.
     direct_q = select(Relation).where(
-        or_(Relation.source_id == root.id, Relation.target_id == root.id)
+        or_(Relation.source_id == root.id, Relation.target_id == root.id), in_effect
     )
     if relation_type:
         direct_q = direct_q.where(Relation.type == relation_type)

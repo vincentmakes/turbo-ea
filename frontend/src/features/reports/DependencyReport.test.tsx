@@ -845,3 +845,382 @@ describe('DependencyReport "Center on" drop-down', () => {
     expect(optionNames()).toEqual(["Legacy ERP"]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A relation's own dates
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport time travel — a relation's own dates", () => {
+  // Seen from CRM Cloud, every card is alive throughout; only the relations
+  // carry dates. A card the centre reaches ONLY through relations not in effect
+  // at the travelled date is a planned / retired CARD from here, exactly as one
+  // planned or retired by its own lifecycle — not a present card with a faded
+  // line.
+  const DATED_GRAPH = {
+    nodes: [
+      { id: "crm", name: "CRM Cloud", type: "Application", lifecycle: { active: "2019-01-01" } },
+      // Reached only through a relation starting 2029-01-01.
+      { id: "portal", name: "Web Portal", type: "Application", lifecycle: { active: "2019-01-01" } },
+      // Reached only through a relation ending 2027-01-01.
+      { id: "billing", name: "Billing", type: "Application", lifecycle: { active: "2019-01-01" } },
+      // Reached only through a relation with Plan / Phase In and no Active date.
+      { id: "hr", name: "HR Suite", type: "Application" },
+      // Reached through an undated relation.
+      { id: "erp", name: "ERP Core", type: "Application" },
+      // Reached through an undated relation AND a second one starting 2028-01-01.
+      { id: "ops", name: "Ops Desk", type: "Application" },
+    ],
+    edges: [
+      {
+        source: "portal",
+        target: "crm",
+        type: "app_to_app",
+        label: "uses",
+        lifecycle: { active: "2029-01-01" },
+      },
+      {
+        source: "billing",
+        target: "crm",
+        type: "app_to_app",
+        label: "uses",
+        lifecycle: { active: "2020-01-01", endOfLife: "2027-01-01" },
+      },
+      {
+        source: "crm",
+        target: "hr",
+        type: "app_to_app",
+        label: "uses",
+        lifecycle: { plan: "2025-01-01", phaseIn: "2026-01-01" },
+      },
+      { source: "crm", target: "erp", type: "app_to_app", label: "uses" },
+      { source: "crm", target: "ops", type: "app_to_app", label: "uses" },
+      {
+        source: "ops",
+        target: "crm",
+        type: "app_feeds_app",
+        label: "feeds",
+        lifecycle: { active: "2028-01-01" },
+      },
+    ],
+  };
+  const EOL = ms("2027-01-01");
+  type Node = { id: string; changeState?: string; gainedLink?: boolean; lostLink?: boolean };
+  type Edge = { source: string; relationState?: string };
+  /** The LDV's cards as `{id: state}` — "present" for a card drawn plainly. */
+  const ldvCards = () =>
+    Object.fromEntries(
+      ((ldvProps.at(-1)?.nodes ?? []) as Node[]).map((n) => [n.id, n.changeState ?? "present"]),
+    );
+  const ldvNode = (id: string) =>
+    ((ldvProps.at(-1)?.nodes ?? []) as Node[]).find((n) => n.id === id);
+  const drawn = () =>
+    ((ldvProps.at(-1) as { edges?: Edge[] }).edges ?? [])
+      .map((e) => `${e.source}:${e.relationState ?? "inEffect"}`)
+      .sort();
+
+  function renderChart(
+    dateMs: number,
+    cfg: { persistRetired?: boolean; previewPlanned?: boolean; chartMode?: "c4" | "tree" } = {},
+    graph: unknown = DATED_GRAPH,
+  ) {
+    vi.mocked(api.get).mockResolvedValue(graph);
+    vi.mocked(useTimeline).mockReturnValue({
+      timelineDate: dateMs,
+      setTimelineDate: vi.fn(),
+      todayMs: TODAY,
+      isTimeTraveling: dateMs !== TODAY,
+      persistValue: dateMs,
+      printParam: { label: "Time Travel", value: "date" },
+      restore: vi.fn(),
+      reset: vi.fn(),
+    });
+    vi.mocked(useSavedReport).mockReturnValue({
+      savedReport: null,
+      savedReportName: null,
+      saveDialogOpen: false,
+      setSaveDialogOpen: vi.fn(),
+      loadedConfig: null,
+      consumeConfig: vi
+        .fn()
+        .mockReturnValue({ view: "chart", chartMode: "c4", center: "crm", ...cfg }),
+      resetSavedReport: vi.fn(),
+      persistConfig: vi.fn(),
+      resetAll: vi.fn(),
+      reportType: "dependencies",
+    } as unknown as ReturnType<typeof useSavedReport>);
+    return renderReport();
+  }
+  async function ldvAt(dateMs: number, cfg: Parameters<typeof renderChart>[1] = {}) {
+    renderChart(dateMs, cfg);
+    await screen.findByTestId("ldv");
+    await waitFor(() => expect(ldvCards().erp).toBeDefined());
+  }
+
+  describe("Layered Dependency View", () => {
+    it("hides a card reached only by a planned relation, and ghosts one reached only by an ended one while retired cards are kept", async () => {
+      // Defaults: keep retired ON, preview planned OFF.
+      await ldvAt(FUTURE);
+      expect(ldvCards()).toEqual({
+        crm: "present",
+        billing: "retired",
+        erp: "present",
+        ops: "present",
+      });
+      // The line to the kept card keeps its own faded state.
+      expect(drawn()).toEqual(["billing:ended", "crm:inEffect", "crm:inEffect", "ops:inEffect"]);
+    });
+
+    it("hides both with both toggles off", async () => {
+      await ldvAt(FUTURE, { persistRetired: false, previewPlanned: false });
+      expect(ldvCards()).toEqual({ crm: "present", erp: "present", ops: "present" });
+      expect(drawn()).toEqual(["crm:inEffect", "crm:inEffect", "ops:inEffect"]);
+    });
+
+    it("shows a card reached only by planned relations as an UPCOMING card when planned cards are previewed", async () => {
+      await ldvAt(FUTURE, { persistRetired: false, previewPlanned: true });
+      expect(ldvCards()).toEqual({
+        crm: "present",
+        portal: "planned",
+        hr: "planned",
+        erp: "present",
+        ops: "present",
+      });
+      expect(drawn()).toContain("portal:planned");
+    });
+
+    it("previewing follows the switch itself", async () => {
+      await ldvAt(FUTURE, { persistRetired: false });
+      expect(ldvCards().portal).toBeUndefined();
+      await userEvent.click(screen.getByRole("checkbox", { name: /Show cards that have not started/ }));
+      await waitFor(() => expect(ldvCards().portal).toBe("planned"));
+    });
+
+    it("draws the card plainly once its relation is in effect, arriving at a date after today", async () => {
+      await ldvAt(ms("2029-06-01"), { persistRetired: false });
+      expect(ldvCards().portal).toBe("arriving");
+      // The ops card was already in the view today: no accent.
+      expect(ldvCards().ops).toBe("present");
+    });
+
+    it("keeps a card reached by an undated relation present at every date, with every toggle", async () => {
+      for (const date of [ms("2000-01-01"), FUTURE, ms("2099-01-01")])
+        for (const persistRetired of [true, false])
+          for (const previewPlanned of [true, false]) {
+            ldvProps.length = 0;
+            const r = renderChart(date, { persistRetired, previewPlanned });
+            await screen.findByTestId("ldv");
+            await waitFor(() => expect(ldvCards().erp).toBe("present"));
+            r.unmount();
+          }
+    });
+
+    it("never shows a card whose only relation has Plan / Phase In and no Active date, however far ahead", async () => {
+      for (const date of [TODAY, ms("2099-01-01")]) {
+        ldvProps.length = 0;
+        const r = renderChart(date, { persistRetired: true, previewPlanned: false });
+        await screen.findByTestId("ldv");
+        await waitFor(() => expect(ldvCards().erp).toBe("present"));
+        expect(ldvCards().hr).toBeUndefined();
+        r.unmount();
+        ldvProps.length = 0;
+        const p = renderChart(date, { persistRetired: false, previewPlanned: true });
+        await screen.findByTestId("ldv");
+        await waitFor(() => expect(ldvCards().hr).toBe("planned"));
+        p.unmount();
+      }
+    });
+
+    it("treats the relation's End of Life as inclusive: present the day before, gone on it and after", async () => {
+      const off = { persistRetired: false, previewPlanned: false };
+      let r = renderChart(EOL - 86_400_000, off);
+      await screen.findByTestId("ldv");
+      await waitFor(() => expect(ldvCards().billing).toBe("present"));
+      r.unmount();
+      for (const date of [EOL, EOL + 86_400_000]) {
+        ldvProps.length = 0;
+        r = renderChart(date, off);
+        await screen.findByTestId("ldv");
+        await waitFor(() => expect(ldvCards().erp).toBe("present"));
+        expect(ldvCards().billing).toBeUndefined();
+        r.unmount();
+      }
+    });
+
+    it("(a) keeps it ghosted as a RETIRED card on and after its End of Life with keep retired on", async () => {
+      for (const date of [EOL, EOL + 86_400_000]) {
+        ldvProps.length = 0;
+        const r = renderChart(date, { persistRetired: true });
+        await screen.findByTestId("ldv");
+        await waitFor(() => expect(ldvCards().billing).toBe("retired"));
+        r.unmount();
+      }
+    });
+
+    it("(b) keeps it ghosted while the slider stands on the mark where its relation ends, then lets it go", async () => {
+      renderChart(EOL, { persistRetired: false });
+      await screen.findByTestId("ldv");
+      await waitFor(() => expect(ldvCards().erp).toBe("present"));
+      expect(ldvCards().billing).toBeUndefined();
+      standOn(EOL);
+      await waitFor(() => expect(ldvCards().billing).toBe("retired"));
+      expect(drawn()).toContain("billing:ended");
+      // The centre loses the connection; the leaving card carries no mark.
+      expect(ldvNode("crm")?.lostLink).toBe(true);
+      expect(ldvNode("billing")?.lostLink).toBeUndefined();
+      standOn(null);
+      await waitFor(() => expect(ldvCards().billing).toBeUndefined());
+    });
+  });
+
+  describe("timeline marks", () => {
+    type Pill = { id: string; kind: string };
+    const pills = (d: number) =>
+      (sliderProps.at(-1)?.milestoneCards?.(d, d) ?? []).map((c: Pill) => ({ id: c.id, kind: c.kind }));
+    const marks = () =>
+      sliderProps.at(-1)?.milestones as
+        | { value: number; activating: number; disappearing: number; linking?: number; unlinking?: number }[]
+        | undefined;
+
+    it("makes a relation that brings a card in or takes it out a card arriving or leaving", async () => {
+      await ldvAt(FUTURE);
+      expect(marks()).toContainEqual({
+        value: ms("2029-01-01"),
+        activating: 1,
+        disappearing: 0,
+        linking: 0,
+        unlinking: 0,
+      });
+      expect(marks()).toContainEqual({
+        value: EOL,
+        activating: 0,
+        disappearing: 1,
+        linking: 0,
+        unlinking: 0,
+      });
+      expect(pills(ms("2029-01-01"))).toEqual([{ id: "portal", kind: "activating" }]);
+      expect(pills(EOL)).toEqual([{ id: "billing", kind: "disappearing" }]);
+    });
+
+    it("counts a link between two cards that both stay as a connection, naming no card", async () => {
+      await ldvAt(FUTURE);
+      expect(marks()).toContainEqual({
+        value: ms("2028-01-01"),
+        activating: 0,
+        disappearing: 0,
+        linking: 1,
+        unlinking: 0,
+      });
+      expect(pills(ms("2028-01-01"))).toEqual([]);
+    });
+
+    it("marks nothing for a relation with Plan / Phase In and no Active date", async () => {
+      await ldvAt(FUTURE);
+      const dates = (marks() ?? []).map((m) => m.value);
+      expect(dates).not.toContain(ms("2025-01-01"));
+      expect(dates).not.toContain(ms("2026-01-01"));
+    });
+
+    it("counts cards a relation brings in or takes out in the transformation chips", async () => {
+      await ldvAt(ms("2029-06-01"));
+      const delta = () => (sliderProps.at(-1) as { delta?: unknown }).delta;
+      // Web Portal arrives with its relation in 2029; Billing leaves with its
+      // relation's end in 2027. HR Suite's relation never starts.
+      expect(delta()).toEqual({ arriving: 1, retiring: 1 });
+    });
+
+    it("counts a card that enters and leaves inside the window once, as leaving", async () => {
+      renderChart(FUTURE, {}, {
+        nodes: [DATED_GRAPH.nodes[0], { id: "temp", name: "Temp App", type: "Application" }],
+        edges: [
+          {
+            source: "crm",
+            target: "temp",
+            type: "app_to_app",
+            label: "uses",
+            lifecycle: { active: "2027-01-01", endOfLife: "2028-01-01" },
+          },
+        ],
+      });
+      await screen.findByTestId("ldv");
+      await waitFor(() => expect(ldvCards().temp).toBe("retired"));
+      expect((sliderProps.at(-1) as { delta?: unknown }).delta).toEqual({ arriving: 0, retiring: 1 });
+      expect(pills(ms("2027-01-01"))).toEqual([{ id: "temp", kind: "activating" }]);
+      expect(pills(ms("2028-01-01"))).toEqual([{ id: "temp", kind: "disappearing" }]);
+    });
+
+    it("gives the connection icon to the card that stays, never to the card arriving", async () => {
+      await ldvAt(ms("2029-01-01"), { persistRetired: false });
+      standOn(ms("2029-01-01"));
+      await waitFor(() => expect(ldvNode("crm")?.gainedLink).toBe(true));
+      expect(ldvNode("portal")?.gainedLink).toBeUndefined();
+      expect(ldvNode("ops")?.gainedLink).toBeUndefined();
+    });
+
+    it("gives both cards the icon when a link starts between two cards that stay", async () => {
+      await ldvAt(ms("2028-01-01"));
+      standOn(ms("2028-01-01"));
+      await waitFor(() => expect(ldvNode("ops")?.gainedLink).toBe(true));
+      expect(ldvNode("crm")?.gainedLink).toBe(true);
+      expect(ldvNode("erp")?.gainedLink).toBeUndefined();
+    });
+  });
+
+  describe("tree mode", () => {
+    /** The tree card carrying `name`, or null when the tree does not draw it. */
+    const treeCard = (name: string) =>
+      (screen.queryAllByText(name)[0]?.closest(".MuiPaper-root") as HTMLElement | null) ?? null;
+    async function treeAt(dateMs: number, cfg: Parameters<typeof renderChart>[1] = {}) {
+      const r = renderChart(dateMs, { chartMode: "tree", ...cfg });
+      await screen.findByRole("button", { name: /Collapse all branches/i });
+      await waitFor(() => expect(treeCard("ERP Core")).not.toBeNull());
+      return r;
+    }
+
+    it("hides a card reached only by relations not in effect, with both toggles off", async () => {
+      await treeAt(FUTURE, { persistRetired: false, previewPlanned: false });
+      expect(treeCard("Web Portal")).toBeNull();
+      expect(treeCard("Billing")).toBeNull();
+      expect(treeCard("HR Suite")).toBeNull();
+      expect(treeCard("Ops Desk")).not.toBeNull();
+    });
+
+    it("ghosts them as RETIRED / UPCOMING cards when the toggles keep them", async () => {
+      await treeAt(FUTURE, { persistRetired: true, previewPlanned: true });
+      expect(treeCard("Billing")?.textContent).toContain("RETIRED");
+      expect(treeCard("Web Portal")?.textContent).toContain("UPCOMING");
+      expect(treeCard("HR Suite")?.textContent).toContain("UPCOMING");
+      expect(treeCard("ERP Core")?.textContent).not.toMatch(/RETIRED|UPCOMING/);
+    });
+
+    it("outlines a card whose path comes into effect after today as arriving", async () => {
+      // Web Portal's relation starts 2029-01-01: not in effect today, in effect
+      // at the viewed date — drawn plainly, in the arriving outline.
+      await treeAt(ms("2029-06-01"), { persistRetired: false, previewPlanned: false });
+      const portal = getComputedStyle(treeCard("Web Portal")!);
+      expect(portal.borderTop).toBe("1.5px solid rgb(124, 77, 255)");
+      expect(treeCard("Web Portal")?.textContent).not.toMatch(/RETIRED|UPCOMING/);
+      // ERP Core has been reached all along: no outline.
+      expect(getComputedStyle(treeCard("ERP Core")!).borderTop).not.toContain("rgb(124, 77, 255)");
+    });
+
+    it("keeps only the retired one with keep retired alone", async () => {
+      await treeAt(FUTURE, { persistRetired: true, previewPlanned: false });
+      expect(treeCard("Billing")?.textContent).toContain("RETIRED");
+      expect(treeCard("Web Portal")).toBeNull();
+    });
+
+    it("treats the relation's End of Life as inclusive, and keeps the card while standing on its mark", async () => {
+      const off = { persistRetired: false, previewPlanned: false };
+      let r = await treeAt(EOL - 86_400_000, off);
+      expect(treeCard("Billing")?.textContent).not.toContain("RETIRED");
+      r.unmount();
+      r = await treeAt(EOL + 86_400_000, off);
+      expect(treeCard("Billing")).toBeNull();
+      r.unmount();
+      await treeAt(EOL, off);
+      expect(treeCard("Billing")).toBeNull();
+      standOn(EOL);
+      await waitFor(() => expect(treeCard("Billing")?.textContent).toContain("RETIRED"));
+    });
+  });
+});

@@ -86,6 +86,7 @@ from app.services.lifecycle import (
     PHASE_CHRONOLOGICAL,
     current_lifecycle_phase,
     is_live_in_fiscal_year,
+    lifecycle_in_effect_sql,
     parse_lifecycle_date,
 )
 from app.services.ppm_fiscal_costs import EMPTY as EMPTY_FISCAL_COSTS
@@ -947,7 +948,7 @@ def _visible(card: Any, resolved: ResolvedQuery, read_scope: CardReadScope) -> l
     return clauses
 
 
-def _side_columns(side: RelationSide, relation: Any = Relation) -> tuple[Any, Any]:
+def _side_columns(side: RelationSide, relation: Any) -> tuple[Any, Any]:
     """``(the counted card's end, the other end)`` of a relation row —
     ``relation`` being ``Relation`` or an ``aliased(Relation)``."""
     if side.card_is_source:
@@ -955,48 +956,79 @@ def _side_columns(side: RelationSide, relation: Any = Relation) -> tuple[Any, An
     return relation.target_id, relation.source_id
 
 
-def relation_join(statement: Any, near_card: Any, side: RelationSide, other: Any) -> Any:
+def relation_join(
+    statement: Any, near_card: Any, side: RelationSide, other: Any, *, today: date | None = None
+) -> Any:
     """``statement`` joined from ``near_card`` through a relation on ``side``
     (a fresh ``aliased(Relation)``, keyed by relation type, never by card-type
-    pair) to ``other`` (a fresh ``aliased(Card)``): one row per relation.
+    pair) to ``other`` (a fresh ``aliased(Card)``): one row per relation in
+    effect on ``today`` (default: today, UTC — ``lifecycle_in_effect_sql``).
     The join twin of ``relation_exists``, for a caller that needs the far
     card itself rather than its existence (``card_query_matches``)."""
     relation = aliased(Relation)
     mine, theirs = _side_columns(side, relation)
     return statement.join(
-        relation, and_(relation.type == side.relation_type, mine == near_card.id)
+        relation,
+        and_(
+            relation.type == side.relation_type,
+            mine == near_card.id,
+            lifecycle_in_effect_sql(relation, today=today),
+        ),
     ).join(other, other.id == theirs)
 
 
-def relation_exists(near_card: Any, side: RelationSide, other: Any, *conditions: Any) -> Any:
-    """``EXISTS`` a relation on ``side`` from ``near_card`` whose far end is
-    ``other`` (a fresh ``aliased(Card)``) meeting ``conditions`` — correlated
-    to ``near_card``. The one builder behind the dashboards' relation flags and
-    the multi-hop card query's hops (``card_query``)."""
-    mine, theirs = _side_columns(side)
+def relation_exists(
+    near_card: Any,
+    side: RelationSide,
+    other: Any,
+    *conditions: Any,
+    today: date | None = None,
+) -> Any:
+    """``EXISTS`` a relation in effect on ``today`` (default: today, UTC) on
+    ``side`` from ``near_card`` whose far end is ``other`` (a fresh
+    ``aliased(Card)``) meeting ``conditions`` — correlated to ``near_card``.
+    The one builder behind the dashboards' relation flags and the multi-hop
+    card query's hops (``card_query``). A planned or ended relation relates
+    nothing (``lifecycle_in_effect_sql``)."""
+    mine, theirs = _side_columns(side, Relation)
     return exists(
         select(Relation.id)
         .select_from(Relation)
         .join(other, other.id == theirs)
-        .where(Relation.type == side.relation_type, mine == near_card.id, *conditions)
+        .where(
+            Relation.type == side.relation_type,
+            mine == near_card.id,
+            lifecycle_in_effect_sql(Relation, today=today),
+            *conditions,
+        )
     )
 
 
 def _related_exists(
-    card: Any, side: RelationSide, resolved: ResolvedQuery, read_scope: CardReadScope
+    card: Any,
+    side: RelationSide,
+    resolved: ResolvedQuery,
+    read_scope: CardReadScope,
+    *,
+    today: date | None = None,
 ) -> Any:
-    """``card`` has a relation on ``side`` whose other end is visible."""
+    """``card`` has a relation in effect on ``today`` on ``side`` whose other
+    end is visible."""
     other = aliased(Card)
-    return relation_exists(card, side, other, *_visible(other, resolved, read_scope))
+    return relation_exists(card, side, other, *_visible(other, resolved, read_scope), today=today)
 
 
-def flag_conditions(card: Any, resolved: ResolvedQuery, read_scope: CardReadScope) -> list[Any]:
+def flag_conditions(
+    card: Any, resolved: ResolvedQuery, read_scope: CardReadScope, *, today: date | None = None
+) -> list[Any]:
     """One SQL condition per flag — the ``card_flags`` definitions, so a flag
-    reads exactly what the inventory filter and the Data Quality report do."""
+    reads exactly what the inventory filter and the Data Quality report do.
+    ``today`` is the query's own day (default: today, UTC): the relation flags
+    and the orphaned flag count only relations in effect on it."""
     clauses: list[Any] = []
     for flag in flag_list(resolved.query.flags):
         if flag == "orphaned":
-            clauses.append(orphaned_condition(card=card))
+            clauses.append(orphaned_condition(card=card, today=today))
         elif flag == "stale":
             clauses.append(stale_condition(card=card))
         elif flag in STAKEHOLDER_FLAGS:
@@ -1007,19 +1039,23 @@ def flag_conditions(card: Any, resolved: ResolvedQuery, read_scope: CardReadScop
             )
         else:
             present, spec = relation_flag(flag)  # type: ignore[misc]
-            condition = _related_exists(card, resolved.sides[spec], resolved, read_scope)
+            condition = _related_exists(
+                card, resolved.sides[spec], resolved, read_scope, today=today
+            )
             clauses.append(condition if present else not_(condition))
     return clauses
 
 
-def _live(card: Any, resolved: ResolvedQuery, read_scope: CardReadScope) -> list[Any]:
+def _live(
+    card: Any, resolved: ResolvedQuery, read_scope: CardReadScope, *, today: date | None = None
+) -> list[Any]:
     """ACTIVE, of a visible type, readable by the caller, matching the filters
     (both ends of a sankey: the approval status and the flags hold for each)."""
     q = resolved.query
     clauses = _visible(card, resolved, read_scope)
     if q.approval_status:
         clauses.append(card.approval_status == q.approval_status)
-    clauses.extend(flag_conditions(card, resolved, read_scope))
+    clauses.extend(flag_conditions(card, resolved, read_scope, today=today))
     return clauses
 
 
@@ -1092,15 +1128,18 @@ def sql_dimension_key(dimension: str, raw: Any, months: Sequence[str]) -> str | 
     return value_key(raw)
 
 
-def grouped_statement(resolved: ResolvedQuery, read_scope: CardReadScope) -> Any:
-    """``SELECT dim…, COUNT(cards.id) … GROUP BY dim…`` for the fast path."""
+def grouped_statement(
+    resolved: ResolvedQuery, read_scope: CardReadScope, *, today: date | None = None
+) -> Any:
+    """``SELECT dim…, COUNT(cards.id) … GROUP BY dim…`` for the fast path,
+    with the flags read on ``today`` (the query's own day)."""
     q = resolved.query
     dims = [
         _sql_dimension(d, Card, resolved.eol_types).label(f"dim_{i}")
         for i, d in enumerate((q.group_by, q.group_by_2))
         if d is not None
     ]
-    stmt = select(*dims, func.count(Card.id)).where(*_live(Card, resolved, read_scope))
+    stmt = select(*dims, func.count(Card.id)).where(*_live(Card, resolved, read_scope, today=today))
     if q.card_type:
         stmt = stmt.where(Card.type == q.card_type)
     if q.subtype:
@@ -1137,7 +1176,8 @@ async def _grouped_records(
 ) -> Records:
     dim_1, dim_2 = resolved.query.group_by, resolved.query.group_by_2
     records: list[tuple[Any, ...]] = []
-    for row in (await db.execute(grouped_statement(resolved, read_scope))).all():
+    statement = grouped_statement(resolved, read_scope, today=window.today)
+    for row in (await db.execute(statement)).all():
         *raws, count = row
         key_1 = sql_dimension_key(dim_1, raws[0], window.months) if dim_1 else None
         key_2 = sql_dimension_key(dim_2, raws[1], window.months) if dim_2 else None
@@ -1169,8 +1209,9 @@ async def _sankey_records(
         .join(tgt, Relation.target_id == tgt.id)
         .where(
             Relation.type == relation.key,
-            *_live(src, resolved, read_scope),
-            *_live(tgt, resolved, read_scope),
+            lifecycle_in_effect_sql(Relation, today=window.today),
+            *_live(src, resolved, read_scope, today=window.today),
+            *_live(tgt, resolved, read_scope, today=window.today),
         )
     )
     out = Records([])
@@ -1202,12 +1243,19 @@ async def _sankey_records(
     return out
 
 
-def _related_pairs(side: RelationSide, resolved: ResolvedQuery, read_scope: CardReadScope) -> Any:
-    """``(card_id, other_id, other_name)`` for every relation on ``side``
-    whose other end is visible — outer-joined, so a card with none keeps a
-    ``NULL`` (the ``none`` key) and a hidden related card is simply absent."""
+def _related_pairs(
+    side: RelationSide,
+    resolved: ResolvedQuery,
+    read_scope: CardReadScope,
+    *,
+    today: date | None = None,
+) -> Any:
+    """``(card_id, other_id, other_name)`` for every relation in effect on
+    ``today`` (default: today, UTC) on ``side`` whose other end is visible —
+    outer-joined, so a card with none keeps a ``NULL`` (the ``none`` key) and a
+    hidden related card is simply absent."""
     other = aliased(Card)
-    mine, theirs = _side_columns(side)
+    mine, theirs = _side_columns(side, Relation)
     return (
         select(
             mine.label("card_id"),
@@ -1216,12 +1264,18 @@ def _related_pairs(side: RelationSide, resolved: ResolvedQuery, read_scope: Card
         )
         .select_from(Relation)
         .join(other, other.id == theirs)
-        .where(Relation.type == side.relation_type, *_visible(other, resolved, read_scope))
+        .where(
+            Relation.type == side.relation_type,
+            lifecycle_in_effect_sql(Relation, today=today),
+            *_visible(other, resolved, read_scope),
+        )
         .subquery()
     )
 
 
-def _measure_column(resolved: ResolvedQuery, read_scope: CardReadScope) -> Any:
+def _measure_column(
+    resolved: ResolvedQuery, read_scope: CardReadScope, *, today: date | None = None
+) -> Any:
     """What a sum / average reads for one card: a field, or a ``@`` measure."""
     field_key = resolved.query.metric_field
     if not field_key:
@@ -1233,13 +1287,14 @@ def _measure_column(resolved: ResolvedQuery, read_scope: CardReadScope) -> Any:
     spec = relations_measure_spec(field_key)
     if spec is not None:
         other = aliased(Card)
-        mine, theirs = _side_columns(resolved.sides[spec])
+        mine, theirs = _side_columns(resolved.sides[spec], Relation)
         return (
             select(func.count(Relation.id))
             .join(other, other.id == theirs)
             .where(
                 Relation.type == resolved.sides[spec].relation_type,
                 mine == Card.id,
+                lifecycle_in_effect_sql(Relation, today=today),
                 *_visible(other, resolved, read_scope),
             )
             .scalar_subquery()
@@ -1274,7 +1329,7 @@ async def _card_records(
     for dimension in dims:
         spec = related_spec(dimension)
         if spec is not None:
-            pairs = _related_pairs(resolved.sides[spec], resolved, read_scope)
+            pairs = _related_pairs(resolved.sides[spec], resolved, read_scope, today=window.today)
             joins.append(pairs)
             columns.append(pairs.c.other_id)
             names.append(pairs.c.other_name)
@@ -1284,13 +1339,13 @@ async def _card_records(
     stmt = select(
         Card.id,
         *columns,
-        _measure_column(resolved, read_scope),
+        _measure_column(resolved, read_scope, today=window.today),
         Card.lifecycle,
         *names,
     ).select_from(Card)
     for pairs in joins:
         stmt = stmt.outerjoin(pairs, pairs.c.card_id == Card.id)
-    stmt = stmt.where(*_live(Card, resolved, read_scope))
+    stmt = stmt.where(*_live(Card, resolved, read_scope, today=window.today))
     if q.card_type:
         stmt = stmt.where(Card.type == q.card_type)
     if q.subtype:

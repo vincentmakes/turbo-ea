@@ -267,3 +267,150 @@ describe("RelationTypesPanel — delete confirmation", () => {
     expect(api.get).toHaveBeenCalledWith("/metamodel/relation-types/relOrgToApp/instance-count");
   });
 });
+
+describe("RelationTypesPanel — Track lifecycle", () => {
+  // The switch decides only whether card detail offers the date editor on
+  // relations of the type. It sits in both dialogs and works on a built-in
+  // type like any other.
+  const TRACKED = {
+    ...(ORG_TO_APP as unknown as Record<string, unknown>),
+    lifecycle_enabled: true,
+  } as never;
+
+  it("is off by default when creating, explained, and sent when turned on", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post).mockResolvedValue({} as never);
+    const onRefresh = renderPanel({ scopeTypeKey: "Organization" });
+    await user.click(screen.getByRole("button", { name: /new relation/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    const toggle = within(dialog).getByRole("checkbox", { name: "Track lifecycle" });
+    expect(toggle).not.toBeChecked();
+    expect(toggle).toHaveAccessibleDescription(
+      "Gives each relation of this type its own lifecycle — the same phases as a card — so it can be planned, active or ended independently of the cards it connects.",
+    );
+
+    // Pick the target and verb so Create enables.
+    const selects = within(dialog).getAllByRole("combobox");
+    await user.click(selects[1]);
+    await user.click(await screen.findByRole("option", { name: /Application/ }));
+    await user.type(within(dialog).getByRole("textbox", { name: /^Label/ }), "runs");
+    await user.click(toggle);
+    expect(toggle).toBeChecked();
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(api.post).toHaveBeenCalledWith(
+      "/metamodel/relation-types",
+      expect.objectContaining({
+        lifecycle_enabled: true,
+        source_type_key: "Organization",
+        target_type_key: "Application",
+        label: "runs",
+        reverse_label: "",
+        cardinality: "1:n",
+      }),
+    );
+    expect(onRefresh).toHaveBeenCalled();
+  });
+
+  it("sends false on create when left off", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post).mockResolvedValue({} as never);
+    renderPanel({ scopeTypeKey: "Organization" });
+    await user.click(screen.getByRole("button", { name: /new relation/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: /Application/ }));
+    await user.type(within(dialog).getByRole("textbox", { name: /^Label/ }), "runs");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        "/metamodel/relation-types",
+        expect.objectContaining({ lifecycle_enabled: false }),
+      ),
+    );
+  });
+
+  it("reflects the stored value on edit of a built-in type and sends the toggled one", async () => {
+    const user = userEvent.setup();
+    renderPanel({ scopeTypeKey: "Organization", relationTypes: [TRACKED, ORG_TO_ORG] });
+
+    await user.click(within(rowFor("uses")).getByRole("button", { name: /^edit$/i }));
+    const dialog = await screen.findByRole("dialog");
+    const toggle = within(dialog).getByRole("checkbox", { name: "Track lifecycle" });
+    expect(toggle).toBeChecked();
+
+    await user.click(toggle);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith(
+        "/metamodel/relation-types/relOrgToApp",
+        expect.objectContaining({ lifecycle_enabled: false }),
+      ),
+    );
+  });
+
+  it("sends true on edit when an untracked type is switched on", async () => {
+    const user = userEvent.setup();
+    renderPanel({ scopeTypeKey: "Organization" });
+    await user.click(within(rowFor("has site")).getByRole("button", { name: /^edit$/i }));
+    const dialog = await screen.findByRole("dialog");
+    const toggle = within(dialog).getByRole("checkbox", { name: "Track lifecycle" });
+    // Absent on the stored type reads as off.
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith(
+        "/metamodel/relation-types/relOrgToOrg",
+        expect.objectContaining({ lifecycle_enabled: true }),
+      ),
+    );
+  });
+});
+
+describe("RelationTypesPanel — Lifecycle chip", () => {
+  // The list says which relation types track lifecycle without opening the
+  // edit dialog: a chip on the tracked ones, nothing on the others.
+  const HINT =
+    "Gives each relation of this type its own lifecycle — the same phases as a card — so it can be planned, active or ended independently of the cards it connects.";
+  const TRACKED = {
+    ...(ORG_TO_APP as unknown as Record<string, unknown>),
+    lifecycle_enabled: true,
+  } as never;
+  const UNTRACKED = {
+    ...(ORG_TO_ORG as unknown as Record<string, unknown>),
+    lifecycle_enabled: false,
+  } as never;
+
+  it("marks a tracked type in the Relations tab, and not one without the flag", async () => {
+    // ORG_TO_ORG carries no lifecycle_enabled at all: absent reads as off.
+    renderPanel({ relationTypes: [TRACKED, ORG_TO_ORG] });
+    const chips = await screen.findAllByText("Lifecycle");
+    expect(chips).toHaveLength(1);
+    expect(rowFor("uses")).toContainElement(chips[0]);
+    expect(within(rowFor("has site")).queryByText("Lifecycle")).not.toBeInTheDocument();
+  });
+
+  it("marks a tracked type in a card type's list, and not one switched off", async () => {
+    renderPanel({ scopeTypeKey: "Organization", relationTypes: [TRACKED, UNTRACKED] });
+    const chips = await screen.findAllByText("Lifecycle");
+    expect(chips).toHaveLength(1);
+    expect(rowFor("uses")).toContainElement(chips[0]);
+    expect(within(rowFor("has site")).queryByText("Lifecycle")).not.toBeInTheDocument();
+  });
+
+  it("shows no chip when no relation type tracks lifecycle", async () => {
+    renderPanel({ relationTypes: [ORG_TO_APP, UNTRACKED] });
+    expect(await screen.findByText("uses")).toBeInTheDocument();
+    expect(screen.queryByText("Lifecycle")).not.toBeInTheDocument();
+  });
+
+  it("explains itself with the switch's helper text", async () => {
+    const user = userEvent.setup();
+    renderPanel({ relationTypes: [TRACKED] });
+    await user.hover(await screen.findByText("Lifecycle"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(HINT);
+  });
+});

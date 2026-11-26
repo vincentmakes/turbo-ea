@@ -14103,6 +14103,27 @@
             ],
             "title": "Description"
           },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
+          },
           "row_index": {
             "title": "Row Index",
             "type": "integer"
@@ -14257,6 +14278,27 @@
             ],
             "title": "Description"
           },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
+          },
           "source_id": {
             "title": "Source Id",
             "type": "string"
@@ -14373,6 +14415,11 @@
             "title": "Id",
             "type": "string"
           },
+          "lifecycle": {
+            "additionalProperties": true,
+            "title": "Lifecycle",
+            "type": "object"
+          },
           "source": {
             "anyOf": [
               {
@@ -14439,6 +14486,27 @@
               }
             ],
             "title": "Description"
+          },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
           }
         },
         "title": "RelationUpdate",
@@ -40137,7 +40205,7 @@
     },
     "/api/v1/reports/dependencies": {
       "get": {
-        "description": "Dependency / interface map: nodes + edges for graph rendering.",
+        "description": "Dependency / interface map: nodes + edges for graph rendering.\n\nEvery relation is returned by default, each edge carrying its own\n``lifecycle`` when it has dates (absent means always in effect), so the\nreport can decide what a relation does at the date it travels to. With\n``in_effect_only`` the graph is the landscape today \u2014 what an impact\nanalysis asks about \u2014 and the BFS never walks a planned or ended relation.",
         "operationId": "dependencies_api_v1_reports_dependencies_get",
         "parameters": [
           {
@@ -40182,6 +40250,18 @@
                 }
               ],
               "title": "Type"
+            }
+          },
+          {
+            "description": "Drop relations not in effect today by their own lifecycle dates. Off by default: the Dependencies report travels in time and filters each edge at the travelled date from its `lifecycle`.",
+            "in": "query",
+            "name": "in_effect_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Drop relations not in effect today by their own lifecycle dates. Off by default: the Dependencies report travels in time and filters each edge at the travelled date from its `lifecycle`.",
+              "title": "In Effect Only",
+              "type": "boolean"
             }
           }
         ],

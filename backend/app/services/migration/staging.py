@@ -457,6 +457,7 @@ async def stage_relations(
                         "native_type": rel.type,
                         "tea_type": tea_type,
                         "attributes": rel.attributes,
+                        "lifecycle": rel.lifecycle,
                     },
                     action="conflict",
                     diff={"reason": "Endpoint not staged: " + ", ".join(missing)},
@@ -486,9 +487,16 @@ async def stage_relations(
         else:
             target_id = existing_rel.id
             attr_diff = _compare_relation_attrs(rel.attributes, existing_rel.attributes or {})
-            if attr_diff:
+            lifecycle_diff = _compare_relation_lifecycle(
+                rel.lifecycle, existing_rel.lifecycle or {}
+            )
+            if attr_diff or lifecycle_diff:
                 action = "update"
-                diff = {"attributes": attr_diff}
+                diff = {}
+                if attr_diff:
+                    diff["attributes"] = attr_diff
+                if lifecycle_diff:
+                    diff["lifecycle"] = lifecycle_diff
                 stats["update"] += 1
             else:
                 action = "skip"
@@ -507,6 +515,7 @@ async def stage_relations(
                     "from_entity_id": src_native_id,
                     "to_entity_id": tgt_native_id,
                     "attributes": rel.attributes,
+                    "lifecycle": rel.lifecycle,
                     # Resolved endpoint UUIDs are cached on the staged
                     # row so the apply pass doesn't have to redo the
                     # identity lookup.
@@ -566,6 +575,18 @@ def _compare_relation_attrs(
         if old_attrs.get(k) != v:
             out[k] = {"old": old_attrs.get(k), "new": v}
     return out
+
+
+def _compare_relation_lifecycle(
+    new_lifecycle: dict[str, str], old_lifecycle: dict[str, Any]
+) -> dict[str, dict[str, Any]] | None:
+    """``{"old", "new"}`` when the source's relation dates would change the
+    stored ones, else ``None``. A source carrying no dates says nothing about
+    them, so it never clears a lifecycle already on the relation (the apply
+    pass replaces one only when the source sends one)."""
+    if not new_lifecycle or new_lifecycle == old_lifecycle:
+        return None
+    return {"old": old_lifecycle, "new": new_lifecycle}
 
 
 # ---------------------------------------------------------------------------

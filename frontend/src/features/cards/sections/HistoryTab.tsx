@@ -22,6 +22,7 @@ import type { EventEntry, FieldDef } from "@/types";
 import {
   NO_VALUE,
   attributeLabels,
+  changesDescribeRelation,
   eventDetailModel,
   eventMeta,
   eventSurvey,
@@ -202,12 +203,16 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
       {events.map((e) => {
         const meta = eventMeta(e.event_type, t);
         const changes = e.data?.changes as Record<string, unknown> | undefined;
+        const aboutRelation = changesDescribeRelation(e.event_type);
         const rows = changes
           ? parseChanges(changes, {
               fields: fieldLabelsFor(e.event_type, fieldLabels, resourceLabels),
               phases: phaseLabels,
               attributes: attrLabels,
               statuses: statusLabels,
+              ...(aboutRelation
+                ? { ownedPhase: (phase: string) => t("history.relationPhase", { phase }) }
+                : null),
             })
           : [];
         const summary = typeof e.data?.summary === "string" ? (e.data.summary as string) : null;
@@ -254,7 +259,9 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
                   (relations, stakeholders, risks, documents, files). Renders
                   clickable peer cards for relations, links to the risk page
                   for risk events, etc. Falls back to plain summary text. */}
-              {rows.length === 0 && (
+              {/* A relation event keeps its line above its rows: the rows are
+                  the relation's attributes and dates, not the card's. */}
+              {(rows.length === 0 || aboutRelation) && (
                 <EventDetailView
                   detail={eventDetailModel(e.event_type, e.data, summary)}
                   typeIconFor={typeIconFor}

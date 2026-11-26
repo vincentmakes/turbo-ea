@@ -320,6 +320,75 @@ describe("TimelineSlider step-through", () => {
     expect(bar(marks[1]).backgroundColor).toBe("rgb(244, 67, 54)");
   });
 
+  it("describes and colours a mark where relations start or end", () => {
+    // A relation's own dates mark the track as connections, not cards: blue
+    // where one starts, red where one ends, purple where both happen — counted
+    // with the cards when merged.
+    const SECOND = GO_LIVE + 3 * 86_400_000;
+    const bar = (el: Element) => getComputedStyle(el.firstElementChild!);
+    const { unmount } = render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={[
+          { value: GO_LIVE, activating: 0, disappearing: 0, linking: 2, unlinking: 0 },
+          { value: RETIRE, activating: 0, disappearing: 0, linking: 0, unlinking: 1 },
+        ]}
+      />,
+    );
+    const [starts, ends] = screen.getAllByRole("button", { name: /Jump to this change/i });
+    expect(starts).toHaveAccessibleName(/— 2 relations start\./);
+    expect(bar(starts).backgroundColor).toBe("rgb(1, 119, 255)");
+    expect(ends).toHaveAccessibleName(/— 1 relation ends\./);
+    expect(bar(ends).backgroundColor).toBe("rgb(244, 67, 54)");
+    unmount();
+
+    render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={[
+          { value: GO_LIVE, activating: 1, disappearing: 0, linking: 0, unlinking: 0 },
+          { value: SECOND, activating: 0, disappearing: 0, linking: 1, unlinking: 1 },
+        ]}
+      />,
+    );
+    const merged = screen.getByRole("button", { name: /Jump to this change/i });
+    expect(merged).toHaveAccessibleName(
+      /1 card goes live · 1 relation starts · 1 relation ends\./,
+    );
+    expect(bar(merged).backgroundColor).toBe("rgb(156, 39, 176)");
+  });
+
+  it("counts relations merged into a mark that had no relation counts", () => {
+    // A caller may pass card-only milestones beside relation ones; merging
+    // them must start the relation counts at zero, not lose them.
+    const SECOND = GO_LIVE + 3 * 86_400_000;
+    render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={[
+          { value: GO_LIVE, activating: 1, disappearing: 0 },
+          { value: SECOND, activating: 0, disappearing: 0, linking: 2, unlinking: 1 },
+        ]}
+      />,
+    );
+    const merged = screen.getByRole("button", { name: /Jump to this change/i });
+    expect(merged).toHaveAccessibleName(
+      /1 card goes live · 2 relations start · 1 relation ends\./,
+    );
+  });
+
   it("names a single date when a mark stands for one", () => {
     renderSlider(TODAY);
     const marks = screen.getAllByRole("button", { name: /Jump to this change/i });

@@ -69,6 +69,58 @@ function mergeVerbTranslation(
   };
 }
 
+/**
+ * "Track lifecycle": whether card detail offers the clock that dates each
+ * relation of this type. It governs only the editor — dates a relation
+ * already carries (from an import, the API or an integration) are shown and
+ * counted whatever this says.
+ */
+function TrackLifecycleSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const { t } = useTranslation("admin");
+  return (
+    <Box sx={{ mt: 2 }}>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={checked}
+            onChange={(e) => onChange(e.target.checked)}
+            inputProps={{ "aria-describedby": "relation-track-lifecycle-hint" }}
+          />
+        }
+        label={t("metamodel.trackLifecycle")}
+      />
+      <Typography
+        id="relation-track-lifecycle-hint"
+        variant="caption"
+        color="text.secondary"
+        component="div"
+      >
+        {t("metamodel.trackLifecycleHint")}
+      </Typography>
+    </Box>
+  );
+}
+
+/** The create dialog's empty form, with `source` as the source type. */
+function blankRelation(source = "") {
+  return {
+    key: "",
+    label: "",
+    reverse_label: "",
+    source_type_key: source,
+    target_type_key: "",
+    cardinality: "1:n" as "1:1" | "1:n" | "n:m",
+    lifecycle_enabled: false,
+    translations: {} as MetamodelTranslations,
+  };
+}
+
 export interface RelationTypesPanelProps {
   /** ALL card types — the endpoint pickers, colour dots and delete-confirm
    *  labels resolve against this, hidden types included. */
@@ -123,15 +175,7 @@ export default function RelationTypesPanel({
 
   const [showHiddenRels, setShowHiddenRels] = useState(false);
   const [createRelOpen, setCreateRelOpen] = useState(false);
-  const [newRel, setNewRel] = useState({
-    key: "",
-    label: "",
-    reverse_label: "",
-    source_type_key: "",
-    target_type_key: "",
-    cardinality: "1:n" as "1:1" | "1:n" | "n:m",
-    translations: {} as MetamodelTranslations,
-  });
+  const [newRel, setNewRel] = useState(() => blankRelation());
   const [editRelOpen, setEditRelOpen] = useState(false);
   const [editRel, setEditRel] = useState<(RType & { translations?: MetamodelTranslations }) | null>(
     null,
@@ -215,16 +259,8 @@ export default function RelationTypesPanel({
   /* ---- Handlers ---- */
 
   const openCreateRelation = () => {
-    setNewRel({
-      key: "",
-      label: "",
-      reverse_label: "",
-      // In card-type mode the type under view is the obvious source.
-      source_type_key: scopeTypeKey || "",
-      target_type_key: "",
-      cardinality: "1:n",
-      translations: {},
-    });
+    // In card-type mode the type under view is the obvious source.
+    setNewRel(blankRelation(scopeTypeKey || ""));
     setRelError(null);
     setRelKeyTouched(false);
     setCreateRelOpen(true);
@@ -257,17 +293,9 @@ export default function RelationTypesPanel({
       return;
     }
     onRefresh();
+    // The form is reset when the dialog next opens (`openCreateRelation`).
     setCreateRelOpen(false);
     setRelError(null);
-    setNewRel({
-      key: "",
-      label: "",
-      reverse_label: "",
-      source_type_key: "",
-      target_type_key: "",
-      cardinality: "1:n",
-      translations: {},
-    });
   };
 
   const handleUpdateRelation = async () => {
@@ -277,6 +305,7 @@ export default function RelationTypesPanel({
         label: editRel.label,
         reverse_label: editRel.reverse_label,
         cardinality: editRel.cardinality,
+        lifecycle_enabled: !!editRel.lifecycle_enabled,
         // `translations` is NOT NULL in the DB — send an empty map, never null.
         translations: cleanTranslations(editRel.translations) || {},
       });
@@ -506,6 +535,18 @@ export default function RelationTypesPanel({
                   </Tooltip>
                 )}
 
+                {rt.lifecycle_enabled && (
+                  <Tooltip title={t("metamodel.trackLifecycleHint")} describeChild>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      icon={<MaterialSymbol icon="schedule" size={13} color="inherit" />}
+                      label={t("metamodel.lifecycleChip")}
+                      sx={{ height: 22, fontSize: 11 }}
+                    />
+                  </Tooltip>
+                )}
+
                 {rt.is_hidden ? (
                   <Tooltip title={t("common:actions.restore")}>
                     <IconButton size="small" onClick={() => handleRestoreRelation(rt.key)}>
@@ -700,6 +741,10 @@ export default function RelationTypesPanel({
               ))}
             </Select>
           </FormControl>
+          <TrackLifecycleSwitch
+            checked={newRel.lifecycle_enabled}
+            onChange={(v) => setNewRel({ ...newRel, lifecycle_enabled: v })}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateRelOpen(false)}>{t("common:actions.cancel")}</Button>
@@ -817,6 +862,12 @@ export default function RelationTypesPanel({
                   ))}
                 </Select>
               </FormControl>
+              {/* Offered on built-in types too: dating a relation is about
+                  the data, not the type's origin. */}
+              <TrackLifecycleSwitch
+                checked={!!editRel.lifecycle_enabled}
+                onChange={(v) => setEditRel({ ...editRel, lifecycle_enabled: v })}
+              />
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setEditRelOpen(false)}>{t("common:actions.cancel")}</Button>

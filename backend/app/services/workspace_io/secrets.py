@@ -23,6 +23,7 @@ import copy
 from typing import Any
 
 from app.core.encryption import is_encrypted
+from app.services.relation_lifecycle_sweep import MARKER_KEY as RELATION_SWEEP_MARKER_KEY
 
 # Dotted paths (relative to the named settings blob) that are always dropped.
 GENERAL_SECRET_PATHS: tuple[tuple[str, ...], ...] = (
@@ -34,6 +35,13 @@ EMAIL_SECRET_PATHS: tuple[tuple[str, ...], ...] = (
     ("oauth_client_secret",),
     ("service_account_json",),
 )
+
+# Top-level ``general_settings`` keys that are this instance's own state, not
+# configuration: never exported, and ignored in an incoming bundle so the
+# target keeps its own value. The relation lifecycle sweep's last swept day is
+# one — a bundle exported after the source swept would otherwise make the
+# target skip the days it has not swept yet.
+INSTANCE_LOCAL_GENERAL_KEYS: frozenset[str] = frozenset({RELATION_SWEEP_MARKER_KEY})
 
 # User-FK columns that are instance-local and meaningless on the target. They
 # are dropped on export and re-resolved on import via the email→user map.
@@ -87,10 +95,12 @@ def strip_secrets(
     general_settings: dict[str, Any] | None,
     email_settings: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Return copies of the two settings blobs with every secret removed.
+    """Return copies of the two settings blobs with every secret — and every
+    instance-local key (``INSTANCE_LOCAL_GENERAL_KEYS``) — removed.
 
-    Drops the known credential paths and the extension secrets, then
-    defensively scrubs any remaining ``enc:`` value. Never mutates the inputs.
+    Drops the known credential paths, the extension secrets and the
+    instance-local state, then defensively scrubs any remaining ``enc:`` value.
+    Never mutates the inputs.
     The exporter runs it on the way out and the importer on the way in, so a
     hand-edited bundle can no more plant a secret than a real one can carry one.
     """
@@ -99,7 +109,11 @@ def strip_secrets(
 
     for path in GENERAL_SECRET_PATHS:
         _drop_path(general, path)
-    general = {k: v for k, v in general.items() if not is_extension_secret_key(k)}
+    general = {
+        k: v
+        for k, v in general.items()
+        if not is_extension_secret_key(k) and k not in INSTANCE_LOCAL_GENERAL_KEYS
+    }
     for path in EMAIL_SECRET_PATHS:
         _drop_path(email, path)
 

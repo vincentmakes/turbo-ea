@@ -234,3 +234,33 @@ describe("DiagramEditor expand memory", () => {
     expect(shapes.addResyncOverlay).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("DiagramEditor expand — relations in effect only", () => {
+  // The expand menu counts from the relation summary, which counts only
+  // relations in effect today; the expansion must draw the same set.
+  it("leaves out a relation that has ended or not yet started", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === "/diagrams/d1") return { id: "d1", name: "Landscape", type: "free", data: { xml: "" } };
+      if (path.startsWith("/relations?"))
+        return [
+          { ...NEIGHBOURS[0], lifecycle: { active: "2000-01-01", endOfLife: "2001-01-01" } },
+          { ...NEIGHBOURS[1], lifecycle: { active: "2000-01-01" } },
+          {
+            ...NEIGHBOURS[1],
+            id: "r3",
+            target_id: "x3",
+            target: { id: "x3", name: "Z", type: "Application" },
+            lifecycle: { active: "2999-01-01" },
+          },
+        ];
+      if (path.startsWith("/cards?")) return { items: [] };
+      return [];
+    });
+    renderEditor();
+    await screen.findByText("Landscape");
+    fireEvent.click(screen.getByText("sync-all"));
+    await waitFor(() => expect(shapes.markCellSynced).toHaveBeenCalled());
+    await expandFromChevron(1);
+    expect(expandedChildren(1).map((c) => c.id)).toEqual(["x2"]);
+  });
+});

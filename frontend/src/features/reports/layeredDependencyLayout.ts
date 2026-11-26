@@ -12,7 +12,7 @@
 import type { Node, Edge } from "@xyflow/react";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import type { CardType, RelationType, FieldOption } from "@/types";
-import type { TimelineChange } from "./timelineRange";
+import type { RelationTimelineState, TimelineChange } from "./timelineRange";
 import { relationAttributeSuffix } from "@/lib/relationAttributeBadges";
 import type { BoxBase } from "./ldvLaneSizing";
 import { LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
@@ -91,6 +91,16 @@ export interface GEdge {
   reverse_label?: string;
   description?: string;
   attributes?: Record<string, unknown>;
+  /** The relation's own lifecycle (the five card phases), sent by
+   *  `GET /reports/dependencies` only for a relation that has dates; absent
+   *  means always in effect. */
+  lifecycle?: Record<string, string>;
+  /** How this relation presents at the date the view is drawn as of, when it
+   *  is NOT in effect there: "planned" (not started) or "ended". Set by the
+   *  consumer that decided to draw it anyway (the report's "preview planned"
+   *  / "keep retired" toggles) or derived by the view from `lifecycle`. Drawn
+   *  in its own dimmed state, never as an ordinary line. */
+  relationState?: RelationTimelineState;
 }
 
 /**
@@ -331,6 +341,11 @@ export interface LdvEdgeData {
   /** One endpoint is retired at the viewed date: this dependency is being
    *  severed by the transformation. Rendered in the error colour. */
   severed?: boolean;
+  /** The relation is not in effect at the viewed date by its own dates:
+   *  "planned" (not started yet) or "ended". A state, drawn dimmed in its own
+   *  colour (`ldvEdgeStroke` / `edgeColors`). On an aggregate connector, set
+   *  only when every merged relation shares it. */
+  relationState?: RelationTimelineState;
   description?: string;
   /**
    * Aggregate mode: how many relations this one connector stands for. Unset on
@@ -646,6 +661,7 @@ export function buildLdvFlow(
       description: e.description,
       flipped,
       flowDirection: readFlowDir(e.attributes),
+      ...(e.relationState ? { relationState: e.relationState } : {}),
     };
   });
 
@@ -714,6 +730,7 @@ export function buildLdvFlow(
         flowDirection: e.flowDirection,
         description: e.description,
         severed,
+        ...(e.relationState ? { relationState: e.relationState } : {}),
         ...routeEdgeData(routes[i]),
       } satisfies LdvEdgeData,
       animated: false,
@@ -763,6 +780,10 @@ export {
 // laying them out (#1140); exported from here so a consumer building its own
 // graph from these builders can do the same.
 export { orientEdgesToRelationTypes } from "./ldvLayoutShared";
+
+// The view stamps each edge's `relationState` from its own `lifecycle` at the
+// date it is drawn as of; exported for a consumer calling the builders directly.
+export { withRelationStates } from "./ldvLayoutShared";
 
 // Lane order, names and colours from the category registry; exported so an
 // extension calling the builders can pass its instance's layers too.

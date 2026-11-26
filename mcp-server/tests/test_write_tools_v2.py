@@ -553,6 +553,20 @@ class TestAnalyzeImpact:
         assert "2" in {str(k) for k in data["nodes_by_depth"].keys()}
 
     @pytest.mark.asyncio
+    async def test_asks_for_relations_in_effect_today_only(self, fake_token):
+        # An impact analysis is about the landscape now: the BFS must not walk a
+        # relation that has not started or has ended by its own dates.
+        get_mock = AsyncMock(return_value={"nodes": [], "edges": []})
+        with patch.object(server.TurboEAClient, "get", get_mock):
+            await server.analyze_impact(card_id="centre", max_depth=3)
+        assert get_mock.call_args[0][0] == "/reports/dependencies"
+        assert get_mock.call_args[1]["params"] == {
+            "center_id": "centre",
+            "depth": 3,
+            "in_effect_only": True,
+        }
+
+    @pytest.mark.asyncio
     async def test_depth_clamped(self, fake_token):
         out = await server.analyze_impact(card_id="c", max_depth=99)
         data = _parse(out)

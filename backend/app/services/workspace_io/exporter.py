@@ -102,6 +102,7 @@ RELATION_TYPE_COLUMNS = (
     "source_mandatory",
     "target_visible",
     "target_mandatory",
+    "lifecycle_enabled",
 )
 RELATION_TYPE_JSON = frozenset({"attributes_schema", "translations"})
 
@@ -139,8 +140,9 @@ RELATION_COLUMNS = (
     "target_ref",
     "description",
     "attributes",
+    "lifecycle",
 )
-RELATION_JSON = frozenset({"attributes"})
+RELATION_JSON = frozenset({"attributes", "lifecycle"})
 
 # ``card_id`` is the card's id on the source (see the sheet columns below).
 CARD_TAG_COLUMNS = ("card_type", "card_ref", "group_name", "tag_name", "card_id")
@@ -353,6 +355,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
                 "target_ref": entities.build_card_ref(tgt, by_id),
                 "description": rel.description,
                 "attributes": rel.attributes or {},
+                "lifecycle": rel.lifecycle or {},
                 schema.SOURCE_ID_COLUMN: str(rel.id),
                 "source_card_id": str(src.id),
                 "target_card_id": str(tgt.id),

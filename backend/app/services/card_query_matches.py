@@ -196,7 +196,7 @@ def matches_statement(
     ).select_from(root)
     near = root
     for hop, far in steps:
-        statement = relation_join(statement, near, hop.side, far)
+        statement = relation_join(statement, near, hop.side, far, today=today)
         near = far
     matched = statement.where(*conditions).distinct().subquery()
     rank = (

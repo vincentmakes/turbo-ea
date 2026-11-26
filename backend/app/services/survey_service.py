@@ -45,6 +45,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag
 from app.services.card_flags import not_updated_condition
 from app.services.event_bus import event_bus
+from app.services.lifecycle import lifecycle_in_effect_sql
 
 FIELD_ACTIONS = ("maintain", "confirm")
 
@@ -114,8 +115,14 @@ async def resolve_targets(db: AsyncSession, survey: Survey) -> tuple[list[dict],
     if related_ids:
         related_uuids = [uuid.UUID(r) for r in related_ids]
         rel_type_key = filters.get("relation_type_key")
-        outgoing = select(Relation.source_id).where(Relation.target_id.in_(related_uuids))
-        incoming = select(Relation.target_id).where(Relation.source_id.in_(related_uuids))
+        # Related NOW: a planned or ended relation does not target a card.
+        in_effect = lifecycle_in_effect_sql(Relation)
+        outgoing = select(Relation.source_id).where(
+            Relation.target_id.in_(related_uuids), in_effect
+        )
+        incoming = select(Relation.target_id).where(
+            Relation.source_id.in_(related_uuids), in_effect
+        )
         if rel_type_key:
             outgoing = outgoing.where(Relation.type == rel_type_key)
             incoming = incoming.where(Relation.type == rel_type_key)

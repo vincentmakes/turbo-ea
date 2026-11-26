@@ -209,3 +209,92 @@ class TestCostEndpointCurrentFiscalYear:
         assert data["total"] == 200
         assert data["fiscal_year"] == THIS_YEAR
         assert data["fiscal_year_start"] == 1
+
+
+# The relation a cost is summed or grouped through answers to the same
+# fiscal-year rule as the cards (``live_relations_in_fiscal_year``): ending
+# any day of this year still counts, ending last year or starting next year
+# does not. Each name below says which side of the boundary it sits on.
+RELATION_WINDOWS = {
+    "undated": {},
+    "ends-this-year": {"active": _d(THIS_YEAR - 3), "endOfLife": _d(THIS_YEAR, 1, 1)},
+    "starts-this-year": {"active": _d(THIS_YEAR, 12, 31)},
+    "ended-last-year": {"active": _d(THIS_YEAR - 3), "endOfLife": _d(THIS_YEAR - 1, 12, 31)},
+    "starts-next-year": {"active": _d(THIS_YEAR + 1, 1, 1)},
+}
+RELATION_COUNTS = ["ends-this-year", "starts-this-year", "undated"]
+
+
+class TestCostTreemapRelationLifecycle:
+    async def test_an_aggregate_sums_only_through_relations_live_this_year(self, client, db, env):
+        app = await _app(db, "Hub", 0)
+        costs = {
+            "undated": 1,
+            "ends-this-year": 10,
+            "starts-this-year": 100,
+            "ended-last-year": 1000,
+            "starts-next-year": 10000,
+        }
+        for name, lifecycle in RELATION_WINDOWS.items():
+            itc = await _app(db, name, costs[name], card_type="ITComponent")
+            await create_relation(
+                db,
+                type_key="relAppToITC",
+                source_id=app.id,
+                target_id=itc.id,
+                lifecycle=lifecycle,
+            )
+        data = await _treemap(client, env, aggregate=["ITComponent:costTotalAnnual"])
+        assert [(i["name"], i["cost"]) for i in data["items"]] == [("Hub", 111)]
+        assert data["total"] == 111
+
+    async def test_a_drill_lists_only_cards_linked_this_year(self, client, db, env):
+        provider = await create_card(db, card_type="Provider", name="Vendor")
+        for name, lifecycle in RELATION_WINDOWS.items():
+            itc = await _app(db, name, 5, card_type="ITComponent")
+            await create_relation(
+                db,
+                type_key="relProviderToITC",
+                source_id=provider.id,
+                target_id=itc.id,
+                lifecycle=lifecycle,
+            )
+        data = await _treemap(client, env, type="ITComponent", parent_card_id=str(provider.id))
+        assert _names(data) == RELATION_COUNTS
+
+    async def test_a_split_share_counts_only_parents_linked_this_year(self, client, db, env):
+        itc = await _app(db, "Shared", 300, card_type="ITComponent")
+        providers = {}
+        for name, lifecycle in RELATION_WINDOWS.items():
+            providers[name] = await create_card(db, card_type="Provider", name=name)
+            await create_relation(
+                db,
+                type_key="relProviderToITC",
+                source_id=providers[name].id,
+                target_id=itc.id,
+                lifecycle=lifecycle,
+            )
+        data = await _treemap(
+            client,
+            env,
+            type="ITComponent",
+            parent_card_id=str(providers["undated"].id),
+            attribution="split",
+        )
+        # Three providers count this year, so the drilled tile is a third.
+        assert [(i["name"], i["cost"]) for i in data["items"]] == [("Shared", 100)]
+
+    async def test_a_group_takes_only_items_linked_this_year(self, client, db, env):
+        itc = await _app(db, "Server", 70, card_type="ITComponent")
+        for name, lifecycle in RELATION_WINDOWS.items():
+            provider = await create_card(db, card_type="Provider", name=name)
+            await create_relation(
+                db,
+                type_key="relProviderToITC",
+                source_id=provider.id,
+                target_id=itc.id,
+                lifecycle=lifecycle,
+            )
+        data = await _treemap(client, env, type="ITComponent", group_by="Provider")
+        assert data["items"][0]["groups"] == RELATION_COUNTS
+        assert data["items"][0]["group"] == "ends-this-year"

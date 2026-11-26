@@ -16,6 +16,7 @@ Reads only; never commits. The caller owns the permission check and passes its
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,7 @@ from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.tag import CardTag, Tag, TagGroup
 from app.services.card_read_scope import CardReadScope
+from app.services.lifecycle import lifecycle_in_effect
 
 
 async def build_portfolio_payload(
@@ -107,27 +109,9 @@ async def build_portfolio_payload(
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in app_id_set and tid in related_map:
-            app_relations[sid].append(
-                {
-                    "relation_type": r.type,
-                    "direction": "outgoing",
-                    "related_id": tid,
-                    "related_name": related_map[tid]["name"],
-                    "related_type": related_map[tid]["type"],
-                    "attributes": r.attributes or {},
-                }
-            )
+            app_relations[sid].append(_relation_entry(r, "outgoing", related_map[tid]))
         if tid in app_id_set and sid in related_map:
-            app_relations[tid].append(
-                {
-                    "relation_type": r.type,
-                    "direction": "incoming",
-                    "related_id": sid,
-                    "related_name": related_map[sid]["name"],
-                    "related_type": related_map[sid]["type"],
-                    "attributes": r.attributes or {},
-                }
-            )
+            app_relations[tid].append(_relation_entry(r, "incoming", related_map[sid]))
 
     # 4b. Ancestor closure for hierarchical related types: nested grouping needs
     # the full parent chain of every related member, including ancestors that
@@ -287,6 +271,44 @@ async def build_portfolio_payload(
     }
 
 
+def _relation_entry(r: Relation, direction: str, related: dict) -> dict:
+    """One side of one relation as a portfolio card sees it.
+
+    Carries the relation's own ``lifecycle`` only when it has dates — absent
+    means always in effect — so the time-travel reports can tell which related
+    card a card is linked to at the travelled date, and the current-state
+    surfaces built on this payload can keep only what is in effect today.
+    """
+    entry = {
+        "relation_type": r.type,
+        "direction": direction,
+        "related_id": related["id"],
+        "related_name": related["name"],
+        "related_type": related["type"],
+        "attributes": r.attributes or {},
+    }
+    if r.lifecycle:
+        entry["lifecycle"] = r.lifecycle
+    return entry
+
+
+def relations_in_effect_now(relations: Sequence[dict], *, today: date | None = None) -> list[dict]:
+    """A card's ``relations`` entries (``_relation_entry`` shape) as a
+    current-state surface needs them: only the relations in effect ``today``
+    (default: today, UTC) by their own dates, each without its ``lifecycle`` —
+    a surface with no time travel has nothing to spend the dates on.
+
+    Shared by every consumer of this payload that shows the landscape now (the
+    Lifecycle report's filters, the PPM board's filters); the time-travel
+    reports read the dates themselves and keep every entry.
+    """
+    return [
+        {k: v for k, v in rel.items() if k != "lifecycle"}
+        for rel in relations
+        if lifecycle_in_effect(rel.get("lifecycle"), on=today)
+    ]
+
+
 def has_timeline_dates(lifecycle: dict | None, attributes: dict | None) -> bool:
     """Whether a card has anything the Lifecycle report can draw: a lifecycle
     phase date, or a ``startDate`` / ``endDate`` attribute for the date-range
@@ -308,7 +330,9 @@ def roadmap_from_portfolio(payload: dict, type_key: str) -> dict:
             "subtype": item["subtype"],
             "lifecycle": item["lifecycle"] or {},
             "attributes": item["attributes"] or {},
-            "relations": item["relations"],
+            # The Lifecycle report has no time travel: it filters the portfolio
+            # as it is today, so a relation matches only while it is in effect.
+            "relations": relations_in_effect_now(item["relations"]),
             "tag_ids": item["tag_ids"],
         }
         for item in payload["items"]

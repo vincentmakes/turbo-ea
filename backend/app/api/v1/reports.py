@@ -4,10 +4,11 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, case, func, not_, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -28,6 +29,7 @@ from app.models.user import User
 from app.models.user_favorite import UserFavorite
 from app.services.card_flags import (
     EOL_BUCKETS,
+    connected_card_ids,
     eol_bucket_condition,
     eol_type_keys,
     has_eol_coverage,
@@ -72,7 +74,14 @@ from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
 )
-from app.services.lifecycle import current_lifecycle_phase, is_live_in_fiscal_year
+from app.services.lifecycle import (
+    current_lifecycle_phase,
+    is_live_in_fiscal_year,
+    lifecycle_breadth,
+    lifecycle_in_effect_sql,
+    link_keys_in_effect,
+    live_relations_in_fiscal_year,
+)
 from app.services.permission_service import PermissionService
 from app.services.portfolio_payload import (
     build_portfolio_payload,
@@ -893,10 +902,12 @@ async def landscape(
     # Get relations connecting only the two relevant sets of IDs
     sheet_ids = [card.id for card in sheets]
     group_ids = [g.id for g in groups]
+    # Only relations in effect today group a card: the landscape is "now".
     rels_result = await db.execute(
         select(Relation).where(
             ((Relation.source_id.in_(sheet_ids)) & (Relation.target_id.in_(group_ids)))
-            | ((Relation.source_id.in_(group_ids)) & (Relation.target_id.in_(sheet_ids)))
+            | ((Relation.source_id.in_(group_ids)) & (Relation.target_id.in_(sheet_ids))),
+            lifecycle_in_effect_sql(Relation),
         )
     )
     rels = rels_result.scalars().all()
@@ -1107,22 +1118,21 @@ def _parse_matrix_attr_filters(
     return parsed
 
 
-def _matrix_attr_clause(field_key: str, field_type: str, value: str):
-    """One JSONB predicate for a single attribute filter value."""
+def _matrix_attr_clause(relation: Any, field_key: str, field_type: str, value: str):
+    """One JSONB predicate over ``relation.attributes`` for a single attribute
+    filter value (``relation``: the ``Relation`` the caller's query reads)."""
     if value == MATRIX_EMPTY_FILTER:
-        return or_(
-            Relation.attributes.is_(None),
-            not_(Relation.attributes.has_key(field_key)),  # noqa: W601 — JSONB ? operator
-            Relation.attributes[field_key].astext.is_(None),
-        )
+        # ``->>`` yields NULL for a NULL object, a missing key and a JSON null
+        # alike, so this one test is every way of "not set".
+        return relation.attributes[field_key].astext.is_(None)
     if field_type == "boolean":
-        return Relation.attributes.contains({field_key: value == "true"})
+        return relation.attributes.contains({field_key: value == "true"})
     if field_type in ("number", "percentage"):
         try:
-            return Relation.attributes.contains({field_key: float(value)})
+            return relation.attributes.contains({field_key: float(value)})
         except ValueError:
-            return Relation.attributes[field_key].astext == value
-    return Relation.attributes.contains({field_key: value})
+            return relation.attributes[field_key].astext == value
+    return relation.attributes.contains({field_key: value})
 
 
 @router.get("/matrix")
@@ -1246,12 +1256,16 @@ async def matrix(
                 ),
                 *read_scope.where(src_card, mode="module"),
                 *read_scope.where(tgt_card, mode="module"),
+                # A planned or ended relation is no cell of today's grid.
+                lifecycle_in_effect_sql(Relation),
             )
         )
         if requested_types is not None:
             stmt = stmt.where(Relation.type.in_(sorted(requested_types)))
         for (rt_key, field_key), (field_type, values) in attr_filters.items():
-            clauses = [_matrix_attr_clause(field_key, field_type, v) for v in sorted(values)]
+            clauses = [
+                _matrix_attr_clause(Relation, field_key, field_type, v) for v in sorted(values)
+            ]
             # Scoped to its own relation type so a filter on one type never
             # silently discards relations of the other type on these axes.
             stmt = stmt.where(or_(Relation.type != rt_key, or_(*clauses)))
@@ -1584,7 +1598,8 @@ async def cost_treemap(
                 )
             )
             linked_ids: set[uuid.UUID] = set()
-            for r in edges_result.scalars().all():
+            # The link to the parent counts in this fiscal year, as the cards do.
+            for r in live_relations_in_fiscal_year(edges_result.scalars().all(), fy, fy_start):
                 if r.source_id == parent_card_id:
                     linked_ids.add(r.target_id)
                 else:
@@ -1682,7 +1697,8 @@ async def cost_treemap(
                         )
                     )
                 )
-                edges = edges_result.scalars().all()
+                # A relation outside the fiscal year sums nothing through it.
+                edges = live_relations_in_fiscal_year(edges_result.scalars().all(), fy, fy_start)
             else:
                 edges = []
 
@@ -1798,7 +1814,7 @@ async def cost_treemap(
                 | ((Relation.source_id.in_(grp_ids)) & (Relation.target_id.in_(sheet_ids)))
             )
         )
-        rels = rels_result.scalars().all()
+        rels = live_relations_in_fiscal_year(rels_result.scalars().all(), fy, fy_start)
 
         # Item -> every group it links to. An item linked to two group cards
         # belongs to both; it is filed under the alphabetically first so the
@@ -1874,6 +1890,8 @@ async def _parent_type_link_counts(
         .all()
     )
     linked: dict[str, set[str]] = {}
+    # A share is split only between the cards a link counts for this year.
+    rels = live_relations_in_fiscal_year(rels, fy, fy_start)
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in parent_id_set and tid in sheet_id_set:
@@ -1996,23 +2014,51 @@ async def capability_heatmap(
     # two cards may be connected by several relation types. Track what has been
     # added so a capability never lists the same application twice.
     cap_app_seen: dict[str, set[str]] = {cid: set() for cid in cap_apps}
+    # The lifecycles of the relations linking each capability to each app, for
+    # the map's time travel: the client places an app under a capability only
+    # while one of them is in effect at the travelled date. Kept per
+    # (capability, app) because two relation types may link the same pair; an
+    # undated link makes the pair always linked, which is sent as nothing.
+    cap_app_link_lcs: dict[tuple[str, str], list[dict]] = {}
+    cap_app_undated: set[tuple[str, str]] = set()
     # App -> the readable capabilities it is linked to, derived from `cap_apps`
     # links only (both ends already read-scoped), never from raw relation rows.
     app_caps: dict[str, set[str]] = {}
 
-    def _link_cap_app(cap_id: str, app_id: str) -> None:
+    def _link_cap_app(cap_id: str, app_id: str, lifecycle: dict | None) -> None:
+        if lifecycle:
+            cap_app_link_lcs.setdefault((cap_id, app_id), []).append(lifecycle)
+        else:
+            cap_app_undated.add((cap_id, app_id))
         if app_id in cap_app_seen[cap_id]:
             return
         cap_app_seen[cap_id].add(app_id)
         cap_apps[cap_id].append(app_map[app_id])
         app_caps.setdefault(app_id, set()).add(cap_id)
 
+    # The same for the filter maps: per application, per relation-type key (and
+    # side), per related card, the lifecycles of the relations behind the entry
+    # — only where every one of them is dated, so the client can tell which
+    # related cards an application is linked to at the travelled date. An
+    # undated link is sent as nothing, which reads as always in effect.
+    related_link_lcs: dict[tuple[str, str, str], list[dict]] = {}
+    related_link_undated: set[tuple[str, str, str]] = set()
+
+    def _note_related_link(
+        app_id: str, rel_key: str, related_id: str, lifecycle: dict | None
+    ) -> None:
+        key = (app_id, rel_key, related_id)
+        if lifecycle:
+            related_link_lcs.setdefault(key, []).append(lifecycle)
+        else:
+            related_link_undated.add(key)
+
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in cap_id_set and tid in app_map:
-            _link_cap_app(sid, tid)
+            _link_cap_app(sid, tid, r.lifecycle)
         elif tid in cap_id_set and sid in app_map:
-            _link_cap_app(tid, sid)
+            _link_cap_app(tid, sid, r.lifecycle)
         # app -> related card relations (for filtering). `if`/`if`, not `elif`:
         # a self-referencing row belongs to BOTH applications, and lands under
         # a per-side key (`<type>__out` / `<type>__in`) so the report can tell
@@ -2024,10 +2070,12 @@ async def capability_heatmap(
             app_related.setdefault(sid, {}).setdefault(related_map[tid]["type"], []).append(tid)
             rel_key = f"{r.type}__out" if self_pair else r.type
             app_related_by_rel.setdefault(sid, {}).setdefault(rel_key, []).append(tid)
+            _note_related_link(sid, rel_key, tid, r.lifecycle)
         if tid in app_id_set and sid in related_map:
             app_related.setdefault(tid, {}).setdefault(related_map[sid]["type"], []).append(sid)
             rel_key = f"{r.type}__in" if self_pair else r.type
             app_related_by_rel.setdefault(tid, {}).setdefault(rel_key, []).append(sid)
+            _note_related_link(tid, rel_key, sid, r.lifecycle)
 
     # Tag assignments per application (for tag filter)
     cap_app_tag_ids: dict[str, list[str]] = {}
@@ -2054,13 +2102,19 @@ async def capability_heatmap(
             }
         )
 
+    related_lifecycles_by_app: dict[str, dict[str, dict[str, list[dict]]]] = {}
+    for (aid, rel_key, related_id), lcs in related_link_lcs.items():
+        if (aid, rel_key, related_id) in related_link_undated:
+            continue
+        related_lifecycles_by_app.setdefault(aid, {}).setdefault(rel_key, {})[related_id] = lcs
+
     def _app_to_dict(a):
         aid = str(a.id)
         by_type = app_related.get(aid, {})
         attrs = a.attributes
         if attrs and not can_view_costs_global and cost_field_keys:
             attrs = {k: v for k, v in attrs.items() if k not in cost_field_keys}
-        return {
+        out = {
             "id": aid,
             "name": a.name,
             "subtype": a.subtype,
@@ -2076,6 +2130,13 @@ async def capability_heatmap(
             "tag_ids": cap_app_tag_ids.get(aid, []),
             "capability_ids": sorted(app_caps.get(aid, ())),
         }
+        # `{relation-type key (per side as in related_by_rel_type): {related id:
+        # [lifecycle, …]}}` for the entries whose every relation is dated; the
+        # key is absent when none is, like `app_link_lifecycles`.
+        related_lifecycles = related_lifecycles_by_app.get(aid)
+        if related_lifecycles:
+            out["related_link_lifecycles"] = related_lifecycles
+        return out
 
     # Collect relation filter options grouped by type (visible types only)
     all_type_keys_result = await db.execute(select(CardType).where(CardType.is_hidden.is_(False)))
@@ -2092,36 +2153,56 @@ async def capability_heatmap(
     for members in filterable_types.values():
         members.sort(key=lambda x: x["name"])
 
+    # The three aggregates are the map NOW (an assistant reads them verbatim
+    # through `get_capability_heatmap`): they count a capability-application
+    # pair only while a relation linking the two is in effect today, and a
+    # split share divides between the capabilities linked today. The `apps`
+    # lists stay complete — the web client recomputes every figure itself at
+    # the travelled date from them and `app_link_lifecycles`.
+    today_pairs = link_keys_in_effect(cap_app_link_lcs, cap_app_undated)
+    caps_today: dict[str, int] = {}
+    for _cid, aid in today_pairs:
+        caps_today[aid] = caps_today.get(aid, 0) + 1
+
     # Build hierarchy-aware data
     items = []
     for c in caps:
         cid = str(c.id)
         linked_apps = cap_apps.get(cid, [])
-        app_count = len(linked_apps)
+        apps_today = [a for a in linked_apps if (cid, str(a.id)) in today_pairs]
+        app_count = len(apps_today)
 
         total_cost = 0.0
         if can_view_costs_global:
-            for a in linked_apps:
+            for a in apps_today:
                 attrs = a.attributes or {}
                 app_cost = sum(cost_value(attrs.get(ck)) for ck in cost_field_keys)
                 if attribution == SPLIT:
-                    app_cost = split_share(app_cost, len(app_caps[str(a.id)]))
+                    app_cost = split_share(app_cost, caps_today[str(a.id)])
                 total_cost += app_cost
 
-        risk_count = sum(1 for a in linked_apps if (a.lifecycle or {}).get("endOfLife"))
+        risk_count = sum(1 for a in apps_today if (a.lifecycle or {}).get("endOfLife"))
 
-        items.append(
-            {
-                "id": cid,
-                "name": c.name,
-                "parent_id": str(c.parent_id) if c.parent_id else None,
-                "app_count": app_count,
-                "total_cost": total_cost,
-                "risk_count": risk_count,
-                "attributes": c.attributes,
-                "apps": [_app_to_dict(a) for a in linked_apps],
-            }
-        )
+        item = {
+            "id": cid,
+            "name": c.name,
+            "parent_id": str(c.parent_id) if c.parent_id else None,
+            "app_count": app_count,
+            "total_cost": total_cost,
+            "risk_count": risk_count,
+            "attributes": c.attributes,
+            "apps": [_app_to_dict(a) for a in linked_apps],
+        }
+        # Only the links every relation of which is dated; the key is absent
+        # when none is, so an undated landscape pays nothing for it.
+        link_lifecycles = {
+            str(a.id): cap_app_link_lcs[(cid, str(a.id))]
+            for a in linked_apps
+            if (cid, str(a.id)) in cap_app_link_lcs and (cid, str(a.id)) not in cap_app_undated
+        }
+        if link_lifecycles:
+            item["app_link_lifecycles"] = link_lifecycles
+        items.append(item)
 
     payload = {
         "items": items,
@@ -2170,6 +2251,19 @@ async def capability_heatmap(
     return payload
 
 
+def _speaks_for_collapse(candidate: Relation, current: Relation, today: date) -> bool:
+    """Whether ``candidate`` should replace ``current`` as the one row an edge
+    collapsing several rows of one relation type carries: wider dates
+    (``lifecycle_breadth``) win, then the smaller id."""
+    cand = lifecycle_breadth(candidate.lifecycle, on=today)
+    held = lifecycle_breadth(current.lifecycle, on=today)
+    if cand > held:
+        return True
+    if cand < held:
+        return False
+    return str(candidate.id) < str(current.id)
+
+
 @router.get("/dependencies")
 async def dependencies(
     db: AsyncSession = Depends(get_db),
@@ -2177,8 +2271,23 @@ async def dependencies(
     center_id: str | None = Query(None),
     depth: int = Query(2, ge=1, le=3),
     type: str | None = Query(None),
+    in_effect_only: bool = Query(
+        False,
+        description=(
+            "Drop relations not in effect today by their own lifecycle dates. Off by "
+            "default: the Dependencies report travels in time and filters each edge "
+            "at the travelled date from its `lifecycle`."
+        ),
+    ),
 ):
-    """Dependency / interface map: nodes + edges for graph rendering."""
+    """Dependency / interface map: nodes + edges for graph rendering.
+
+    Every relation is returned by default, each edge carrying its own
+    ``lifecycle`` when it has dates (absent means always in effect), so the
+    report can decide what a relation does at the date it travels to. With
+    ``in_effect_only`` the graph is the landscape today — what an impact
+    analysis asks about — and the BFS never walks a planned or ended relation.
+    """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # Always load ALL active cards for ancestor path resolution — every card the
     # reader may see. Filtering this one load removes hidden cards from the
@@ -2201,11 +2310,12 @@ async def dependencies(
     all_card_ids = list(sheet_map.keys())
     if all_card_ids:
         card_uuids = [uuid.UUID(cid) for cid in all_card_ids]
-        rels_result = await db.execute(
-            select(Relation).where(
-                (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids))
-            )
+        rels_stmt = select(Relation).where(
+            (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids))
         )
+        if in_effect_only:
+            rels_stmt = rels_stmt.where(lifecycle_in_effect_sql(Relation))
+        rels_result = await db.execute(rels_stmt)
     else:
         rels_result = await db.execute(select(Relation).where(False))
     rels = rels_result.scalars().all()
@@ -2288,31 +2398,40 @@ async def dependencies(
             }
         )
 
-    # Build edges (only between visible nodes)
-    edges = []
-    seen_edges: set[str] = set()
+    # Build edges (only between visible nodes). Keyed by card pair AND
+    # relation type: two cards may be connected by several relation types and
+    # each carries its own verb / attributes, so each contributes its own edge. Two
+    # rows of the SAME type between the same pair (either direction, a
+    # self-referencing type) still collapse to one — and the row that speaks for
+    # them is the one whose dates cover the most (`lifecycle_breadth`): undated
+    # if any row is, else one in effect today, else the one ending latest. Ties
+    # go to the smaller row id, so the choice never depends on row order.
+    collapsed: dict[str, Relation] = {}
+    today = datetime.now(timezone.utc).date()
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in visible_ids and tid in visible_ids:
-            # Keyed by card pair AND relation type: two cards may be connected by
-            # several relation types and each carries its own verb / attributes, so
-            # each contributes its own edge. Two rows of the SAME type between the
-            # same pair (either direction) still collapse to one.
             edge_key = f"{min(sid, tid)}:{max(sid, tid)}:{r.type}"
-            if edge_key not in seen_edges:
-                seen_edges.add(edge_key)
-                rt_info = rel_type_info.get(r.type, {})
-                edges.append(
-                    {
-                        "source": sid,
-                        "target": tid,
-                        "type": r.type,
-                        "label": rt_info.get("label", r.type),
-                        "reverse_label": rt_info.get("reverse_label"),
-                        "description": r.description,
-                        "attributes": r.attributes,
-                    }
-                )
+            current = collapsed.get(edge_key)
+            if current is None or _speaks_for_collapse(r, current, today):
+                collapsed[edge_key] = r
+    edges = []
+    for r in collapsed.values():
+        rt_info = rel_type_info.get(r.type, {})
+        edge = {
+            "source": str(r.source_id),
+            "target": str(r.target_id),
+            "type": r.type,
+            "label": rt_info.get("label", r.type),
+            "reverse_label": rt_info.get("reverse_label"),
+            "description": r.description,
+            "attributes": r.attributes,
+        }
+        # The relation's own dates, for the client's time travel. Only a dated
+        # relation carries the key: absent means always in effect.
+        if r.lifecycle:
+            edge["lifecycle"] = r.lifecycle
+        edges.append(edge)
 
     return {"nodes": nodes, "edges": edges}
 
@@ -2361,10 +2480,11 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     # Lifecycle completeness
     with_lifecycle = sum(1 for card in sheets if card.lifecycle and any(card.lifecycle.values()))
 
-    # Orphaned items (no relations) – use UNION to get distinct connected IDs
+    # Orphaned items (no relation in effect) — the inventory filter's own
+    # definition (`card_flags.connected_card_ids`), so the tile and the view it
+    # deep-links to agree.
     all_ids = {str(card.id) for card in sheets}
-    connected_q = select(Relation.source_id).union(select(Relation.target_id))
-    connected_result = await db.execute(connected_q)
+    connected_result = await db.execute(connected_card_ids())
     connected = {str(row[0]) for row in connected_result.all()}
     orphaned = len(all_ids - connected)
 
@@ -2627,9 +2747,11 @@ async def eol_report(
     it_to_apps: dict[str, list[dict]] = {}
 
     if it_ids:
+        # Only a relation in effect today makes an application impacted.
         rels_result = await db.execute(
             select(Relation).where(
-                (Relation.source_id.in_(it_ids)) | (Relation.target_id.in_(it_ids))
+                (Relation.source_id.in_(it_ids)) | (Relation.target_id.in_(it_ids)),
+                lifecycle_in_effect_sql(Relation),
             )
         )
         rels = rels_result.scalars().all()

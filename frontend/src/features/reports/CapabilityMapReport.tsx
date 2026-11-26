@@ -35,6 +35,7 @@ import {
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
 import ReportFilterSection from "./ReportFilterSection";
 import { isAliveAtDate, isRetiredByDate } from "./portfolioHelpers";
+import { appRelationsAtDate, capabilityIdsAtDate, capabilityLinkInEffect } from "./capabilityLinks";
 import {
   classifyTimelineChange,
   computeTimelineMilestones,
@@ -141,6 +142,9 @@ interface AppData {
   /** The same, keyed by RELATION type, so "owned by" filters apart from
    *  "used by" when several relation types reach one card type. */
   related_by_rel_type?: Record<string, string[]>;
+  /** The dates of the dated entries of `related_by_rel_type`
+   *  (`appRelationsAtDate`, `capabilityLinks.ts`). Absent = always in effect. */
+  related_link_lifecycles?: Record<string, Record<string, Record<string, string>[]>>;
   tag_ids?: string[];
   /** Every readable capability this app links to, landscape-wide — the
    *  denominator of a split cost share. */
@@ -180,6 +184,9 @@ interface CapItem {
   risk_count: number;
   attributes?: Record<string, unknown>;
   apps: AppData[];
+  /** Per application whose every link here is a dated relation: those
+   *  relations' lifecycles (`capabilityLinks.ts`). Absent for an undated link. */
+  app_link_lifecycles?: Record<string, Record<string, string>[]>;
 }
 
 // Removed OrgRef — now using filterable_types from the API
@@ -392,11 +399,16 @@ function buildTree(
   conditions?: AppConditions,
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
+  const itemById = new Map(items.map((i) => [i.id, i]));
   for (const item of items) {
+    // An application sits under the capability while it is alive AND the
+    // relation linking the two is in effect at the date; a relation filter
+    // matches through the relations in effect at the date only.
     const filteredApps = item.apps.filter(
       (a) =>
-        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys, fields, conditions) &&
-        (isAliveAtDate(a.lifecycle, timelineDate) || revealedForPulse.has(a.id)),
+        matchesFilters(appRelationsAtDate(a, timelineDate), attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys, fields, conditions) &&
+        (isAliveAtDate(a.lifecycle, timelineDate) || revealedForPulse.has(a.id)) &&
+        capabilityLinkInEffect(item, a.id, timelineDate),
     );
     nodeMap.set(item.id, {
       ...item,
@@ -468,7 +480,8 @@ function buildTree(
         cost += (attrs[ck] as number) || 0;
       }
       if (attribution === "split" && app.capability_ids) {
-        const caps = app.capability_ids;
+        // Shared only between the capabilities it is linked to at the date.
+        const caps = capabilityIdsAtDate(app.capability_ids, app.id, itemById, timelineDate);
         cost = splitShare(cost, caps.filter((id) => subtree.has(id)).length, caps.length);
       }
       n.deepCost += cost;
@@ -1079,6 +1092,16 @@ export default function CapabilityMapReport() {
       computeTimelineRange(
         (data ?? []).flatMap((cap) => cap.apps.map((app) => app.lifecycle)),
         tl.todayMs,
+        // A link starting or ending moves an application between capabilities,
+        // and one to a related card changes what a relation filter matches.
+        (data ?? []).flatMap((cap) => [
+          ...Object.values(cap.app_link_lifecycles ?? {}).flat(),
+          ...cap.apps.flatMap((app) =>
+            Object.values(app.related_link_lifecycles ?? {}).flatMap((byId) =>
+              Object.values(byId).flat(),
+            ),
+          ),
+        ]),
       ),
     [data, tl.todayMs],
   );
@@ -1197,10 +1220,19 @@ export default function CapabilityMapReport() {
     return [...byId.values()];
   }, [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys, selectFields, appConditions]);
 
-  const milestones = useMemo(
-    () => computeTimelineMilestones(milestoneScope.map((a) => a.lifecycle)),
-    [milestoneScope],
-  );
+  // The dated capability links of the scoped applications mark the track too,
+  // on their own dates — counted as relations, never as cards.
+  const milestones = useMemo(() => {
+    const inScope = new Set(milestoneScope.map((a) => a.id));
+    return computeTimelineMilestones(
+      milestoneScope.map((a) => a.lifecycle),
+      (scopedData ?? []).flatMap((cap) =>
+        Object.entries(cap.app_link_lifecycles ?? {})
+          .filter(([appId]) => inScope.has(appId))
+          .flatMap(([, lcs]) => lcs),
+      ),
+    );
+  }, [milestoneScope, scopedData]);
 
   // Pill accents reuse the report's own colour-by, so the pill row matches
   // the chips it spotlights.

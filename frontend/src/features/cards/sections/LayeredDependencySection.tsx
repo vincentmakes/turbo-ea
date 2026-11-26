@@ -11,6 +11,7 @@ import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { api } from "@/api/client";
+import { isRelationInEffect } from "@/lib/relationLifecycle";
 import {
   HIERARCHY_EDGE_TYPE,
   resolveRevealIds,
@@ -74,7 +75,10 @@ export default function LayeredDependencySection({ cardId }: Props) {
       .get<{ nodes: GNode[]; edges: GEdge[] }>("/reports/dependencies")
       .then((r) => {
         setNodes(r.nodes);
-        setEdges(r.edges);
+        // The card page shows the landscape today, like its Relations
+        // section's counts: a relation planned for later, or one that has
+        // ended, is not a dependency now.
+        setEdges(r.edges.filter((e) => isRelationInEffect(e.lifecycle)));
       })
       .catch((e) => setError(e.message || t("dependencies.error")))
       .finally(() => setLoading(false));

@@ -22,6 +22,7 @@ from app.models.turbolens import (
     TurboLensDuplicateCluster,
     TurboLensModernization,
 )
+from app.services.lifecycle import lifecycle_in_effect_sql
 from app.services.turbolens_ai import (
     call_ai,
     format_principles_block,
@@ -65,7 +66,12 @@ async def _load_cards_by_type(
     # Build card -> vendors mapping
     card_vendors: dict[str, list[str]] = {}
     if provider_rel_keys:
-        rels_result = await db.execute(select(Relation).where(Relation.type.in_(provider_rel_keys)))
+        # The landscape now: a planned or ended vendor link is no vendor.
+        rels_result = await db.execute(
+            select(Relation).where(
+                Relation.type.in_(provider_rel_keys), lifecycle_in_effect_sql(Relation)
+            )
+        )
         for rel in rels_result.scalars().all():
             src_id = str(rel.source_id)
             tgt_id = str(rel.target_id)

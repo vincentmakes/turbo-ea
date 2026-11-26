@@ -177,6 +177,8 @@ function useMilestoneClusters(
       if (last && gap < MIN_MILESTONE_SPACING_PX) {
         last.activating += m.activating;
         last.disappearing += m.disappearing;
+        if (m.linking) last.linking = (last.linking ?? 0) + m.linking;
+        if (m.unlinking) last.unlinking = (last.unlinking ?? 0) + m.unlinking;
         // Remember how far the cluster reaches: clicking it must highlight
         // every card it merged, not just those on its earliest date.
         last.spanEnd = m.value;
@@ -571,6 +573,12 @@ export default function TimelineSlider({
                     parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
                   if (m.disappearing)
                     parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
+                  // A relation's own dates: a connection starts or ends
+                  // between cards that stay put.
+                  if (m.linking)
+                    parts.push(t("timelineSlider.milestoneLinking", { count: m.linking }));
+                  if (m.unlinking)
+                    parts.push(t("timelineSlider.milestoneUnlinking", { count: m.unlinking }));
                   // Marks closer together than MIN_MILESTONE_SPACING_PX merge,
                   // so one mark can stand for several dates. Say the span when
                   // it does: stating a single date made a merged neighbour look
@@ -583,10 +591,14 @@ export default function TimelineSlider({
                   // does both. Two abutting bars said the same thing but read as
                   // two marks at a glance, which is the last thing a crowded
                   // track needs.
+                  // A relation coming into effect adds to the landscape like
+                  // a card going live; one ending takes away like a retirement.
+                  const adds = m.activating + (m.linking ?? 0);
+                  const removes = m.disappearing + (m.unlinking ?? 0);
                   const barColor =
-                    m.activating > 0 && m.disappearing > 0
+                    adds > 0 && removes > 0
                       ? TIMELINE_COLORS.mixed
-                      : m.activating > 0
+                      : adds > 0
                         ? TIMELINE_COLORS.goLive
                         : STATUS_COLORS.error;
                   // Past transitions render exactly like upcoming ones. A stateful

@@ -193,6 +193,20 @@ interface ClusterBuild {
   members: GNode[];
 }
 
+/**
+ * A merged connector's relation state: the one its relations share, when they
+ * are all planned or all ended at the viewed date. A connector standing for
+ * relations in mixed states draws as an ordinary connector — its tooltip still
+ * lists every relation it stands for.
+ */
+export function connectorRelationState(
+  states: ReadonlySet<GEdge["relationState"]>,
+): Pick<LdvEdgeData, "relationState"> {
+  if (states.size !== 1) return {};
+  const [only] = states;
+  return only ? { relationState: only } : {};
+}
+
 interface MergeAcc {
   /** The pair, in a fixed order so both directions land in one bucket. */
   lo: string;
@@ -208,6 +222,8 @@ interface MergeAcc {
   hiToLo: boolean;
   flows: Set<FlowDir | undefined>;
   allSevered: boolean;
+  /** Each merged relation's state at the viewed date (`undefined` = in effect). */
+  states: Set<GEdge["relationState"]>;
 }
 
 export function buildLdvAggregateFlow(
@@ -321,6 +337,7 @@ export function buildLdvAggregateFlow(
       acc.hiToLo = acc.hiToLo || !forward;
       acc.flows.add(readFlowDir(e.attributes));
       acc.allSevered = acc.allSevered && severed;
+      acc.states.add(e.relationState);
     } else {
       merged.set(key, {
         lo,
@@ -334,6 +351,7 @@ export function buildLdvAggregateFlow(
         hiToLo: !forward,
         flows: new Set([readFlowDir(e.attributes)]),
         allSevered: severed,
+        states: new Set([e.relationState]),
       });
     }
   }
@@ -591,6 +609,7 @@ export function buildLdvAggregateFlow(
           flowDirection: flow,
           description,
           severed: m.allSevered,
+          ...connectorRelationState(m.states),
           ...routeEdgeData(routes[i]),
         } satisfies LdvEdgeData,
         animated: false,
@@ -613,6 +632,7 @@ export function buildLdvAggregateFlow(
         description: e.description,
         flipped: !!(sP && tP && tP.y < sP.y),
         flowDirection: readFlowDir(e.attributes),
+        ...(e.relationState ? { relationState: e.relationState } : {}),
       };
     });
     const cardBounds: NodeBounds[] = [];
@@ -661,6 +681,7 @@ export function buildLdvAggregateFlow(
           flowDirection: e.flowDirection,
           description: e.description,
           severed,
+          ...(e.relationState ? { relationState: e.relationState } : {}),
           members: [{ source: e.source, target: e.target }],
           ...routeEdgeData(routes[i]),
         } satisfies LdvEdgeData,

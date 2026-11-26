@@ -3,10 +3,33 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.services.lifecycle import normalize_relation_lifecycle
 
 
-class RelationCreate(BaseModel):
+def _lifecycle_or_none(value: object) -> dict[str, str] | None:
+    """``None`` stays ``None`` ("not provided" — the stored lifecycle is left
+    alone); anything else is validated and normalised, ``{}`` clearing it."""
+    if value is None:
+        return None
+    return normalize_relation_lifecycle(value)
+
+
+class _RelationLifecycleInput(BaseModel):
+    #: The relation's own phase dates (``plan`` / ``phaseIn`` / ``active`` /
+    #: ``phaseOut`` / ``endOfLife`` → ``YYYY-MM-DD``). Omitted or ``null``
+    #: leaves a stored lifecycle untouched; a dict REPLACES it, ``{}`` clears
+    #: it. Empty means the relation is always in effect.
+    lifecycle: dict[str, str | None] | None = None
+
+    @field_validator("lifecycle", mode="before")
+    @classmethod
+    def _validate_lifecycle(cls, value: object) -> dict[str, str] | None:
+        return _lifecycle_or_none(value)
+
+
+class RelationCreate(_RelationLifecycleInput):
     type: str
     source_id: str
     target_id: str
@@ -14,7 +37,7 @@ class RelationCreate(BaseModel):
     description: str | None = None
 
 
-class RelationUpdate(BaseModel):
+class RelationUpdate(_RelationLifecycleInput):
     attributes: dict | None = None
     description: str | None = None
 
@@ -37,6 +60,7 @@ class RelationResponse(BaseModel):
     target: CardRef | None = None
     attributes: dict | None = None
     description: str | None = None
+    lifecycle: dict = Field(default_factory=dict)
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
@@ -60,7 +84,7 @@ class RelationRefInput(BaseModel):
     name: str | None = None
 
 
-class RelationBulkOperation(BaseModel):
+class RelationBulkOperation(_RelationLifecycleInput):
     """One row of a bulk-relation request."""
 
     row_index: int

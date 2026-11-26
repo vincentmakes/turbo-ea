@@ -59,6 +59,7 @@ from app.models.user import User
 from app.services import card_type_categories
 from app.services.event_bus import event_bus
 from app.services.extensions import field_gate
+from app.services.lifecycle import normalize_relation_lifecycle
 from app.services.relation_orientation import orient_endpoints
 from app.services.stakeholder_service import DEFAULT_STAKEHOLDER_ROLES, ensure_role_definitions
 
@@ -794,6 +795,7 @@ async def _apply_relation_pass(
                         **(present.attributes or {}),
                         **(payload.get("attributes") or {}),
                     }
+                    _apply_relation_lifecycle(present, payload)
                     staged.target_id = present.id
                     counts["updated"] += 1
                 else:
@@ -802,6 +804,7 @@ async def _apply_relation_pass(
                         source_id=src_uuid,
                         target_id=tgt_uuid,
                         attributes=payload.get("attributes") or {},
+                        lifecycle=_staged_relation_lifecycle(payload) or {},
                     )
                     db.add(rel)
                     await db.flush()
@@ -818,6 +821,7 @@ async def _apply_relation_pass(
                 rel = existing_rel
                 merged = {**(rel.attributes or {}), **(payload.get("attributes") or {})}
                 rel.attributes = merged
+                _apply_relation_lifecycle(rel, payload)
                 counts["updated"] += 1
             else:  # skip
                 counts["skipped"] += 1
@@ -829,6 +833,26 @@ async def _apply_relation_pass(
             staged.error_message = str(exc)[:1000]
     await db.flush()
     return counts
+
+
+def _staged_relation_lifecycle(payload: dict) -> dict[str, str]:
+    """The relation lifecycle a staged row carries, validated as every other
+    relation write is. A value the validator refuses (a row staged by hand or
+    by an adapter that got it wrong) is dropped rather than failing the
+    relation: the dates are an addition to the link, not the link."""
+    try:
+        return normalize_relation_lifecycle(payload.get("lifecycle"))
+    except ValueError:
+        logger.warning("migration apply: dropping an invalid relation lifecycle")
+        return {}
+
+
+def _apply_relation_lifecycle(rel: Relation, payload: dict) -> None:
+    """Replace ``rel``'s lifecycle with the staged one when the source sent
+    dates; a source carrying none leaves the stored lifecycle alone."""
+    lifecycle = _staged_relation_lifecycle(payload)
+    if lifecycle:
+        rel.lifecycle = lifecycle
 
 
 # ---------------------------------------------------------------------------

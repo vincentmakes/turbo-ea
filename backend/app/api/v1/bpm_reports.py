@@ -17,6 +17,7 @@ from app.models.relation import Relation
 from app.models.user import User
 from app.services import process_map_service
 from app.services.card_read_scope import CardReadScope
+from app.services.lifecycle import lifecycle_in_effect_sql
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/reports/bpm", tags=["reports"])
@@ -110,7 +111,9 @@ async def capability_process_matrix(
     # an admin adds — but widening by endpoint card type is NOT safe here: the
     # BusinessProcess self-pair carries both relProcessDependency and
     # relProcessSuccessor, which mean different things. Widen per report, by name.
-    result = await db.execute(select(Relation).where(Relation.type == "relProcessToBC"))
+    result = await db.execute(
+        select(Relation).where(Relation.type == "relProcessToBC", lifecycle_in_effect_sql(Relation))
+    )
     rels = result.scalars().all()
 
     # Load the related cards
@@ -149,7 +152,11 @@ async def process_application_matrix(
     """Process × Application cross-reference grid (process-level + element-level links)."""
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     # Process-level relations
-    rel_result = await db.execute(select(Relation).where(Relation.type == "relProcessToApp"))
+    rel_result = await db.execute(
+        select(Relation).where(
+            Relation.type == "relProcessToApp", lifecycle_in_effect_sql(Relation)
+        )
+    )
     rels = rel_result.scalars().all()
 
     # Element-level application links
@@ -214,7 +221,11 @@ async def process_dependencies(
 ):
     """Dependency graph data: nodes + edges for force-directed visualization."""
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
-    result = await db.execute(select(Relation).where(Relation.type == "relProcessDependency"))
+    result = await db.execute(
+        select(Relation).where(
+            Relation.type == "relProcessDependency", lifecycle_in_effect_sql(Relation)
+        )
+    )
     rels = result.scalars().all()
 
     node_ids = set()
@@ -274,7 +285,9 @@ async def capability_heatmap(
     capabilities = cap_result.scalars().all()
 
     # Load process→capability relations
-    rel_result = await db.execute(select(Relation).where(Relation.type == "relProcessToBC"))
+    rel_result = await db.execute(
+        select(Relation).where(Relation.type == "relProcessToBC", lifecycle_in_effect_sql(Relation))
+    )
     rels = rel_result.scalars().all()
     # A process the reader may not see is not counted.
     readable_processes = await read_scope.readable_card_ids(
@@ -580,6 +593,7 @@ async def value_stream_matrix(
                 ]
             ),
             (Relation.source_id.in_(proc_ids)) | (Relation.target_id.in_(proc_ids)),
+            lifecycle_in_effect_sql(Relation),
         )
     )
     rels = rels_result.scalars().all()

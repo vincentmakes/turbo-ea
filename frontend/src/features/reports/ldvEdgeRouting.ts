@@ -67,6 +67,9 @@ export interface OrientedEdge {
   flipped: boolean;
   /** flowDirection re-oriented to the relation's metamodel source→target axis */
   flowDirection?: "bidirectional" | "forward" | "reverse";
+  /** Not in effect at the viewed date by its own dates (see `GEdge`). Carried
+   *  through to the edge data; routing ignores it. */
+  relationState?: "planned" | "ended";
 }
 
 export interface LdvRoute {

@@ -26,6 +26,8 @@ export interface LdvStroke {
   /** `undefined` renders a plain line. */
   strokeDasharray?: string;
   strokeLinecap?: "butt" | "round";
+  /** `undefined` renders the line at full strength. */
+  strokeOpacity?: number;
 }
 
 /**
@@ -46,15 +48,31 @@ const IDLE_STROKE: Record<LdvEdgeLineStyle, LdvStroke> = {
 const SEVERED_STROKE: LdvStroke = { strokeDasharray: "3 3" };
 
 /**
- * Stroke for one edge. Precedence — severed (a state) beats hover, hover beats
- * the user's idle style. Hovering always renders solid, so the highlight reads
- * the same whichever idle style is in force.
+ * A relation that is not in effect at the viewed date by its own dates — a
+ * state, like severed, so it keeps its own look whatever the chosen idle style
+ * and on hover. Not by dashes alone: the idle style is itself a dash pattern a
+ * reader may have picked, so these lines are also faded (and drawn in their
+ * own colour by `edgeColors`). Planned is a dash-dot, "on its way"; ended a
+ * fine round dot, fainter still, "what was".
+ */
+function relationStateStroke(state: "planned" | "ended"): LdvStroke {
+  return state === "planned"
+    ? { strokeDasharray: "8 3 2 3", strokeOpacity: 0.7 }
+    : { strokeDasharray: "1 3", strokeLinecap: "round", strokeOpacity: 0.5 };
+}
+
+/**
+ * Stroke for one edge. Precedence — severed (one end retired: a state) beats
+ * the relation's own state (planned / ended at the viewed date), which beats
+ * hover, which beats the user's idle style. Hovering always renders solid, so
+ * the highlight reads the same whichever idle style is in force.
  */
 export function ldvEdgeStroke(
   style: LdvEdgeLineStyle | undefined,
-  opts: { active?: boolean; severed?: boolean } = {},
+  opts: { active?: boolean; severed?: boolean; relationState?: "planned" | "ended" } = {},
 ): LdvStroke {
   if (opts.severed) return SEVERED_STROKE;
+  if (opts.relationState) return relationStateStroke(opts.relationState);
   if (opts.active) return {};
   return IDLE_STROKE[style ?? "dashed"] ?? IDLE_STROKE.dashed;
 }

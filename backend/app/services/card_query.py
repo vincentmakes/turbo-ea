@@ -836,8 +836,9 @@ def _hop_condition(
     today: date | None,
     pair_statuses: PairStatuses | None,
 ) -> Any:
-    """``EXISTS`` (``NOT EXISTS`` when negated) a relation on ``hop.side``
-    from ``near`` to a live, readable card matching the hop — a fresh alias
+    """``EXISTS`` (``NOT EXISTS`` when negated) a relation in effect on
+    ``today`` on ``hop.side`` from ``near`` to a live, readable card matching
+    the hop — a fresh alias
     per hop, correlated to the nearer card."""
     other = aliased(Card)
     condition = relation_exists(
@@ -848,6 +849,7 @@ def _hop_condition(
         other.status == "ACTIVE",
         *_inventory_scope(read_scope, other),
         *_node_conditions(other, hop.node, read_scope, today, pair_statuses),
+        today=today,
     )
     return not_(condition) if hop.negate else condition
 

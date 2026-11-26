@@ -38,6 +38,7 @@ from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.tag import CardTag
 from app.services.cost_value import cost_value
+from app.services.lifecycle import lifecycle_in_effect_sql
 
 if TYPE_CHECKING:
     from app.services.card_read_scope import CardReadScope
@@ -232,7 +233,9 @@ async def build_process_map(
             or_(
                 Relation.source_id.in_(all_entity_ids),
                 Relation.target_id.in_(all_entity_ids),
-            )
+            ),
+            # The process map shows the landscape now: relations in effect.
+            lifecycle_in_effect_sql(Relation),
         )
     )
     rels = rels_result.scalars().all()
