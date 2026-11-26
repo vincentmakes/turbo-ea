@@ -786,6 +786,7 @@
   "settings.sso.roleMap.remove": "Quitar asignación",
   "settings.sso.roleMap.add": "Añadir asignación",
   "settings.sso.roleMap.extraScopes": "Ámbitos adicionales",
+  "settings.sso.roleMap.readOnlyHint": "Cambiar la asignación de roles requiere el permiso para gestionar usuarios. Aún puede editar los demás ajustes de SSO y los ámbitos adicionales.",
   "settings.sso.roleMap.extraScopesHelper": "Ámbitos (scopes) separados por espacios que se solicitan al iniciar sesión además de openid email profile, p. ej. groups para Okta.",
   "settings.mcp.title": "Integración MCP",
   "settings.mcp.description": "Permita que las herramientas de IA (Claude, Copilot, Cursor, etc.) consulten los datos de Turbo EA en nombre de los usuarios autenticados. Cada usuario se autentica mediante SSO y solo ve los datos que sus permisos permiten.",

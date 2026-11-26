@@ -786,6 +786,7 @@
   "settings.sso.roleMap.remove": "Rimuovi mappatura",
   "settings.sso.roleMap.add": "Aggiungi mappatura",
   "settings.sso.roleMap.extraScopes": "Scope aggiuntivi",
+  "settings.sso.roleMap.readOnlyHint": "Modificare la mappatura dei ruoli richiede il permesso di gestire gli utenti. Puoi comunque modificare le altre impostazioni SSO e gli scope aggiuntivi.",
   "settings.sso.roleMap.extraScopesHelper": "Scope separati da spazi richiesti all'accesso oltre a openid email profile, ad es. groups per Okta.",
   "settings.mcp.title": "Integrazione MCP",
   "settings.mcp.description": "Consenti agli strumenti di IA (Claude, Copilot, Cursor, ecc.) di interrogare i dati di Turbo EA per conto degli utenti autenticati. Ogni utente si autentica tramite SSO e vede solo i dati consentiti dalle proprie autorizzazioni.",

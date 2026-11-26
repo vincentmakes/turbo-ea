@@ -846,6 +846,7 @@
   "settings.sso.roleMap.remove": "Удалить сопоставление",
   "settings.sso.roleMap.add": "Добавить сопоставление",
   "settings.sso.roleMap.extraScopes": "Дополнительные области",
+  "settings.sso.roleMap.readOnlyHint": "Для изменения сопоставления ролей требуется разрешение на управление пользователями. Остальные настройки SSO и дополнительные области по-прежнему можно редактировать.",
   "settings.sso.roleMap.extraScopesHelper": "Области (scopes) через пробел, запрашиваемые при входе в дополнение к openid email profile, например groups для Okta.",
   "settings.mcp.title": "Интеграция MCP",
   "settings.mcp.description": "Позволяет ИИ-инструментам (Claude, Copilot, Cursor и др.) запрашивать данные Turbo EA от имени аутентифицированных пользователей. Каждый пользователь аутентифицируется через SSO и видит только данные, доступные ему по разрешениям.",

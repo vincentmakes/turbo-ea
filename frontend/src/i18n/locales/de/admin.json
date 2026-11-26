@@ -786,6 +786,7 @@
   "settings.sso.roleMap.remove": "Zuordnung entfernen",
   "settings.sso.roleMap.add": "Zuordnung hinzufügen",
   "settings.sso.roleMap.extraScopes": "Zusätzliche Scopes",
+  "settings.sso.roleMap.readOnlyHint": "Für das Ändern der Rollenzuordnung ist die Berechtigung zur Benutzerverwaltung erforderlich. Die übrigen SSO-Einstellungen und die zusätzlichen Scopes können Sie weiterhin bearbeiten.",
   "settings.sso.roleMap.extraScopesHelper": "Durch Leerzeichen getrennte Scopes, die bei der Anmeldung zusätzlich zu openid email profile angefordert werden, z. B. groups für Okta.",
   "settings.mcp.title": "MCP-Integration",
   "settings.mcp.description": "Erlauben Sie KI-Tools (Claude, Copilot, Cursor usw.), Turbo EA-Daten im Namen authentifizierter Benutzer abzufragen. Jeder Benutzer authentifiziert sich per SSO und sieht nur die Daten, die seine Berechtigungen erlauben.",

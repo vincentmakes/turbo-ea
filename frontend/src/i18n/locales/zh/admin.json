@@ -786,6 +786,7 @@
   "settings.sso.roleMap.remove": "删除映射",
   "settings.sso.roleMap.add": "添加映射",
   "settings.sso.roleMap.extraScopes": "附加范围",
+  "settings.sso.roleMap.readOnlyHint": "更改角色映射需要管理用户的权限。您仍可编辑其他 SSO 设置和附加范围。",
   "settings.sso.roleMap.extraScopesHelper": "登录时除 openid email profile 之外额外请求的范围（scope），以空格分隔，例如 Okta 的 groups。",
   "settings.mcp.title": "MCP 集成",
   "settings.mcp.description": "允许 AI 工具（Claude、Copilot、Cursor 等）代表已认证用户查询 Turbo EA 数据。每个用户通过 SSO 进行认证，只能看到其权限允许的数据。",

@@ -55,11 +55,11 @@ Efter at have gemt, åbn en ny browser-fane (eller inkognito-vindue), og verific
 
 **Rolletilknytning:**
 
-Som standard ankommer hver ny SSO-bruger med standardrollen (eller rollen fra sin invitation), og en administrator ændrer den manuelt under **Administration → Brugere**. Hvis din identitetsudbyder allerede ved, hvem der skal være administrator, medlem eller læser — via gruppemedlemskab eller app-roller — kan Turbo EA læse det fra ID-tokenet og selv tildele rollen ved hvert login. Blokken **Rolletilknytning** ligger i SSO-sektionen under udbyderfelterne og gemmes med den samme knap **Gem**:
+Som standard ankommer hver ny SSO-bruger med standardrollen (eller rollen fra sin invitation), og en administrator ændrer den manuelt under **Administration → Brugere**. Hvis din identitetsudbyder allerede ved, hvem der skal være administrator, medlem eller læser — via gruppemedlemskab eller app-roller — kan Turbo EA læse det fra ID-tokenet og selv tildele rollen ved hvert login. Blokken **Rolletilknytning** ligger i SSO-sektionen under udbyderfelterne og gemmes med den samme knap **Gem**. Da tilknytningen uddeler roller, kræver ændring af claim-navnet eller tilknytningsrækkerne tilladelsen til at administrere brugere ud over tilladelsen til at administrere indstillinger; uden den er blokken skrivebeskyttet, og kun de ekstra scopes kan ændres.
 
-- **Claim-navn**: ID-token-claimet, der angiver brugerens grupper eller roller, for eksempel `roles` (Microsoft Entra-app-roller), `groups` (Okta, Keycloak) eller `cognito:groups` (Amazon Cognito). Lader du det stå tomt, eller lader du tilknytningen være uden rækker, forbliver roller helt manuelle.
+- **Claim-navn**: ID-token-claimet, der angiver brugerens grupper eller roller, for eksempel `roles` (Microsoft Entra-app-roller), `groups` (Okta, Keycloak) eller `cognito:groups` (Amazon Cognito). Et claim-navn er påkrævet, så længe tilknytningen har rækker. For at slå rolletilknytning fra skal du fjerne alle rækker: roller forbliver så helt manuelle.
 - **Tilknytningsrækker**: hver række parrer en **katalogværdi** (en gruppe- eller app-rolleværdi, som claimet bærer den) med en Turbo EA-rolle. Brug pilene til at ordne rækkerne; den første matchende række vinder.
-- **Ekstra scopes**: scopes adskilt af mellemrum, der anmodes om ved login ud over `openid email profile` — for eksempel `groups` for Okta. MCP-serverens login anmoder om de samme scopes.
+- **Ekstra scopes**: scopes adskilt af mellemrum, der anmodes om ved login ud over `openid email profile` — for eksempel `groups` for Okta. De anmodes om både når brugeren sendes til identitetsudbyderen, og når login-koden byttes til ID-tokenet. MCP-serverens login anmoder om de samme scopes. De sendes aldrig til Google, som afviser scopes, det ikke kender.
 
 Reglerne, alle valgt, så en konfigurationsfejl ikke kan låse dig ude:
 

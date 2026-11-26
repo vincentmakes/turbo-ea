@@ -906,6 +906,7 @@
   "settings.sso.roleMap.remove": "إزالة التعيين",
   "settings.sso.roleMap.add": "إضافة تعيين",
   "settings.sso.roleMap.extraScopes": "نطاقات إضافية",
+  "settings.sso.roleMap.readOnlyHint": "يتطلب تغيير تعيين الأدوار صلاحية إدارة المستخدمين. لا يزال بإمكانك تعديل إعدادات SSO الأخرى والنطاقات الإضافية.",
   "settings.sso.roleMap.extraScopesHelper": "نطاقات (scopes) مفصولة بمسافات تُطلب عند تسجيل الدخول إضافةً إلى openid email profile، مثل groups لـ Okta.",
   "settings.mcp.title": "تكامل MCP",
   "settings.mcp.description": "السماح لأدوات الذكاء الاصطناعي (Claude وCopilot وCursor وما إلى ذلك) بالاستعلام عن بيانات Turbo EA نيابةً عن المستخدمين المُصادَق عليهم. يُصادق كل مستخدم عبر SSO ويرى فقط البيانات التي تسمح بها صلاحياته.",

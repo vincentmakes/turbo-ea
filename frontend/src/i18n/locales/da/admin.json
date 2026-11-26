@@ -786,6 +786,7 @@
   "settings.sso.roleMap.remove": "Fjern tilknytning",
   "settings.sso.roleMap.add": "Tilføj tilknytning",
   "settings.sso.roleMap.extraScopes": "Ekstra scopes",
+  "settings.sso.roleMap.readOnlyHint": "Ændring af rolletilknytningen kræver tilladelsen til at administrere brugere. Du kan stadig redigere de øvrige SSO-indstillinger og de ekstra scopes.",
   "settings.sso.roleMap.extraScopesHelper": "Scopes adskilt af mellemrum, der anmodes om ved login ud over openid email profile, f.eks. groups for Okta.",
   "settings.mcp.title": "MCP-integration",
   "settings.mcp.description": "Tillad AI-værktøjer (Claude, Copilot, Cursor osv.) at forespørge Turbo EA-data på vegne af autentificerede brugere. Hver bruger autentificerer via SSO og ser kun de data, deres tilladelser tillader.",
