@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Adding a stakeholder role to a card type you created no longer hides its **Responsible** and **Observer** roles and the people assigned to them; on upgrade, the roles and assignments that had disappeared come back.
 - A **Responsible** or **Observer** on a card of a type you created now gets that role's permissions, as on the built-in types.
 
+## [2.215.1] - 2026-11-26
+
+### Security
+- The frontend and edge nginx images now run **nginx 1.30.8**, which fixes CVE-2026-132779 (excessive CPU usage in TLS 1.3 when `ssl_early_data` is on). Turbo EA's nginx configuration does not switch that setting on, so no installation was exposed; the normal upgrade is enough.
+
 ## [2.215.0] - 2026-11-26
 
 ### Added

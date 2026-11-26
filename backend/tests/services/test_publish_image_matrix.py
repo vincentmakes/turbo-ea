@@ -167,7 +167,11 @@ _NGINX_PINNED_RE = re.compile(r"^nginx:(\d+)\.(\d+)\.(\d+)-alpine$")
 # over TLS 1.3), CVE-2026-125283 (try_files with alias), CVE-2026-120967 and
 # CVE-2026-123640 (stream). Each branch has its own first fixed release; a
 # branch newer than the last listed one was cut after the fix.
-_NGINX_FIRST_FIXED = {(1, 30): 7, (1, 31): 9}
+#
+# On 2026-11-25 nginx.org published CVE-2026-132779 (excessive CPU usage in
+# TLS 1.3 with ``ssl_early_data``), fixed in 1.30.8 and 1.31.10, which moved
+# both floors. Neither nginx config here turns ``ssl_early_data`` on.
+_NGINX_FIRST_FIXED = {(1, 30): 8, (1, 31): 10}
 
 
 def _nginx_is_patched(major: int, minor: int, patch: int) -> bool:
@@ -205,25 +209,25 @@ class TestNginxBaseIsPatched:
         bases = self._nginx_bases()
         assert len(set(bases.values())) == 1, bases
 
-    def test_every_nginx_stage_is_past_the_nginx2root_advisories(self):
+    def test_every_nginx_stage_is_past_the_advisories(self):
         for stage, base in self._nginx_bases().items():
             match = _NGINX_PINNED_RE.match(base)
             assert match, base
             version = tuple(int(part) for part in match.groups())
             assert _nginx_is_patched(*version), (
-                f"stage {stage!r} runs {base}; nginx2root is fixed from 1.30.7 (stable) "
-                "and 1.31.9 (mainline)"
+                f"stage {stage!r} runs {base}; the advisories above are fixed from "
+                "1.30.8 (stable) and 1.31.10 (mainline)"
             )
 
     def test_the_floor_is_per_branch(self):
         """A mainline release between the two fixes is still vulnerable."""
-        assert _nginx_is_patched(1, 30, 7)
-        assert _nginx_is_patched(1, 31, 9)
+        assert _nginx_is_patched(1, 30, 8)
+        assert _nginx_is_patched(1, 31, 10)
         assert _nginx_is_patched(1, 32, 0)
-        assert not _nginx_is_patched(1, 30, 6)
-        assert not _nginx_is_patched(1, 31, 8)
+        assert not _nginx_is_patched(1, 30, 7)
+        assert not _nginx_is_patched(1, 31, 9)
         assert not _nginx_is_patched(1, 29, 9)
-        assert not _nginx_is_patched(0, 31, 9)
+        assert not _nginx_is_patched(0, 31, 10)
 
 
 class TestCacheUploadCannotFailThePublish:
