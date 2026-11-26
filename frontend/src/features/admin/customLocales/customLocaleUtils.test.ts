@@ -16,6 +16,7 @@ import {
   canonicalLocale,
   downloadJson,
   errorMessage,
+  formatCount,
   importBody,
   isKnownErrorCode,
   isKnownReason,
@@ -337,6 +338,19 @@ describe("reasonLabel / namespaceLabel", () => {
   it("names the database labels by what they are and other namespaces by name", () => {
     expect(namespaceLabel("metamodel", t)).toBe("T:customLocales.namespaces.metamodel");
     expect(namespaceLabel("common", t)).toBe("common");
+  });
+});
+
+describe("formatCount", () => {
+  it("groups digits the way the language does", () => {
+    expect(formatCount(7488, "en")).toBe("7,488");
+    expect(formatCount(7488, "de")).toBe("7.488");
+    expect(formatCount(12, "en")).toBe("12");
+    expect(formatCount(1234567, "pt-BR")).toBe("1.234.567");
+  });
+
+  it("falls back to English grouping for a code Intl cannot read", () => {
+    expect(formatCount(7488, "not a tag!")).toBe("7,488");
   });
 });
 

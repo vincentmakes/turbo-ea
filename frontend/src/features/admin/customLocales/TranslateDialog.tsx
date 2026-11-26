@@ -28,7 +28,7 @@ import type {
   CustomLocaleJob,
   CustomLocaleTranslateMode,
 } from "@/types";
-import { errorMessage, percent } from "./customLocaleUtils";
+import { errorMessage, formatCount, percent } from "./customLocaleUtils";
 
 /** How often a running job is polled. */
 export const POLL_INTERVAL_MS = 3000;
@@ -43,7 +43,7 @@ interface Props {
 }
 
 export default function TranslateDialog({ locale, onClose, onStarted, onFinished }: Props) {
-  const { t } = useTranslation(["admin", "common"]);
+  const { t, i18n } = useTranslation(["admin", "common"]);
   const { aiStatus, aiStatusLoaded } = useAiStatus();
   const [mode, setMode] = useState<CustomLocaleTranslateMode>("missing");
   const [includeManual, setIncludeManual] = useState(false);
@@ -178,13 +178,17 @@ export default function TranslateDialog({ locale, onClose, onStarted, onFinished
               aria-label={t("customLocales.translate.progress")}
               sx={{ my: 1 }}
             />
-            <Typography variant="body2" color="text.secondary">
-              {t("customLocales.translate.progressText", {
-                done: job.done,
-                total: job.total,
-                failed: job.failed,
-              })}
-            </Typography>
+            {/* No number until the job has counted its strings: 0 of 0 says nothing. */}
+            {job.total > 0 && (
+              <Typography variant="body2" color="text.secondary" data-testid="translate-progress-text">
+                {t("customLocales.translate.progressText", {
+                  percent: percent(job.done, job.total),
+                  done: formatCount(job.done, i18n.language),
+                  total: formatCount(job.total, i18n.language),
+                  failed: formatCount(job.failed, i18n.language),
+                })}
+              </Typography>
+            )}
             {job.error && (
               <Alert severity="error" sx={{ mt: 1 }}>
                 <Typography variant="body2" fontWeight={600} component="span">

@@ -155,16 +155,54 @@ describe("CustomLocalesSection — list", () => {
       .toHaveAttribute("aria-valuenow", "75");
     expect(he.getByText(t("customLocales.missingCount", { count: 30 }))).toBeInTheDocument();
     expect(he.getByText(t("customLocales.staleCount", { count: 20 }))).toBeInTheDocument();
-    expect(he.queryByText(t("customLocales.jobStatus.running"))).toBeNull();
+    expect(he.queryByText(/^Translating/)).toBeNull();
     expect(he.getByRole("checkbox", { name: t("customLocales.enabledLabel", { name: "עברית" }) })).toBeChecked();
 
     const hi = row("hi");
     expect(hi.getByText("hi · Hindi")).toBeInTheDocument();
     expect(hi.queryByText(t("customLocales.missingCount", { count: 0 }))).toBeNull();
     expect(hi.queryByText(t("customLocales.staleCount", { count: 0 }))).toBeNull();
-    expect(hi.getByText(t("customLocales.jobStatus.running"))).toBeInTheDocument();
+    // 2 of 10 strings done.
+    expect(hi.getByText(t("customLocales.jobStatus.runningPercent", { percent: 20 }))).toBeInTheDocument();
     expect(hi.getByRole("checkbox", { name: t("customLocales.enabledLabel", { name: "हिन्दी" }) })).not.toBeChecked();
     expect(mockApi.callsOf("get", "/custom-locales")).toHaveLength(1);
+  });
+
+  it("shows a running job's share on its chip", async () => {
+    await renderSection([
+      { ...HEBREW, job: { status: "running", mode: "all", total: 7488, done: 3150, failed: 0 } },
+    ]);
+    expect(row("he").getByText("Translating… 42%")).toBeInTheDocument();
+  });
+
+  it("shows 100% once every string is done but the job has not reported its end", async () => {
+    await renderSection([
+      { ...HEBREW, job: { status: "running", mode: "all", total: 7488, done: 7488, failed: 0 } },
+    ]);
+    expect(row("he").getByText("Translating… 100%")).toBeInTheDocument();
+  });
+
+  it("shows no number on the chip before the job has counted its strings", async () => {
+    await renderSection([
+      { ...HEBREW, job: { status: "running", mode: "all", total: 0, done: 0, failed: 0 } },
+    ]);
+    const chip = row("he").getByText(t("customLocales.jobStatus.running"));
+    expect(chip).toHaveTextContent(/^Translating…$/);
+    expect(row("he").queryByText(/%/)).toBeNull();
+  });
+
+  it("shows no chip for a job that is not running", async () => {
+    await renderSection([
+      { ...HEBREW, job: { status: "completed", mode: "all", total: 10, done: 10, failed: 0 } },
+    ]);
+    expect(row("he").queryByText(/^Translating/)).toBeNull();
+  });
+
+  it("groups the translated counts the way the interface language does", async () => {
+    await renderSection([
+      { ...HEBREW, stats: { total: 7488, translated: 3150, missing: 4338, stale: 0 } },
+    ]);
+    expect(row("he").getByText("3,150 of 7,488 strings translated")).toBeInTheDocument();
   });
 
   it("says when there are no custom languages", async () => {
@@ -406,7 +444,7 @@ describe("CustomLocalesSection — following a running job", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(reads).toBe(1);
-    expect(row("he").getByText(t("customLocales.jobStatus.running"))).toBeInTheDocument();
+    expect(row("he").getByText(t("customLocales.jobStatus.runningPercent", { percent: 10 }))).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2999);
@@ -428,7 +466,7 @@ describe("CustomLocalesSection — following a running job", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(reads).toBe(3);
-    expect(row("he").queryByText(t("customLocales.jobStatus.running"))).toBeNull();
+    expect(row("he").queryByText(/^Translating/)).toBeNull();
     expect(spies.refreshCustomLocale).toHaveBeenCalledWith("he");
     expect(spies.invalidateMetamodel).toHaveBeenCalledTimes(1);
     expect(spies.refreshBootstrap).toHaveBeenCalledTimes(1);
@@ -469,7 +507,7 @@ describe("CustomLocalesSection — following a running job", () => {
     await user.click(row("he").getByRole("button", { name: t("customLocales.actions.translate") }));
     await user.click(screen.getByText("stub-finished"));
     await waitFor(() => expect(reads).toBe(2));
-    await waitFor(() => expect(row("he").queryByText(t("customLocales.jobStatus.running"))).toBeNull());
+    await waitFor(() => expect(row("he").queryByText(/^Translating/)).toBeNull());
     expect(spies.invalidateMetamodel).toHaveBeenCalledTimes(1);
     expect(spies.refreshBootstrap).toHaveBeenCalledTimes(1);
   });

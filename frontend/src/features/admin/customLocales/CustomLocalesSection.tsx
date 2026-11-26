@@ -45,7 +45,13 @@ import CustomLocaleFormDialog from "./CustomLocaleFormDialog";
 import ImportPackDialog from "./ImportPackDialog";
 import TranslateDialog, { POLL_INTERVAL_MS } from "./TranslateDialog";
 import ReviewStringsDialog from "./ReviewStringsDialog";
-import { METAMODEL_NAMESPACE, downloadJson, errorMessage, percent } from "./customLocaleUtils";
+import {
+  METAMODEL_NAMESPACE,
+  downloadJson,
+  errorMessage,
+  formatCount,
+  percent,
+} from "./customLocaleUtils";
 
 const EXPORT_MODES: LanguagePackMode[] = ["missing", "all", "current", "share"];
 
@@ -225,8 +231,8 @@ export default function CustomLocalesSection() {
                   />
                   <Typography variant="caption" color="text.secondary">
                     {t("customLocales.progress", {
-                      translated: stats.translated,
-                      total: stats.total,
+                      translated: formatCount(stats.translated, i18n.language),
+                      total: formatCount(stats.total, i18n.language),
                     })}
                   </Typography>
                 </>
@@ -257,7 +263,14 @@ export default function CustomLocalesSection() {
                 size="small"
                 color="info"
                 icon={<MaterialSymbol icon="auto_awesome" size={16} />}
-                label={t("customLocales.jobStatus.running")}
+                label={
+                  // The share once the job has counted its strings.
+                  locale.job && locale.job.total > 0
+                    ? t("customLocales.jobStatus.runningPercent", {
+                        percent: percent(locale.job.done, locale.job.total),
+                      })
+                    : t("customLocales.jobStatus.running")
+                }
               />
             )}
             <Tooltip title={t("customLocales.enabledHint")}>

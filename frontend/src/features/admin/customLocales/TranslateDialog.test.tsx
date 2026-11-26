@@ -127,7 +127,7 @@ describe("TranslateDialog", () => {
     // The started job shows at once, before the next read lands.
     expect(await screen.findByText(t("customLocales.jobStatus.running"))).toBeInTheDocument();
     expect(
-      screen.getByText(t("customLocales.translate.progressText", { done: 0, total: 40, failed: 0 })),
+      screen.getByText(t("customLocales.translate.progressText", { percent: 0, done: 0, total: 40, failed: 0 })),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: t("customLocales.translate.cancelJob") })).toBeEnabled();
     expect(screen.getAllByRole("radio").every((r) => (r as HTMLInputElement).disabled)).toBe(true);
@@ -135,7 +135,7 @@ describe("TranslateDialog", () => {
     release();
     expect(
       await screen.findByText(
-        t("customLocales.translate.progressText", { done: 4, total: 40, failed: 0 }),
+        t("customLocales.translate.progressText", { percent: 10, done: 4, total: 40, failed: 0 }),
       ),
     ).toBeInTheDocument();
     expect(reads).toBe(2);
@@ -185,7 +185,7 @@ describe("TranslateDialog", () => {
     });
     expect(reads).toBe(1);
     expect(
-      screen.getByText(t("customLocales.translate.progressText", { done: 10, total: 40, failed: 0 })),
+      screen.getByText(t("customLocales.translate.progressText", { percent: 25, done: 10, total: 40, failed: 0 })),
     ).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
 
@@ -202,7 +202,7 @@ describe("TranslateDialog", () => {
     expect(reads).toBe(2);
     expect(screen.getByText(t("customLocales.jobStatus.completed"))).toBeInTheDocument();
     expect(
-      screen.getByText(t("customLocales.translate.progressText", { done: 38, total: 40, failed: 2 })),
+      screen.getByText(t("customLocales.translate.progressText", { percent: 95, done: 38, total: 40, failed: 2 })),
     ).toBeInTheDocument();
     expect(onFinished).toHaveBeenCalledTimes(1);
     expect(startButton()).toBeInTheDocument();
@@ -246,7 +246,7 @@ describe("TranslateDialog", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(
-      screen.getByText(t("customLocales.translate.progressText", { done: 2, total: 40, failed: 0 })),
+      screen.getByText(t("customLocales.translate.progressText", { percent: 5, done: 2, total: 40, failed: 0 })),
     ).toBeInTheDocument();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
@@ -325,6 +325,42 @@ describe("TranslateDialog", () => {
     renderDialog({ ...HEBREW, job: job({ total: 0 }) });
     await waitFor(() => expect(mockApi.callsOf("get", DETAIL_PATH)).toHaveLength(1));
     expect(screen.getByRole("progressbar")).not.toHaveAttribute("aria-valuenow");
+    // No number while nothing is counted: never "0%" or "NaN%".
+    expect(screen.queryByTestId("translate-progress-text")).toBeNull();
+    expect(screen.getByTestId("translate-job")).not.toHaveTextContent(/%/);
+  });
+
+  it("shows the share done, with grouped counts, for a job half-way through", async () => {
+    const mid = job({ total: 7488, done: 3150, failed: 12 });
+    mockApi.on("get", DETAIL_PATH, detail({ job: mid }));
+    renderDialog({ ...HEBREW, job: mid });
+    const text = await screen.findByTestId("translate-progress-text");
+    expect(text).toHaveTextContent(/^42% — 3,150 of 7,488 strings, 12 failed$/);
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
+  });
+
+  it("shows 100% for a finished job", async () => {
+    const done = job({ status: "completed", total: 7488, done: 7488, failed: 0 });
+    mockApi.on("get", DETAIL_PATH, detail({ job: done }));
+    renderDialog({ ...HEBREW, job: done });
+    expect(await screen.findByTestId("translate-progress-text")).toHaveTextContent(
+      /^100% — 7,488 of 7,488 strings, 0 failed$/,
+    );
+  });
+
+  it("groups counts the way the interface language does", async () => {
+    const mid = job({ total: 7488, done: 3150, failed: 1200 });
+    mockApi.on("get", DETAIL_PATH, detail({ job: mid }));
+    await act(() => i18n.changeLanguage("de"));
+    try {
+      renderDialog({ ...HEBREW, job: mid });
+      const text = await screen.findByTestId("translate-progress-text");
+      expect(text).toHaveTextContent("3.150");
+      expect(text).toHaveTextContent("7.488");
+      expect(text).toHaveTextContent("1.200");
+    } finally {
+      await act(() => i18n.changeLanguage("en"));
+    }
   });
 
   it("cancels a running job", async () => {

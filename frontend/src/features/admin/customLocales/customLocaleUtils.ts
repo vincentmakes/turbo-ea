@@ -213,6 +213,19 @@ export function isKnownReason(reason: string): reason is (typeof REJECT_REASONS)
   return (REJECT_REASONS as readonly string[]).includes(reason);
 }
 
+/**
+ * A count with the interface language's digit grouping (`7,488`, `7.488`,
+ * `7 488`). A language code `Intl` cannot read — possible for an admin-added
+ * one — falls back to English grouping.
+ */
+export function formatCount(n: number, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale).format(n);
+  } catch {
+    return new Intl.NumberFormat("en").format(n);
+  }
+}
+
 /** Whole percent of `part` in `total`, 0 when there is nothing to count. */
 export function percent(part: number, total: number): number {
   if (total <= 0) return 0;
