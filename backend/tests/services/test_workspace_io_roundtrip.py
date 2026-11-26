@@ -3773,25 +3773,36 @@ async def test_a_bundle_without_relation_dates_imports_them_empty(db):
     await create_card_type(db, key="Widget", label="Widget")
     await create_card(db, card_type="Widget", name="A", user_id=user.id)
     await create_card(db, card_type="Widget", name="B", user_id=user.id)
+    # Already here with the switch on: an empty cell must leave it on, not
+    # write NULL over it.
+    db.add(
+        RelationType(
+            key="widget_tracked",
+            label="tracks",
+            source_type_key="Widget",
+            target_type_key="Widget",
+            built_in=False,
+            lifecycle_enabled=True,
+        )
+    )
     await db.flush()
+    legacy_type = {c: None for c in exp.RELATION_TYPE_COLUMNS} | {
+        "source_type_key": "Widget",
+        "target_type_key": "Widget",
+        "cardinality": "n:m",
+        "attributes_schema": [],
+        "built_in": False,
+        "is_hidden": False,
+        "sort_order": 0,
+        "translations": {},
+        "source_visible": True,
+        "source_mandatory": False,
+        "target_visible": True,
+        "target_mandatory": False,
+    }
     relation_types = [
-        {c: None for c in exp.RELATION_TYPE_COLUMNS}
-        | {
-            "key": "widget_old",
-            "label": "links",
-            "source_type_key": "Widget",
-            "target_type_key": "Widget",
-            "cardinality": "n:m",
-            "attributes_schema": [],
-            "built_in": False,
-            "is_hidden": False,
-            "sort_order": 0,
-            "translations": {},
-            "source_visible": True,
-            "source_mandatory": False,
-            "target_visible": True,
-            "target_mandatory": False,
-        }
+        legacy_type | {"key": "widget_tracked", "label": "tracks"},
+        legacy_type | {"key": "widget_old", "label": "links"},
     ]
     legacy_columns = tuple(c for c in exp.RELATION_COLUMNS if c != "lifecycle")
     relations = [
@@ -3822,6 +3833,10 @@ async def test_a_bundle_without_relation_dates_imports_them_empty(db):
         await db.execute(select(RelationType).where(RelationType.key == "widget_old"))
     ).scalar_one()
     assert rt.lifecycle_enabled is False
+    tracked = (
+        await db.execute(select(RelationType).where(RelationType.key == "widget_tracked"))
+    ).scalar_one()
+    assert tracked.lifecycle_enabled is True
     rel = (await db.execute(select(Relation).where(Relation.type == "widget_old"))).scalar_one()
     await db.refresh(rel)
     assert rel.lifecycle == {}
@@ -3876,6 +3891,11 @@ async def test_bundle_relation_dates_are_validated_like_every_relation_write(db)
     assert len(section.errors) == 3, section.errors
     assert all("lifecycle dropped" in e for e in section.errors)
     assert any("'B' -> 'A'" in e for e in section.errors)
+    # Each error names the row by its type and both ends, then says why.
+    assert (
+        "relation 'widget_dated' ('B' -> 'A'): lifecycle dropped — "
+        "lifecycle must be an object of phase → date"
+    ) in section.errors
 
     cards = {c.name: c.id for c in (await db.execute(select(Card))).scalars()}
     stored = {

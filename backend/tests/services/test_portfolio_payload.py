@@ -17,6 +17,7 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.services.card_read_scope import CardReadScope
 from app.services.permission_service import PermissionService
 from app.services.portfolio_payload import (
+    _relation_entry,
     build_portfolio_payload,
     has_timeline_dates,
     relations_in_effect_now,
@@ -156,6 +157,37 @@ def test_roadmap_view_filters_only_through_relations_in_effect_today():
     assert sorted(r["related_id"] for r in kept) == COUNTING
     assert {"relation_type": "r", "related_id": "current"} in kept
     assert all("lifecycle" not in r for r in kept)
+
+
+def test_a_relation_entry_names_every_field_the_reports_read():
+    """The exact shape the Portfolio, Capability Map and Lifecycle clients read
+    (``app_relations``): a key renamed here is a filter that silently matches
+    nothing there."""
+    from types import SimpleNamespace
+
+    related = {"id": "c-1", "name": "Sales", "type": "BusinessCapability"}
+    dated = SimpleNamespace(
+        type="relAppToBC", attributes={"weight": 2}, lifecycle={"active": "2026-01-01"}
+    )
+    assert _relation_entry(dated, "outgoing", related) == {
+        "relation_type": "relAppToBC",
+        "direction": "outgoing",
+        "related_id": "c-1",
+        "related_name": "Sales",
+        "related_type": "BusinessCapability",
+        "attributes": {"weight": 2},
+        "lifecycle": {"active": "2026-01-01"},
+    }
+    # No attributes reads as an empty object; no dates leave the key out.
+    plain = SimpleNamespace(type="relAppToBC", attributes=None, lifecycle={})
+    assert _relation_entry(plain, "incoming", related) == {
+        "relation_type": "relAppToBC",
+        "direction": "incoming",
+        "related_id": "c-1",
+        "related_name": "Sales",
+        "related_type": "BusinessCapability",
+        "attributes": {},
+    }
 
 
 def test_relations_in_effect_now_reads_the_given_day():

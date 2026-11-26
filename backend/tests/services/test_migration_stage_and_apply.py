@@ -294,6 +294,24 @@ class TestStageRelations:
         assert dangling.diff["reason"] == "Endpoint not staged: target=missing"
         assert dangling.source_data["tea_type"] == "relAppToBC"
 
+    async def test_a_dangling_relation_keeps_its_dates_for_review(self, db, env):
+        """The conflict row carries the source's dates as every staged relation
+        does, so resolving it later lands them."""
+        snap = sample_snapshot()
+        snap.relations.append(
+            Relation(
+                "rel-dated",
+                "relAppToBC",
+                "app-1",
+                "nowhere",
+                lifecycle={"active": "2021-01-01"},
+            )
+        )
+        _, _, rows = await self._staged(db, env, snap)
+        dangling = rows["rel-dated"]
+        assert dangling.action == "conflict"
+        assert dangling.source_data["lifecycle"] == {"active": "2021-01-01"}
+
     async def test_an_unmapped_relation_type_is_a_conflict(self, db, env):
         snap = sample_snapshot()
         snap.relations.append(Relation("rel-x", "relMystery", "app-1", "bc-1"))

@@ -125,6 +125,32 @@ class TestDescendantRelationSummary:
         # App1 is now directly visible on the root, so only App2 + App3 remain.
         assert r.json()[0]["count"] == 2
 
+    async def test_excludes_peers_already_linked_to_root_as_its_source(
+        self, client, db, rollup_env
+    ):
+        """The root's own link counts whichever end the root sits at: a peer
+        pointing AT the root is already in its list."""
+        e = rollup_env
+        await create_relation_type(
+            db,
+            key="appToCap",
+            label="realises",
+            source_type_key="Application",
+            target_type_key="BusinessCapability",
+        )
+        for app in ("app1", "app3"):
+            await create_relation(
+                db, type_key="appToCap", source_id=e[app].id, target_id=e["leaf_a"].id
+            )
+        await create_relation(
+            db, type_key="appToCap", source_id=e["app1"].id, target_id=e["root"].id
+        )
+        r = await _summary(client, e["root"], e["admin"])
+        assert r.status_code == 200, r.text
+        [incoming] = [x for x in r.json() if x["relation_type_key"] == "appToCap"]
+        # App1 already points at the root; only App3 is new.
+        assert incoming["count"] == 1
+
     async def test_excludes_peers_inside_the_subtree(self, client, db, rollup_env):
         """A descendant-to-descendant edge is internal, not an extra card."""
         await create_relation_type(

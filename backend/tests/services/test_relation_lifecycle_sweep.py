@@ -11,11 +11,13 @@ The window helpers are pure; the rest runs on the test database.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import event as sa_event
+from sqlalchemy import null as sa_null
 from sqlalchemy import select, update
 
 from app.models.app_settings import AppSettings
@@ -81,6 +83,27 @@ class TestNextRun:
         now = datetime(2026, 6, 15, 0, 5, tzinfo=timezone.utc)
         assert sweep.seconds_until_next_run(now) == 86400
 
+    def test_the_slot_is_on_the_whole_minute(self):
+        """Half a second past one o'clock leaves 11:04:59.5, not 11:05."""
+        now = datetime(2026, 6, 15, 13, 0, 0, 500_000, tzinfo=timezone.utc)
+        assert sweep.seconds_until_next_run(now) == 11 * 3600 + 5 * 60 - 0.5
+
+
+class _UtcOnlyClock(datetime):
+    """UTC already says 1 October; the host's local clock still says 30 September."""
+
+    @classmethod
+    def now(cls, tz=None):
+        if tz is timezone.utc:
+            return datetime(2025, 10, 1, 0, 30, tzinfo=timezone.utc)
+        return datetime(2025, 9, 30, 20, 30)
+
+
+def test_today_is_the_utc_day(monkeypatch):
+    """The sweep's day is the UTC day every count uses, never the host's."""
+    monkeypatch.setattr(sweep, "datetime", _UtcOnlyClock)
+    assert sweep._utc_today() == date(2025, 10, 1)
+
 
 # ── the landscape ────────────────────────────────────────────────────────────
 
@@ -125,6 +148,8 @@ class TestAffectedCards:
             "starts-the-day-after-the-marker": {"active": "2026-06-11"},
             "ends-in-the-window": {"active": "2020-01-01", "endOfLife": "2026-06-12"},
             "ends-with-a-time": {"endOfLife": "2026-06-13T08:00:00"},
+            # On the last day: only its first ten characters are the day.
+            "starts-on-the-last-day-with-a-time": {"active": "2026-06-15T08:00:00"},
         }
         misses = {
             "started-on-the-marker-day": {"active": "2026-06-10"},
@@ -134,6 +159,8 @@ class TestAffectedCards:
             "phase-out-only": {"phaseOut": "2026-06-12"},
             "undated": {},
             "malformed": {"active": "15/06/2026"},
+            # Its first ten characters fall in the window, but it is no date.
+            "malformed-in-range": {"active": "2026-06-12 at noon"},
         }
         expected = set()
         for name, lifecycle in hits.items():
@@ -199,6 +226,30 @@ class TestMarker:
         await sweep.write_marker(db, DAY)
         await sweep.write_marker(db, DAY + timedelta(days=1))
         assert await sweep.read_marker(db) == DAY + timedelta(days=1)
+        # The row it had to create is an ordinary empty settings row.
+        row = (
+            await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+        ).scalar_one()
+        assert row.email_settings == {}
+        assert row.general_settings == {sweep.MARKER_KEY: "2026-06-16"}
+
+    async def test_written_over_a_null_settings_blob(self, db):
+        """A row whose ``general_settings`` is SQL NULL gets the marker as its
+        only key, not a NULL that loses it."""
+        db.add(AppSettings(id="default", email_settings={}))
+        await db.flush()
+        await db.execute(
+            update(AppSettings)
+            .where(AppSettings.id == "default")
+            .values(general_settings=sa_null())
+        )
+        await sweep.write_marker(db, DAY)
+        row = (
+            await db.execute(
+                select(AppSettings.general_settings).where(AppSettings.id == "default")
+            )
+        ).scalar_one()
+        assert row == {sweep.MARKER_KEY: "2026-06-15"}
 
 
 # ── a whole run ──────────────────────────────────────────────────────────────
@@ -313,8 +364,11 @@ class TestRun:
         await db.refresh(good)
         assert good.attributes["itcCount"] == 1
         assert str(bad.id) in caplog.text
+        assert f"Relation lifecycle sweep could not recalculate card {bad.id}" in [
+            r.getMessage() for r in caplog.records if r.name == sweep.logger.name
+        ]
 
-    async def test_a_failure_leaves_the_marker_where_it_was(self, land, monkeypatch):
+    async def test_a_failure_leaves_the_marker_where_it_was(self, land, monkeypatch, caplog):
         db = land
         today = _utc_today()
         yesterday = today - timedelta(days=1)
@@ -327,8 +381,20 @@ class TestRun:
             raise RuntimeError("down")
 
         monkeypatch.setattr(sweep, "recalculate_card", boom)
-        assert await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today) == 0
+        with caplog.at_level(logging.WARNING, logger=sweep.logger.name):
+            assert (
+                await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today) == 0
+            )
         assert len(calls) == 2  # both ends were tried
+        # The warning counts the failures and names the window to be repeated.
+        assert [
+            r.getMessage()
+            for r in caplog.records
+            if r.name == sweep.logger.name and r.levelno == logging.WARNING
+        ] == [
+            f"Relation lifecycle sweep: 2 of 2 card(s) failed; the window after "
+            f"{yesterday.isoformat()} will be swept again on the next run"
+        ]
         assert await sweep.read_marker(db) == yesterday
         # The next run repeats the window, and advances once every card succeeds.
         monkeypatch.undo()

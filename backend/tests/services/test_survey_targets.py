@@ -155,6 +155,17 @@ class TestRelatedIds:
     async def test_either_end_counts(self, db, cards, related):
         assert await _matched(db, {"related_ids": [str(related.id)]}) == {"C10", "C20", "C30"}
 
+    async def test_only_relations_to_the_named_card_count(self, db, cards, related):
+        """A relation elsewhere, in either direction, makes no card a target."""
+        elsewhere = await create_card(db, card_type="ITComponent", name="Elsewhere")
+        await create_relation(
+            db, type_key="owns", source_id=cards["bare"].id, target_id=elsewhere.id
+        )
+        await create_relation(
+            db, type_key="feeds", source_id=elsewhere.id, target_id=cards["bare"].id
+        )
+        assert await _matched(db, {"related_ids": [str(related.id)]}) == {"C10", "C20", "C30"}
+
     async def test_a_relation_type_narrows_both_directions(self, db, cards, related):
         hub = str(related.id)
         assert await _matched(db, {"related_ids": [hub], "relation_type_key": "owns"}) == {"C10"}

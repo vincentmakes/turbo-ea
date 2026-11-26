@@ -191,6 +191,30 @@ class TestDashboardQueryDay:
         long_ago = await _dash(db, today=LONG_AGO, **query)
         assert _named(long_ago, "target") == {"undated": 1}
 
+    async def test_the_sankey_reads_each_end_as_itself(self, db, star):
+        """Both ends of a sankey pass the filters on their own: a relation from
+        an archived card is not drawn, and a flag is read on the end card (here
+        "orphaned", which no end of a relation in effect can be)."""
+        gone = await create_card(db, card_type="Application", name="Gone", status="ARCHIVED")
+        await create_relation(
+            db, type_key="relHubToItc", source_id=gone.id, target_id=star.lonely.id
+        )
+        query = {"relation_type": "relHubToItc", "group_by": "type", "group_by_2": "card"}
+        assert _named(await _dash(db, **query), "target") == dict.fromkeys(COUNTING, 1)
+        orphaned = await _dash(db, **query, flags="orphaned")
+        assert orphaned["rows"] == []
+        assert orphaned["total"] == 0
+
+    async def test_a_related_dimension_reads_its_own_relation_type_only(self, db, star):
+        await create_relation_type(
+            db, key="relHubToItcToo", source_type_key="Application", target_type_key="ITComponent"
+        )
+        await create_relation(
+            db, type_key="relHubToItcToo", source_id=star.hub.id, target_id=star.lonely.id
+        )
+        query = {"card_type": "Application", "group_by": "related:relHubToItc"}
+        assert _named(await _dash(db, **query)) == dict.fromkeys(COUNTING, 1)
+
     async def test_a_related_dimension_groups_by_relations_in_effect(self, db, star):
         query = {"card_type": "Application", "group_by": "related:relHubToItc"}
         today = await _dash(db, **query)
@@ -454,6 +478,9 @@ class TestPpmGroupMap:
             inits["undated"].id: (org.id, "Finance"),
             inits["current"].id: (org.id, "Finance"),
         }
+        # Only the initiatives asked about are grouped, though others relate too.
+        asked = await build_group_map(db, [inits["current"].id], "Organization")
+        assert asked == {inits["current"].id: (org.id, "Finance")}
 
 
 # ── TurboLens loaders ────────────────────────────────────────────────────────

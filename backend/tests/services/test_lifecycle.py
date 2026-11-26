@@ -230,6 +230,9 @@ IN_EFFECT_SHAPES: list[tuple[str, object, bool]] = [
     ("ActiveMalformed", {"active": "someday"}, True),
     ("ActiveNumber", {"active": 20200101}, True),
     ("ActiveMalformedButPlanned", {"active": "someday", "plan": "2020-01-01"}, False),
+    # Malformed, yet it sorts before today as text: only the date pattern
+    # keeps it from reading as a start, so the planned date still decides.
+    ("ActiveYearOnlyButPlanned", {"active": "2020", "plan": "2019-01-01"}, False),
     ("OnlyPlanPast", {"plan": "2020-01-01"}, False),
     ("OnlyPhaseInFuture", {"phaseIn": "2030-01-01"}, False),
     ("PlanMalformed", {"plan": "soon"}, True),
@@ -341,10 +344,20 @@ class TestNormalizeRelationLifecycle:
     def test_an_unknown_phase_is_refused_by_name(self, key):
         from app.services.lifecycle import normalize_relation_lifecycle
 
-        with pytest.raises(ValueError, match=repr(key)):
+        with pytest.raises(ValueError) as refused:
             normalize_relation_lifecycle({key: "2026-01-01"})
+        # The API returns this text as the 422 detail, so it lists the phases.
+        assert str(refused.value) == (
+            f"lifecycle: unknown phase {key!r} "
+            "(expected one of plan, phaseIn, active, phaseOut, endOfLife)"
+        )
 
-    @pytest.mark.parametrize("value", ["someday", "2026-13-01", "2026-02-30", 20260101, True, []])
+    @pytest.mark.parametrize(
+        "value",
+        # A ``date`` object prints as a readable day, yet only a string is a
+        # stored lifecycle date.
+        ["someday", "2026-13-01", "2026-02-30", 20260101, True, [], date(2026, 1, 1)],
+    )
     def test_an_unreadable_date_is_refused_by_phase(self, value):
         from app.services.lifecycle import normalize_relation_lifecycle
 
@@ -355,8 +368,9 @@ class TestNormalizeRelationLifecycle:
     def test_a_lifecycle_must_be_an_object(self, value):
         from app.services.lifecycle import normalize_relation_lifecycle
 
-        with pytest.raises(ValueError, match="must be an object"):
+        with pytest.raises(ValueError) as refused:
             normalize_relation_lifecycle(value)
+        assert str(refused.value) == "lifecycle must be an object of phase → date"
 
     def test_whatever_it_stores_the_sql_twin_can_read(self):
         """Every stored date matches the SQL guard and starts with its day."""

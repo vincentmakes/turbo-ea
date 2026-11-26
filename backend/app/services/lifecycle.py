@@ -249,22 +249,23 @@ def lifecycle_breadth(lifecycle: dict | None, *, on: date | None = None) -> tupl
     return (rank, end_of_life or date.max)
 
 
-def _sql_phase_date(entity: Any, phase: str, pattern: Any, ten: Any) -> tuple[Any, Any, Any]:
-    """``(has_date, no_date, first_ten)`` for one phase of ``entity.lifecycle``.
+def _sql_phase_date(entity: Any, phase: str, pattern: Any) -> tuple[Any, Any, Any]:
+    """``(has_date, no_date, text)`` for one phase of ``entity.lifecycle``.
 
     ``has_date`` and ``no_date`` are each TRUE or FALSE, never NULL: an absent
     key, a JSON null and a SQL NULL ``lifecycle`` all yield a NULL text, which
     ``no_date`` tests for positively — ``NOT (text ~ pattern)`` alone is NULL
     there, and ``NOT NULL`` is not TRUE (the ``_jsonb_absent`` trap).
 
-    ``pattern`` and ``ten`` are the caller's bound values, shared by every
-    phase so the condition adds a handful of parameters to a statement, not
-    one per comparison.
+    ``pattern`` is the caller's bound value, shared by every phase so the
+    condition adds a handful of parameters to a statement, not one per
+    comparison. Only the phases compared with today need the day itself
+    (``left(text, 10)``), so the caller takes it from ``text``.
     """
     text = entity.lifecycle[phase].astext
     has_date = and_(text.is_not(None), text.regexp_match(pattern))
     no_date = or_(text.is_(None), not_(text.regexp_match(pattern)))
-    return has_date, no_date, func.left(text, ten)
+    return has_date, no_date, text
 
 
 def lifecycle_in_effect_sql(entity: Any, *, today: date | None = None) -> Any:
@@ -290,15 +291,17 @@ def lifecycle_in_effect_sql(entity: Any, *, today: date | None = None) -> Any:
     today_text = literal((today or _utc_today()).isoformat())
     pattern = literal(_SQL_DATE_PATTERN)
     ten = literal(10)
-    active_has, active_none, active_day = _sql_phase_date(entity, "active", pattern, ten)
+    active_has, active_none, active_text = _sql_phase_date(entity, "active", pattern)
+    active_day = func.left(active_text, ten)
     started = or_(
         and_(active_has, active_day <= today_text),
         and_(
             active_none,
-            *(_sql_phase_date(entity, p, pattern, ten)[1] for p in _PLANNED_PHASES),
+            *(_sql_phase_date(entity, p, pattern)[1] for p in _PLANNED_PHASES),
         ),
     )
-    _eol_has, eol_none, eol_day = _sql_phase_date(entity, "endOfLife", pattern, ten)
+    _eol_has, eol_none, eol_text = _sql_phase_date(entity, "endOfLife", pattern)
+    eol_day = func.left(eol_text, ten)
     # "Not retired", written positively: no end-of-life date, or one still ahead.
     not_retired = or_(eol_none, eol_day > today_text)
     return and_(started, not_retired)

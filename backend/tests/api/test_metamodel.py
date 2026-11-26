@@ -3363,6 +3363,7 @@ class TestRelationTypeLifecycleSwitch:
             headers=auth_headers(metamodel_env["admin"]),
         )
         assert resp.status_code == 400
+        assert resp.json()["detail"] == "lifecycle_enabled must be a boolean"
         created = await client.post(
             "/api/v1/metamodel/relation-types",
             json={
@@ -3375,6 +3376,7 @@ class TestRelationTypeLifecycleSwitch:
             headers=auth_headers(metamodel_env["admin"]),
         )
         assert created.status_code == 400
+        assert created.json()["detail"] == "lifecycle_enabled must be a boolean"
 
     async def test_a_viewer_cannot_toggle_it(self, client, db, metamodel_env):
         await self._types(db)

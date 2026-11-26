@@ -714,11 +714,55 @@ class TestMatrixFilters:
         await create_relation(
             db, type_key="app_to_do", source_id=e["app_b"].id, target_id=e["do_x"].id
         )
+        # A key stored with a JSON null is unset too.
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_a"].id,
+            target_id=e["do_y"].id,
+            attributes={"usage": None},
+        )
 
         data = await _matrix(client, e["admin"], attr="app_to_do.usage:__empty__")
 
-        rows_with_edges = {ix["row_id"] for ix in data["intersections"] if ix["e"]}
-        assert rows_with_edges == {str(e["app_b"].id)}
+        assert _cell(data, e["app_b"].id, e["do_x"].id)["e"]
+        assert _cell(data, e["app_a"].id, e["do_y"].id)["e"]
+        assert _cell(data, e["app_a"].id, e["do_x"].id)["e"] == []
+
+    async def test_filter_by_number_value(self, client, db, matrix_env):
+        """A number matches by value; a filter value that is no number matches
+        the stored text exactly."""
+        from app.models.relation_type import RelationType
+
+        e = matrix_env
+        rt = (
+            await db.execute(select(RelationType).where(RelationType.key == "app_to_do"))
+        ).scalar_one()
+        rt.attributes_schema = [
+            *rt.attributes_schema,
+            {"key": "weight", "label": "Weight", "type": "number"},
+        ]
+        await db.flush()
+        for source, target, weight in (
+            ("app_a", "do_x", 2),
+            ("app_b", "do_x", 3),
+            ("app_a", "do_y", "heavy"),
+        ):
+            await create_relation(
+                db,
+                type_key="app_to_do",
+                source_id=e[source].id,
+                target_id=e[target].id,
+                attributes={"weight": weight},
+            )
+
+        def linked(data):
+            return {(ix["row_id"], ix["col_id"]) for ix in data["intersections"] if ix["e"]}
+
+        two = await _matrix(client, e["admin"], attr="app_to_do.weight:2")
+        assert linked(two) == {(str(e["app_a"].id), str(e["do_x"].id))}
+        heavy = await _matrix(client, e["admin"], attr="app_to_do.weight:heavy")
+        assert linked(heavy) == {(str(e["app_a"].id), str(e["do_y"].id))}
 
     async def test_filter_is_scoped_to_its_own_relation_type(self, client, db, matrix_env):
         """A filter on one relation type must not discard the other type's edges."""

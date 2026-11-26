@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, case, func, not_, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -1122,11 +1122,9 @@ def _matrix_attr_clause(relation: Any, field_key: str, field_type: str, value: s
     """One JSONB predicate over ``relation.attributes`` for a single attribute
     filter value (``relation``: the ``Relation`` the caller's query reads)."""
     if value == MATRIX_EMPTY_FILTER:
-        return or_(
-            relation.attributes.is_(None),
-            not_(relation.attributes.has_key(field_key)),  # noqa: W601 — JSONB ? operator
-            relation.attributes[field_key].astext.is_(None),
-        )
+        # ``->>`` yields NULL for a NULL object, a missing key and a JSON null
+        # alike, so this one test is every way of "not set".
+        return relation.attributes[field_key].astext.is_(None)
     if field_type == "boolean":
         return relation.attributes.contains({field_key: value == "true"})
     if field_type in ("number", "percentage"):
@@ -2259,8 +2257,10 @@ def _speaks_for_collapse(candidate: Relation, current: Relation, today: date) ->
     (``lifecycle_breadth``) win, then the smaller id."""
     cand = lifecycle_breadth(candidate.lifecycle, on=today)
     held = lifecycle_breadth(current.lifecycle, on=today)
-    if cand != held:
-        return cand > held
+    if cand > held:
+        return True
+    if cand < held:
+        return False
     return str(candidate.id) < str(current.id)
 
 

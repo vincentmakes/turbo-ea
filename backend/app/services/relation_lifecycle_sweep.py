@@ -147,9 +147,7 @@ async def affected_card_ids(db: AsyncSession, after: date, through: date) -> lis
     ``endOfLife`` date falls in ``(after, through]`` — each once, by id."""
     flipped = flip_condition(Relation, after, through)
     ends = (
-        select(Relation.source_id.label("card_id"))
-        .where(flipped)
-        .union(select(Relation.target_id.label("card_id")).where(flipped))
+        select(Relation.source_id).where(flipped).union(select(Relation.target_id).where(flipped))
     )
     rows = await db.execute(
         select(Card.id).where(Card.id.in_(ends), Card.status == "ACTIVE").order_by(Card.id)
