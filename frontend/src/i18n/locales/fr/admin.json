@@ -128,7 +128,7 @@
   "metamodel.relKeyCaption": "Clé : {{key}}",
   "metamodel.relKeyExcelHint": "Dans Excel, cette clé est l’en-tête de la colonne rel:{{key}} sur la feuille du type de fiche source et la valeur relation_type sur la feuille Relations.",
   "metamodel.trackLifecycle": "Suivre le cycle de vie",
-  "metamodel.trackLifecycleHint": "Propose une horloge sur chaque relation de ce type pour enregistrer quand la relation est planifiée, active et terminée.",
+  "metamodel.trackLifecycleHint": "Donne à chaque relation de ce type son propre cycle de vie – les mêmes phases qu'une fiche – afin qu'elle puisse être planifiée, active ou terminée indépendamment des fiches qu'elle relie.",
   "metamodel.deleteRelationType": "Supprimer le type de relation ?",
   "metamodel.deleteRelHasInstances": "Ce type de relation a <strong>{{count}}</strong> instance(s) liant des fiches entre elles. Le supprimer les supprimera toutes définitivement.",
   "metamodel.deleteRelBuiltInHidden": "Ce type de relation intégré sera masqué et pourra être restauré ultérieurement.",

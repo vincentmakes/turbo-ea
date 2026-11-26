@@ -287,7 +287,7 @@ describe("RelationTypesPanel — Track lifecycle", () => {
     const toggle = within(dialog).getByRole("checkbox", { name: "Track lifecycle" });
     expect(toggle).not.toBeChecked();
     expect(toggle).toHaveAccessibleDescription(
-      "Offers a clock on each relation of this type to record when the relation is planned, active and ended.",
+      "Gives each relation of this type its own lifecycle — the same phases as a card — so it can be planned, active or ended independently of the cards it connects.",
     );
 
     // Pick the target and verb so Create enables.

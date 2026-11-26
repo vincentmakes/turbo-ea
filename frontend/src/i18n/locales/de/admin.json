@@ -128,7 +128,7 @@
   "metamodel.relKeyCaption": "Schlüssel: {{key}}",
   "metamodel.relKeyExcelHint": "In Excel ist dieser Schlüssel die Überschrift der Spalte rel:{{key}} auf dem Tabellenblatt des Quell-Kartentyps und der Wert relation_type auf dem Tabellenblatt Relations.",
   "metamodel.trackLifecycle": "Lebenszyklus verfolgen",
-  "metamodel.trackLifecycleHint": "Bietet an jeder Beziehung dieses Typs eine Uhr, um festzuhalten, wann die Beziehung geplant, aktiv und beendet ist.",
+  "metamodel.trackLifecycleHint": "Gibt jeder Beziehung dieses Typs einen eigenen Lebenszyklus – mit denselben Phasen wie eine Karte –, sodass sie unabhängig von den verbundenen Karten geplant, aktiv oder beendet sein kann.",
   "metamodel.deleteRelationType": "Beziehungstyp löschen?",
   "metamodel.deleteRelHasInstances": "Dieser Beziehungstyp hat <strong>{{count}}</strong> Beziehungsinstanz(en), die Karten verbinden. Beim Löschen werden alle dauerhaft entfernt.",
   "metamodel.deleteRelBuiltInHidden": "Dieser vordefinierte Beziehungstyp wird ausgeblendet und kann später wiederhergestellt werden.",
