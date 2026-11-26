@@ -28,8 +28,6 @@ import { LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
 import { useLifecycleOrderWarning } from "@/hooks/useLifecycleOrderWarning";
 import LifecycleDateFields, { type PhaseAnnotation } from "./LifecycleDateFields";
 
-export type { PhaseAnnotation } from "./LifecycleDateFields";
-
 // ── Section: Lifecycle ──────────────────────────────────────────
 function LifecycleSection({
   card,
