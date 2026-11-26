@@ -160,7 +160,14 @@ class TestStatement:
         statement = matches_statement(self._target(), ids, scope)
         compiled = statement.compile(dialect=postgresql.dialect())
         assert sum(1 for v in compiled.params.values() if v == ids) == 1
-        assert len(compiled.params) < 20
+        # The parameter count is a constant of the statement's shape, never of
+        # the number of ids: one id binds exactly as many as ten thousand. The
+        # constant itself is small but not tiny — each relation join carries
+        # the relation-lifecycle condition (``lifecycle_in_effect_sql``, seven
+        # bound values), so the cap is generous and far below the id count.
+        single = matches_statement(self._target(), [uuid.uuid4()], scope)
+        assert len(compiled.params) == len(single.compile(dialect=postgresql.dialect()).params)
+        assert len(compiled.params) < 50
         assert "ANY" in str(compiled)
 
     def test_the_cut_fetches_one_more_and_none_lifts_it(self):
