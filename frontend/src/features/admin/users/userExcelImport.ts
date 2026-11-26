@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { api } from "@/api/client";
 import type { AppRole, User } from "@/types";
+import { isRoleManagedExternally } from "./userRoleManaged";
 
 export interface UserImportError {
   row: number;
@@ -170,7 +171,16 @@ export function validateUserImport(
       if (existing.display_name !== displayName) {
         changes.display_name = { old: existing.display_name, new: displayName };
       }
-      if (existing.role !== role) {
+      // The directory sets a managed account's role at every sign-in and the
+      // API refuses a change to it: keep the row's other changes, drop the role.
+      const roleLocked = existing.role !== role && existing.role_managed_externally === true;
+      if (roleLocked) {
+        warnings.push({
+          row: rowNum,
+          column: "role",
+          message: `Row ${rowNum}: the role of '${email}' is set by the identity provider — role change skipped`,
+        });
+      } else if (existing.role !== role) {
         changes.role = { old: existing.role, new: role };
       }
       if (locale && existing.locale !== locale) {
@@ -182,11 +192,13 @@ export function validateUserImport(
       }
       if (Object.keys(changes).length === 0) {
         // No-op update — drop the row but mention it as a warning so the
-        // admin can see we noticed it.
-        warnings.push({
-          row: rowNum,
-          message: `Row ${rowNum}: user '${email}' already up to date`,
-        });
+        // admin can see we noticed it (a skipped role change already did).
+        if (!roleLocked) {
+          warnings.push({
+            row: rowNum,
+            message: `Row ${rowNum}: user '${email}' already up to date`,
+          });
+        }
         skipped++;
         return;
       }
@@ -194,7 +206,7 @@ export function validateUserImport(
         rowIndex: rowNum,
         email,
         display_name: displayName,
-        role,
+        role: roleLocked ? existing.role : role,
         locale,
         existing,
         changes,
@@ -275,7 +287,9 @@ export async function executeUserImport(
     if (!row.existing) continue;
     const payload: Record<string, unknown> = {};
     if (row.changes?.display_name) payload.display_name = row.display_name;
-    if (row.changes?.role) payload.role = row.role;
+    // Never send a directory-managed account's role: the API refuses the whole
+    // update for it, so the row's other changes would be lost too.
+    if (row.changes?.role && !isRoleManagedExternally(row.existing)) payload.role = row.role;
     if (row.changes?.locale && row.locale) payload.locale = row.locale;
     if (row.changes?.is_active !== undefined) {
       payload.is_active = row.changes.is_active.new;

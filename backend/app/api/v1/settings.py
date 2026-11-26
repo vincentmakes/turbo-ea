@@ -21,6 +21,7 @@ from app.models.card_type import CardType
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
+from app.models.role import Role
 from app.models.user import User
 from app.services import (
     audit_changes,
@@ -28,6 +29,7 @@ from app.services import (
     audit_log,
     card_type_categories,
     custom_locale_store,
+    directory_roles,
     lifecycle_phase_help,
 )
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
@@ -84,6 +86,14 @@ class AppTitlePayload(BaseModel):
     app_title: str = Field(default="", max_length=64)
 
 
+class SsoRoleMapRow(BaseModel):
+    """One row of the SSO role map: a directory value (group, app role) and the
+    Turbo EA role key it grants."""
+
+    value: str
+    role: str
+
+
 class SsoSettingsPayload(BaseModel):
     enabled: bool = False
     provider: str = "microsoft"  # microsoft | google | okta | oidc
@@ -98,6 +108,12 @@ class SsoSettingsPayload(BaseModel):
     authorization_endpoint: str = ""
     token_endpoint: str = ""
     jwks_uri: str = ""
+    # Directory role mapping (discussion 1446). ``None`` (omitted) keeps what is
+    # stored: only a field the caller sends is applied, so an older client that
+    # does not know them cannot wipe the map.
+    role_claim: str | None = None
+    role_map: list[SsoRoleMapRow] | None = None
+    extra_scopes: str | None = None
 
 
 DEFAULT_CURRENCY = "USD"
@@ -1824,7 +1840,87 @@ async def get_sso_settings(
         "authorization_endpoint": sso.get("authorization_endpoint", ""),
         "token_endpoint": sso.get("token_endpoint", ""),
         "jwks_uri": sso.get("jwks_uri", ""),
+        "role_claim": directory_roles.role_claim(sso),
+        "role_map": directory_roles.normalise_role_map(sso.get("role_map")),
+        "extra_scopes": sso.get("extra_scopes") or "",
     }
+
+
+# The directory role-mapping keys of ``general_settings["sso"]``, applied only
+# when the caller sends them (``SsoSettingsPayload``).
+SSO_ROLE_MAPPING_FIELDS = ("role_claim", "role_map", "extra_scopes")
+
+
+async def _apply_sso_role_mapping(
+    db: AsyncSession, body: SsoSettingsPayload, stored: dict[str, Any], sso: dict[str, Any]
+) -> None:
+    """Apply the role-mapping fields the caller sent onto ``sso``, or raise 400.
+
+    ``stored`` is the SSO block before this save and ``sso`` the block with the
+    request's other fields already applied, so the checks judge the settings as
+    they will be. An empty value is not written over a key that was never set,
+    so a save that leaves the feature off records no change. Never commits.
+    """
+    sent = body.model_fields_set
+    try:
+        if "role_claim" in sent:
+            _set_sso_key(sso, "role_claim", (body.role_claim or "").strip())
+        if "extra_scopes" in sent:
+            _set_sso_key(
+                sso, "extra_scopes", directory_roles.validate_scopes(body.extra_scopes or "")
+            )
+        if "role_map" in sent:
+            rows = directory_roles.validate_role_map(
+                row.model_dump() for row in body.role_map or []
+            )
+            await _check_role_map_targets(db, rows, stored.get("role_map"))
+            _set_sso_key(sso, "role_map", rows)
+        directory_roles.check_role_map_config(
+            provider=sso.get("provider"),
+            tenant_id=sso.get("tenant_id"),
+            claim=directory_roles.role_claim(sso),
+            rows=directory_roles.normalise_role_map(sso.get("role_map")),
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+def _set_sso_key(sso: dict[str, Any], key: str, value: Any) -> None:
+    """``sso[key] = value``, except an empty value over a key never set."""
+    if value or key in sso:
+        sso[key] = value
+
+
+async def _check_role_map_targets(
+    db: AsyncSession, rows: list[dict[str, str]], stored: Any
+) -> None:
+    """``ValueError`` when a new or changed row names a role that does not exist
+    or is archived (``directory_roles.roles_to_check``)."""
+    wanted = directory_roles.roles_to_check(rows, stored)
+    if not wanted:
+        return
+    result = await db.execute(select(Role.key, Role.is_archived).where(Role.key.in_(wanted)))
+    live = {key for key, archived in result.all() if not archived}
+    for key in wanted:
+        if key not in live:
+            raise ValueError(
+                f"The role map names the role '{key}', which does not exist or is archived."
+            )
+
+
+async def _sso_audit_shape(db: AsyncSession, sso: Mapping[str, Any]) -> dict[str, Any]:
+    """A copy of the SSO block an audit row can hold: ``role_map`` as a flat list
+    of ``"value → Role label"`` strings (a list of objects is not a flat value,
+    and a role is named by its label). Unchanged when there is no ``role_map``."""
+    shaped = dict(sso)
+    if "role_map" not in shaped:
+        return shaped
+    rows = directory_roles.normalise_role_map(shaped["role_map"])
+    labels = await audit_labels.role_labels(db, [row["role"] for row in rows])
+    shaped["role_map"] = [
+        f"{row['value']} → {labels.get(row['role'], row['role'])}" for row in rows
+    ]
+    return shaped
 
 
 @router.patch("/sso")
@@ -1841,7 +1937,7 @@ async def update_sso_settings(
     old = dict(general.get("sso", {}))
     sso = dict(old)
 
-    payload = body.model_dump()
+    payload = body.model_dump(exclude=set(SSO_ROLE_MAPPING_FIELDS))
 
     # Validate provider
     valid_providers = {"microsoft", "google", "okta", "oidc"}
@@ -1856,9 +1952,17 @@ async def update_sso_settings(
         payload["client_secret"] = encrypt_value(payload["client_secret"])
 
     sso.update(payload)
+    await _apply_sso_role_mapping(db, body, old, sso)
+    # Mapping a directory group onto a role hands that role out at every sign-in,
+    # so changing the claim or the map is user management too: a custom role with
+    # ``admin.settings`` alone could otherwise map its own group onto ``admin``.
+    if directory_roles.role_mapping_changed(old, sso):
+        await PermissionService.require_permission(db, user, "admin.users")
     general["sso"] = sso
     row.general_settings = general
-    await _audit_setting(db, user, "sso", old, sso)
+    await _audit_setting(
+        db, user, "sso", await _sso_audit_shape(db, old), await _sso_audit_shape(db, sso)
+    )
     await db.commit()
 
     return {"ok": True}

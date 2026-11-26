@@ -200,6 +200,25 @@ describe("label keys", () => {
     ]);
   });
 
+  it.each([
+    ["role_claim", "Role claim"],
+    ["role_map", "Role mapping"],
+    ["extra_scopes", "Additional scopes"],
+    ["last_admin_kept", "Last administrator kept"],
+  ])("labels the SSO role-mapping field %s", (field, label) => {
+    const [key] = fieldLabelKey(field);
+    expect(i18n.t(`admin:${key}`)).toBe(label);
+  });
+
+  it("files a role map's flat rows as a list and the kept-admin fact as a boolean", () => {
+    const d = describeDetails({
+      changes: { role_map: { old: [], new: ["ea-admins → Admin"] } },
+      context: { last_admin_kept: true },
+    });
+    expect(classifyValue(d.changes.role_map.new, "role_map")).toBe("list");
+    expect(classifyValue(d.context.last_admin_kept, "last_admin_kept")).toBe("bool");
+  });
+
   it("sanitises a code into its value key", () => {
     expect(valueLabelKey("1:n")).toBe("securityLog.values.1_n");
     expect(valueLabelKey("N:M")).toBe("securityLog.values.n_m");

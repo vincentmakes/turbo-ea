@@ -9,11 +9,41 @@ import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
+// The signed-in user's permissions: the role-mapping block is read-only
+// without admin.users. Reset to the wildcard before every test.
+const mockUser = { permissions: { "*": true } as Record<string, boolean> };
+vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => mockUser,
+  useAuthContext: () => ({ user: mockUser, refreshUser: async () => {} }),
+}));
+
 import { mockApi } from "@/test/apiMock";
+import type { AppRole } from "@/types";
 import AuthAdmin from "./AuthAdmin";
 
 const SSO = "/settings/sso";
 const REGISTRATION = "/settings/registration";
+const ROLES_PATH = "/roles?include_archived=true";
+
+function role(overrides: Partial<AppRole> & { key: string; label: string }): AppRole {
+  return {
+    id: `role-${overrides.key}`,
+    is_system: false,
+    is_default: false,
+    is_archived: false,
+    color: "#1976d2",
+    permissions: {},
+    sort_order: 0,
+    ...overrides,
+  };
+}
+
+const ROLES: AppRole[] = [
+  role({ key: "admin", label: "Admin", color: "#d32f2f", is_system: true }),
+  role({ key: "member", label: "Member", is_default: true }),
+  role({ key: "viewer", label: "Viewer", color: "#9e9e9e" }),
+  role({ key: "legacy", label: "Legacy", color: "#795548", is_archived: true }),
+];
 
 const SSO_OFF = {
   enabled: false,
@@ -37,6 +67,14 @@ const SSO_OKTA = {
   domain: "dev-12345.okta.com",
 };
 
+/** A generic OIDC configuration, with a tenant value that only Microsoft reads. */
+const SSO_OIDC_BASE = {
+  ...SSO_OFF,
+  enabled: true,
+  provider: "oidc",
+  issuer_url: "https://idp.example.com",
+};
+
 async function renderPage(): Promise<UserEvent> {
   const user = userEvent.setup();
   render(<AuthAdmin />);
@@ -52,9 +90,11 @@ async function pickProvider(user: UserEvent, option: string) {
 }
 
 beforeEach(() => {
+  mockUser.permissions = { "*": true };
   mockApi.reset();
   mockApi.on("get", SSO, SSO_OFF);
   mockApi.on("get", REGISTRATION, { enabled: true });
+  mockApi.on("get", ROLES_PATH, ROLES);
 });
 
 describe("AuthAdmin loading", () => {
@@ -172,6 +212,9 @@ describe("AuthAdmin SSO", () => {
       authorization_endpoint: "https://idp.example.com/auth",
       token_endpoint: "https://idp.example.com/token",
       jwks_uri: "https://idp.example.com/certs",
+      role_claim: "",
+      role_map: [],
+      extra_scopes: "",
     });
     expect(await screen.findByText("SSO settings saved")).toBeInTheDocument();
   });
@@ -259,11 +302,15 @@ describe("AuthAdmin — what the first pass missed", () => {
       authorization_endpoint: "",
       token_endpoint: "",
       jwks_uri: "",
+      role_claim: "",
+      role_map: [],
+      extra_scopes: "",
     });
     expect(await screen.findByText("SSO settings saved")).toBeInTheDocument();
-    // The load error is cleared by the save: the redirect hint and the snackbar remain.
+    // The load error is cleared by the save: the redirect hint, the role-mapping
+    // rules, the multi-tenant warning ("organizations") and the snackbar remain.
     expect(screen.queryByText(`GET ${SSO} failed`)).not.toBeInTheDocument();
-    expect(screen.getAllByRole("alert")).toHaveLength(2);
+    expect(screen.getAllByRole("alert")).toHaveLength(4);
   });
 
   it("reports a load failure that is not an Error generically", async () => {
@@ -483,5 +530,334 @@ describe("AuthAdmin — what the first pass missed", () => {
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+});
+
+describe("AuthAdmin SSO role mapping", () => {
+  const MAPPED_OKTA = {
+    ...SSO_OKTA,
+    role_claim: "groups",
+    role_map: [
+      { value: "ea-admins", role: "admin" },
+      { value: "ea-team", role: "member" },
+    ],
+    extra_scopes: "groups",
+  };
+
+  const values = () =>
+    screen.getAllByLabelText("Directory value").map((el) => (el as HTMLInputElement).value);
+  const roleCombos = () => screen.getAllByRole("combobox", { name: /^Role/ });
+
+  async function pickRole(user: UserEvent, combo: HTMLElement, option: string) {
+    await user.click(combo);
+    const listbox = await screen.findByRole("listbox");
+    await user.click(within(listbox).getByRole("option", { name: option }));
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+  }
+
+  async function pickProviderByName(user: UserEvent, option: string) {
+    await user.click(screen.getByRole("combobox", { name: /^Identity Provider/ }));
+    const listbox = await screen.findByRole("listbox");
+    await user.click(within(listbox).getByRole("option", { name: option }));
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+  }
+
+  it("renders the stored claim, the rows in order with their role chips, and the scopes", async () => {
+    mockApi.on("get", SSO, MAPPED_OKTA);
+    await renderPage();
+
+    expect(screen.getByText("Role mapping")).toBeInTheDocument();
+    expect(screen.getByText(/applied at every sign-in and overrides roles changed by hand/)).toBeInTheDocument();
+    const claim = screen.getByLabelText("Claim name");
+    expect(claim).toHaveValue("groups");
+    expect(claim).toHaveAccessibleDescription(
+      "The ID-token claim that lists the user's groups or roles, e.g. roles for Microsoft Entra app roles, groups for Okta or Keycloak, cognito:groups for Amazon Cognito.",
+    );
+    expect(values()).toEqual(["ea-admins", "ea-team"]);
+    await waitFor(() => expect(roleCombos()[0]).toHaveTextContent("Admin"));
+    expect(roleCombos()[1]).toHaveTextContent("Member");
+    expect(screen.getByLabelText("Additional scopes")).toHaveValue("groups");
+    expect(screen.queryByText(/No mappings yet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/needs a specific tenant ID/)).not.toBeInTheDocument();
+    // The first row cannot move up, the last cannot move down.
+    const ups = screen.getAllByRole("button", { name: "Move mapping up" });
+    const downs = screen.getAllByRole("button", { name: "Move mapping down" });
+    expect(ups[0]).toBeDisabled();
+    expect(ups[1]).toBeEnabled();
+    expect(downs[0]).toBeEnabled();
+    expect(downs[1]).toBeDisabled();
+  });
+
+  it("offers the active roles from /roles, in their order", async () => {
+    mockApi.on("get", SSO, MAPPED_OKTA);
+    const user = await renderPage();
+    await waitFor(() => expect(roleCombos()[0]).toHaveTextContent("Admin"));
+    expect(mockApi.callsOf("get", ROLES_PATH)).toHaveLength(1);
+
+    await user.click(roleCombos()[0]);
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Admin",
+      "Member",
+      "Viewer",
+    ]);
+  });
+
+  it("adds, edits, reorders and removes rows, and saves the trimmed map in its new order", async () => {
+    mockApi.on("get", SSO, MAPPED_OKTA);
+    mockApi.on("patch", SSO, {});
+    const user = await renderPage();
+    await waitFor(() => expect(roleCombos()[0]).toHaveTextContent("Admin"));
+
+    // Move the first row down.
+    await user.click(screen.getAllByRole("button", { name: "Move mapping down" })[0]);
+    expect(values()).toEqual(["ea-team", "ea-admins"]);
+    expect(roleCombos()[0]).toHaveTextContent("Member");
+    expect(roleCombos()[1]).toHaveTextContent("Admin");
+
+    // Add a row with a padded value and a role, and a row left empty.
+    await user.click(screen.getByRole("button", { name: /Add mapping$/ }));
+    await user.type(screen.getAllByLabelText("Directory value")[2], "  ea-viewers  ");
+    await pickRole(user, roleCombos()[2], "Viewer");
+    await user.click(screen.getByRole("button", { name: /Add mapping$/ }));
+    expect(values()).toEqual(["ea-team", "ea-admins", "  ea-viewers  ", ""]);
+
+    // Remove the first row, then move the new row up to the top.
+    await user.click(screen.getAllByRole("button", { name: "Remove mapping" })[0]);
+    expect(values()).toEqual(["ea-admins", "  ea-viewers  ", ""]);
+    await user.click(screen.getAllByRole("button", { name: "Move mapping up" })[1]);
+    expect(values()).toEqual(["  ea-viewers  ", "ea-admins", ""]);
+    expect(roleCombos()[0]).toHaveTextContent("Viewer");
+
+    // Edit a value in place.
+    const second = screen.getAllByLabelText("Directory value")[1];
+    await user.clear(second);
+    await user.type(second, "ea-architects");
+
+    const claim = screen.getByLabelText("Claim name");
+    await user.clear(claim);
+    await user.type(claim, " roles ");
+    const scopes = screen.getByLabelText("Additional scopes");
+    await user.clear(scopes);
+    await user.type(scopes, " groups offline_access ");
+
+    await user.click(screen.getByRole("button", { name: /Save$/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", SSO)).toHaveLength(1));
+    expect(mockApi.callsOf("patch", SSO)[0].body).toEqual({
+      enabled: true,
+      provider: "okta",
+      client_id: "okta-client",
+      client_secret: "okta-secret",
+      tenant_id: "organizations",
+      domain: "dev-12345.okta.com",
+      issuer_url: "",
+      authorization_endpoint: "",
+      token_endpoint: "",
+      jwks_uri: "",
+      role_claim: "roles",
+      role_map: [
+        { value: "ea-viewers", role: "viewer" },
+        { value: "ea-architects", role: "admin" },
+      ],
+      extra_scopes: "groups offline_access",
+    });
+  });
+
+  it("keeps a row that has only a role, and drops every row once all are removed", async () => {
+    mockApi.on("get", SSO, MAPPED_OKTA);
+    mockApi.on("patch", SSO, {});
+    const user = await renderPage();
+    await waitFor(() => expect(roleCombos()[0]).toHaveTextContent("Admin"));
+
+    await user.click(screen.getByRole("button", { name: /Add mapping$/ }));
+    await pickRole(user, roleCombos()[2], "Viewer");
+    await user.click(screen.getByRole("button", { name: /Save$/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", SSO)).toHaveLength(1));
+    expect((mockApi.callsOf("patch", SSO)[0].body as { role_map: unknown }).role_map).toEqual([
+      { value: "ea-admins", role: "admin" },
+      { value: "ea-team", role: "member" },
+      { value: "", role: "viewer" },
+    ]);
+
+    for (let i = 0; i < 3; i++) {
+      await user.click(screen.getAllByRole("button", { name: "Remove mapping" })[0]);
+    }
+    expect(screen.queryAllByLabelText("Directory value")).toHaveLength(0);
+    expect(screen.getByText(/No mappings yet/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Save$/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", SSO)).toHaveLength(2));
+    expect((mockApi.callsOf("patch", SSO)[1].body as { role_map: unknown }).role_map).toEqual([]);
+  });
+
+  it("hides the block for Google but still sends the stored values", async () => {
+    mockApi.on("get", SSO, { ...MAPPED_OKTA, provider: "google", domain: "" });
+    mockApi.on("patch", SSO, {});
+    const user = await renderPage();
+
+    expect(screen.queryByTestId("sso-role-mapping")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Claim name")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Additional scopes")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Save$/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", SSO)).toHaveLength(1));
+    expect(mockApi.callsOf("patch", SSO)[0].body).toMatchObject({
+      provider: "google",
+      role_claim: "groups",
+      role_map: [
+        { value: "ea-admins", role: "admin" },
+        { value: "ea-team", role: "member" },
+      ],
+      extra_scopes: "groups",
+    });
+  });
+
+  it("is read-only without the permission to manage users, and keeps the stored map", async () => {
+    mockUser.permissions = { "admin.settings": true };
+    mockApi.on("get", SSO, MAPPED_OKTA);
+    mockApi.on("patch", SSO, {});
+    const user = await renderPage();
+
+    expect(screen.getByTestId("sso-role-map-read-only")).toHaveTextContent(
+      "Changing the role mapping needs the permission to manage users. You can still edit the other SSO settings and the additional scopes.",
+    );
+    expect(screen.getByLabelText("Claim name")).toBeDisabled();
+    for (const input of screen.getAllByLabelText("Directory value")) expect(input).toBeDisabled();
+    await waitFor(() => expect(roleCombos()[0]).toHaveTextContent("Admin"));
+    for (const combo of roleCombos()) expect(combo).toHaveAttribute("aria-disabled", "true");
+    for (const name of ["Move mapping up", "Move mapping down", "Remove mapping"]) {
+      for (const btn of screen.getAllByRole("button", { name })) expect(btn).toBeDisabled();
+    }
+    expect(screen.getByRole("button", { name: /Add mapping$/ })).toBeDisabled();
+
+    // The extra scopes stay editable and are saved; the claim and map are not sent.
+    const scopes = screen.getByLabelText("Additional scopes");
+    expect(scopes).toBeEnabled();
+    await user.clear(scopes);
+    await user.type(scopes, "groups offline_access");
+    await user.click(screen.getByRole("button", { name: /Save$/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", SSO)).toHaveLength(1));
+    const body = mockApi.callsOf("patch", SSO)[0].body as Record<string, unknown>;
+    expect(body.extra_scopes).toBe("groups offline_access");
+    expect(body).not.toHaveProperty("role_claim");
+    expect(body).not.toHaveProperty("role_map");
+  });
+
+  it("is editable, with no read-only hint, for a role that may manage users", async () => {
+    mockUser.permissions = { "admin.settings": true, "admin.users": true };
+    mockApi.on("get", SSO, MAPPED_OKTA);
+    mockApi.on("patch", SSO, {});
+    const user = await renderPage();
+
+    expect(screen.queryByTestId("sso-role-map-read-only")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Claim name")).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Add mapping$/ })).toBeEnabled();
+    for (const btn of screen.getAllByRole("button", { name: "Remove mapping" })) {
+      expect(btn).toBeEnabled();
+    }
+
+    await user.click(screen.getByRole("button", { name: /Save$/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", SSO)).toHaveLength(1));
+    expect(mockApi.callsOf("patch", SSO)[0].body).toMatchObject({
+      role_claim: "groups",
+      role_map: MAPPED_OKTA.role_map,
+    });
+  });
+
+  it("shows the block again, values intact, when switching away from Google", async () => {
+    mockApi.on("get", SSO, MAPPED_OKTA);
+    const user = await renderPage();
+    expect(screen.getByTestId("sso-role-mapping")).toBeInTheDocument();
+
+    await pickProviderByName(user, "Google Workspace");
+    expect(screen.queryByTestId("sso-role-mapping")).not.toBeInTheDocument();
+    await pickProviderByName(user, "Generic OIDC");
+    expect(screen.getByLabelText("Claim name")).toHaveValue("groups");
+    expect(values()).toEqual(["ea-admins", "ea-team"]);
+  });
+
+  it("warns that a multi-tenant Microsoft tenant cannot carry a role map", async () => {
+    mockApi.on("get", SSO, {
+      ...SSO_OFF,
+      enabled: true,
+      provider: "microsoft",
+      tenant_id: "organizations",
+    });
+    const user = await renderPage();
+    const warning = /Role mapping needs a specific tenant ID/;
+    expect(screen.getByText(warning)).toBeInTheDocument();
+    expect(screen.getByText(/No mappings yet/)).toBeInTheDocument();
+    // The rows stay editable: the server refuses a map on save.
+    expect(screen.getByRole("button", { name: /Add mapping$/ })).toBeEnabled();
+
+    const tenant = screen.getByLabelText("Tenant ID");
+    await user.clear(tenant);
+    expect(screen.getByText(warning)).toBeInTheDocument();
+    await user.type(tenant, "contoso");
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+    await user.clear(tenant);
+    await user.type(tenant, " Common ");
+    expect(screen.getByText(warning)).toBeInTheDocument();
+    await user.clear(tenant);
+    await user.type(tenant, "consumers");
+    expect(screen.getByText(warning)).toBeInTheDocument();
+  });
+
+  it("does not show the tenant warning for other providers", async () => {
+    mockApi.on("get", SSO, { ...SSO_OIDC_BASE, tenant_id: "organizations" });
+    await renderPage();
+    expect(screen.getByTestId("sso-role-mapping")).toBeInTheDocument();
+    expect(screen.queryByText(/needs a specific tenant ID/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a stored archived or unknown role, flagged, and saves it unchanged", async () => {
+    mockApi.on("get", SSO, {
+      ...MAPPED_OKTA,
+      role_map: [
+        { value: "old-team", role: "legacy" },
+        { value: "ghosts", role: "gone" },
+        { value: "ea-team", role: "member" },
+      ],
+    });
+    mockApi.on("patch", SSO, {});
+    const user = await renderPage();
+
+    await waitFor(() => expect(roleCombos()[0]).toHaveTextContent("Legacy"));
+    expect(roleCombos()[1]).toHaveTextContent("gone");
+    expect(roleCombos()[2]).toHaveTextContent("Member");
+    expect(screen.getAllByText(/This role is archived or no longer exists/)).toHaveLength(2);
+
+    // The archived role is shown but cannot be picked.
+    await user.click(roleCombos()[0]);
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getByRole("option", { name: "Legacy" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(within(listbox).getByRole("option", { name: "Admin" })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /Save$/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", SSO)).toHaveLength(1));
+    expect((mockApi.callsOf("patch", SSO)[0].body as { role_map: unknown }).role_map).toEqual([
+      { value: "old-team", role: "legacy" },
+      { value: "ghosts", role: "gone" },
+      { value: "ea-team", role: "member" },
+    ]);
+  });
+
+  it("clears the archived-role hint once an active role is picked", async () => {
+    mockApi.on("get", SSO, { ...MAPPED_OKTA, role_map: [{ value: "old-team", role: "legacy" }] });
+    const user = await renderPage();
+    await waitFor(() =>
+      expect(screen.getByText(/This role is archived or no longer exists/)).toBeInTheDocument(),
+    );
+
+    await pickRole(user, roleCombos()[0], "Viewer");
+    expect(roleCombos()[0]).toHaveTextContent("Viewer");
+    expect(screen.queryByText(/This role is archived or no longer exists/)).not.toBeInTheDocument();
   });
 });

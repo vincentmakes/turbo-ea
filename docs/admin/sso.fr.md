@@ -53,6 +53,42 @@ Après avoir sauvegardé, ouvrez un nouvel onglet de navigateur (ou une fenêtre
 - Lorsque le SSO est activé, la connexion par mot de passe local reste disponible comme solution de secours
 - Vous pouvez configurer l'URI de redirection dans votre fournisseur d'identité comme suit : `https://votre-domaine-turbo-ea/auth/callback`
 
+**Attribution des rôles :**
+
+Par défaut, chaque nouvel utilisateur SSO arrive avec le rôle par défaut (ou celui de son invitation) et un administrateur le modifie à la main dans **Administration → Utilisateurs**. Si votre fournisseur d'identité sait déjà qui doit être administrateur, membre ou lecteur — via l'appartenance à des groupes ou des rôles d'application —, Turbo EA peut le lire dans le jeton d'ID et attribuer lui-même le rôle à chaque connexion. Le bloc **Attribution des rôles** se trouve dans la section SSO, sous les champs du fournisseur, et s'enregistre avec le même bouton **Sauvegarder**. Comme l'attribution distribue des rôles, modifier le nom de la revendication ou les lignes d'attribution exige la permission de gérer les utilisateurs en plus de la permission de gérer les paramètres ; sans elle, le bloc est en lecture seule et seuls les scopes supplémentaires peuvent être modifiés.
+
+- **Nom de la revendication** : la revendication (claim) du jeton d'ID qui liste les groupes ou les rôles de l'utilisateur, par exemple `roles` (rôles d'application Microsoft Entra), `groups` (Okta, Keycloak) ou `cognito:groups` (Amazon Cognito). Un nom de revendication est obligatoire tant que l'attribution comporte des lignes. Pour désactiver l'attribution des rôles, supprimez toutes les lignes : les rôles restent alors entièrement manuels.
+- **Lignes d'attribution** : chaque ligne associe une **valeur de l'annuaire** (une valeur de groupe ou de rôle d'application telle que la revendication la porte) à un rôle Turbo EA. Utilisez les flèches pour ordonner les lignes ; la première ligne correspondante l'emporte.
+- **Scopes supplémentaires** : scopes séparés par des espaces, demandés à la connexion en plus de `openid email profile` — par exemple `groups` pour Okta. Ils sont demandés à la fois lorsque l'utilisateur est envoyé vers le fournisseur d'identité et lorsque le code de connexion est échangé contre le jeton d'ID. La connexion du serveur MCP demande les mêmes scopes. Ils ne sont jamais envoyés à Google, qui refuse les scopes qu'il ne connaît pas.
+
+Les règles, toutes choisies pour qu'une erreur de configuration ne puisse pas vous verrouiller :
+
+- **L'attribution est appliquée à chaque connexion**, pas seulement à la création du compte. Elle remplace un rôle modifié à la main : retirer quelqu'un d'un groupe de l'annuaire prend donc effet à sa connexion suivante.
+- **La première ligne correspondante l'emporte**, dans l'ordre des lignes et non dans l'ordre dans lequel le fournisseur d'identité liste les valeurs. La correspondance ignore la casse.
+- **Une valeur de revendication qui ne correspond à aucune ligne** donne le rôle par défaut.
+- **Un jeton sans la revendication, ou avec une revendication vide**, laisse inchangé le rôle actuel de l'utilisateur. Un nom de revendication mal saisi, ou un fournisseur qui a cessé d'envoyer la revendication, ne peut donc pas rétrograder tous les utilisateurs d'un coup.
+- **Une ligne dont le rôle n'existe pas ou a été archivé** donne le rôle par défaut. La page des paramètres signale une telle ligne pour que vous puissiez choisir un rôle actif.
+- **Le dernier administrateur actif n'est jamais rétrogradé.** Si l'attribution retirait le rôle d'administrateur au seul administrateur actif, il le conserve et le journal Sécurité et administration enregistre que le rôle a été conservé.
+- **Tant qu'une attribution est définie, le rôle des utilisateurs SSO est verrouillé dans Administration → Utilisateurs** (le sélecteur de rôle est désactivé, avec une indication ; un changement de rôle en masse ignore ces comptes et un import Excel laisse leur rôle tel quel, les deux le signalent). Modifiez plutôt le rôle dans l'annuaire, ou basculez le compte en connexion locale pour le gérer à la main. Les comptes locaux ne sont jamais concernés.
+
+Remarques par fournisseur d'identité :
+
+| Fournisseur | Ce qu'il faut configurer |
+|-------------|--------------------------|
+| **Microsoft Entra ID** | Privilégiez les **rôles d'application** : déclarez-les dans l'enregistrement de l'application, affectez-y des utilisateurs ou des groupes et utilisez la revendication `roles`. L'attribution des rôles exige un **ID de locataire précis** : avec `organizations`, `common` ou `consumers`, n'importe quel locataire Microsoft peut se connecter et une attribution ne peut pas être enregistrée. La revendication `groups` contient les ID d'objet des groupes, pas leurs noms, et Entra l'omet entièrement du jeton pour un utilisateur appartenant à plus de 200 groupes. |
+| **Okta** | Ajoutez une revendication de groupes au jeton d'ID dans le serveur d'autorisation (ou dans les paramètres de connexion de l'application) et ajoutez `groups` sous **Scopes supplémentaires**. Utilisez le nom de revendication que vous lui avez donné, en général `groups`. |
+| **Keycloak** (Generic OIDC) | Ajoutez au client un mappeur **Group Membership**, avec le nom de revendication de jeton `groups` et **Add to ID token** activé, afin qu'une revendication `groups` de premier niveau parvienne au jeton d'ID (désactivez **Full group path** pour obtenir des noms de groupes simples). Les revendications imbriquées comme `realm_access.roles` ne sont pas lues. |
+| **Amazon Cognito** (Generic OIDC) | Utilisez la revendication `cognito:groups`. |
+| **Google Workspace** | Indisponible : les jetons d'ID de Google ne contiennent pas de revendication de groupes, le bloc est donc masqué pour Google. |
+
+!!! warning "Limites à garder à l'esprit"
+    - **Attribuez des rôles d'application ou des ID de groupe, pas des noms d'affichage que les utilisateurs peuvent créer eux-mêmes.** Si n'importe qui peut créer un groupe nommé `ea-admins`, n'importe qui peut devenir administrateur.
+    - **La revendication doit figurer dans le jeton d'ID.** Turbo EA lit uniquement le jeton d'ID — pas le point de terminaison userinfo ni une API d'annuaire. Certains fournisseurs d'identité exigent à la fois le scope sous **Scopes supplémentaires** et une configuration de la revendication pour que les groupes apparaissent dans le jeton d'ID ; connectez-vous une fois et vérifiez le résultat avant de vous y fier.
+    - **Une modification dans l'annuaire prend effet à la connexion suivante de l'utilisateur**, pas pendant une session déjà ouverte.
+    - **Le rôle d'une invitation est remplacé à la première connexion** lorsque l'attribution en donne un.
+    - **Un utilisateur dont le jeton ne porte jamais la revendication conserve son rôle actuel**, et tant qu'une attribution est définie, personne ne peut le modifier dans Administration → Utilisateurs. Corrigez la revendication chez le fournisseur d'identité, ou basculez le compte en connexion locale.
+    - **Une revendication vide compte comme absente** : retirer quelqu'un de tous les groupes attribués ne le rétrograde pas. Retirez plutôt son accès à l'application chez le fournisseur d'identité.
+
 #### Authentification par proxy inverse
 
 Si Turbo EA fonctionne derrière un proxy qui connecte déjà vos utilisateurs — l'authentification intégrée d'Azure App Service (« EasyAuth »), oauth2-proxy, Authelia, Cloudflare Access — il peut accepter cette identité directement au lieu d'exécuter son propre SSO par-dessus. Pas de client OIDC, pas d'enregistrement d'application, pas de Client Secret. Les utilisateurs arrivent dans Turbo EA déjà connectés.
@@ -120,12 +156,13 @@ TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
 Chaque paire s'écrit `VALEUR_ANNUAIRE:clé-de-rôle-turbo-ea`. Lorsqu'un utilisateur détient plusieurs rôles d'annuaire, **la première entrée du mappage l'emporte** — l'ordre du mappage, et non celui dans lequel le fournisseur les a envoyés, car les deux formats d'identité Azure ne s'accordent pas là-dessus. La correspondance ignore la casse côté annuaire. En mode proxy générique, le même mappage lit un en-tête séparé par des virgules au lieu d'une revendication : `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
 
 !!! warning "Le mappage fait autorité à chaque connexion"
-    Pas seulement à la création du compte. Un rôle attribué à la main dans **Administration → Utilisateurs** est annulé à la connexion suivante de cette personne — c'est bien l'objectif, puisque le retrait d'un rôle d'annuaire doit prendre effet. Laissez `TURBO_EA_PROXY_AUTH_ROLE_MAP` vide et rien ne change : les rôles restent entièrement manuels.
+    Pas seulement à la création du compte — le retrait d'un rôle d'annuaire doit prendre effet. Tant que l'attribution est en vigueur, le rôle d'un compte qui se connecte via le proxy est donc **verrouillé dans Administration → Utilisateurs** : le sélecteur de rôle est désactivé avec une indication, un changement de rôle en masse ignore le compte et un import Excel laisse son rôle tel quel, au lieu de laisser un changement fait à la main être remplacé silencieusement à la connexion suivante. Laissez `TURBO_EA_PROXY_AUTH_ROLE_MAP` vide et rien ne change : les rôles restent entièrement manuels.
 
 Les cas limites, tous choisis pour qu'une erreur de configuration ne puisse pas vous verrouiller dehors :
 
 - **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` l'emporte toujours** sur le mappage. En cas de désaccord, cette adresse est administratrice.
 - **Une valeur qui ne correspond à rien dans le mappage** — ou qui désigne un rôle Turbo EA inexistant ou archivé — retombe sur le rôle par défaut.
+- **Le dernier administrateur actif n'est jamais rétrogradé.** Si l'attribution retirait le rôle d'administrateur au seul administrateur actif, il le conserve et le journal Sécurité et administration enregistre que le rôle a été conservé.
 - **Une revendication totalement absente** laisse le rôle actuel de l'utilisateur intact. C'est délibérément différent du cas précédent : un `ROLE_CLAIM` mal saisi, ou un magasin de jetons qui cesse de transmettre, rétrograderait sinon tous les utilisateurs de l'instance d'un seul coup.
 - **L'identité doit mériter qu'on lui confie des permissions.** Le mappage des rôles s'applique lorsque le jeton d'identité a été vérifié (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) ou qu'un secret partagé est configuré. Sur App Service avec le magasin de jetons désactivé et sans secret, le mappage est ignoré et une ligne le signalant est écrite dans le journal — le même raisonnement qui empêche un en-tête non vérifié de créer un compte.
 

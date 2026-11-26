@@ -53,6 +53,42 @@ Após salvar, abra uma nova aba do navegador (ou janela anônima) e verifique se
 - Quando SSO está habilitado, o login com senha local permanece disponível como alternativa
 - Você pode configurar a URI de redirecionamento no seu provedor de identidade como: `https://your-turbo-ea-domain/auth/callback`
 
+**Mapeamento de papéis:**
+
+Por predefinição, cada novo utilizador SSO chega com o papel predefinido (ou o do seu convite) e um administrador altera-o à mão em **Administração → Utilizadores**. Se o seu fornecedor de identidade já sabe quem deve ser administrador, membro ou leitor — através da pertença a grupos ou de papéis de aplicação —, o Turbo EA pode lê-lo no token de ID e atribuir o papel por si em cada início de sessão. O bloco **Mapeamento de papéis** fica na secção SSO, abaixo dos campos do fornecedor, e é guardado com o mesmo botão **Salvar**. Como o mapeamento atribui papéis, alterar o nome da declaração ou as linhas do mapeamento requer a permissão para gerir utilizadores, além da permissão para gerir as definições; sem ela, o bloco é só de leitura e apenas os âmbitos adicionais podem ser alterados.
+
+- **Nome da declaração**: a declaração (claim) do token de ID que lista os grupos ou papéis do utilizador, por exemplo `roles` (papéis de aplicação do Microsoft Entra), `groups` (Okta, Keycloak) ou `cognito:groups` (Amazon Cognito). Um nome de declaração é obrigatório enquanto o mapeamento tiver linhas. Para desativar o mapeamento de papéis, remova todas as linhas: os papéis passam então a ser inteiramente manuais.
+- **Linhas de mapeamento**: cada linha associa um **valor do diretório** (um valor de grupo ou de papel de aplicação tal como a declaração o transporta) a um papel do Turbo EA. Use as setas para ordenar as linhas; prevalece a primeira linha correspondente.
+- **Âmbitos adicionais**: âmbitos (scopes) separados por espaços pedidos no início de sessão além de `openid email profile` — por exemplo `groups` para Okta. São pedidos tanto quando o utilizador é enviado para o fornecedor de identidade como quando o código de início de sessão é trocado pelo token de ID. O início de sessão do servidor MCP pede os mesmos âmbitos. Nunca são enviados à Google, que recusa os âmbitos que não conhece.
+
+As regras, todas escolhidas para que um erro de configuração não o possa bloquear:
+
+- **O mapeamento é aplicado em cada início de sessão**, não apenas na criação da conta. Substitui um papel alterado à mão, pelo que remover alguém de um grupo do diretório produz efeito no seu início de sessão seguinte.
+- **Prevalece a primeira linha correspondente**, pela ordem das linhas e não pela ordem em que o fornecedor de identidade lista os valores. A correspondência ignora maiúsculas e minúsculas.
+- **Um valor da declaração que não corresponda a nenhuma linha** dá o papel predefinido.
+- **Um token sem a declaração, ou com a declaração vazia**, deixa inalterado o papel atual do utilizador. Um nome de declaração mal escrito, ou um fornecedor que deixou de enviar a declaração, não pode por isso despromover todos os utilizadores de uma só vez.
+- **Uma linha cujo papel não existe ou foi arquivado** dá o papel predefinido. A página de definições assinala essa linha para que possa escolher um papel ativo.
+- **O último administrador ativo nunca é despromovido.** Se o mapeamento retirasse o papel de administrador ao único administrador ativo, este mantém-no e o registo de Segurança e administração anota que o papel foi mantido.
+- **Enquanto houver um mapeamento definido, o papel dos utilizadores SSO fica bloqueado em Administração → Utilizadores** (o seletor de papel está desativado, com uma indicação; uma alteração de papel em massa ignora essas contas e uma importação de Excel deixa o seu papel como está, e ambas o indicam). Altere antes o papel no diretório, ou passe a conta para início de sessão local para a gerir à mão. As contas locais nunca são afetadas.
+
+Notas por fornecedor de identidade:
+
+| Fornecedor | O que configurar |
+|------------|------------------|
+| **Microsoft Entra ID** | Prefira os **papéis de aplicação**: declare-os no registo da aplicação, atribua-lhes utilizadores ou grupos e use a declaração `roles`. O mapeamento de papéis requer um **ID de inquilino específico**: com `organizations`, `common` ou `consumers` qualquer inquilino da Microsoft pode iniciar sessão e não é possível guardar um mapeamento. A declaração `groups` contém os ID de objeto dos grupos, não os nomes, e o Entra omite-a por completo do token para um utilizador em mais de 200 grupos. |
+| **Okta** | Adicione uma declaração de grupos ao token de ID no servidor de autorização (ou nas definições de início de sessão da aplicação) e adicione `groups` em **Âmbitos adicionais**. Use o nome de declaração que lhe deu, normalmente `groups`. |
+| **Keycloak** (Generic OIDC) | Adicione ao cliente um mapeador **Group Membership**, com o nome de declaração do token `groups` e **Add to ID token** ativado, para que uma declaração `groups` de nível superior chegue ao token de ID (desative **Full group path** para obter nomes de grupo simples). As declarações aninhadas como `realm_access.roles` não são lidas. |
+| **Amazon Cognito** (Generic OIDC) | Use a declaração `cognito:groups`. |
+| **Google Workspace** | Indisponível: os tokens de ID do Google não incluem uma declaração de grupos, pelo que o bloco fica oculto para o Google. |
+
+!!! warning "Limites a ter em conta"
+    - **Mapeie papéis de aplicação ou ID de grupo, não nomes de apresentação que os utilizadores possam criar eles próprios.** Se qualquer pessoa puder criar um grupo chamado `ea-admins`, qualquer pessoa pode tornar-se administrador.
+    - **A declaração tem de estar presente no token de ID.** O Turbo EA lê apenas o token de ID — não o endpoint userinfo nem uma API de diretório. Alguns fornecedores de identidade precisam tanto do âmbito em **Âmbitos adicionais** como de uma configuração da declaração para que os grupos apareçam no token de ID; inicie sessão uma vez e verifique o resultado antes de contar com ele.
+    - **Uma alteração no diretório produz efeito no início de sessão seguinte do utilizador**, não numa sessão já aberta.
+    - **O papel de um convite é substituído no primeiro início de sessão** quando o mapeamento atribui um.
+    - **Um utilizador cujo token nunca traz a declaração mantém o seu papel atual**, e enquanto houver um mapeamento definido ninguém o pode alterar em Administração → Utilizadores. Corrija a declaração no fornecedor de identidade, ou passe a conta para início de sessão local.
+    - **Uma declaração vazia conta como ausente**: remover alguém de todos os grupos mapeados não o despromove. Retire antes o seu acesso à aplicação no fornecedor de identidade.
+
 #### Autenticação por proxy reverso
 
 Se o Turbo EA roda atrás de um proxy que já autentica seus usuários — a autenticação integrada do Azure App Service ("EasyAuth"), oauth2-proxy, Authelia, Cloudflare Access — ele pode aceitar essa identidade diretamente em vez de executar seu próprio SSO por cima. Sem cliente OIDC, sem registro de aplicação, sem client secret. Os usuários chegam ao Turbo EA já autenticados.
@@ -120,12 +156,13 @@ TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
 Cada par escreve-se `VALOR_DIRETÓRIO:chave-de-função-turbo-ea`. Quando um utilizador detém várias funções de diretório, **ganha a primeira entrada do mapeamento** — a ordem do mapeamento, e não a ordem pela qual o fornecedor as enviou, porque os dois formatos de identidade do Azure não concordam nisso. A correspondência ignora maiúsculas e minúsculas do lado do diretório. No modo de proxy genérico, o mesmo mapeamento lê um cabeçalho separado por vírgulas em vez de uma reivindicação: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
 
 !!! warning "O mapeamento é autoritativo em cada início de sessão"
-    Não apenas na criação da conta. Uma função concedida à mão em **Administração → Utilizadores** é revertida no próximo início de sessão dessa pessoa — que é justamente o objetivo, já que retirar a função de diretório de alguém tem de produzir efeito. Deixe `TURBO_EA_PROXY_AUTH_ROLE_MAP` por definir e nada muda: as funções continuam inteiramente manuais.
+    Não apenas na criação da conta — retirar a função de diretório de alguém tem de produzir efeito. Enquanto o mapa estiver em vigor, o papel de uma conta que inicia sessão através do proxy fica por isso **bloqueado em Administração → Utilizadores**: o seletor de papel está desativado com uma indicação, uma alteração de papel em massa ignora a conta e uma importação de Excel deixa o seu papel como está, em vez de deixar que uma alteração feita à mão seja substituída silenciosamente no início de sessão seguinte. Deixe `TURBO_EA_PROXY_AUTH_ROLE_MAP` por definir e nada muda: as funções continuam inteiramente manuais.
 
 Os casos limite, todos escolhidos para que um erro de configuração não o possa deixar de fora:
 
 - **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` ganha sempre** ao mapeamento. Se os dois discordarem, esse endereço é administrador.
 - **Um valor que não corresponde a nada no mapeamento** — ou que nomeia uma função Turbo EA inexistente ou arquivada — recai na função predefinida.
+- **O último administrador ativo nunca é despromovido.** Se o mapa retirasse o papel de administrador ao único administrador ativo, este mantém-no e o registo de Segurança e administração anota que o papel foi mantido.
 - **Uma reivindicação totalmente ausente** deixa intacta a função atual do utilizador. Isto é deliberadamente diferente do caso anterior: um `ROLE_CLAIM` mal escrito, ou um arquivo de tokens que deixa de reencaminhar, despromoveria de outro modo todos os utilizadores da instância de uma só vez.
 - **A identidade tem de merecer que lhe sejam confiadas permissões.** O mapeamento de funções aplica-se quando o token de identidade foi verificado (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) ou existe um segredo partilhado configurado. No App Service com o arquivo de tokens desativado e sem segredo, o mapeamento é ignorado e é escrita uma linha no registo a dizê-lo — o mesmo raciocínio que impede um cabeçalho não verificado de criar uma conta.
 

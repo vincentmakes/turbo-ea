@@ -345,6 +345,22 @@ class TestAuthorize:
             pending.code_challenge_method,
         ) == ("good", CB, "mcp:read", "client-state", "chal", "S256")
 
+    def test_the_idp_is_asked_for_the_configured_scopes(self, app, store):
+        """The backend's ``/auth/sso/config`` scopes, extra scopes included, so an MCP
+        sign-in carries the same groups claim as the app's own login."""
+        self.sso.return_value = {**SSO, "scopes": "openid email profile groups"}
+        resp = self.get(app)
+        assert resp.status_code == 302
+        query = dict(parse_qsl(urlsplit(resp.headers["location"]).query))
+        assert query["scope"] == "openid email profile groups"
+
+    @pytest.mark.parametrize("scopes", ["", None])
+    def test_empty_scopes_fall_back_to_the_base_set(self, app, store, scopes):
+        self.sso.return_value = {**SSO, "scopes": scopes}
+        resp = self.get(app)
+        query = dict(parse_qsl(urlsplit(resp.headers["location"]).query))
+        assert query["scope"] == "openid email profile"
+
     def test_scope_and_state_default(self, app, store):
         self.get(app, scope=None, state=None)
         [pending] = store.pending.values()

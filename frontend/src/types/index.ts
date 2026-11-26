@@ -34,6 +34,9 @@ export interface User {
   locked_until?: string | null;
   /** Admin listing only: consecutive failed sign-ins since the last success. */
   failed_login_attempts?: number;
+  /** Admin payloads only: the role of this SSO account is set by the directory
+   *  role map at every sign-in, so the API refuses a manual role change. */
+  role_managed_externally?: boolean;
 }
 
 export interface AppRole {
@@ -114,6 +117,32 @@ export interface SsoConfig {
   proxy_auth?: boolean;
   /** Where logout sends the browser so the proxy session ends too. */
   proxy_logout_url?: string;
+}
+
+/** One row of the SSO directory role map: a claim value and the app role it grants. */
+export interface SsoRoleMapEntry {
+  value: string;
+  role: string;
+}
+
+/** Admin SSO settings (`GET` / `PATCH /settings/sso`). */
+export interface SsoSettings {
+  enabled: boolean;
+  provider: string;
+  client_id: string;
+  client_secret: string;
+  tenant_id: string;
+  domain: string;
+  issuer_url: string;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  jwks_uri: string;
+  /** ID-token claim the role map reads (`roles`, `groups`, `cognito:groups`); "" = off. */
+  role_claim?: string;
+  /** Ordered: the first row whose value the claim carries wins. */
+  role_map?: SsoRoleMapEntry[];
+  /** Space-separated scopes added to `openid email profile` at sign-in. */
+  extra_scopes?: string;
 }
 
 export interface SsoInvitation {

@@ -365,6 +365,33 @@ async def test_no_provider_key_means_microsoft(config, client_kwargs, verified):
     assert (await exchange())[2] == "microsoft"
 
 
+def _posted_scope(client_kwargs) -> str:
+    (req,) = client_kwargs.requests
+    return dict(httpx.QueryParams(req.content.decode()))["scope"]
+
+
+async def test_the_login_exchange_asks_for_the_extra_scopes(config, client_kwargs, verified):
+    config["sso"]["extra_scopes"] = "groups offline_access"
+    client_kwargs.handler = lambda r: httpx.Response(200, json={"id_token": "tok"})
+    await sso.exchange_code_for_claims("DB", "code-1", "https://app.test/cb", login=True)
+    assert _posted_scope(client_kwargs) == "openid email profile groups offline_access"
+
+
+async def test_a_visitor_exchange_keeps_the_base_scopes(config, client_kwargs, verified):
+    # portal / published-diagram visitors call without ``login``
+    config["sso"]["extra_scopes"] = "groups"
+    client_kwargs.handler = lambda r: httpx.Response(200, json={"id_token": "tok"})
+    await exchange()
+    assert _posted_scope(client_kwargs) == "openid email profile"
+
+
+async def test_a_google_login_exchange_never_sends_extra_scopes(config, client_kwargs, verified):
+    config["sso"].update(provider="google", extra_scopes="groups")
+    client_kwargs.handler = lambda r: httpx.Response(200, json={"id_token": "tok"})
+    await sso.exchange_code_for_claims("DB", "code-1", "https://app.test/cb", login=True)
+    assert _posted_scope(client_kwargs) == "openid email profile"
+
+
 async def test_discovery_supplies_endpoints_and_falls_back_to_the_configured_issuer(
     config, client_kwargs, verified, monkeypatch
 ):

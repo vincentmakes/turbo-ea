@@ -52,7 +52,7 @@ import secrets as _secrets
 from fastapi import HTTPException, Request
 
 from app.config import settings
-from app.services import sso_service
+from app.services import directory_roles, sso_service
 
 logger = logging.getLogger(__name__)
 
@@ -218,38 +218,38 @@ def _claim_values(claims: dict, key: str) -> tuple[str, ...]:
     """Every value of one claim, normalising the two shapes into a tuple.
 
     The principal blob yields ``str`` (one value) or ``list[str]`` (several); a
-    verified id token yields whatever the IdP put there. Non-string entries are
-    dropped rather than coerced — a role name is a string or it is nothing.
+    verified id token yields whatever the IdP put there. Shared with native SSO
+    sign-in: see ``directory_roles.claim_values``.
     """
-    if not key:
-        return ()
-    value = claims.get(key)
-    if isinstance(value, str):
-        return (value.strip(),) if value.strip() else ()
-    if isinstance(value, list):
-        return tuple(v.strip() for v in value if isinstance(v, str) and v.strip())
-    return ()
+    return directory_roles.claim_values(claims, key)
 
 
 def map_role(values: tuple[str, ...]) -> str | None:
     """Resolve directory role values to a Turbo EA role key, or None for no match.
 
-    **First match in map order**, not in claim order. A user can hold several
-    directory roles and the two claim shapes do not agree on their ordering, so
-    the only deterministic tie-break is the operator's own configuration order.
-    "Highest role" is not available: role keys are operator-defined and have no
-    ranking.
-
-    Pure — no request, no database. The caller validates the returned key against
+    **First match in map order**, not in claim order — the rule native SSO shares
+    (``directory_roles.map_role``). The caller validates the returned key against
     the ``roles`` table.
     """
-    if not values:
-        return None
-    held = {v.lower() for v in values}
-    for source, target in settings.PROXY_AUTH_ROLE_MAP:
-        if source in held:
-            return target
-    return None
+    return directory_roles.map_role(values, settings.PROXY_AUTH_ROLE_MAP)
+
+
+def role_map_in_force() -> bool:
+    """Whether the proxy role map can change anyone's role on this configuration.
+
+    Proxy auth on, ``PROXY_AUTH_ROLE_MAP`` set, and the trust bar of
+    ``role_mapping_trusted`` reachable by configuration alone: a shared secret is
+    set, or the forwarded id token is verified (which only ``azure_easyauth`` mode
+    supports). On the weakest tier (Azure with platform-header trust only) the map
+    is never honoured, so a role there stays editable by hand.
+    """
+    if not (settings.PROXY_AUTH_ENABLED and settings.PROXY_AUTH_ROLE_MAP):
+        return False
+    if settings.PROXY_AUTH_SHARED_SECRET:
+        return True
+    return settings.PROXY_AUTH_MODE == "azure_easyauth" and bool(
+        settings.PROXY_AUTH_VERIFY_ID_TOKEN
+    )
 
 
 def role_mapping_trusted(identity: ProxyIdentity) -> bool:

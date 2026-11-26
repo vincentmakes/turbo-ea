@@ -24,7 +24,14 @@ from app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
-from app.services import audit_labels, audit_log, email_service, proxy_auth_service, sso_service
+from app.services import (
+    audit_labels,
+    audit_log,
+    directory_roles,
+    email_service,
+    proxy_auth_service,
+    sso_service,
+)
 
 # SSO / OIDC machinery lives in ``app.services.sso_service`` so more than one
 # route module can reuse it (user login here, SSO-gated portals in
@@ -332,6 +339,8 @@ async def _resolve_proxy_role(
        ``_default_role_key`` already falls back to ``member``. Validated with the
        existence + ``is_archived`` pair used by ``impersonate`` below — the roles
        table is the authority, not the env var.
+
+    Rules 2 and 4 are ``_resolve_mapped_role``'s, shared with native SSO sign-in.
     """
     if _is_bootstrap_admin(identity.email):
         return "admin"
@@ -345,7 +354,37 @@ async def _resolve_proxy_role(
         )
         return None
 
-    mapped = proxy_auth_service.map_role(identity.roles)
+    return await _resolve_mapped_role(
+        db,
+        identity.roles,
+        settings.PROXY_AUTH_ROLE_MAP,
+        source="TURBO_EA_PROXY_AUTH_ROLE_MAP",
+    )
+
+
+async def _resolve_mapped_role(
+    db: AsyncSession,
+    values: tuple[str, ...],
+    role_map: list[tuple[str, str]],
+    *,
+    source: str,
+) -> str | None:
+    """The role key a directory role map gives these claim values, or None.
+
+    Shared by native SSO and reverse-proxy sign-in (``directory_roles``), so the
+    two apply the same three rules:
+
+    1. **No values changes nothing** (None): an absent or empty claim must not
+       demote anyone — a mistyped claim name would otherwise demote everyone.
+    2. **No match gives the default role**, so removing someone's directory group
+       takes effect.
+    3. **An unknown or archived target gives the default role**, with a warning
+       naming ``source`` (the map's name in the log) — the roles table is the
+       authority, not the map.
+    """
+    if not values or not role_map:
+        return None
+    mapped = directory_roles.map_role(values, role_map)
     if mapped is None:
         return await _default_role_key(db)
 
@@ -355,13 +394,73 @@ async def _resolve_proxy_role(
     role = result.scalar_one_or_none()
     if role is None or role.is_archived:
         logger.warning(
-            "TURBO_EA_PROXY_AUTH_ROLE_MAP points at role %r, which is %s. "
-            "Falling back to the default role.",
+            "%s points at role %r, which is %s. Falling back to the default role.",
+            source,
             mapped,
             "archived" if role is not None else "not defined",
         )
         return await _default_role_key(db)
     return mapped
+
+
+async def _apply_directory_role(
+    db: AsyncSession, user: User, desired: str | None
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Set ``user.role`` to what the directory says, without committing.
+
+    Returns ``(changes, context)`` for the sign-in's success audit row: ``changes``
+    is ``{"role": {"old": label, "new": label}}`` when the role moved, and
+    ``context`` is ``{"last_admin_kept": True}`` when a demotion was refused.
+    Both are None when nothing happened (``desired`` None or already the role).
+
+    **The last active admin is never demoted by a map.** Native SSO has no other
+    way back into an instance whose only admin a map typo demoted (proxy mode has
+    the bootstrap admin address, which wins before this is reached). Same count as
+    ``update_user``'s last-admin guard in ``api/v1/users.py``.
+
+    The route's own commit carries the role and the audit row together, so a
+    refused sign-in (checked before this) never changes a role.
+    """
+    if desired is None or desired == user.role:
+        return None, None
+    if user.role == "admin":
+        # Row locks on every active admin before counting: two admins signing in
+        # at once would otherwise each count two and both be demoted. The second
+        # transaction waits here until the first commits, then re-reads and sees
+        # one admin left. FOR UPDATE cannot lock an aggregate, so the ids are
+        # selected and counted. Only on this demotion path — no other sign-in waits.
+        admin_ids = (
+            await db.scalars(
+                select(User.id)
+                .where(User.role == "admin", User.is_active.is_(True))
+                .with_for_update()
+            )
+        ).all()
+        if len(admin_ids) <= 1:
+            logger.warning(
+                "Directory role map: kept %s as admin instead of %r, because they are "
+                "the last active admin.",
+                user.email,
+                desired,
+            )
+            return None, {"last_admin_kept": True}
+    changes = {
+        "role": {
+            "old": await _role_label(db, user.role),
+            "new": await _role_label(db, desired),
+        }
+    }
+    # Logged because a demotion is otherwise invisible: the map is authoritative,
+    # so a role granted by hand in the Users admin is reverted here, and this line
+    # is what answers "why did I lose admin?".
+    logger.info(
+        "Directory sign-in: role for %s changed from %r to %r.",
+        user.email,
+        user.role,
+        desired,
+    )
+    user.role = desired
+    return changes, None
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -828,7 +927,9 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
         "provider_name": PROVIDER_LABELS.get(provider, provider),
         "client_id": client_id,
         "authorization_endpoint": auth_endpoint,
-        "scopes": provider_cfg["scopes"],
+        # The app's own sign-in may ask for more (a groups claim for the role map),
+        # never for Google; portal and published-diagram sign-in keep the base scopes.
+        "scopes": directory_roles.login_scopes(sso, provider_cfg["scopes"]),
         "registration_enabled": registration_enabled,
         "local_login_available": local_login_available,
         "proxy_auth": proxy_auth,
@@ -863,7 +964,7 @@ async def sso_callback(
     """
     try:
         claims, sso, provider = await sso_service.exchange_code_for_claims(
-            db, body.code, body.redirect_uri
+            db, body.code, body.redirect_uri, login=True
         )
     except HTTPException as exc:
         await _fail(
@@ -954,12 +1055,30 @@ async def sso_callback(
             details={"reason": blocked[0], "context": {"provider": provider}},
         )
 
+    # The directory role map (``general_settings["sso"]["role_map"]``), applied at
+    # every sign-in from the signature-verified ID token's claims, after the
+    # account check above so a refused sign-in never changes a role. Off unless
+    # ``directory_roles.native_role_map`` says a map is in force.
+    desired_role = await _resolve_mapped_role(
+        db,
+        directory_roles.claim_values(claims, directory_roles.role_claim(sso)),
+        directory_roles.native_role_map(sso),
+        source="The SSO role map",
+    )
+    role_change, role_context = await _apply_directory_role(db, user, desired_role)
+
     await audit_log.record(
         db,
         action="auth.sso.succeeded",
         category="auth",
         actor=user,
-        context={"provider": provider, "subject": sso_subject_id, "created": not existed},
+        changes=role_change,
+        context={
+            "provider": provider,
+            "subject": sso_subject_id,
+            "created": not existed,
+            **(role_context or {}),
+        },
     )
     await db.commit()
     return _issue_session(request, response, user)
@@ -1065,38 +1184,9 @@ async def proxy_session(
         "verified": identity.verified,
         "created": not existed,
     }
-    role_change: dict[str, Any] | None = None
 
-    # Role assignment, re-asserted on every sign-in. Two things live here: the
-    # first-admin bootstrap (a proxy-auth-only install has no other route to an
-    # admin, because /auth/register is closed while proxy auth is on) and the
-    # optional directory role map. See _resolve_proxy_role for the precedence.
-    #
-    # Deliberately *after* provisioning rather than inside it: that covers all
-    # three of _provision_federated_user's branches — including the subject-id
-    # match, which returns early without a commit — through one code path, and
-    # _issue_session then mints the JWT from the corrected role.
-    desired_role = await _resolve_proxy_role(db, identity)
-    if desired_role and user.role != desired_role:
-        role_change = {
-            "role": {
-                "old": await _role_label(db, user.role),
-                "new": await _role_label(db, desired_role),
-            }
-        }
-        # Logged because a demotion is otherwise invisible: the map is authoritative,
-        # so a role granted by hand in the Users admin is reverted here, and this
-        # line is what answers "why did I lose admin?".
-        logger.info(
-            "Proxy sign-in: role for %s changed from %r to %r.",
-            user.email,
-            user.role,
-            desired_role,
-        )
-        user.role = desired_role
-        await db.commit()
-        await db.refresh(user)
-
+    # A refused sign-in must not change a role: ``_fail`` commits what is
+    # pending, so the account is checked before the directory role is applied.
     blocked = _session_block(user)
     if blocked is not None:
         await _fail(
@@ -1108,6 +1198,22 @@ async def proxy_session(
             actor=user,
             details={"reason": blocked[0]},
         )
+
+    # Role assignment, re-asserted on every sign-in. Two things live here: the
+    # first-admin bootstrap (a proxy-auth-only install has no other route to an
+    # admin, because /auth/register is closed while proxy auth is on) and the
+    # optional directory role map. See _resolve_proxy_role for the precedence and
+    # _apply_directory_role for the last-admin rule.
+    #
+    # Deliberately *after* provisioning rather than inside it: that covers all
+    # three of _provision_federated_user's branches — including the subject-id
+    # match, which returns early without a commit — through one code path, and
+    # _issue_session then mints the JWT from the corrected role. The commit below
+    # carries the role together with its audit row.
+    desired_role = await _resolve_proxy_role(db, identity)
+    role_change, role_context = await _apply_directory_role(db, user, desired_role)
+    if role_context:
+        success.update(role_context)
 
     await audit_log.record(
         db,

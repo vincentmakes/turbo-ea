@@ -496,6 +496,169 @@ async def test_an_archived_target_falls_back_and_says_so(db, roles, role_map, ca
     ]
 
 
+# ── _resolve_mapped_role (shared with native SSO) ───────────────────────────
+
+SSO_MAP = [("ea-admins", "admin"), ("ea-readers", "viewer"), ("ea-gone", "retired")]
+
+
+async def test_mapped_role_changes_nothing_without_values_or_a_map(db, roles):
+    assert await auth._resolve_mapped_role(db, (), SSO_MAP, source="M") is None
+    assert await auth._resolve_mapped_role(db, ("ea-admins",), [], source="M") is None
+
+
+async def test_mapped_role_returns_the_first_match_in_map_order(db, roles):
+    values = ("EA-Readers", "ea-admins")
+    assert await auth._resolve_mapped_role(db, values, SSO_MAP, source="M") == "admin"
+
+
+async def test_mapped_role_without_a_match_is_the_default_role(db, roles):
+    assert await auth._resolve_mapped_role(db, ("nobody",), SSO_MAP, source="M") == "member"
+
+
+async def test_mapped_role_honours_the_configured_default(db, roles):
+    viewer = (await db.execute(select(Role).where(Role.key == "viewer"))).scalar_one()
+    viewer.is_default = True
+    await db.flush()
+    assert await auth._resolve_mapped_role(db, ("nobody",), SSO_MAP, source="M") == "viewer"
+
+
+async def test_mapped_role_names_its_source_when_the_target_is_undefined(db, roles, caplog):
+    with caplog.at_level("WARNING", logger=auth.logger.name):
+        role = await auth._resolve_mapped_role(db, ("ea-gone",), SSO_MAP, source="The SSO role map")
+    assert role == "member"
+    assert [r.getMessage() for r in caplog.records if r.name == auth.logger.name] == [
+        "The SSO role map points at role 'retired', which is not defined. "
+        "Falling back to the default role."
+    ]
+
+
+async def test_mapped_role_falls_back_from_an_archived_target(db, roles):
+    viewer = (await db.execute(select(Role).where(Role.key == "viewer"))).scalar_one()
+    viewer.is_archived = True
+    await db.flush()
+    assert await auth._resolve_mapped_role(db, ("ea-readers",), SSO_MAP, source="M") == "member"
+
+
+# ── _apply_directory_role ───────────────────────────────────────────────────
+
+
+async def test_applying_no_role_or_the_same_role_changes_nothing(db, roles):
+    person = await create_user(db, email="a@example.com", role="viewer")
+    assert await auth._apply_directory_role(db, person, None) == (None, None)
+    assert await auth._apply_directory_role(db, person, "viewer") == (None, None)
+    assert person.role == "viewer"
+
+
+async def test_applying_a_role_sets_it_and_reports_the_labels(db, roles):
+    person = await create_user(db, email="a@example.com", role="viewer")
+    changes, context = await auth._apply_directory_role(db, person, "admin")
+    assert changes == {"role": {"old": "Viewer", "new": "Admin"}}
+    assert context is None
+    assert person.role == "admin"
+
+
+async def test_an_unlabelled_role_is_reported_by_its_key(db, roles):
+    person = await create_user(db, email="a@example.com", role="ghost")
+    changes, _ = await auth._apply_directory_role(db, person, "member")
+    assert changes == {"role": {"old": "ghost", "new": "Member"}}
+
+
+async def test_the_last_active_admin_is_kept(db, roles, caplog):
+    person = await create_user(db, email="only@example.com", role="admin")
+    retired = await create_user(db, email="retired@example.com", role="admin")
+    retired.is_active = False
+    await db.flush()
+    with caplog.at_level("WARNING", logger=auth.logger.name):
+        changes, context = await auth._apply_directory_role(db, person, "viewer")
+    assert (changes, context) == (None, {"last_admin_kept": True})
+    assert person.role == "admin"
+    assert [r.getMessage() for r in caplog.records if r.name == auth.logger.name] == [
+        "Directory role map: kept only@example.com as admin instead of 'viewer', because "
+        "they are the last active admin."
+    ]
+
+
+async def test_only_active_admins_count_towards_the_last_admin(db, roles):
+    # other active accounts that are not admins do not make the admin demotable
+    person = await create_user(db, email="only@example.com", role="admin")
+    await create_user(db, email="m1@example.com", role="member")
+    await create_user(db, email="m2@example.com", role="viewer")
+    changes, context = await auth._apply_directory_role(db, person, "viewer")
+    assert (changes, context) == (None, {"last_admin_kept": True})
+    assert person.role == "admin"
+
+
+async def test_a_role_change_is_logged_with_the_old_and_new_role(db, roles, caplog):
+    person = await create_user(db, email="a@example.com", role="member")
+    with caplog.at_level("INFO", logger=auth.logger.name):
+        await auth._apply_directory_role(db, person, "viewer")
+    assert [r.getMessage() for r in caplog.records if r.name == auth.logger.name] == [
+        "Directory sign-in: role for a@example.com changed from 'member' to 'viewer'."
+    ]
+    assert [r.levelname for r in caplog.records if r.name == auth.logger.name] == ["INFO"]
+    assert person.role == "viewer"
+
+
+async def test_an_admin_is_demoted_while_another_admin_is_active(db, roles):
+    person = await create_user(db, email="one@example.com", role="admin")
+    await create_user(db, email="two@example.com", role="admin")
+    changes, context = await auth._apply_directory_role(db, person, "viewer")
+    assert changes == {"role": {"old": "Admin", "new": "Viewer"}}
+    assert context is None
+    assert person.role == "viewer"
+
+
+@pytest.fixture
+def user_selects(db):
+    """Every ``SELECT … FROM users`` the session sends, rendered upper-case."""
+    from sqlalchemy import event as sa_event
+
+    statements: list[str] = []
+    bind = db.sync_session.get_bind()
+
+    def _record(conn, cursor, statement, parameters, context, executemany):
+        text_ = " ".join(statement.split()).upper()
+        if text_.startswith("SELECT") and " FROM USERS" in text_:
+            statements.append(text_)
+
+    sa_event.listen(bind, "before_cursor_execute", _record)
+    yield statements
+    sa_event.remove(bind, "before_cursor_execute", _record)
+
+
+async def test_a_demotion_locks_the_active_admin_rows_before_counting(db, roles, user_selects):
+    # two admins signing in at once must not both be demoted: the count runs
+    # under FOR UPDATE, so the second transaction waits and re-reads
+    person = await create_user(db, email="one@example.com", role="admin")
+    await create_user(db, email="two@example.com", role="admin")
+    user_selects.clear()
+    await auth._apply_directory_role(db, person, "viewer")
+    locked = [s for s in user_selects if "FOR UPDATE" in s]
+    assert locked, user_selects
+    # the lock selects the admin ids it counts, not a constant
+    assert all(s.startswith("SELECT USERS.ID FROM USERS WHERE ") for s in locked), locked
+    assert person.role == "viewer"
+
+
+async def test_a_promotion_takes_no_lock(db, roles, user_selects):
+    person = await create_user(db, email="a@example.com", role="viewer")
+    user_selects.clear()
+    await auth._apply_directory_role(db, person, "admin")
+    assert not [s for s in user_selects if "FOR UPDATE" in s]
+    assert person.role == "admin"
+
+
+async def test_applying_a_role_never_commits(db, roles, monkeypatch):
+    person = await create_user(db, email="a@example.com", role="viewer")
+
+    async def no_commit():
+        raise AssertionError("_apply_directory_role must not commit")
+
+    monkeypatch.setattr(db, "commit", no_commit)
+    await auth._apply_directory_role(db, person, "member")
+    assert person.role == "member"
+
+
 # ── _local_login_available ──────────────────────────────────────────────────
 
 

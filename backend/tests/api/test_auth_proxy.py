@@ -381,6 +381,12 @@ async def seed_roles(db):
     await db.commit()
 
 
+async def seed_other_admin(db):
+    """A second active admin, so a demotion by the map is not refused as the
+    last admin's (``_apply_directory_role``)."""
+    await create_user(db, email="other-admin@example.com", role="admin")
+
+
 async def role_of(db, email: str) -> str:
     result = await db.execute(select(User).where(User.email == email))
     return result.scalar_one().role
@@ -407,6 +413,7 @@ async def test_mapped_claim_demotes_a_role_granted_by_hand(client, db, proxy_ena
     is what makes removing someone's directory role actually take effect.
     """
     await seed_roles(db)
+    await seed_other_admin(db)
     await create_federated_user(db, email="alice@example.com", role="admin")
     await db.commit()
 
@@ -440,6 +447,7 @@ async def test_unrecognised_claim_value_falls_back_to_the_default_role(
 ):
     """Present but unmapped means the directory has spoken: no role here."""
     await seed_roles(db)
+    await seed_other_admin(db)
     await create_federated_user(db, email="alice@example.com", role="admin")
     await db.commit()
 
@@ -475,6 +483,7 @@ async def test_archived_target_role_falls_back_to_the_default_role(
     archived = await create_role(db, key="viewer_old")
     archived.is_archived = True
     monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_MAP", [("contractor", "viewer_old")])
+    await seed_other_admin(db)
     await create_federated_user(db, email="alice@example.com", role="admin")
     await db.commit()
 
@@ -491,6 +500,7 @@ async def test_unknown_target_role_falls_back_to_the_default_role(
 ):
     await seed_roles(db)
     monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_MAP", [("admin", "no_such_role")])
+    await seed_other_admin(db)
     await create_federated_user(db, email="alice@example.com", role="admin")
     await db.commit()
 
@@ -500,6 +510,38 @@ async def test_unknown_target_role_falls_back_to_the_default_role(
 
     assert response.status_code == 200
     assert await role_of(db, "alice@example.com") == "member"
+
+
+async def test_the_map_never_demotes_the_last_active_admin(client, db, proxy_enabled, role_map):
+    """Without another active admin nobody could give the role back."""
+    await seed_roles(db)
+    await create_federated_user(db, email="alice@example.com", role="admin")
+    retired = await create_user(db, email="retired-admin@example.com", role="admin")
+    retired.is_active = False  # an inactive admin does not count
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT, headers=hdrs("alice@example.com", **{"X-Forwarded-Groups": "READ-ONLY"})
+    )
+
+    assert response.status_code == 200
+    assert await role_of(db, "alice@example.com") == "admin"
+
+
+async def test_a_refused_sign_in_never_changes_the_role(client, db, proxy_enabled, role_map):
+    """The account is checked before the map is applied: a disabled user's role
+    stays as it was, rather than being committed by the refusal's audit row."""
+    await seed_roles(db)
+    user = await create_federated_user(db, email="alice@example.com", role="viewer")
+    user.is_active = False
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT, headers=hdrs("alice@example.com", **{"X-Forwarded-Groups": "ADMIN"})
+    )
+
+    assert response.status_code == 403
+    assert await role_of(db, "alice@example.com") == "viewer"
 
 
 async def test_role_is_never_touched_without_a_configured_map(client, db, proxy_enabled):

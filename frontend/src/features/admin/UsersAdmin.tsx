@@ -63,6 +63,11 @@ import {
   excludeSelfFromBulkDeactivate,
 } from "./users/userSelfGuards";
 import { isLocked } from "./users/userLockout";
+import {
+  isRoleManagedExternally,
+  isRoleLockedInEdit,
+  excludeManagedFromBulkRoleChange,
+} from "./users/userRoleManaged";
 import { defaultRoleKey } from "./users/defaultRole";
 import { WARNING_STRONG_COLOR } from "@/theme/tokens";
 
@@ -337,13 +342,15 @@ export default function UsersAdmin() {
       // Selecting yourself alongside fifty others is an ordinary thing to do,
       // so drop your own row rather than refusing the whole batch — the backend
       // rejects it outright, and that 400 would strand the other forty-nine.
-      const { ids, skippedSelf } = excludeSelfFromBulkRoleChange(
-        currentUser?.id,
-        selectedIds,
-        users,
-        roleKey,
-      );
-      if (skippedSelf) setWarning(t("users.bulk.selfSkipped"));
+      const self = excludeSelfFromBulkRoleChange(currentUser?.id, selectedIds, users, roleKey);
+      // An account whose role the directory sets is refused by the API (the
+      // whole batch would fail), so it is left out the same way.
+      const { ids, skippedManaged } = excludeManagedFromBulkRoleChange(self.ids, users, roleKey);
+      const skipped = [
+        self.skippedSelf ? t("users.bulk.selfSkipped") : null,
+        skippedManaged > 0 ? t("users.bulk.managedSkipped", { count: skippedManaged }) : null,
+      ].filter((m): m is string => m !== null);
+      if (skipped.length > 0) setWarning(skipped.join(" "));
       if (ids.length === 0) {
         clearSelection();
         return;
@@ -512,9 +519,14 @@ export default function UsersAdmin() {
     const payload: Record<string, string> = {
       email: editForm.email.trim(),
       display_name: editForm.display_name.trim(),
-      role: editForm.role,
       auth_provider: editForm.auth_provider,
     };
+    // A directory-managed role is not ours to send: the identity provider may
+    // have changed it at a sign-in since this page loaded, and the API refuses
+    // the whole edit for a role it no longer holds.
+    if (!isRoleLockedInEdit(editingUser, editForm.auth_provider)) {
+      payload.role = editForm.role;
+    }
     if (editForm.password) {
       payload.password = editForm.password;
     }
@@ -834,7 +846,7 @@ export default function UsersAdmin() {
                   size="small"
                   value={u.role}
                   onChange={(e) => updateRole(u.id, e.target.value)}
-                  disabled={isOwnRoleLocked(currentUser?.id, u)}
+                  disabled={isOwnRoleLocked(currentUser?.id, u) || isRoleManagedExternally(u)}
                   sx={{
                     minWidth: 120,
                     "& .MuiSelect-select": { py: 0.25 },
@@ -889,7 +901,14 @@ export default function UsersAdmin() {
                     </MenuItem>
                   )}
                 </Select>
-                {isOwnRoleLocked(currentUser?.id, u) && (
+                {isRoleManagedExternally(u) && (
+                  <Tooltip title={t("users.roleManagedExternally")}>
+                    <span style={{ display: "inline-flex", alignItems: "center" }}>
+                      <MaterialSymbol icon="sync_lock" size={18} />
+                    </span>
+                  </Tooltip>
+                )}
+                {isOwnRoleLocked(currentUser?.id, u) && !isRoleManagedExternally(u) && (
                   <Tooltip title={t("users.selfRoleLockedTooltip")}>
                     <span style={{ display: "inline-flex", alignItems: "center" }}>
                       <MaterialSymbol icon="lock" size={18} />
@@ -1123,6 +1142,8 @@ export default function UsersAdmin() {
   );
 
   const isEditingSsoUser = editForm.auth_provider === "sso";
+  // The server judges the lock on the account's sign-in method after the edit.
+  const editRoleManaged = isRoleLockedInEdit(editingUser, editForm.auth_provider);
 
   // Sidebar render — extracted so we can reuse it in Drawer + inline
   const renderSidebar = (collapsed: boolean) => (
@@ -1477,13 +1498,21 @@ export default function UsersAdmin() {
                     <Select
                       label={t("users.edit.authMethod")}
                       value={editForm.auth_provider}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const authProvider = e.target.value as string;
                         setEditForm((p) => ({
                           ...p,
-                          auth_provider: e.target.value as string,
+                          auth_provider: authProvider,
                           password: "",
-                        }))
-                      }
+                          // Back on SSO, a directory-managed role is locked
+                          // again: restore the stored one so the save is not
+                          // refused for a change the picker no longer shows.
+                          role:
+                            editingUser && isRoleLockedInEdit(editingUser, authProvider)
+                              ? editingUser.role
+                              : p.role,
+                        }));
+                      }}
                     >
                       <MenuItem value="local">{t("users.auth.local")}</MenuItem>
                       <MenuItem value="sso">{t("users.auth.sso")}</MenuItem>
@@ -1510,7 +1539,10 @@ export default function UsersAdmin() {
                 <FormControl
                   fullWidth
                   size="small"
-                  disabled={!!editingUser && isOwnRoleLocked(currentUser?.id, editingUser)}
+                  disabled={
+                    (!!editingUser && isOwnRoleLocked(currentUser?.id, editingUser)) ||
+                    editRoleManaged
+                  }
                 >
                   <InputLabel>{t("users.columns.role")}</InputLabel>
                   <Select
@@ -1554,9 +1586,14 @@ export default function UsersAdmin() {
                       </MenuItem>
                     )}
                   </Select>
-                  {!!editingUser && isOwnRoleLocked(currentUser?.id, editingUser) && (
-                    <FormHelperText>{t("users.selfRoleLockedTooltip")}</FormHelperText>
+                  {editRoleManaged && (
+                    <FormHelperText>{t("users.roleManagedExternally")}</FormHelperText>
                   )}
+                  {!editRoleManaged &&
+                    !!editingUser &&
+                    isOwnRoleLocked(currentUser?.id, editingUser) && (
+                      <FormHelperText>{t("users.selfRoleLockedTooltip")}</FormHelperText>
+                    )}
                 </FormControl>
                 {editForm.role && roleMap.get(editForm.role)?.is_archived && (
                   <Alert severity="warning" variant="outlined">

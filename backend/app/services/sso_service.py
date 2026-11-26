@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import decrypt_value
 from app.models.app_settings import AppSettings
+from app.services import directory_roles
 
 logger = logging.getLogger(__name__)
 
@@ -205,9 +206,16 @@ def _error_details(response: httpx.Response) -> dict:
 
 
 async def exchange_code_for_claims(
-    db: AsyncSession, code: str, redirect_uri: str
+    db: AsyncSession, code: str, redirect_uri: str, *, login: bool = False
 ) -> tuple[dict, dict, str]:
     """Exchange an authorization code for verified id_token claims.
+
+    ``login=True`` is the app's own sign-in (``/auth/sso/callback``): the token
+    request then asks for the same scopes the authorize step did
+    (``directory_roles.login_scopes``, published by ``/auth/sso/config``), since an
+    identity provider may narrow the grant to the token request's scope and drop
+    the groups claim the role map reads. Portal and published-diagram visitors keep
+    the default and so the provider's base scopes.
 
     Returns ``(verified_claims, sso_config, provider)``. Raises ``HTTPException``
     with the same status codes the login callback historically used. Does NOT do
@@ -249,6 +257,10 @@ async def exchange_code_for_claims(
                 502, "SSO authentication failed. Could not reach identity provider."
             )
 
+    scope = provider_cfg["scopes"]
+    if login:
+        scope = directory_roles.login_scopes(sso, scope)
+
     # Exchange the authorization code for tokens
     logger.info("SSO token exchange: POST %s (provider=%s)", token_url, provider)
     try:
@@ -261,7 +273,7 @@ async def exchange_code_for_claims(
                     "client_secret": client_secret,
                     "code": code,
                     "redirect_uri": redirect_uri,
-                    "scope": provider_cfg["scopes"],
+                    "scope": scope,
                 },
             )
     except httpx.ConnectError:

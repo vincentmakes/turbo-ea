@@ -184,6 +184,17 @@ const LEGACY_USER: User = {
 
 const PAGE_USERS: User[] = [...USERS, INVITED_USER, LEGACY_USER];
 
+/** An SSO account whose role the directory role map sets at every sign-in. */
+const MANAGED_USER: User = {
+  id: "00000000-0000-4000-8000-00000000a007",
+  email: "managed@test.local",
+  display_name: "Managed Person",
+  role: "member",
+  is_active: true,
+  auth_provider: "sso",
+  role_managed_externally: true,
+};
+
 const INVITATIONS: SsoInvitation[] = [
   { id: "inv-1", email: "Invited@Test.local", role: "viewer", created_at: "2026-02-01T00:00:00Z" },
 ];
@@ -1207,5 +1218,213 @@ describe("UsersAdmin — filters, columns and persisted prefs", () => {
 
     await user.click(screen.getByTestId("sb-collapse"));
     await waitFor(() => expect(screen.queryByTestId("users-sidebar")).not.toBeInTheDocument());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Directory-managed roles (SSO role map)
+// ---------------------------------------------------------------------------
+
+describe("UsersAdmin — directory-managed roles", () => {
+  const WITH_MANAGED = [...PAGE_USERS, MANAGED_USER];
+
+  beforeEach(() => {
+    mockApi.on("get", USERS_PATH, () => [...WITH_MANAGED]);
+  });
+
+  async function openEdit(user: ReturnType<typeof renderPage>["user"], row: User) {
+    renderCell("display_name", row);
+    await user.click(screen.getByRole("button", { name: t("admin:users.editTooltip") }));
+    return screen.getByRole("dialog");
+  }
+
+  it("locks the grid role picker of a managed account, with a hint", async () => {
+    renderPage();
+    await loaded(WITH_MANAGED.length);
+
+    renderCell("role", MANAGED_USER);
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByLabelText(t("admin:users.roleManagedExternally"))).toBeInTheDocument();
+    expect(screen.queryByLabelText(t("admin:users.selfRoleLockedTooltip"))).not.toBeInTheDocument();
+  });
+
+  it("leaves the picker open for a local account and an SSO account without the flag", async () => {
+    renderPage();
+    await loaded(WITH_MANAGED.length);
+
+    renderCell("role", MEMBER_USER);
+    expect(screen.getByRole("combobox")).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByLabelText(t("admin:users.roleManagedExternally"))).not.toBeInTheDocument();
+
+    renderCell("role", INVITED_USER);
+    expect(screen.getByRole("combobox")).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByLabelText(t("admin:users.roleManagedExternally"))).not.toBeInTheDocument();
+  });
+
+  it("shows only the directory hint on the signed-in admin's own managed row", async () => {
+    renderPage();
+    await loaded(WITH_MANAGED.length);
+
+    renderCell("role", { ...ADMIN_USER, auth_provider: "sso", role_managed_externally: true });
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByLabelText(t("admin:users.roleManagedExternally"))).toBeInTheDocument();
+    expect(screen.queryByLabelText(t("admin:users.selfRoleLockedTooltip"))).not.toBeInTheDocument();
+  });
+
+  it("locks the edit dialog's role picker of a managed account, with a hint", async () => {
+    const { user } = renderPage();
+    await loaded(WITH_MANAGED.length);
+    const dialog = await openEdit(user, MANAGED_USER);
+
+    expect(within(dialog).getByRole("combobox")).toHaveAttribute("aria-disabled", "true");
+    expect(within(dialog).getByText(t("admin:users.roleManagedExternally"))).toBeInTheDocument();
+    expect(within(dialog).queryByText(t("admin:users.selfRoleLockedTooltip"))).not.toBeInTheDocument();
+  });
+
+  it("shows only the directory hint when the signed-in admin edits their own managed account", async () => {
+    const { user } = renderPage();
+    await loaded(WITH_MANAGED.length);
+    const dialog = await openEdit(user, {
+      ...ADMIN_USER,
+      auth_provider: "sso",
+      role_managed_externally: true,
+    });
+
+    expect(within(dialog).getByRole("combobox")).toHaveAttribute("aria-disabled", "true");
+    expect(within(dialog).getByText(t("admin:users.roleManagedExternally"))).toBeInTheDocument();
+    expect(within(dialog).queryByText(t("admin:users.selfRoleLockedTooltip"))).not.toBeInTheDocument();
+  });
+
+  it("keeps the edit dialog's role picker open for an SSO account without the flag", async () => {
+    const { user } = renderPage();
+    await loaded(WITH_MANAGED.length);
+    const dialog = await openEdit(user, INVITED_USER);
+
+    expect(within(dialog).getByRole("combobox")).not.toHaveAttribute("aria-disabled", "true");
+    expect(within(dialog).queryByText(t("admin:users.roleManagedExternally"))).not.toBeInTheDocument();
+  });
+
+  it("unlocks the role when the account is switched to local sign-in, and restores it on SSO", async () => {
+    mockApi.on("get", "/settings/sso/status", { enabled: true });
+    mockApi.on("patch", `/users/${MANAGED_USER.id}`, (_p, body) => ({
+      ...MANAGED_USER,
+      ...(body as object),
+    }));
+    const { user } = renderPage();
+    await loaded(WITH_MANAGED.length);
+    const dialog = await openEdit(user, MANAGED_USER);
+
+    // First select is the auth method, second the role.
+    const roleCombo = () => within(dialog).getAllByRole("combobox")[1];
+    expect(roleCombo()).toHaveAttribute("aria-disabled", "true");
+
+    await user.click(within(dialog).getAllByRole("combobox")[0]);
+    await user.click(screen.getByRole("option", { name: t("admin:users.auth.local") }));
+    expect(roleCombo()).not.toHaveAttribute("aria-disabled", "true");
+    expect(within(dialog).queryByText(t("admin:users.roleManagedExternally"))).not.toBeInTheDocument();
+    await user.click(roleCombo());
+    await user.click(screen.getByRole("option", { name: "Viewer" }));
+    expect(roleCombo()).toHaveTextContent("Viewer");
+
+    // Back on SSO the directory owns the role again: the stored one returns.
+    await user.click(within(dialog).getAllByRole("combobox")[0]);
+    await user.click(screen.getByRole("option", { name: t("admin:users.auth.sso") }));
+    expect(roleCombo()).toHaveAttribute("aria-disabled", "true");
+    expect(roleCombo()).toHaveTextContent("Member");
+
+    await user.click(within(dialog).getByRole("button", { name: t("admin:users.edit.saveChanges") }));
+    await waitFor(() => expect(mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)).toHaveLength(1));
+    const body = mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)[0].body as object;
+    // Locked again, so the role is the directory's and is not sent at all.
+    expect(body).toMatchObject({ auth_provider: "sso" });
+    expect(body).not.toHaveProperty("role");
+  });
+
+  it("renames a managed account without sending its role, so a sign-in's change survives", async () => {
+    mockApi.on("get", "/settings/sso/status", { enabled: true });
+    mockApi.on("patch", `/users/${MANAGED_USER.id}`, (_p, body) => ({
+      ...MANAGED_USER,
+      ...(body as object),
+    }));
+    const { user } = renderPage();
+    await loaded(WITH_MANAGED.length);
+    const dialog = await openEdit(user, MANAGED_USER);
+
+    const name = within(dialog).getByLabelText(/Display Name/);
+    await user.clear(name);
+    await user.type(name, "Renamed Managed");
+    await user.click(within(dialog).getByRole("button", { name: t("admin:users.edit.saveChanges") }));
+
+    await waitFor(() => expect(mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)).toHaveLength(1));
+    expect(mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)[0].body).toEqual({
+      email: MANAGED_USER.email,
+      display_name: "Renamed Managed",
+      auth_provider: "sso",
+    });
+  });
+
+  it("saves a role change for a managed account switched to local sign-in", async () => {
+    mockApi.on("get", "/settings/sso/status", { enabled: true });
+    mockApi.on("patch", `/users/${MANAGED_USER.id}`, (_p, body) => ({
+      ...MANAGED_USER,
+      ...(body as object),
+    }));
+    const { user } = renderPage();
+    await loaded(WITH_MANAGED.length);
+    const dialog = await openEdit(user, MANAGED_USER);
+
+    await user.click(within(dialog).getAllByRole("combobox")[0]);
+    await user.click(screen.getByRole("option", { name: t("admin:users.auth.local") }));
+    await user.click(within(dialog).getAllByRole("combobox")[1]);
+    await user.click(screen.getByRole("option", { name: "Viewer" }));
+    await user.click(within(dialog).getByRole("button", { name: t("admin:users.edit.saveChanges") }));
+
+    await waitFor(() => expect(mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)).toHaveLength(1));
+    expect(mockApi.callsOf("patch", `/users/${MANAGED_USER.id}`)[0].body).toMatchObject({
+      role: "viewer",
+      auth_provider: "local",
+    });
+  });
+
+  it("leaves managed accounts out of a bulk role change and says how many", async () => {
+    const byId = new Map(WITH_MANAGED.map((u) => [u.id, u]));
+    mockApi.on("patch", "/users/bulk", (_p: string, body: unknown) => {
+      const b = body as { ids: string[]; updates: Partial<User> };
+      return b.ids.map((id) => ({ ...byId.get(id)!, ...b.updates }));
+    });
+    const { user } = renderPage();
+    await loaded(WITH_MANAGED.length);
+    gridStub.fire("gridReady");
+    act(() => gridStub.selectRows([MEMBER_USER, MANAGED_USER, VIEWER_USER]));
+
+    await user.click(screen.getByRole("button", { name: named(t("admin:users.bulk.changeRole")) }));
+    await user.click(screen.getByTestId("bulk-role-confirm"));
+
+    await waitFor(() => expect(mockApi.callsOf("patch", "/users/bulk")).toHaveLength(1));
+    const body = mockApi.callsOf("patch", "/users/bulk")[0].body as { ids: string[] };
+    expect(body.ids).toEqual([MEMBER_USER.id, VIEWER_USER.id]);
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts.map((a) => a.textContent)).toEqual(
+      expect.arrayContaining([t("admin:users.bulk.managedSkipped", { count: 1 })]),
+    );
+    expect(rowById(MANAGED_USER.id)?.role).toBe("member");
+    expect(rowById(MEMBER_USER.id)?.role).toBe("viewer");
+  });
+
+  it("reports both skips together and sends nothing when only skipped rows were selected", async () => {
+    const { user } = renderPage();
+    await loaded(WITH_MANAGED.length);
+    gridStub.fire("gridReady");
+    act(() => gridStub.selectRows([ADMIN_USER, MANAGED_USER]));
+
+    await user.click(screen.getByRole("button", { name: named(t("admin:users.bulk.changeRole")) }));
+    await user.click(screen.getByTestId("bulk-role-confirm"));
+
+    expect(
+      await screen.findByText(
+        `${t("admin:users.bulk.selfSkipped")} ${t("admin:users.bulk.managedSkipped", { count: 1 })}`,
+      ),
+    ).toBeInTheDocument();
+    expect(mockApi.callsOf("patch", "/users/bulk")).toHaveLength(0);
   });
 });

@@ -305,6 +305,46 @@ async def test_the_relation_sweep_marker_is_instance_local(db):
     assert row.general_settings == {"currency": "CHF", MARKER_KEY: "2026-06-01"}
 
 
+async def test_the_sso_role_map_survives_export_and_import(db):
+    """The directory role map travels with the rest of ``sso.*`` (only the client
+    secret is stripped), so a cloned instance signs users in with the same roles."""
+    import json
+
+    user = await create_user(db, email="rolemap@test.com", role="admin")
+    mapping = {
+        "role_claim": "groups",
+        "role_map": [
+            {"value": "EA-Admins", "role": "admin"},
+            {"value": "Readers", "role": "viewer"},
+        ],
+        "extra_scopes": "groups offline_access",
+    }
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={
+                "sso": {"enabled": True, "provider": "okta", "client_id": "pub", **mapping}
+            },
+            email_settings={},
+        )
+    )
+    await db.flush()
+
+    bundle = parse_bundle(await build_bundle(db))
+    settings_rows = {r["key"]: r for r in bundle.rows(schema.SHEET_SETTINGS)}
+    exported = json.loads(settings_rows["general_settings"]["value"])["sso"]
+    assert {key: exported[key] for key in mapping} == mapping
+
+    row = (await db.execute(select(AppSettings).where(AppSettings.id == "default"))).scalar_one()
+    row.general_settings = {"sso": {"enabled": True, "provider": "okta", "client_id": "pub"}}
+    await db.flush()
+    result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+    await db.refresh(row)
+    imported = row.general_settings["sso"]
+    assert {key: imported.get(key) for key in mapping} == mapping
+
+
 async def test_module_entities_roundtrip_and_recreate(db):
     """Generic entity sections: a comment, a risk, and a risk-card link export
     and re-import with preserved UUIDs, user remap (by email), and card-FK
