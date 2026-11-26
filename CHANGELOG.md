@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.218.0] - 2026-11-26
+
+### Added
+- **Native SSO sign-in can take each user's role from the identity provider's groups or app roles**: set a claim name, an ordered list of directory values and the roles they grant, and any additional scopes in Admin → Settings → Authentication ([#1446](https://github.com/vincentmakes/turbo-ea/discussions/1446)).
+
+### Changed
+- A directory role map, for SSO or reverse-proxy sign-in, never demotes the last active administrator.
+- While a role map is in force, the role of an SSO user is locked in Admin → Users, instead of being silently replaced at the next sign-in; a bulk role change skips those accounts and an Excel import leaves their role as it is, and both say so.
+- The MCP server's sign-in requests the scopes configured for SSO.
+
+### Fixed
+- A reverse-proxy sign-in that is refused (disabled or expired account) no longer changes that account's role first.
+
 ## [2.217.1] - 2026-11-26
 
 ### Fixed

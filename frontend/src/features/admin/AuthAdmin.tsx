@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -12,21 +12,50 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import FormHelperText from "@mui/material/FormHelperText";
+import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { useTheme } from "@mui/material/styles";
+import type { AppRole, SsoRoleMapEntry, SsoSettings } from "@/types";
 
-interface SsoSettings {
-  enabled: boolean;
-  provider: string;
-  client_id: string;
-  client_secret: string;
-  tenant_id: string;
-  domain: string;
-  issuer_url: string;
-  authorization_endpoint: string;
-  token_endpoint: string;
-  jwks_uri: string;
+/** A role-map row in the form; `_rowId` is a stable React key, stripped on save. */
+interface RoleMapRow extends SsoRoleMapEntry {
+  _rowId: number;
+}
+
+/**
+ * Microsoft tenant values that admit any tenant. A role map is refused there:
+ * a foreign tenant could assign itself the app's roles.
+ */
+const MULTI_TENANT_IDS = new Set(["organizations", "common", "consumers"]);
+
+/** The form's rows as the API takes them: trimmed values, fully empty rows dropped. */
+function roleMapPayload(rows: RoleMapRow[]): SsoRoleMapEntry[] {
+  return rows
+    .map((r) => ({ value: r.value.trim(), role: r.role }))
+    .filter((r) => r.value !== "" || r.role !== "");
+}
+
+function RoleChip({ role }: { role: AppRole }) {
+  return (
+    <Chip
+      size="small"
+      label={role.label}
+      sx={{
+        bgcolor: role.color + "22",
+        color: role.color,
+        fontWeight: 600,
+        border: `1px solid ${role.color}44`,
+        pointerEvents: "none",
+      }}
+    />
+  );
 }
 
 const SSO_PROVIDERS = [
@@ -77,7 +106,19 @@ export default function AuthAdmin() {
   const [ssoAuthEndpoint, setSsoAuthEndpoint] = useState("");
   const [ssoTokenEndpoint, setSsoTokenEndpoint] = useState("");
   const [ssoJwksUri, setSsoJwksUri] = useState("");
+  const [ssoRoleClaim, setSsoRoleClaim] = useState("");
+  const [roleMapRows, setRoleMapRows] = useState<RoleMapRow[]>([]);
+  const [ssoExtraScopes, setSsoExtraScopes] = useState("");
   const [savingSso, setSavingSso] = useState(false);
+
+  // Stable React keys for role-map rows, so reordering moves each row's own
+  // input state with it instead of leaving it at the old index.
+  const nextRowId = useRef(0);
+
+  // Archived roles are fetched too, so a stored row pointing at one still has a label.
+  const { data: roles } = useApiQuery<AppRole[]>("/roles?include_archived=true");
+  const roleByKey = useMemo(() => new Map((roles ?? []).map((r) => [r.key, r])), [roles]);
+  const activeRoles = useMemo(() => (roles ?? []).filter((r) => !r.is_archived), [roles]);
 
   useEffect(() => {
     Promise.all([
@@ -95,6 +136,15 @@ export default function AuthAdmin() {
         setSsoAuthEndpoint(ssoData.authorization_endpoint || "");
         setSsoTokenEndpoint(ssoData.token_endpoint || "");
         setSsoJwksUri(ssoData.jwks_uri || "");
+        setSsoRoleClaim(ssoData.role_claim ?? "");
+        setRoleMapRows(
+          (ssoData.role_map ?? []).map((r) => ({
+            value: r.value,
+            role: r.role,
+            _rowId: nextRowId.current++,
+          })),
+        );
+        setSsoExtraScopes(ssoData.extra_scopes ?? "");
         setRegistrationEnabled(regData.enabled);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
@@ -134,6 +184,9 @@ export default function AuthAdmin() {
         authorization_endpoint: ssoAuthEndpoint,
         token_endpoint: ssoTokenEndpoint,
         jwks_uri: ssoJwksUri,
+        role_claim: ssoRoleClaim.trim(),
+        role_map: roleMapPayload(roleMapRows),
+        extra_scopes: ssoExtraScopes.trim(),
       });
       setSnack(t("settings.sso.savedSuccess"));
     } catch (e) {
@@ -142,6 +195,33 @@ export default function AuthAdmin() {
       setSavingSso(false);
     }
   };
+
+  const updateRoleMapRow = (idx: number, patch: Partial<SsoRoleMapEntry>) => {
+    setRoleMapRows((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+
+  const addRoleMapRow = () => {
+    setRoleMapRows((rows) => [...rows, { value: "", role: "", _rowId: nextRowId.current++ }]);
+  };
+
+  // Swap a row with its neighbour: map order is match order (first match wins).
+  const moveRoleMapRow = (idx: number, delta: -1 | 1) => {
+    setRoleMapRows((rows) => {
+      const target = idx + delta;
+      if (target < 0 || target >= rows.length) return rows;
+      const next = [...rows];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  };
+
+  const removeRoleMapRow = (idx: number) => {
+    setRoleMapRows((rows) => rows.filter((_, i) => i !== idx));
+  };
+
+  const tenantNeedsSpecificId =
+    ssoProvider === "microsoft" &&
+    (ssoTenantId.trim() === "" || MULTI_TENANT_IDS.has(ssoTenantId.trim().toLowerCase()));
 
   if (loading) {
     return (
@@ -388,6 +468,141 @@ export default function AuthAdmin() {
                   {t("settings.sso.oidcSetupHint")}
                 </Typography>
               </Alert>
+            )}
+
+            {/* Role mapping — Google ID tokens carry no groups claim, so it is
+                hidden there (the stored values are still sent unchanged). */}
+            {ssoProvider !== "google" && (
+              <Box data-testid="sso-role-mapping">
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                  {t("settings.sso.roleMap.title")}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t("settings.sso.roleMap.description")}
+                </Typography>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <Typography variant="body2">{t("settings.sso.roleMap.rulesHint")}</Typography>
+                </Alert>
+                {tenantNeedsSpecificId && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    <Typography variant="body2">
+                      {t("settings.sso.roleMap.multiTenantWarning")}
+                    </Typography>
+                  </Alert>
+                )}
+
+                <TextField
+                  label={t("settings.sso.roleMap.claim")}
+                  fullWidth
+                  value={ssoRoleClaim}
+                  onChange={(e) => setSsoRoleClaim(e.target.value)}
+                  placeholder="groups"
+                  helperText={t("settings.sso.roleMap.claimHelper")}
+                  sx={{ mb: 2 }}
+                />
+
+                {roleMapRows.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {t("settings.sso.roleMap.empty")}
+                  </Typography>
+                )}
+                {roleMapRows.map((row, idx) => {
+                  const known = roleByKey.get(row.role);
+                  const isActive = activeRoles.some((r) => r.key === row.role);
+                  // A stored key that is archived or unknown still renders, so
+                  // it is never silently dropped on the next save.
+                  const showStoredOption = row.role !== "" && !isActive;
+                  const flagInactive = showStoredOption && roles !== undefined;
+                  const labelId = `sso-role-map-role-${row._rowId}`;
+                  return (
+                    <Box
+                      key={row._rowId}
+                      data-testid="sso-role-map-row"
+                      sx={{ display: "flex", gap: 1, mb: 1, alignItems: "flex-start" }}
+                    >
+                      <TextField
+                        size="small"
+                        label={t("settings.sso.roleMap.value")}
+                        value={row.value}
+                        onChange={(e) => updateRoleMapRow(idx, { value: e.target.value })}
+                        placeholder="ea-admins"
+                        sx={{ flex: 1 }}
+                      />
+                      <FormControl size="small" sx={{ flex: 1 }}>
+                        <InputLabel id={labelId}>{t("settings.sso.roleMap.role")}</InputLabel>
+                        <Select
+                          labelId={labelId}
+                          label={t("settings.sso.roleMap.role")}
+                          value={row.role}
+                          onChange={(e) => updateRoleMapRow(idx, { role: e.target.value })}
+                          renderValue={(val) => {
+                            const r = roleByKey.get(val);
+                            return r ? <RoleChip role={r} /> : val;
+                          }}
+                        >
+                          {activeRoles.map((r) => (
+                            <MenuItem key={r.key} value={r.key}>
+                              <RoleChip role={r} />
+                            </MenuItem>
+                          ))}
+                          {showStoredOption && (
+                            <MenuItem value={row.role} disabled>
+                              {known ? <RoleChip role={known} /> : row.role}
+                            </MenuItem>
+                          )}
+                        </Select>
+                        {flagInactive && (
+                          <FormHelperText sx={{ color: "warning.main" }}>
+                            {t("settings.sso.roleMap.inactiveRole")}
+                          </FormHelperText>
+                        )}
+                      </FormControl>
+                      <IconButton
+                        size="small"
+                        aria-label={t("settings.sso.roleMap.moveUp")}
+                        disabled={idx === 0}
+                        onClick={() => moveRoleMapRow(idx, -1)}
+                      >
+                        <MaterialSymbol icon="arrow_upward" size={18} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        aria-label={t("settings.sso.roleMap.moveDown")}
+                        disabled={idx === roleMapRows.length - 1}
+                        onClick={() => moveRoleMapRow(idx, 1)}
+                      >
+                        <MaterialSymbol icon="arrow_downward" size={18} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        aria-label={t("settings.sso.roleMap.remove")}
+                        onClick={() => removeRoleMapRow(idx)}
+                      >
+                        <MaterialSymbol icon="close" size={18} />
+                      </IconButton>
+                    </Box>
+                  );
+                })}
+                <Button
+                  size="small"
+                  startIcon={<MaterialSymbol icon="add" size={18} />}
+                  sx={{ textTransform: "none", mb: 2 }}
+                  onClick={addRoleMapRow}
+                >
+                  {t("settings.sso.roleMap.add")}
+                </Button>
+
+                <TextField
+                  label={t("settings.sso.roleMap.extraScopes")}
+                  fullWidth
+                  value={ssoExtraScopes}
+                  onChange={(e) => setSsoExtraScopes(e.target.value)}
+                  placeholder="groups"
+                  helperText={t("settings.sso.roleMap.extraScopesHelper")}
+                  sx={{ mb: 2 }}
+                />
+              </Box>
             )}
           </>
         )}

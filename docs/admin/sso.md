@@ -53,6 +53,42 @@ After saving, open a new browser tab (or incognito window) and verify that the S
 - When SSO is enabled, local password login remains available as a fallback
 - You can configure the redirect URI in your identity provider as: `https://your-turbo-ea-domain/auth/callback`
 
+**Role mapping:**
+
+By default every new SSO user arrives on the default role (or the role of their invitation) and an administrator changes it by hand in **Admin → Users**. If your identity provider already knows who should be an administrator, a member or a viewer — through group membership or app roles — Turbo EA can read that from the ID token and assign the role itself at each sign-in. The **Role mapping** block sits in the SSO section, below the provider fields, and is saved with the same **Save** button:
+
+- **Claim name**: the ID-token claim that lists the user's groups or roles, for example `roles` (Microsoft Entra app roles), `groups` (Okta, Keycloak) or `cognito:groups` (Amazon Cognito). Leave it empty, or leave the mapping without rows, and roles stay entirely manual.
+- **Mapping rows**: each row pairs a **directory value** (a group or app-role value as the claim carries it) with a Turbo EA role. Use the arrows to order the rows; the first row that matches wins.
+- **Additional scopes**: space-separated scopes requested at sign-in in addition to `openid email profile` — for example `groups` for Okta. The MCP server's sign-in requests the same scopes.
+
+The rules, all chosen so that a configuration mistake cannot lock you out:
+
+- **The mapping is applied at every sign-in**, not only when the account is created. It overrides a role changed by hand, so removing someone from a directory group takes effect at their next sign-in.
+- **The first matching row wins**, in the order of the rows, not the order in which the identity provider lists the values. Matching ignores case.
+- **A claim value that matches no row** gives the default role.
+- **A token without the claim, or with an empty claim**, leaves the user's current role unchanged. A mistyped claim name, or a provider that stopped sending the claim, therefore cannot demote every user at once.
+- **A row whose role does not exist or has been archived** gives the default role. The settings page marks such a row so you can pick an active role.
+- **The last active administrator is never demoted.** If the mapping would take the admin role from the only active administrator, they keep it and the Security & admin log records that the role was kept.
+- **While a mapping is set, the role of SSO users is locked in Admin → Users** (the role picker is disabled, with a hint; a bulk role change skips those accounts and an Excel import leaves their role as it is, and both say so). Change the role in the directory instead, or switch the account to local sign-in to manage it by hand. Local accounts are never affected.
+
+Notes per identity provider:
+
+| Provider | What to configure |
+|----------|-------------------|
+| **Microsoft Entra ID** | Prefer **app roles**: declare them in the app registration, assign users or groups to them, and use the claim `roles`. Role mapping needs a **specific tenant ID**: with `organizations`, `common` or `consumers` any Microsoft tenant can sign in, and a mapping cannot be saved. The `groups` claim holds group object IDs, not names, and Entra leaves it out of the token entirely for a user in more than 200 groups. |
+| **Okta** | Add a groups claim to the ID token in the authorization server (or the app's sign-on settings) and add `groups` under **Additional scopes**. Use the claim name you gave it, usually `groups`. |
+| **Keycloak** (Generic OIDC) | Add a **Group Membership** mapper to the client, with the token claim name `groups` and **Add to ID token** on, so a top-level `groups` claim reaches the ID token (turn off **Full group path** to get plain group names). Nested claims such as `realm_access.roles` are not read. |
+| **Amazon Cognito** (Generic OIDC) | Use the claim `cognito:groups`. |
+| **Google Workspace** | Not available: Google ID tokens carry no groups claim, so the block is hidden for Google. |
+
+!!! warning "Limits to keep in mind"
+    - **Map app roles or group IDs, not display names that users can create themselves.** If anyone can create a group called `ea-admins`, anyone can become an administrator.
+    - **The claim must be present in the ID token.** Turbo EA reads the ID token only — not the userinfo endpoint or a directory API. Some identity providers need both the scope under **Additional scopes** and a claim configuration before the groups appear in the ID token; sign in once and check the result before relying on it.
+    - **A change in the directory takes effect at the user's next sign-in**, not during a session that is already open.
+    - **An invitation's role is overridden at the first sign-in** when the mapping assigns one.
+    - **A user whose token never carries the claim keeps their current role**, and while a mapping is set nobody can change it in Admin → Users. Fix the claim in the identity provider, or switch the account to local sign-in.
+    - **An empty claim counts as absent**: removing someone from every mapped group does not demote them. Remove their access to the application in the identity provider instead.
+
 #### Reverse proxy authentication
 
 If Turbo EA runs behind a proxy that already signs your users in — Azure App Service's built-in authentication ("EasyAuth"), oauth2-proxy, Authelia, Cloudflare Access — it can accept that identity directly instead of running its own SSO on top. No OIDC client, no app registration, no client secret. Users land in Turbo EA already signed in.
@@ -122,12 +158,13 @@ TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
 Each pair is `DIRECTORY_VALUE:turbo-ea-role-key`. When a user holds several directory roles, **the first entry in the map wins** — map order, not the order the provider happened to send them, because the two Azure identity formats disagree on that. Matching ignores case on the directory side. In generic proxy mode the same map reads a comma-separated header instead of a claim: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
 
 !!! warning "The map is authoritative on every sign-in"
-    Not only at account creation. A role granted by hand in **Admin → Users** is reverted the next time that person signs in — which is the point, since removing someone's directory role has to take effect. Leave `TURBO_EA_PROXY_AUTH_ROLE_MAP` unset and nothing changes: roles stay entirely manual.
+    Not only at account creation — removing someone's directory role has to take effect. While the map is in force, the role of an account that signs in through the proxy is therefore **locked in Admin → Users**: the role picker is disabled with a hint, a bulk role change skips the account and an Excel import leaves its role as it is, instead of letting a hand-made change be silently replaced at the next sign-in. Leave `TURBO_EA_PROXY_AUTH_ROLE_MAP` unset and nothing changes: roles stay entirely manual.
 
 The edge cases, all chosen so a configuration mistake cannot lock you out:
 
 - **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` always wins** over the map. If the two disagree, that address is admin.
 - **A value that matches nothing in the map** — or names a Turbo EA role that does not exist or has been archived — falls back to the default role.
+- **The last active administrator is never demoted.** If the map would take the admin role from the only active administrator, they keep it, and the Security & admin log records that the role was kept.
 - **A claim that is absent entirely** leaves the user's current role untouched. This is deliberately different from the case above: a mistyped `ROLE_CLAIM`, or a token store that stopped forwarding, would otherwise demote every user on the instance in one pass.
 - **The identity has to be worth trusting with permissions.** Role mapping applies when the identity token was verified (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) or a shared secret is configured. On App Service with the token store disabled and no secret, the map is ignored and a line is written to the log saying so — the same reasoning that stops an unverified header creating an account.
 

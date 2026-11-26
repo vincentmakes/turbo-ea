@@ -259,4 +259,59 @@ describe("validateUserImport", () => {
     // No password leaks through to the create payload.
     expect("password" in rpt.creates[0]).toBe(false);
   });
+
+  it("drops the role change of an account whose role the identity provider sets, keeping its other changes", () => {
+    const rpt = validateUserImport(
+      [{ email: "alice@example.com", display_name: "Alicia", role: "admin" }],
+      [user({ auth_provider: "sso", role_managed_externally: true })],
+      ROLES,
+    );
+    expect(rpt.errors).toHaveLength(0);
+    expect(rpt.updates).toHaveLength(1);
+    expect(rpt.updates[0].changes).toEqual({ display_name: { old: "Alice", new: "Alicia" } });
+    expect(rpt.updates[0].role).toBe("viewer");
+    expect(rpt.warnings).toEqual([
+      {
+        row: 2,
+        column: "role",
+        message: "Row 2: the role of 'alice@example.com' is set by the identity provider — role change skipped",
+      },
+    ]);
+    expect(rpt.skipped).toBe(0);
+  });
+
+  it("skips a managed account's row when the role was its only change, with one warning", () => {
+    const rpt = validateUserImport(
+      [{ email: "alice@example.com", display_name: "Alice", role: "member" }],
+      [user({ auth_provider: "sso", role_managed_externally: true })],
+      ROLES,
+    );
+    expect(rpt.updates).toHaveLength(0);
+    expect(rpt.skipped).toBe(1);
+    expect(rpt.warnings).toHaveLength(1);
+    expect(rpt.warnings[0].message).toMatch(/set by the identity provider/);
+  });
+
+  it("still reports an unchanged managed account as up to date", () => {
+    const rpt = validateUserImport(
+      [{ email: "alice@example.com", display_name: "Alice", role: "viewer" }],
+      [user({ auth_provider: "sso", role_managed_externally: true })],
+      ROLES,
+    );
+    expect(rpt.skipped).toBe(1);
+    expect(rpt.warnings).toEqual([
+      { row: 2, message: "Row 2: user 'alice@example.com' already up to date" },
+    ]);
+  });
+
+  it("changes the role of an SSO account the identity provider does not manage", () => {
+    const rpt = validateUserImport(
+      [{ email: "alice@example.com", display_name: "Alice", role: "member" }],
+      [user({ auth_provider: "sso", role_managed_externally: false })],
+      ROLES,
+    );
+    expect(rpt.warnings).toHaveLength(0);
+    expect(rpt.updates[0].changes).toEqual({ role: { old: "viewer", new: "member" } });
+    expect(rpt.updates[0].role).toBe("member");
+  });
 });
