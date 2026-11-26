@@ -33,7 +33,6 @@ from starlette.routing import Route
 from turbo_ea_mcp import oauth
 from turbo_ea_mcp.api_client import CARD_IDS_CHUNK, TurboEAClient, chunked
 from turbo_ea_mcp.batches import BatchContext, mutation_batch
-from turbo_ea_mcp.hash_memory import MEMORY as _HASH_MEMORY
 from turbo_ea_mcp.config import (
     APP_VERSION,
     MCP_ALLOW_EXTENSION_DESTRUCTIVE,
@@ -51,6 +50,7 @@ from turbo_ea_mcp.config import (
     MCP_WRITES_ENABLED,
     TURBO_EA_PUBLIC_URL,
 )
+from turbo_ea_mcp.hash_memory import MEMORY as _HASH_MEMORY
 from turbo_ea_mcp.logo_fetch import LogoFetchError, allowed_hosts, fetch_logo_cached
 from turbo_ea_mcp.models import CardLogoItem
 from turbo_ea_mcp.text_render import html_to_text
