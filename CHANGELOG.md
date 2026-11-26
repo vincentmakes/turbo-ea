@@ -5,6 +5,10 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.215.1] - 2026-11-26
+
+### Security
+- The frontend and edge nginx images now run **nginx 1.30.8**, which fixes CVE-2026-132779 (excessive CPU usage in TLS 1.3 when `ssl_early_data` is on). Turbo EA's nginx configuration does not switch that setting on, so no installation was exposed; the normal upgrade is enough.
 ## [2.215.0] - 2026-11-26
 
 ### Added
