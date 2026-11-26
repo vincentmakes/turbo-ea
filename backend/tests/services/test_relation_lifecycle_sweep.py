@@ -11,18 +11,26 @@ The window helpers are pure; the rest runs on the test database.
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import event as sa_event
+from sqlalchemy import select, update
 
 from app.models.app_settings import AppSettings
 from app.models.calculation import Calculation
+from app.models.card import Card
 from app.models.event import Event
-from app.models.relation import Relation
 from app.services import relation_lifecycle_sweep as sweep
 from app.services.data_quality import calc_data_quality
-from tests.conftest import create_card, create_card_type, create_relation, create_relation_type
+from tests.conftest import (
+    create_budget_line,
+    create_card,
+    create_card_type,
+    create_relation,
+    create_relation_type,
+)
 from tests.seams import session_factory_for
 
 DAY = date(2026, 6, 15)
@@ -253,22 +261,31 @@ class TestRun:
         assert await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today) == 2
         assert await sweep.read_marker(db) == today
 
-    async def test_cards_are_recalculated_in_batches(self, land, monkeypatch):
+    async def test_each_card_is_its_own_short_transaction(self, land, monkeypatch):
         db = land
         today = _utc_today()
         for i in range(3):
             await _link(db, f"n{i}", {"active": today.isoformat()})
-        monkeypatch.setattr(sweep, "BATCH_SIZE", 4)
-        sizes: list[int] = []
-        real = sweep.recalculate_cards
+        commits: list[str] = []
+        real_commit = db.commit
 
-        async def spy(session, ids):
-            sizes.append(len(ids))
-            return await real(session, ids)
+        async def counting_commit():
+            commits.append("commit")
+            await real_commit()
 
-        monkeypatch.setattr(sweep, "recalculate_cards", spy)
+        monkeypatch.setattr(db, "commit", counting_commit)
+        seen: list[int] = []
+        real = sweep.recalculate_card
+
+        async def spy(session, card_id):
+            seen.append(len(commits))
+            return await real(session, card_id)
+
+        monkeypatch.setattr(sweep, "recalculate_card", spy)
         assert await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today) == 6
-        assert sizes == [4, 2]
+        # The id read commits first, then one commit per card, then the marker.
+        assert seen == [1, 2, 3, 4, 5, 6]
+        assert len(commits) == 8
 
     async def test_nothing_to_do_still_advances_the_marker(self, land):
         db = land
@@ -276,18 +293,154 @@ class TestRun:
         assert await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today) == 0
         assert await sweep.read_marker(db) == today
 
+    async def test_a_failing_card_does_not_stop_the_others(self, land, monkeypatch, caplog):
+        db = land
+        today = _utc_today()
+        bad, _ = await _link(db, "bad", {"active": today.isoformat()})
+        good, _ = await _link(db, "good", {"active": today.isoformat()})
+        good.attributes = {"itcCount": 0}
+        await db.flush()
+        real = sweep.recalculate_card
+
+        async def flaky(session, card_id):
+            if card_id == bad.id:
+                raise RuntimeError("down")
+            return await real(session, card_id)
+
+        monkeypatch.setattr(sweep, "recalculate_card", flaky)
+        swept = await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today)
+        assert swept == 3  # the other three cards
+        await db.refresh(good)
+        assert good.attributes["itcCount"] == 1
+        assert str(bad.id) in caplog.text
+
     async def test_a_failure_leaves_the_marker_where_it_was(self, land, monkeypatch):
         db = land
         today = _utc_today()
+        yesterday = today - timedelta(days=1)
+        await sweep.write_marker(db, yesterday)
         await _link(db, "starts", {"active": today.isoformat()})
+        calls: list[int] = []
 
-        async def boom(session, ids):
+        async def boom(session, card_id):
+            calls.append(1)
             raise RuntimeError("down")
 
-        monkeypatch.setattr(sweep, "recalculate_cards", boom)
-        with pytest.raises(RuntimeError):
-            await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today)
+        monkeypatch.setattr(sweep, "recalculate_card", boom)
+        assert await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today) == 0
+        assert len(calls) == 2  # both ends were tried
+        assert await sweep.read_marker(db) == yesterday
+        # The next run repeats the window, and advances once every card succeeds.
+        monkeypatch.undo()
+        assert await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today) == 2
+        assert await sweep.read_marker(db) == today
+
+    async def test_a_failed_card_rolls_back_its_own_work_only(self, land, monkeypatch):
+        db = land
+        today = _utc_today()
+        app, _ = await _link(db, "half", {"active": today.isoformat()})
+        app.attributes = {"itcCount": 0}
+        await db.flush()
+        from app.services import card_write_service
+
+        real_rescore = card_write_service.recalculate_and_rescore
+
+        async def half_then_fail(session, card):
+            await real_rescore(session, card)
+            await session.flush()
+            if card.id == app.id:
+                raise RuntimeError("after the write")
+
+        monkeypatch.setattr(card_write_service, "recalculate_and_rescore", half_then_fail)
+        await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today)
+        await db.refresh(app)
+        assert app.attributes["itcCount"] == 0  # rolled back, not half-written
         assert await sweep.read_marker(db) is None
+
+    async def test_a_card_archived_after_the_listing_is_skipped(self, land, monkeypatch):
+        db = land
+        today = _utc_today()
+        app, itc = await _link(db, "archived", {"active": today.isoformat()})
+        app.attributes = {"itcCount": 0}
+        await db.flush()
+        real = sweep.affected_card_ids
+
+        async def then_archive(session, after, through):
+            ids = await real(session, after, through)
+            await session.execute(update(Card).where(Card.id == app.id).values(status="ARCHIVED"))
+            return ids
+
+        monkeypatch.setattr(sweep, "affected_card_ids", then_archive)
+        assert await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today) == 1
+        await db.refresh(app)
+        assert app.attributes["itcCount"] == 0
+        # Skipping an archived card is not a failure.
+        assert await sweep.read_marker(db) == today
+
+    async def test_an_edit_committed_after_the_listing_is_kept(self, land, monkeypatch):
+        # The card is re-read under its lock: the whole `attributes` rewrite
+        # starts from what is stored now, not from what was loaded earlier.
+        db = land
+        today = _utc_today()
+        app, _ = await _link(db, "edited", {"active": today.isoformat()})
+        app.attributes = {"itcCount": 0, "note": "old"}
+        await db.flush()
+        real = sweep.affected_card_ids
+
+        async def then_edit(session, after, through):
+            ids = await real(session, after, through)
+            # Behind the identity map's back, as another request would.
+            await session.execute(
+                update(Card)
+                .where(Card.id == app.id)
+                .values(attributes={"itcCount": 0, "note": "edited"})
+                .execution_options(synchronize_session=False)
+            )
+            return ids
+
+        monkeypatch.setattr(sweep, "affected_card_ids", then_edit)
+        await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today)
+        stored = (await db.execute(select(Card.attributes).where(Card.id == app.id))).scalar_one()
+        assert stored == {"itcCount": 1, "note": "edited"}
+
+    async def test_a_ppm_owned_field_is_not_overwritten(self, db):
+        # A calculation targeting an Initiative's costBudget must not overwrite
+        # the value PPM syncs from its budget lines — as on every write path.
+        await create_card_type(db, key="Initiative", label="Initiative")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(
+            db, key="relInitToITC", source_type_key="Initiative", target_type_key="ITComponent"
+        )
+        for field in ("costBudget", "itcCount"):
+            db.add(
+                Calculation(
+                    name=field,
+                    formula="relation_count.relInitToITC",
+                    target_type_key="Initiative",
+                    target_field_key=field,
+                    is_active=True,
+                )
+            )
+        today = _utc_today()
+        init = await create_card(
+            db,
+            card_type="Initiative",
+            name="init",
+            attributes={"costBudget": 5000, "itcCount": 0},
+        )
+        itc = await create_card(db, card_type="ITComponent", name="itc")
+        await create_relation(
+            db,
+            type_key="relInitToITC",
+            source_id=init.id,
+            target_id=itc.id,
+            lifecycle={"active": today.isoformat()},
+        )
+        await create_budget_line(db, initiative_id=init.id, amount=5000)
+        await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today)
+        await db.refresh(init)
+        assert init.attributes["itcCount"] == 1  # the sweep ran the calculations
+        assert init.attributes["costBudget"] == 5000  # but left PPM's field alone
 
     async def test_the_default_factory_is_the_app_session(self, land, patched_async_session):
         """Called without a factory, it opens the app's own sessions."""
@@ -300,19 +453,30 @@ class TestRun:
     async def test_recalculate_skips_archived_and_unknown_ids(self, land):
         db = land
         app, itc = await _link(db, "gone", {}, status="ARCHIVED")
-        assert await sweep.recalculate_cards(db, [app.id, itc.id]) == 1
-        assert await sweep.recalculate_cards(db, []) == 0
+        assert await sweep.recalculate_card(db, app.id) is False
+        assert await sweep.recalculate_card(db, itc.id) is True
+        assert await sweep.recalculate_card(db, uuid.uuid4()) is False
 
 
 async def test_the_relation_rows_themselves_are_not_rewritten(land):
+    # `now()` is transaction-constant in a test, so comparing `updated_at`
+    # proves nothing: watch the SQL instead. The sweep did real work (the card
+    # UPDATEs) and never issued an UPDATE of a relation row.
     db = land
     today = _utc_today()
-    await _link(db, "starts", {"active": today.isoformat()})
-    before = [
-        (r.id, r.lifecycle, r.updated_at) for r in (await db.execute(select(Relation))).scalars()
-    ]
-    await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today)
-    after = [
-        (r.id, r.lifecycle, r.updated_at) for r in (await db.execute(select(Relation))).scalars()
-    ]
-    assert after == before
+    app, _ = await _link(db, "starts", {"active": today.isoformat()})
+    app.attributes = {"itcCount": 0}
+    await db.flush()
+    statements: list[str] = []
+    bind = db.sync_session.get_bind()
+
+    @sa_event.listens_for(bind, "before_cursor_execute")
+    def _record(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement.lstrip().upper())
+
+    try:
+        await sweep.run_relation_lifecycle_sweep(session_factory_for(db), today=today)
+    finally:
+        sa_event.remove(bind, "before_cursor_execute", _record)
+    assert any(st.startswith("UPDATE CARDS") for st in statements)
+    assert not any(st.startswith("UPDATE RELATIONS") for st in statements)

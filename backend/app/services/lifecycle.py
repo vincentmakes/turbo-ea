@@ -8,8 +8,9 @@ displayed or sorted. Keep the three in sync.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, TypeVar
 
 from sqlalchemy import and_, case, cast, func, literal, not_, or_
 from sqlalchemy.dialects.postgresql import JSONB
@@ -40,6 +41,9 @@ def parse_lifecycle_date(value: object) -> date | None:
         return datetime.strptime(text, "%Y-%m-%d").date()
     except (ValueError, TypeError):
         return None
+
+
+K = TypeVar("K")
 
 
 def _utc_today() -> date:
@@ -204,6 +208,45 @@ def lifecycle_in_effect(lifecycle: dict | None, *, on: date | None = None) -> bo
     end_of_life = parse_lifecycle_date(lc.get("endOfLife"))
     retired = end_of_life is not None and end_of_life <= on
     return started and not retired
+
+
+def link_keys_in_effect(
+    dated: Mapping[K, Sequence[dict]], undated: Iterable[K], *, on: date | None = None
+) -> set[K]:
+    """The keys of a link collapse that are in effect on ``on`` (default:
+    today, UTC).
+
+    A report that folds several relation rows into one link — a capability and
+    an application linked by two relation types, say — keeps the lifecycles of
+    the dated rows per key in ``dated`` and the keys reached by at least one
+    undated row in ``undated``. The link is in effect when any row behind it
+    is: an undated row always is, a dated one by ``lifecycle_in_effect``.
+    """
+    out = set(undated)
+    out.update(
+        key for key, lcs in dated.items() if any(lifecycle_in_effect(lc, on=on) for lc in lcs)
+    )
+    return out
+
+
+def lifecycle_breadth(lifecycle: dict | None, *, on: date | None = None) -> tuple[int, date]:
+    """How much of the time a relation lifecycle covers, as a sort key — the
+    larger, the wider: undated (always in effect) beats in effect on ``on``
+    (default: today, UTC), which beats not in effect; within a rank, the later
+    end wins and no end at all is latest.
+
+    For a report that collapses several relation rows into ONE item carrying
+    one lifecycle (the dependency graph's edge per card pair and relation
+    type): take the row with the largest key, and the collapsed item is undated
+    when any row is, in effect today when any row is, and otherwise never ends
+    before the rows it stands for — it never understates the relation. Ties are
+    the caller's to break deterministically (by row id).
+    """
+    if not lifecycle:
+        return (2, date.max)
+    rank = 1 if lifecycle_in_effect(lifecycle, on=on) else 0
+    end_of_life = parse_lifecycle_date(lifecycle.get("endOfLife"))
+    return (rank, end_of_life or date.max)
 
 
 def _sql_phase_date(entity: Any, phase: str) -> tuple[Any, Any, Any]:

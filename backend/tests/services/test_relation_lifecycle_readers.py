@@ -15,7 +15,7 @@ bottom needs none).
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -156,6 +156,157 @@ class TestDashboardRelationBuilders:
         )
         rows = await db.execute(stmt.where(Card.id == star.hub.id).order_by(far.name))
         assert list(rows.scalars().all()) == ["planned", "undated"]
+
+
+# ── dashboard_query.run_query: every relation reader reads the query's day ──
+
+#: A day before every dated window: only the undated relation is in effect —
+#: the ended one had not started yet (``active`` 2001), the others neither.
+LONG_AGO = date(2000, 1, 1)
+#: The day the planned relation starts and the current one ends (inclusive).
+LATER = TODAY + timedelta(days=30)
+
+
+async def _dash(db, today=None, **kwargs):
+    from app.services.card_read_scope import CardReadScope
+    from app.services.dashboard_query import DashboardQuery, resolve_query, run_query
+
+    resolved = await resolve_query(db, DashboardQuery(**kwargs))
+    return await run_query(db, resolved, CardReadScope.everything(), today=today)
+
+
+def _named(result, key="key") -> dict[str, object]:
+    """``{card name: value}`` of a card-keyed result."""
+    return {result["labels"][row[key]]: row["value"] for row in result["rows"]}
+
+
+class TestDashboardQueryDay:
+    async def test_the_sankey_counts_relations_in_effect_on_the_day(self, db, star):
+        query = {"relation_type": "relHubToItc", "group_by": "type", "group_by_2": "card"}
+        today = await _dash(db, **query)
+        assert _named(today, "target") == dict.fromkeys(COUNTING, 1)
+        assert today["total"] == 2
+        later = await _dash(db, today=LATER, **query)
+        assert _named(later, "target") == {"planned": 1, "undated": 1}
+        long_ago = await _dash(db, today=LONG_AGO, **query)
+        assert _named(long_ago, "target") == {"undated": 1}
+
+    async def test_a_related_dimension_groups_by_relations_in_effect(self, db, star):
+        query = {"card_type": "Application", "group_by": "related:relHubToItc"}
+        today = await _dash(db, **query)
+        assert _named(today) == dict.fromkeys(COUNTING, 1)
+        assert today["total"] == 1  # the hub, once
+        assert _named(await _dash(db, today=LATER, **query)) == {"planned": 1, "undated": 1}
+        assert _named(await _dash(db, today=LONG_AGO, **query)) == {"undated": 1}
+
+    async def test_the_relations_measure_counts_relations_in_effect(self, db, star):
+        query = {
+            "card_type": "ITComponent",
+            "group_by": "card",
+            "metric": "sum",
+            "metric_field": "@relations:relHubToItc",
+        }
+
+        def nonzero(result):
+            return {name: v for name, v in _named(result).items() if v}
+
+        assert nonzero(await _dash(db, **query)) == dict.fromkeys(COUNTING, 1)
+        assert nonzero(await _dash(db, today=LATER, **query)) == {"planned": 1, "undated": 1}
+        assert nonzero(await _dash(db, today=LONG_AGO, **query)) == {"undated": 1}
+
+    async def test_the_relation_flag_reads_the_day_on_both_paths(self, db, star):
+        flagged = {"card_type": "ITComponent", "flags": "related:relHubToItc"}
+        # The grouped fast path (a bare total) …
+        assert (await _dash(db, **flagged))["total"] == 2
+        assert (await _dash(db, today=LONG_AGO, **flagged))["total"] == 1
+        # … and the per-card path.
+        per_card = {**flagged, "group_by": "card"}
+        assert set(_named(await _dash(db, **per_card))) == set(COUNTING)
+        assert set(_named(await _dash(db, today=LATER, **per_card))) == {"planned", "undated"}
+        unflagged = {
+            "card_type": "ITComponent",
+            "flags": "unrelated:relHubToItc",
+            "group_by": "card",
+        }
+        assert set(_named(await _dash(db, today=LONG_AGO, **unflagged))) == {
+            "current",
+            "ended",
+            "lonely",
+            "planned",
+        }
+
+    async def test_the_orphaned_flag_reads_the_day_on_both_paths(self, db, star):
+        orphaned = {"card_type": "ITComponent", "flags": "orphaned"}
+        assert (await _dash(db, **orphaned))["total"] == 3
+        assert (await _dash(db, today=LONG_AGO, **orphaned))["total"] == 4
+        per_card = {**orphaned, "group_by": "card"}
+        assert set(_named(await _dash(db, **per_card))) == {"ended", "lonely", "planned"}
+        assert set(_named(await _dash(db, today=LATER, **per_card))) == {
+            "current",
+            "ended",
+            "lonely",
+        }
+
+
+# ── card_query: hops read the query's day ────────────────────────────────────
+
+
+class TestCardQueryHopsDay:
+    RAW = {"type": "Application", "related": [{"relation": "relHubToItc", "type": "ITComponent"}]}
+
+    async def _hub_matches(self, db, raw, today=None) -> bool:
+        from app.services.card_query import compile_card_query, parse_card_query
+        from app.services.card_read_scope import CardReadScope
+
+        clauses = await compile_card_query(
+            db, parse_card_query(raw), CardReadScope.everything(), today=today
+        )
+        return await _names(db, Card.status == "ACTIVE", *clauses) == ["Hub"]
+
+    async def test_a_hop_reaches_only_through_relations_in_effect_on_the_day(self, db, star):
+        def to(name):
+            hop = {
+                "relation": "relHubToItc",
+                "type": "ITComponent",
+                "where": {"cards": [str(star.peers[name].id)]},
+            }
+            return {"type": "Application", "related": [hop]}
+
+        today = {n: await self._hub_matches(db, to(n)) for n in WINDOWS}
+        assert today == {"undated": True, "current": True, "planned": False, "ended": False}
+        later = {n: await self._hub_matches(db, to(n), today=LATER) for n in WINDOWS}
+        assert later == {"undated": True, "current": False, "planned": True, "ended": False}
+        long_ago = {n: await self._hub_matches(db, to(n), today=LONG_AGO) for n in WINDOWS}
+        assert long_ago == {"undated": True, "current": False, "planned": False, "ended": False}
+
+    async def test_a_negated_hop_reads_the_day_too(self, db, star):
+        hop = {
+            "relation": "relHubToItc",
+            "type": "ITComponent",
+            "where": {"cards": [str(star.peers["planned"].id)]},
+            "negate": True,
+        }
+        raw = {"type": "Application", "related": [hop]}
+        assert await self._hub_matches(db, raw) is True
+        assert await self._hub_matches(db, raw, today=LATER) is False
+
+    async def test_the_matches_of_a_hop_read_the_day(self, db, star):
+        from app.services.card_query import parse_card_query, resolve_card_query
+        from app.services.card_query_matches import card_query_matches, match_nodes
+        from app.services.card_read_scope import CardReadScope
+
+        groups = await resolve_card_query(db, parse_card_query(self.RAW))
+        scope = CardReadScope.everything()
+
+        async def matched(today=None):
+            found = await card_query_matches(
+                db, match_nodes(groups, ["0:0"]), [star.hub.id], scope, today=today, limit=None
+            )
+            return sorted(c["name"] for c in found[str(star.hub.id)]["0:0"]["cards"])
+
+        assert await matched() == COUNTING
+        assert await matched(LATER) == ["planned", "undated"]
+        assert await matched(LONG_AGO) == ["undated"]
 
 
 # ── the formula context ──────────────────────────────────────────────────────

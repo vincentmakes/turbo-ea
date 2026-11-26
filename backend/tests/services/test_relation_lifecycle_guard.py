@@ -11,7 +11,9 @@ manage keep returning every row. The definition lives in one place,
 * ``lifecycle_in_effect`` (Python) and ``lifecycle_in_effect_sql`` (its SQL
   twin) — in effect on a day;
 * ``live_relations_in_fiscal_year`` — the cost reports' fiscal-year rule
-  (``is_live_in_fiscal_year``) applied to the relations they sum through.
+  (``is_live_in_fiscal_year``) applied to the relations they sum through;
+* ``link_keys_in_effect`` — ``lifecycle_in_effect`` over a collapse of several
+  relation rows into one link (the capability heatmap's aggregates).
 
 This scan walks every function under ``app/`` (by AST, outermost definition)
 that names the ``Relation`` model — through whatever alias it was imported
@@ -40,7 +42,12 @@ pytestmark = pytest.mark.source_scan
 
 #: Names that apply the one definition.
 MARKERS = frozenset(
-    {"lifecycle_in_effect", "lifecycle_in_effect_sql", "live_relations_in_fiscal_year"}
+    {
+        "lifecycle_in_effect",
+        "lifecycle_in_effect_sql",
+        "live_relations_in_fiscal_year",
+        "link_keys_in_effect",
+    }
 )
 
 #: Where the ORM model can be imported from.
@@ -113,10 +120,9 @@ ALL_TIME: dict[str, str] = {
     # the travelled date on the client (`lib/relationLifecycle.ts`).
     # (`/reports/dependencies` left this list when it gained `in_effect_only`:
     # it applies the definition for that flag and carries `lifecycle` otherwise.)
-    "api/v1/reports.py::capability_heatmap": (
-        "time travel: every capability-application link, with the linking relations' "
-        "lifecycle in `app_link_lifecycles`, filtered at the travelled date on the client"
-    ),
+    # (`/reports/capability-heatmap` left this list when its aggregates began
+    # counting only the links in effect today; its `apps` lists, filter maps and
+    # their lifecycles stay all-time for the client's time travel.)
     "services/portfolio_payload.py::build_portfolio_payload": (
         "time travel: every app_relations entry carries its relation's `lifecycle`, "
         "filtered at the travelled date on the client; the PPM board's projection "
@@ -310,4 +316,15 @@ def test_markers_name_the_definition():
         "lifecycle_in_effect",
         "lifecycle_in_effect_sql",
         "live_relations_in_fiscal_year",
+        "link_keys_in_effect",
     }
+
+
+def test_link_keys_in_effect_applies_the_definition():
+    # A marker must itself apply the definition, or naming it would satisfy the
+    # scan without deciding anything.
+    import inspect
+
+    from app.services import lifecycle
+
+    assert "lifecycle_in_effect(" in inspect.getsource(lifecycle.link_keys_in_effect)

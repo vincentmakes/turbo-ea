@@ -4,7 +4,7 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -77,7 +77,9 @@ from app.services.kpi_snapshot_service import (
 from app.services.lifecycle import (
     current_lifecycle_phase,
     is_live_in_fiscal_year,
+    lifecycle_breadth,
     lifecycle_in_effect_sql,
+    link_keys_in_effect,
     live_relations_in_fiscal_year,
 )
 from app.services.permission_service import PermissionService
@@ -2036,6 +2038,23 @@ async def capability_heatmap(
         cap_apps[cap_id].append(app_map[app_id])
         app_caps.setdefault(app_id, set()).add(cap_id)
 
+    # The same for the filter maps: per application, per relation-type key (and
+    # side), per related card, the lifecycles of the relations behind the entry
+    # — only where every one of them is dated, so the client can tell which
+    # related cards an application is linked to at the travelled date. An
+    # undated link is sent as nothing, which reads as always in effect.
+    related_link_lcs: dict[tuple[str, str, str], list[dict]] = {}
+    related_link_undated: set[tuple[str, str, str]] = set()
+
+    def _note_related_link(
+        app_id: str, rel_key: str, related_id: str, lifecycle: dict | None
+    ) -> None:
+        key = (app_id, rel_key, related_id)
+        if lifecycle:
+            related_link_lcs.setdefault(key, []).append(lifecycle)
+        else:
+            related_link_undated.add(key)
+
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in cap_id_set and tid in app_map:
@@ -2053,10 +2072,12 @@ async def capability_heatmap(
             app_related.setdefault(sid, {}).setdefault(related_map[tid]["type"], []).append(tid)
             rel_key = f"{r.type}__out" if self_pair else r.type
             app_related_by_rel.setdefault(sid, {}).setdefault(rel_key, []).append(tid)
+            _note_related_link(sid, rel_key, tid, r.lifecycle)
         if tid in app_id_set and sid in related_map:
             app_related.setdefault(tid, {}).setdefault(related_map[sid]["type"], []).append(sid)
             rel_key = f"{r.type}__in" if self_pair else r.type
             app_related_by_rel.setdefault(tid, {}).setdefault(rel_key, []).append(sid)
+            _note_related_link(tid, rel_key, sid, r.lifecycle)
 
     # Tag assignments per application (for tag filter)
     cap_app_tag_ids: dict[str, list[str]] = {}
@@ -2083,13 +2104,19 @@ async def capability_heatmap(
             }
         )
 
+    related_lifecycles_by_app: dict[str, dict[str, dict[str, list[dict]]]] = {}
+    for (aid, rel_key, related_id), lcs in related_link_lcs.items():
+        if (aid, rel_key, related_id) in related_link_undated:
+            continue
+        related_lifecycles_by_app.setdefault(aid, {}).setdefault(rel_key, {})[related_id] = lcs
+
     def _app_to_dict(a):
         aid = str(a.id)
         by_type = app_related.get(aid, {})
         attrs = a.attributes
         if attrs and not can_view_costs_global and cost_field_keys:
             attrs = {k: v for k, v in attrs.items() if k not in cost_field_keys}
-        return {
+        out = {
             "id": aid,
             "name": a.name,
             "subtype": a.subtype,
@@ -2105,6 +2132,13 @@ async def capability_heatmap(
             "tag_ids": cap_app_tag_ids.get(aid, []),
             "capability_ids": sorted(app_caps.get(aid, ())),
         }
+        # `{relation-type key (per side as in related_by_rel_type): {related id:
+        # [lifecycle, …]}}` for the entries whose every relation is dated; the
+        # key is absent when none is, like `app_link_lifecycles`.
+        related_lifecycles = related_lifecycles_by_app.get(aid)
+        if related_lifecycles:
+            out["related_link_lifecycles"] = related_lifecycles
+        return out
 
     # Collect relation filter options grouped by type (visible types only)
     all_type_keys_result = await db.execute(select(CardType).where(CardType.is_hidden.is_(False)))
@@ -2121,23 +2155,35 @@ async def capability_heatmap(
     for members in filterable_types.values():
         members.sort(key=lambda x: x["name"])
 
+    # The three aggregates are the map NOW (an assistant reads them verbatim
+    # through `get_capability_heatmap`): they count a capability-application
+    # pair only while a relation linking the two is in effect today, and a
+    # split share divides between the capabilities linked today. The `apps`
+    # lists stay complete — the web client recomputes every figure itself at
+    # the travelled date from them and `app_link_lifecycles`.
+    today_pairs = link_keys_in_effect(cap_app_link_lcs, cap_app_undated)
+    caps_today: dict[str, int] = {}
+    for _cid, aid in today_pairs:
+        caps_today[aid] = caps_today.get(aid, 0) + 1
+
     # Build hierarchy-aware data
     items = []
     for c in caps:
         cid = str(c.id)
         linked_apps = cap_apps.get(cid, [])
-        app_count = len(linked_apps)
+        apps_today = [a for a in linked_apps if (cid, str(a.id)) in today_pairs]
+        app_count = len(apps_today)
 
         total_cost = 0.0
         if can_view_costs_global:
-            for a in linked_apps:
+            for a in apps_today:
                 attrs = a.attributes or {}
                 app_cost = sum(cost_value(attrs.get(ck)) for ck in cost_field_keys)
                 if attribution == SPLIT:
-                    app_cost = split_share(app_cost, len(app_caps[str(a.id)]))
+                    app_cost = split_share(app_cost, caps_today[str(a.id)])
                 total_cost += app_cost
 
-        risk_count = sum(1 for a in linked_apps if (a.lifecycle or {}).get("endOfLife"))
+        risk_count = sum(1 for a in apps_today if (a.lifecycle or {}).get("endOfLife"))
 
         item = {
             "id": cid,
@@ -2205,6 +2251,17 @@ async def capability_heatmap(
         if read_scope.type_readable(rt["other_type_key"], mode="module")
     ]
     return payload
+
+
+def _speaks_for_collapse(candidate: Relation, current: Relation, today: date) -> bool:
+    """Whether ``candidate`` should replace ``current`` as the one row an edge
+    collapsing several rows of one relation type carries: wider dates
+    (``lifecycle_breadth``) win, then the smaller id."""
+    cand = lifecycle_breadth(candidate.lifecycle, on=today)
+    held = lifecycle_breadth(current.lifecycle, on=today)
+    if cand != held:
+        return cand > held
+    return str(candidate.id) < str(current.id)
 
 
 @router.get("/dependencies")
@@ -2341,34 +2398,40 @@ async def dependencies(
             }
         )
 
-    # Build edges (only between visible nodes)
-    edges = []
-    seen_edges: set[str] = set()
+    # Build edges (only between visible nodes). Keyed by card pair AND relation
+    # type: two cards may be connected by several relation types and each
+    # carries its own verb / attributes, so each contributes its own edge. Two
+    # rows of the SAME type between the same pair (either direction, a
+    # self-referencing type) still collapse to one — and the row that speaks for
+    # them is the one whose dates cover the most (`lifecycle_breadth`): undated
+    # if any row is, else one in effect today, else the one ending latest. Ties
+    # go to the smaller row id, so the choice never depends on row order.
+    collapsed: dict[str, Relation] = {}
+    today = datetime.now(timezone.utc).date()
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in visible_ids and tid in visible_ids:
-            # Keyed by card pair AND relation type: two cards may be connected by
-            # several relation types and each carries its own verb / attributes, so
-            # each contributes its own edge. Two rows of the SAME type between the
-            # same pair (either direction) still collapse to one.
             edge_key = f"{min(sid, tid)}:{max(sid, tid)}:{r.type}"
-            if edge_key not in seen_edges:
-                seen_edges.add(edge_key)
-                rt_info = rel_type_info.get(r.type, {})
-                edge = {
-                    "source": sid,
-                    "target": tid,
-                    "type": r.type,
-                    "label": rt_info.get("label", r.type),
-                    "reverse_label": rt_info.get("reverse_label"),
-                    "description": r.description,
-                    "attributes": r.attributes,
-                }
-                # The relation's own dates, for the client's time travel. Only
-                # a dated relation carries the key: absent means always in effect.
-                if r.lifecycle:
-                    edge["lifecycle"] = r.lifecycle
-                edges.append(edge)
+            current = collapsed.get(edge_key)
+            if current is None or _speaks_for_collapse(r, current, today):
+                collapsed[edge_key] = r
+    edges = []
+    for r in collapsed.values():
+        rt_info = rel_type_info.get(r.type, {})
+        edge = {
+            "source": str(r.source_id),
+            "target": str(r.target_id),
+            "type": r.type,
+            "label": rt_info.get("label", r.type),
+            "reverse_label": rt_info.get("reverse_label"),
+            "description": r.description,
+            "attributes": r.attributes,
+        }
+        # The relation's own dates, for the client's time travel. Only a dated
+        # relation carries the key: absent means always in effect.
+        if r.lifecycle:
+            edge["lifecycle"] = r.lifecycle
+        edges.append(edge)
 
     return {"nodes": nodes, "edges": edges}
 

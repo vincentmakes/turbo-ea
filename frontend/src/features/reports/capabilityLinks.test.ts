@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { capabilityIdsAtDate, capabilityLinkInEffect } from "./capabilityLinks";
+import { appRelationsAtDate, capabilityIdsAtDate, capabilityLinkInEffect } from "./capabilityLinks";
 
 const ms = (iso: string) => new Date(iso).getTime();
 
@@ -50,5 +50,61 @@ describe("capabilityIdsAtDate", () => {
       "c2",
       "c3",
     ]);
+  });
+});
+
+describe("appRelationsAtDate", () => {
+  const app = {
+    id: "app",
+    org_ids: ["undated", "ended", "planned"],
+    related_by_type: { Organization: ["undated", "ended", "planned"], ITComponent: ["itc"] },
+    related_by_rel_type: {
+      relOrgToApp: ["undated", "ended", "planned"],
+      relAppToITC: ["itc"],
+    },
+    related_link_lifecycles: {
+      relOrgToApp: {
+        ended: [{ active: "2020-01-01", endOfLife: "2027-01-01" }],
+        planned: [{ plan: "2020-01-01", active: "2028-01-01" }],
+      },
+    },
+  };
+
+  it("returns an application with no dated link unchanged", () => {
+    const plain = { org_ids: ["o"], related_by_type: { Organization: ["o"] } };
+    expect(appRelationsAtDate(plain, Date.parse("2027-06-01"))).toBe(plain);
+  });
+
+  it("keeps a related card only while a relation behind it is in effect", () => {
+    const at = appRelationsAtDate(app, Date.parse("2027-06-01"));
+    expect(at.related_by_rel_type).toEqual({ relOrgToApp: ["undated"], relAppToITC: ["itc"] });
+    expect(at.related_by_type).toEqual({ Organization: ["undated"], ITComponent: ["itc"] });
+    expect(at.org_ids).toEqual(["undated"]);
+  });
+
+  it("reads the end date inclusively and the start date on its day", () => {
+    const before = appRelationsAtDate(app, Date.parse("2026-12-31"));
+    expect(before.related_by_rel_type!.relOrgToApp).toEqual(["undated", "ended"]);
+    const started = appRelationsAtDate(app, Date.parse("2028-01-01"));
+    expect(started.related_by_rel_type!.relOrgToApp).toEqual(["undated", "planned"]);
+    expect(started.related_by_type!.Organization).toEqual(["undated", "planned"]);
+    expect(started.org_ids).toEqual(["undated", "planned"]);
+  });
+
+  it("keeps a card under its type while any relation type still reaches it", () => {
+    const twoWays = {
+      org_ids: ["o"],
+      related_by_type: { Organization: ["o"] },
+      related_by_rel_type: { owns: ["o"], uses: ["o"] },
+      related_link_lifecycles: { owns: { o: [{ endOfLife: "2020-01-01" }] } },
+    };
+    const at = appRelationsAtDate(twoWays, Date.parse("2027-01-01"));
+    expect(at.related_by_rel_type).toEqual({ owns: [], uses: ["o"] });
+    expect(at.related_by_type).toEqual({ Organization: ["o"] });
+  });
+
+  it("does not mutate the payload", () => {
+    appRelationsAtDate(app, Date.parse("2027-06-01"));
+    expect(app.org_ids).toEqual(["undated", "ended", "planned"]);
   });
 });

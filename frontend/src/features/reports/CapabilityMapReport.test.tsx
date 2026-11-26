@@ -533,6 +533,61 @@ describe("CapabilityMapReport time travel — a capability link's own dates", ()
   });
 });
 
+describe("CapabilityMapReport time travel — a relation filter reads the travelled date", () => {
+  // Both applications support Operations throughout; what has dates is their
+  // relation to the Finance organisation the filter asks for: Owned App is
+  // owned until 2027-06-01, Adopted App from 2028-01-01.
+  const OWNED = {
+    ...app("owned", "Owned App"),
+    org_ids: ["fin"],
+    related_by_type: { Organization: ["fin"] },
+    related_by_rel_type: { relOrgToApp: ["fin"] },
+    related_link_lifecycles: { relOrgToApp: { fin: [{ endOfLife: "2027-06-01" }] } },
+  };
+  const ADOPTED = {
+    ...app("adopted", "Adopted App"),
+    org_ids: ["fin"],
+    related_by_type: { Organization: ["fin"] },
+    related_by_rel_type: { relOrgToApp: ["fin"] },
+    related_link_lifecycles: { relOrgToApp: { fin: [{ active: "2028-01-01" }] } },
+  };
+  const FILTER_HEATMAP = {
+    ...TT_HEATMAP,
+    items: [cap("ops", "Operations", null, [OWNED, ADOPTED])],
+    filterable_types: { Organization: [{ id: "fin", name: "Finance", type: "Organization" }] },
+  };
+
+  function renderAt(timelineDate: number) {
+    vi.mocked(api.get).mockResolvedValue(FILTER_HEATMAP as never);
+    vi.mocked(useTimeline).mockReturnValue({
+      timelineDate,
+      setTimelineDate: vi.fn(),
+      todayMs: TODAY,
+      isTimeTraveling: timelineDate !== TODAY,
+      persistValue: timelineDate,
+      printParam: null,
+      restore: vi.fn(),
+      reset: vi.fn(),
+    });
+    consumedConfig = { showApps: true, relationFilters: { Organization: ["fin"] } };
+    renderMap();
+  }
+
+  it("matches through the relation in effect today", async () => {
+    renderAt(TODAY);
+    await waitFor(() => expect(within(chart()).getByText("Operations")).toBeInTheDocument());
+    expect(within(chart()).getAllByText("Owned App").length).toBeGreaterThan(0);
+    expect(within(chart()).queryByText("Adopted App")).not.toBeInTheDocument();
+  });
+
+  it("matches through the relation in effect at the travelled date", async () => {
+    renderAt(FUTURE);
+    await waitFor(() => expect(within(chart()).getByText("Operations")).toBeInTheDocument());
+    expect(within(chart()).queryByText("Owned App")).not.toBeInTheDocument();
+    expect(within(chart()).getAllByText("Adopted App").length).toBeGreaterThan(0);
+  });
+});
+
 describe("CapabilityMapReport column picker", () => {
   /** The card grid — the element carrying the print-column class. */
   function grid() {

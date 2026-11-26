@@ -22,13 +22,30 @@ The last swept day is remembered in ``app_settings.general_settings`` under
 rewriting the whole blob. The first run on an install sweeps today only; a run
 after a long outage catches up at most ``MAX_CATCH_UP_DAYS``.
 
+Each card is recalculated through ``card_write_service.recalculate_and_rescore``,
+the function every card write path uses, so a calculation never overwrites a
+field PPM owns (an Initiative's ``costBudget`` / ``costActual`` synced from its
+budget and cost lines).
+
 Session discipline: one short session reads the marker and the affected ids
-and commits; each batch of cards is recalculated in its own short session; a
-last one advances the marker — never one session across the whole run.
+and commits; then ONE SHORT TRANSACTION PER CARD loads the card ``FOR UPDATE``
+(re-checking it is still ACTIVE), recalculates and commits — so a person's edit
+committed meanwhile is read, not overwritten, and no lock on a card or a shared
+``Calculation`` row is held longer than one card's work. A card that fails is
+logged and counted and never stops the others; the marker advances only when
+every card succeeded, otherwise the next run repeats the same window
+(recalculation is idempotent). A last short session advances the marker —
+never one session across the whole run.
+
+The marker is instance-local state: workspace transfer neither exports nor
+applies it (``workspace_io/secrets.py``, ``INSTANCE_LOCAL_GENERAL_KEYS``), since
+a bundle exported after the source swept would make the target skip its own
+pending days.
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
@@ -50,8 +67,7 @@ MARKER_KEY = "relationLifecycleSweptThrough"
 #: A run never looks further back than this, however long the instance was down.
 MAX_CATCH_UP_DAYS = 366
 
-#: Cards recalculated per short session.
-BATCH_SIZE = 100
+logger = logging.getLogger(__name__)
 
 #: The phase dates whose arrival flips whether a relation is in effect.
 FLIP_PHASES = ("active", "endOfLife")
@@ -141,44 +157,58 @@ async def affected_card_ids(db: AsyncSession, after: date, through: date) -> lis
     return list(rows.scalars().all())
 
 
-async def recalculate_cards(db: AsyncSession, card_ids: list[uuid.UUID]) -> int:
-    """Re-run the calculations, then the data-quality score, of ``card_ids``
-    (ACTIVE ones only) as derived maintenance. Returns how many were
-    recalculated. Does not commit."""
-    # Local imports: the calculation engine imports half the service layer.
-    from app.services.calculation_engine import run_calculations_for_card
-    from app.services.data_quality import calc_data_quality
-    from app.services.derived_writes import derived_maintenance
-    from app.services.fiscal_year import get_fiscal_year_start
+async def recalculate_card(db: AsyncSession, card_id: uuid.UUID) -> bool:
+    """Re-run the calculations, then the data-quality score, of one card as
+    derived maintenance — through ``recalculate_and_rescore``, the function
+    every card write path uses, so the PPM-owned fields stay PPM's.
 
-    if not card_ids:
-        return 0
-    cards = (
-        (
-            await db.execute(
-                select(Card).where(Card.id.in_(card_ids), Card.status == "ACTIVE").order_by(Card.id)
-            )
+    Loads the card ``FOR UPDATE`` with its current values (an edit committed
+    after the run listed the card is read, then held off until this commits)
+    and re-checks it is still ACTIVE: a card archived since is skipped.
+    Returns whether it was recalculated. Does not commit."""
+    # Local imports: the write service imports half the service layer.
+    from app.services.card_write_service import recalculate_and_rescore
+    from app.services.derived_writes import derived_maintenance
+
+    card = (
+        await db.execute(
+            select(Card)
+            .where(Card.id == card_id, Card.status == "ACTIVE")
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
-        .scalars()
-        .all()
-    )
-    fiscal_year_start = await get_fiscal_year_start(db)
+    ).scalar_one_or_none()
+    if card is None:
+        return False
     with derived_maintenance(db):
-        for card in cards:
-            # Calculations first: the score reads the fields they write.
-            await run_calculations_for_card(db, card, fiscal_year_start=fiscal_year_start)
-            card.data_quality = await calc_data_quality(db, card)
+        await recalculate_and_rescore(db, card)
         await db.flush()
-    return len(cards)
+    return True
+
+
+async def _sweep_one(session_factory: Callable[[], Any], card_id: uuid.UUID) -> bool:
+    """One card in its own short transaction: lock, recalculate, commit — or
+    roll back and re-raise."""
+    async with session_factory() as db:
+        try:
+            done = await recalculate_card(db, card_id)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+    return done
 
 
 async def run_relation_lifecycle_sweep(
     session_factory: Callable[[], Any] | None = None, *, today: date | None = None
 ) -> int:
     """One sweep: recalculate every card whose relations started or ended
-    since the last run, then advance the marker. Returns how many cards were
-    recalculated. A failure part-way leaves the marker where it was, so the
-    next run sweeps the same window again (recalculation is idempotent)."""
+    since the last run, one short transaction per card, then advance the
+    marker. Returns how many cards were recalculated.
+
+    A card that fails is logged and counted, and the rest still run. The
+    marker advances only when none failed; otherwise it stays, so the next run
+    sweeps the same window again (recalculation is idempotent)."""
     if session_factory is None:
         from app.database import async_session
 
@@ -193,10 +223,23 @@ async def run_relation_lifecycle_sweep(
         return 0
 
     done = 0
-    for start in range(0, len(ids), BATCH_SIZE):
-        async with session_factory() as db:
-            done += await recalculate_cards(db, ids[start : start + BATCH_SIZE])
-            await db.commit()
+    failed = 0
+    for card_id in ids:
+        try:
+            done += await _sweep_one(session_factory, card_id)
+        except Exception:
+            failed += 1
+            logger.exception("Relation lifecycle sweep could not recalculate card %s", card_id)
+
+    if failed:
+        logger.warning(
+            "Relation lifecycle sweep: %d of %d card(s) failed; the window after %s "
+            "will be swept again on the next run",
+            failed,
+            len(ids),
+            window[0].isoformat(),
+        )
+        return done
 
     async with session_factory() as db:
         await write_marker(db, day)

@@ -35,7 +35,7 @@ import {
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
 import ReportFilterSection from "./ReportFilterSection";
 import { isAliveAtDate, isRetiredByDate } from "./portfolioHelpers";
-import { capabilityIdsAtDate, capabilityLinkInEffect } from "./capabilityLinks";
+import { appRelationsAtDate, capabilityIdsAtDate, capabilityLinkInEffect } from "./capabilityLinks";
 import {
   classifyTimelineChange,
   computeTimelineMilestones,
@@ -142,6 +142,9 @@ interface AppData {
   /** The same, keyed by RELATION type, so "owned by" filters apart from
    *  "used by" when several relation types reach one card type. */
   related_by_rel_type?: Record<string, string[]>;
+  /** The dates of the dated entries of `related_by_rel_type`
+   *  (`appRelationsAtDate`, `capabilityLinks.ts`). Absent = always in effect. */
+  related_link_lifecycles?: Record<string, Record<string, Record<string, string>[]>>;
   tag_ids?: string[];
   /** Every readable capability this app links to, landscape-wide — the
    *  denominator of a split cost share. */
@@ -399,10 +402,11 @@ function buildTree(
   const itemById = new Map(items.map((i) => [i.id, i]));
   for (const item of items) {
     // An application sits under the capability while it is alive AND the
-    // relation linking the two is in effect at the date.
+    // relation linking the two is in effect at the date; a relation filter
+    // matches through the relations in effect at the date only.
     const filteredApps = item.apps.filter(
       (a) =>
-        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys, fields, conditions) &&
+        matchesFilters(appRelationsAtDate(a, timelineDate), attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys, fields, conditions) &&
         (isAliveAtDate(a.lifecycle, timelineDate) || revealedForPulse.has(a.id)) &&
         capabilityLinkInEffect(item, a.id, timelineDate),
     );
@@ -1088,8 +1092,16 @@ export default function CapabilityMapReport() {
       computeTimelineRange(
         (data ?? []).flatMap((cap) => cap.apps.map((app) => app.lifecycle)),
         tl.todayMs,
-        // A link starting or ending moves an application between capabilities.
-        (data ?? []).flatMap((cap) => Object.values(cap.app_link_lifecycles ?? {}).flat()),
+        // A link starting or ending moves an application between capabilities,
+        // and one to a related card changes what a relation filter matches.
+        (data ?? []).flatMap((cap) => [
+          ...Object.values(cap.app_link_lifecycles ?? {}).flat(),
+          ...cap.apps.flatMap((app) =>
+            Object.values(app.related_link_lifecycles ?? {}).flatMap((byId) =>
+              Object.values(byId).flat(),
+            ),
+          ),
+        ]),
       ),
     [data, tl.todayMs],
   );

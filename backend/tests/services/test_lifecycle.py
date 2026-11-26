@@ -500,3 +500,88 @@ def test_the_in_effect_sql_twin_never_casts_to_date():
         lifecycle_in_effect_sql(Relation, today=ON).compile(dialect=postgresql.dialect())
     ).lower()
     assert "::date" not in sql and "cast(" not in sql
+
+
+# ---------------------------------------------------------------------------
+#  link_keys_in_effect — a collapse of several relation rows into one link
+# ---------------------------------------------------------------------------
+
+
+class TestLinkKeysInEffect:
+    ON = date(2030, 6, 1)
+
+    def test_an_undated_key_is_always_in_effect(self):
+        from app.services.lifecycle import link_keys_in_effect
+
+        assert link_keys_in_effect({}, {"a"}, on=self.ON) == {"a"}
+
+    def test_a_dated_key_needs_one_row_in_effect(self):
+        from app.services.lifecycle import link_keys_in_effect
+
+        dated = {
+            "ended": [{"endOfLife": "2030-06-01"}],
+            "planned": [{"active": "2030-06-02"}],
+            "both": [{"endOfLife": "2030-05-01"}, {"active": "2030-06-01"}],
+            "current": [{"active": "2030-01-01", "endOfLife": "2030-06-02"}],
+        }
+        assert link_keys_in_effect(dated, set(), on=self.ON) == {"both", "current"}
+
+    def test_an_undated_row_wins_over_an_ended_one(self):
+        from app.services.lifecycle import link_keys_in_effect
+
+        assert link_keys_in_effect({"a": [{"endOfLife": "2001-01-01"}]}, ["a"], on=self.ON) == {"a"}
+
+    def test_the_day_is_threaded(self):
+        from app.services.lifecycle import link_keys_in_effect
+
+        dated = {"a": [{"active": "2030-06-01"}]}
+        assert link_keys_in_effect(dated, (), on=date(2030, 5, 31)) == set()
+        assert link_keys_in_effect(dated, (), on=self.ON) == {"a"}
+
+
+# ---------------------------------------------------------------------------
+#  lifecycle_breadth — which row speaks for a collapse of several
+# ---------------------------------------------------------------------------
+
+
+class TestLifecycleBreadth:
+    ON = date(2030, 6, 1)
+
+    def _widest(self, *lifecycles):
+        from app.services.lifecycle import lifecycle_breadth
+
+        return max(lifecycles, key=lambda lc: lifecycle_breadth(lc, on=self.ON))
+
+    def test_undated_is_widest(self):
+        from app.services.lifecycle import lifecycle_breadth
+
+        assert lifecycle_breadth({}, on=self.ON) == (2, date.max)
+        assert lifecycle_breadth(None, on=self.ON) == (2, date.max)
+        assert self._widest({"endOfLife": "2001-01-01"}, {}) == {}
+        assert self._widest({}, {"active": "2001-01-01"}) == {}
+
+    def test_in_effect_beats_not_in_effect(self):
+        from app.services.lifecycle import lifecycle_breadth
+
+        current = {"active": "2030-01-01", "endOfLife": "2030-07-01"}
+        planned = {"active": "2031-01-01"}  # never ends, but not in effect
+        assert lifecycle_breadth(current, on=self.ON) == (1, date(2030, 7, 1))
+        assert lifecycle_breadth(planned, on=self.ON) == (0, date.max)
+        assert self._widest(planned, current) == current
+        assert self._widest(current, planned) == current
+
+    def test_then_the_latest_end_and_no_end_is_latest(self):
+        early = {"endOfLife": "2020-01-01"}
+        late = {"endOfLife": "2025-01-01"}
+        assert self._widest(early, late) == late
+        assert self._widest(late, early) == late
+        open_ended = {"active": "2030-01-01"}
+        ending = {"active": "2030-01-01", "endOfLife": "2040-01-01"}
+        assert self._widest(ending, open_ended) == open_ended
+
+    def test_the_day_is_threaded(self):
+        from app.services.lifecycle import lifecycle_breadth
+
+        lc = {"active": "2030-06-01"}
+        assert lifecycle_breadth(lc, on=date(2030, 5, 31))[0] == 0
+        assert lifecycle_breadth(lc, on=self.ON)[0] == 1

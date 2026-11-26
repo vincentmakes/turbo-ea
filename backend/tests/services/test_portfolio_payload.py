@@ -19,6 +19,7 @@ from app.services.permission_service import PermissionService
 from app.services.portfolio_payload import (
     build_portfolio_payload,
     has_timeline_dates,
+    relations_in_effect_now,
     roadmap_from_portfolio,
 )
 from tests.conftest import (
@@ -118,6 +119,63 @@ def test_roadmap_view_keeps_drawable_cards_and_the_filter_payload():
         "groupable_types": {"Cap": [{"id": "x"}]},
         "tag_groups": [{"id": "g"}],
     }
+
+
+def _dated_relations() -> list[dict]:
+    from tests.relation_windows import WINDOWS
+
+    return [
+        {"relation_type": "r", "related_id": name, **({"lifecycle": lc} if lc else {})}
+        for name, lc in WINDOWS.items()
+    ]
+
+
+def test_roadmap_view_filters_only_through_relations_in_effect_today():
+    # The Lifecycle report has no time travel: a planned or ended relation must
+    # match no filter there, and the dates themselves stay behind.
+    from tests.relation_windows import COUNTING
+
+    item = {
+        "id": "a",
+        "name": "Dated",
+        "subtype": None,
+        "attributes": {},
+        "lifecycle": {"active": "2024-01-01"},
+        "relations": _dated_relations(),
+        "org_ids": [],
+        "tag_ids": [],
+    }
+    payload = {
+        "items": [item],
+        "fields_schema": [],
+        "relation_types": [],
+        "groupable_types": {},
+        "tag_groups": [],
+    }
+    kept = roadmap_from_portfolio(payload, "Application")["items"][0]["relations"]
+    assert sorted(r["related_id"] for r in kept) == COUNTING
+    assert {"relation_type": "r", "related_id": "current"} in kept
+    assert all("lifecycle" not in r for r in kept)
+
+
+def test_relations_in_effect_now_reads_the_given_day():
+    from datetime import date
+
+    rels = [
+        {"relation_type": "r", "related_id": "x", "lifecycle": {"endOfLife": "2030-06-01"}},
+        {"relation_type": "r", "related_id": "y", "lifecycle": {"active": "2030-06-01"}},
+        {"relation_type": "r", "related_id": "z"},
+    ]
+    assert relations_in_effect_now(rels, today=date(2030, 5, 31)) == [
+        {"relation_type": "r", "related_id": "x"},
+        {"relation_type": "r", "related_id": "z"},
+    ]
+    assert relations_in_effect_now(rels, today=date(2030, 6, 1)) == [
+        {"relation_type": "r", "related_id": "y"},
+        {"relation_type": "r", "related_id": "z"},
+    ]
+    # The input entries are not mutated.
+    assert "lifecycle" in rels[0]
 
 
 # ---------------------------------------------------------------------------

@@ -45,3 +45,48 @@ export function capabilityIdsAtDate(
     return !cap || capabilityLinkInEffect(cap, appId, dateMs);
   });
 }
+
+/** The filter maps of one application in the heatmap payload. */
+export interface CapabilityAppRelations {
+  org_ids: string[];
+  related_by_type?: Record<string, string[]>;
+  related_by_rel_type?: Record<string, string[]>;
+  /** Relation-type key (per side, as in `related_by_rel_type`) → related card
+   *  id → the lifecycles of the relations behind that entry, sent only when
+   *  every one of them is dated. Absent = always in effect. */
+  related_link_lifecycles?: Record<string, Record<string, Lifecycle[]>>;
+}
+
+/**
+ * The application's filter maps as they stand at `dateMs`: a related card is
+ * kept under a relation-type key while a relation behind that entry is in
+ * effect, and under its card type while it is kept under any relation-type key
+ * (every relation fills both maps, so the card-type list is the union of the
+ * relation-type lists). An application with no dated link is returned as the
+ * same object — the Portfolio report's `relationsAtDate`, over this payload's
+ * shape.
+ */
+export function appRelationsAtDate<T extends CapabilityAppRelations>(app: T, dateMs: number): T {
+  const dated = app.related_link_lifecycles;
+  if (!dated) return app;
+  const inEffect = (relKey: string, id: string) => {
+    const lifecycles = dated[relKey]?.[id];
+    return !lifecycles || lifecycles.some((lc) => isAliveAtDate(lc, dateMs));
+  };
+  const byRelType: Record<string, string[]> = {};
+  const kept = new Set<string>();
+  for (const [relKey, ids] of Object.entries(app.related_by_rel_type ?? {})) {
+    byRelType[relKey] = ids.filter((id) => inEffect(relKey, id));
+    for (const id of byRelType[relKey]) kept.add(id);
+  }
+  const byType: Record<string, string[]> = {};
+  for (const [typeKey, ids] of Object.entries(app.related_by_type ?? {})) {
+    byType[typeKey] = ids.filter((id) => kept.has(id));
+  }
+  return {
+    ...app,
+    related_by_type: byType,
+    related_by_rel_type: byRelType,
+    org_ids: app.org_ids.filter((id) => kept.has(id)),
+  };
+}

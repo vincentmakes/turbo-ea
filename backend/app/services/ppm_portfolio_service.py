@@ -31,7 +31,8 @@ from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag
 from app.models.user import User
-from app.services.lifecycle import lifecycle_in_effect, lifecycle_in_effect_sql
+from app.services.lifecycle import lifecycle_in_effect_sql
+from app.services.portfolio_payload import relations_in_effect_now
 
 if TYPE_CHECKING:
     from app.services.card_read_scope import CardReadScope
@@ -908,11 +909,7 @@ def _filter_item(item: dict) -> dict:
     dates themselves stay behind — the board has no time travel to spend them on.
     """
     out = {key: item[key] for key in FILTER_ITEM_KEYS}
-    out["relations"] = [
-        {k: v for k, v in rel.items() if k != "lifecycle"}
-        for rel in item["relations"]
-        if lifecycle_in_effect(rel.get("lifecycle"))
-    ]
+    out["relations"] = relations_in_effect_now(item["relations"])
     return out
 
 

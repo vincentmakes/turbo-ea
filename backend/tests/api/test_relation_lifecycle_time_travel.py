@@ -156,6 +156,35 @@ class TestDependencies:
         )
         assert resp.status_code == 422
 
+    @pytest.mark.parametrize("ended_first", [True, False])
+    async def test_two_rows_of_one_type_collapse_to_the_widest_dates(
+        self, client, db, env, ended_first
+    ):
+        # A self-referencing type: A→B ended, B→A undated. The two rows are one
+        # edge, and it must be undated whichever row the query returns first —
+        # carrying the ended row's dates would drop a relation in effect.
+        await create_relation_type(
+            db, key="relAppToApp", source_type_key="Application", target_type_key="Application"
+        )
+        a = await create_card(db, card_type="Application", name="A")
+        b = await create_card(db, card_type="Application", name="B")
+        rows = [(a, b, WINDOWS["ended"]), (b, a, {})]
+        for source, target, lifecycle in rows if ended_first else rows[::-1]:
+            await create_relation(
+                db,
+                type_key="relAppToApp",
+                source_id=source.id,
+                target_id=target.id,
+                lifecycle=lifecycle,
+            )
+        data = await _get(client, env.admin, self.URL)
+        (edge,) = [e for e in data["edges"] if e["type"] == "relAppToApp"]
+        assert "lifecycle" not in edge
+        assert {edge["source"], edge["target"]} == {str(a.id), str(b.id)}
+        # The landscape today keeps the edge too (only the undated row survives).
+        today = await _get(client, env.admin, self.URL, in_effect_only="true")
+        assert [e for e in today["edges"] if e["type"] == "relAppToApp"] != []
+
 
 # ── GET /reports/app-portfolio (build_portfolio_payload) ─────────────────────
 
@@ -265,6 +294,117 @@ class TestCapabilityHeatmap:
         assert sorted(item["app_link_lifecycles"][str(app.id)], key=str) == sorted(
             [WINDOWS["ended"], WINDOWS["planned"]], key=str
         )
+
+    async def test_aggregates_count_only_the_links_in_effect_today(self, client, db, env):
+        # The aggregates are what an assistant reads verbatim: a capability
+        # counts an application only while a relation linking them is in effect
+        # today. Every application keeps its end-of-life date so risk_count
+        # follows the same pairs, and costs 100 each.
+        cap = await create_card(db, card_type="BusinessCapability", name="Cap")
+        for name, lifecycle in WINDOWS.items():
+            app = await create_card(
+                db,
+                card_type="Application",
+                name=name,
+                attributes={"costTotalAnnual": 100},
+                lifecycle={"endOfLife": "2999-01-01"},
+            )
+            await create_relation(
+                db, type_key="relCapToApp", source_id=cap.id, target_id=app.id, lifecycle=lifecycle
+            )
+        await self._cost_field(db)
+        item = await self._cap(await _get(client, env.admin, self.URL), "Cap")
+        assert item["app_count"] == len(COUNTING)
+        assert item["risk_count"] == len(COUNTING)
+        assert item["total_cost"] == 100 * len(COUNTING)
+        # The client still receives every application for its own time travel.
+        assert sorted(a["name"] for a in item["apps"]) == sorted(WINDOWS)
+
+    async def test_split_shares_only_between_capabilities_linked_today(self, client, db, env):
+        await self._cost_field(db)
+        app = await create_card(
+            db, card_type="Application", name="App", attributes={"costTotalAnnual": 90}
+        )
+        caps = {}
+        for name, lifecycle in WINDOWS.items():
+            caps[name] = await create_card(db, card_type="BusinessCapability", name=name)
+            await create_relation(
+                db,
+                type_key="relCapToApp",
+                source_id=caps[name].id,
+                target_id=app.id,
+                lifecycle=lifecycle,
+            )
+        data = await _get(client, env.admin, self.URL, metric="total_cost", attribution="split")
+        costs = {i["name"]: i["total_cost"] for i in data["items"]}
+        # Two capabilities are linked today: each carries half, the others none.
+        assert costs == {"undated": 45, "current": 45, "planned": 0, "ended": 0}
+        counts = {i["name"]: i["app_count"] for i in data["items"]}
+        assert counts == {"undated": 1, "current": 1, "planned": 0, "ended": 0}
+        # The denominator the client splits by at another date is unchanged.
+        listed = next(i for i in data["items"] if i["name"] == "planned")["apps"][0]
+        assert sorted(listed["capability_ids"]) == sorted(str(c.id) for c in caps.values())
+
+    async def test_a_dated_and_an_undated_link_count_the_pair_once(self, client, db, env):
+        cap = await create_card(db, card_type="BusinessCapability", name="Cap")
+        app = await create_card(db, card_type="Application", name="App")
+        await create_relation(
+            db,
+            type_key="relCapToApp",
+            source_id=cap.id,
+            target_id=app.id,
+            lifecycle=WINDOWS["ended"],
+        )
+        await create_relation(db, type_key="relCapToAppAlso", source_id=cap.id, target_id=app.id)
+        item = await self._cap(await _get(client, env.admin, self.URL), "Cap")
+        assert item["app_count"] == 1
+
+    async def test_filter_maps_carry_the_dates_of_dated_links_only(self, client, db, env):
+        # The Capability Map filters applications by related card at the
+        # travelled date: per relation-type key and related card, the dates of a
+        # link whose every relation is dated ride with the application.
+        cap = await create_card(db, card_type="BusinessCapability", name="Cap")
+        app = await create_card(db, card_type="Application", name="App")
+        await create_relation(db, type_key="relCapToApp", source_id=cap.id, target_id=app.id)
+        orgs = {}
+        for name, lifecycle in WINDOWS.items():
+            orgs[name] = await create_card(db, card_type="Organization", name=name)
+            await create_relation(
+                db,
+                type_key="relOrgToApp",
+                source_id=orgs[name].id,
+                target_id=app.id,
+                lifecycle=lifecycle,
+            )
+        item = await self._cap(await _get(client, env.admin, self.URL), "Cap")
+        (listed,) = item["apps"]
+        # Every related card is still in the maps — the client decides at the date.
+        all_orgs = sorted(str(o.id) for o in orgs.values())
+        assert listed["related_by_type"]["Organization"] == all_orgs
+        assert listed["related_by_rel_type"]["relOrgToApp"] == all_orgs
+        assert listed["related_link_lifecycles"] == {
+            "relOrgToApp": {
+                str(orgs[name].id): [WINDOWS[name]] for name in ("current", "planned", "ended")
+            }
+        }
+
+    async def test_an_undated_landscape_sends_no_filter_dates(self, client, db, env):
+        cap = await create_card(db, card_type="BusinessCapability", name="Cap")
+        app = await create_card(db, card_type="Application", name="App")
+        org = await create_card(db, card_type="Organization", name="Org")
+        await create_relation(db, type_key="relCapToApp", source_id=cap.id, target_id=app.id)
+        await create_relation(db, type_key="relOrgToApp", source_id=org.id, target_id=app.id)
+        item = await self._cap(await _get(client, env.admin, self.URL), "Cap")
+        assert "related_link_lifecycles" not in item["apps"][0]
+
+    async def _cost_field(self, db):
+        app_type = (
+            await db.execute(select(CardType).where(CardType.key == "Application"))
+        ).scalar_one()
+        app_type.fields_schema = [
+            {"section": "Cost", "fields": [{"key": "costTotalAnnual", "type": "cost"}]}
+        ]
+        await db.flush()
 
     async def test_permission_is_unchanged(self, client, env):
         resp = await client.get(self.URL, headers=auth_headers(env.nobody))

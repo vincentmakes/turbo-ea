@@ -11,7 +11,6 @@
  * detail's relation rows and group counts, the diagram's expand — classifies
  * through here, at `todayLifecycleMs()`.
  */
-import { todayIsoDate } from "@/lib/dates";
 import { PHASES } from "@/lib/lifecyclePhases";
 import {
   hasStartedByDate,
@@ -24,13 +23,22 @@ import {
 export type RelationLifecycleState = "inEffect" | "planned" | "ended";
 
 /**
- * Today's local calendar day on the scale `parseDate` reads a stored
- * `YYYY-MM-DD` on (UTC midnight). Comparing an instant such as `Date.now()`
- * instead would flip a relation a few hours early or late depending on the
- * time zone; this keeps "ends on the 1st" meaning the whole of the 1st.
+ * Today on the scale `parseDate` reads a stored `YYYY-MM-DD` on: UTC midnight
+ * of the current **UTC** calendar day.
+ *
+ * The UTC day, not the viewer's local one, because the server cannot follow a
+ * per-user day: every count it computes about relations — the orphaned flag,
+ * the relation summary, the data-quality score, formulas, the dashboards —
+ * uses the UTC day (`_utc_today` in `backend/app/services/lifecycle.py`), and
+ * the time-travel reports already compare against UTC-midnight dates. Reading
+ * the local day here made a relation ending "tomorrow" (UTC) read as ended on
+ * card detail in a zone ahead of UTC late in its evening, while the server's
+ * numbers on the same page still counted it. Truncating to the day (rather
+ * than comparing an instant such as `Date.now()`) keeps "ends on the 1st"
+ * meaning the whole of the 1st.
  */
 export function todayLifecycleMs(now: Date = new Date()): number {
-  return parseDate(todayIsoDate(now)) as number;
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 }
 
 /**

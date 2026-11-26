@@ -55,6 +55,7 @@ from app.models.user import User
 from app.services import card_reference, card_type_categories, decision_links_legacy
 from app.services.card_resolver import CardResolver
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
+from app.services.lifecycle import normalize_relation_lifecycle
 from app.services.principle_service import ensure_principle_references
 from app.services.relation_orientation import oriented
 from app.services.workspace_io import exporter as exp
@@ -1485,6 +1486,29 @@ async def _apply_card_tags(
     await db.flush()
 
 
+def _bundle_relation_lifecycle(data: dict[str, Any], sr: SectionResult) -> dict[str, str]:
+    """The lifecycle a bundle's relation row carries, validated as every other
+    relation write is (``normalize_relation_lifecycle``: an object of the five
+    phases, each a zero-padded ``YYYY-MM-DD``, which is what keeps the Python
+    and SQL "in effect" twins agreeing).
+
+    A bundle written before relations carried dates has no lifecycle column:
+    always in effect, as the row was there. A value the validator refuses — a
+    hand-edited bundle or a content pack that got it wrong — is dropped and
+    named in the section's errors, without failing the relation: the dates are
+    an addition to the link, not the link (the platform migration's
+    ``_staged_relation_lifecycle`` makes the same call).
+    """
+    try:
+        return normalize_relation_lifecycle(data.get("lifecycle") or None)
+    except ValueError as exc:
+        sr.errors.append(
+            f"relation {data.get('type')!r} ({data.get('source_ref')!r} -> "
+            f"{data.get('target_ref')!r}): lifecycle dropped — {exc}"
+        )
+        return {}
+
+
 async def _apply_relations(
     db,
     bundle: WorkspaceBundle,
@@ -1531,9 +1555,7 @@ async def _apply_relations(
             target_id=target_id,
             description=data.get("description"),
             attributes=data.get("attributes") or {},
-            # A bundle written before relations carried dates has no
-            # lifecycle column: always in effect, as the row was there.
-            lifecycle=data.get("lifecycle") or {},
+            lifecycle=_bundle_relation_lifecycle(data, sr),
         )
         db.add(relation)
         existing[key] = relation.id

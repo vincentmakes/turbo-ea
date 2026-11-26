@@ -1697,6 +1697,11 @@ async def get_cost_treemap(
 async def get_capability_heatmap(metric: str = "app_count", attribution: str = "") -> str:
     """Hierarchical business-capability heatmap.
 
+    Each capability's ``app_count``, ``total_cost`` and ``risk_count`` are the
+    landscape today: they count an application only while a relation linking
+    it to the capability is in effect today. ``apps`` lists every application
+    ever linked, with the linking relations' dates in ``app_link_lifecycles``.
+
     Args:
         metric: What to colour by — 'app_count' (linked applications),
             'total_cost' (annual cost) or 'risk_count' (linked applications

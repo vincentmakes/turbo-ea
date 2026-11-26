@@ -22,17 +22,33 @@ describe("the moved rule", () => {
 });
 
 describe("todayLifecycleMs", () => {
-  it("is the local calendar day at UTC midnight, the scale a stored date parses on", () => {
-    // Late in the local evening: still the 5th locally whatever the zone.
-    expect(todayLifecycleMs(new Date(2027, 2, 5, 23, 30))).toBe(day("2027-03-05"));
-    expect(todayLifecycleMs(new Date(2027, 2, 5, 0, 1))).toBe(day("2027-03-05"));
+  // Instants given in UTC, so the expectation does not depend on the zone the
+  // runner is in: whatever the local day is at these instants, the UTC day wins.
+  it("is UTC midnight of the UTC day just before UTC midnight", () => {
+    // 23:30 UTC on 5 March: already the 6th in Sydney, Tokyo, Auckland.
+    expect(todayLifecycleMs(new Date(Date.UTC(2027, 2, 5, 23, 30)))).toBe(day("2027-03-05"));
+    expect(todayLifecycleMs(new Date("2027-03-05T23:59:59.999Z"))).toBe(day("2027-03-05"));
+  });
+
+  it("is the next UTC day just after UTC midnight", () => {
+    // 00:01 UTC on 6 March: still the 5th in New York, Los Angeles.
+    expect(todayLifecycleMs(new Date(Date.UTC(2027, 2, 6, 0, 1)))).toBe(day("2027-03-06"));
+    expect(todayLifecycleMs(new Date("2027-03-06T00:00:00.000Z"))).toBe(day("2027-03-06"));
+  });
+
+  it("reads the UTC day of a zone-explicit instant, not that zone's day", () => {
+    // A zone-explicit instant whose local (+10:00) day is the 6th and UTC day the 5th.
+    const sydneyLateEvening = new Date("2027-03-06T08:30:00+10:00");
+    expect(todayLifecycleMs(sydneyLateEvening)).toBe(day("2027-03-05"));
+    // A relation ending on the 6th (UTC) is still in effect at that instant.
+    expect(isRelationInEffect({ endOfLife: "2027-03-06" }, todayLifecycleMs(sydneyLateEvening))).toBe(
+      true,
+    );
   });
 
   it("defaults to now", () => {
     const now = new Date();
-    const expected = Date.parse(
-      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`,
-    );
+    const expected = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
     expect(todayLifecycleMs()).toBe(expected);
   });
 });

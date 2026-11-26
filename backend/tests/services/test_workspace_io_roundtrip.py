@@ -267,6 +267,44 @@ async def test_export_excludes_secrets(db):
     assert "smtp_password" not in email
 
 
+async def test_the_relation_sweep_marker_is_instance_local(db):
+    """The sweep's last swept day is neither exported nor applied: a bundle
+    exported after the source swept must not make the target skip the days it
+    has not swept yet, and the target keeps its own marker."""
+    import json
+
+    from app.services.relation_lifecycle_sweep import MARKER_KEY
+
+    user = await create_user(db, email="marker@test.com", role="admin")
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={"currency": "EUR", MARKER_KEY: "2026-06-15"},
+            email_settings={},
+        )
+    )
+    await db.flush()
+
+    bundle = parse_bundle(await build_bundle(db))
+    settings_rows = {r["key"]: r for r in bundle.rows(schema.SHEET_SETTINGS)}
+    exported = json.loads(settings_rows["general_settings"]["value"])
+    assert exported["currency"] == "EUR"
+    assert MARKER_KEY not in exported
+
+    # A hand-edited bundle carrying a later marker changes nothing on the
+    # target, whose own marker (an earlier day it still has to sweep from) stays.
+    settings_rows["general_settings"]["value"] = json.dumps(
+        {"currency": "CHF", MARKER_KEY: "2026-12-31"}
+    )
+    row = (await db.execute(select(AppSettings).where(AppSettings.id == "default"))).scalar_one()
+    row.general_settings = {"currency": "EUR", MARKER_KEY: "2026-06-01"}
+    await db.flush()
+    result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+    await db.refresh(row)
+    assert row.general_settings == {"currency": "CHF", MARKER_KEY: "2026-06-01"}
+
+
 async def test_module_entities_roundtrip_and_recreate(db):
     """Generic entity sections: a comment, a risk, and a risk-card link export
     and re-import with preserved UUIDs, user remap (by email), and card-FK
@@ -3787,3 +3825,68 @@ async def test_a_bundle_without_relation_dates_imports_them_empty(db):
     rel = (await db.execute(select(Relation).where(Relation.type == "widget_old"))).scalar_one()
     await db.refresh(rel)
     assert rel.lifecycle == {}
+
+
+async def test_bundle_relation_dates_are_validated_like_every_relation_write(db):
+    """A hand-edited bundle or a content pack goes through the same validator
+    as the API: an unpadded date is stored zero-padded (so the Python and SQL
+    "in effect" twins agree), and a value that is not a lifecycle object is
+    dropped — the relation still lands, always in effect, and the row is named
+    in the section's errors."""
+    user = await create_user(db, email="lcv@test.com", role="admin")
+    await create_card_type(db, key="Widget", label="Widget")
+    for name in ("A", "B", "C"):
+        await create_card(db, card_type="Widget", name=name, user_id=user.id)
+    db.add(
+        RelationType(
+            key="widget_dated",
+            label="links",
+            source_type_key="Widget",
+            target_type_key="Widget",
+            built_in=False,
+        )
+    )
+    await db.flush()
+
+    def rel(source, target, lifecycle):
+        return {
+            "type": "widget_dated",
+            "source_type": "Widget",
+            "source_ref": source,
+            "target_type": "Widget",
+            "target_ref": target,
+            "description": None,
+            "attributes": {},
+            "lifecycle": lifecycle,
+        }
+
+    relations = [
+        rel("A", "B", {"active": "2027-1-5", "endOfLife": None}),
+        rel("B", "A", "next year"),
+        rel("A", "C", {"golive": "2027-01-01"}),
+        rel("C", "A", ["2027-01-01"]),
+    ]
+    raw = _make_bundle(
+        {schema.SHEET_RELATIONS: (exp.RELATION_COLUMNS, exp.RELATION_JSON, relations)}
+    )
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    section = next(s for s in result.sections if s.sheet == schema.SHEET_RELATIONS)
+    assert section.created == 4, result.as_dict()
+    assert section.failed == 0
+    assert len(section.errors) == 3, section.errors
+    assert all("lifecycle dropped" in e for e in section.errors)
+    assert any("'B' -> 'A'" in e for e in section.errors)
+
+    cards = {c.name: c.id for c in (await db.execute(select(Card))).scalars()}
+    stored = {
+        (r.source_id, r.target_id): r.lifecycle
+        for r in (
+            await db.execute(select(Relation).where(Relation.type == "widget_dated"))
+        ).scalars()
+    }
+    assert stored == {
+        (cards["A"], cards["B"]): {"active": "2027-01-05"},
+        (cards["B"], cards["A"]): {},
+        (cards["A"], cards["C"]): {},
+        (cards["C"], cards["A"]): {},
+    }
