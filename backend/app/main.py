@@ -1088,6 +1088,15 @@ async def _migrate_and_seed(extension_load_report) -> list[asyncio.Task]:
     return await initialize_extensions(extension_load_report)
 
 
+async def _mark_interrupted_translation_jobs() -> None:
+    from app.database import async_session
+    from app.services.custom_locale_store import mark_interrupted_jobs
+
+    async with async_session() as db:
+        if await mark_interrupted_jobs(db):
+            await db.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── C2: Refuse startup with default secret key in non-development envs ──
@@ -1106,6 +1115,10 @@ async def lifespan(app: FastAPI):
 
     async with startup_lock(engine):
         extension_job_tasks = await _migrate_and_seed(extension_load_report)
+
+    # A custom-language AI translation job lives in this process only: one
+    # still marked running after a restart was cut off.
+    await _mark_interrupted_translation_jobs()
 
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None

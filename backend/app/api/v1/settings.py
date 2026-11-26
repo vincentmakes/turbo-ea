@@ -27,6 +27,7 @@ from app.services import (
     audit_labels,
     audit_log,
     card_type_categories,
+    custom_locale_store,
     lifecycle_phase_help,
 )
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
@@ -369,6 +370,13 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
 
     card_type_category_rows = await card_type_categories.list_categories(db)
 
+    # Enabled custom languages ({code, name, rtl, hash}; the hash versions
+    # ``GET /custom-locales/{code}/bundle``) and the lifecycle phase help with
+    # their phase texts laid over it — one read for both.
+    custom_locales, phase_help = await custom_locale_store.bootstrap_payload(
+        db, lifecycle_phase_help.read_phase_help(general)
+    )
+
     email_settings = (row.email_settings if row else None) or {}
     email_configured = _email_configured(email_settings)
 
@@ -390,8 +398,9 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "extension_notices_enabled": general.get("extensionNoticesEnabled", True),
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
+        "custom_locales": custom_locales,
         "fiscal_year_start": general.get("fiscalYearStart", 1),
-        "lifecycle_phase_help": lifecycle_phase_help.read_phase_help(general),
+        "lifecycle_phase_help": phase_help,
         "archive_retention_days": general.get(
             "archiveRetentionDays", DEFAULT_ARCHIVE_RETENTION_DAYS
         ),

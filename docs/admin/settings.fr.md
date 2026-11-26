@@ -63,6 +63,8 @@ Basculez les langues disponibles pour les utilisateurs dans leur sélecteur de l
 
 Au moins une langue doit rester activée en permanence.
 
+Une langue absente de cette liste peut être ajoutée comme [langue personnalisée](custom-languages.md) : vous la créez juste en dessous, sous **Langues personnalisées**, et vous remplissez ses traductions à partir d'un fichier, avec votre fournisseur d'IA ou via un assistant IA.
+
 ### Début de l'exercice fiscal
 
 Sélectionnez le mois de début de l'exercice fiscal de votre organisation (janvier à décembre). Ce paramètre affecte le regroupement des **lignes budgétaires** dans le module PPM par exercice fiscal. Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027. Il détermine aussi l'exercice présenté par le [Rapport Coûts](../guide/reports.md).

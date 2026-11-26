@@ -3456,3 +3456,208 @@ async def test_an_older_bundle_dates_only_the_signed_decisions_it_created_in_utc
         "ADR-842": (None, None),
         "ADR-843": (None, None),
     }
+
+
+async def test_custom_languages_roundtrip(db):
+    """A custom language and its strings survive export → delete → import:
+    the two blobs travel as JSON assets (they are far over a cell's 32 767
+    characters), the transient AI-job state does not travel, and a second
+    import of the same bundle changes nothing."""
+    import json
+
+    from app.models.custom_locale import CustomLocale, CustomLocaleString
+
+    user = await create_user(db, email="lang-ws@test.com", role="admin")
+    loc = CustomLocale(
+        code="he",
+        name="עברית",
+        english_name="Hebrew",
+        rtl=True,
+        enabled=True,
+        translate_job={"status": "running", "total": 3},
+    )
+    db.add(loc)
+    await db.flush()
+    strings = {f"k{i}": "שָׁלוֹם " * 20 for i in range(400)}
+    meta = {k: {"h": "0123456789ab", "o": "ai"} for k in strings}
+    db.add(CustomLocaleString(locale_id=loc.id, namespace="common", strings=strings, meta=meta))
+    await db.flush()
+    assert len(json.dumps(strings, ensure_ascii=False)) > 32767
+
+    raw = await build_bundle(db)
+    _, _, assets = bundle_io.unpack(raw)
+    assert any(k.startswith("CustomLocaleStrings/") for k in assets)
+    rows = parse_bundle(raw).rows("CustomLocales")
+    assert [r["code"] for r in rows] == ["he"]
+    assert "translate_job" not in rows[0]
+
+    await db.execute(delete(CustomLocaleString))
+    await db.execute(delete(CustomLocale))
+    await db.flush()
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(CustomLocale))).scalar_one()
+    await db.refresh(restored)
+    assert (restored.id, restored.code, restored.name, restored.rtl, restored.enabled) == (
+        loc.id,
+        "he",
+        "עברית",
+        True,
+        True,
+    )
+    assert restored.translate_job is None
+    row = (await db.execute(select(CustomLocaleString))).scalar_one()
+    await db.refresh(row)
+    assert (row.namespace, row.locale_id) == ("common", loc.id)
+    assert row.strings == strings
+    assert row.meta == meta
+
+    again = await apply_bundle(db, parse_bundle(raw), user)
+    by_sheet = {s.sheet: s for s in again.sections}
+    assert by_sheet["CustomLocales"].created == 0
+    assert by_sheet["CustomLocaleStrings"].created == 0
+    assert by_sheet["CustomLocaleStrings"].skipped == 1
+
+
+async def test_a_custom_language_the_target_already_has_is_matched_by_code(db):
+    """Two instances that each created ``nl``: the import keeps the target's
+    language, adds the namespaces it lacks, skips the ones it has, and a
+    second import changes nothing — no IntegrityError for the whole bundle."""
+    from app.models.custom_locale import CustomLocale, CustomLocaleString
+
+    user = await create_user(db, email="lang-match@test.com", role="admin")
+    source = CustomLocale(code="nl", name="Nederlands", english_name="Dutch", enabled=True)
+    db.add(source)
+    await db.flush()
+    db.add_all(
+        [
+            CustomLocaleString(
+                locale_id=source.id, namespace="common", strings={"a": "bron"}, meta={}
+            ),
+            CustomLocaleString(locale_id=source.id, namespace="nav", strings={"b": "nav"}, meta={}),
+        ]
+    )
+    await db.flush()
+    raw = await build_bundle(db)
+
+    await db.execute(delete(CustomLocaleString))
+    await db.execute(delete(CustomLocale))
+    await db.flush()
+    target = CustomLocale(code="nl", name="Vlaams", english_name="Flemish")
+    db.add(target)
+    await db.flush()
+    db.add(
+        CustomLocaleString(locale_id=target.id, namespace="common", strings={"a": "doel"}, meta={})
+    )
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0 and result.total_conflict == 0, result.as_dict()
+    by_sheet = {s.sheet: s for s in result.sections}
+    assert (by_sheet["CustomLocales"].created, by_sheet["CustomLocales"].skipped) == (0, 1)
+    assert (by_sheet["CustomLocaleStrings"].created, by_sheet["CustomLocaleStrings"].skipped) == (
+        1,
+        1,
+    )
+    locales = (await db.execute(select(CustomLocale))).scalars().all()
+    assert [(loc.id, loc.name) for loc in locales] == [(target.id, "Vlaams")]
+    rows = {
+        r.namespace: r
+        for r in (
+            await db.execute(select(CustomLocaleString).execution_options(populate_existing=True))
+        ).scalars()
+    }
+    assert {ns: (r.locale_id, r.strings) for ns, r in rows.items()} == {
+        "common": (target.id, {"a": "doel"}),
+        "nav": (target.id, {"b": "nav"}),
+    }
+
+    again = await apply_bundle(db, parse_bundle(raw), user)
+    by_sheet = {s.sheet: s for s in again.sections}
+    assert by_sheet["CustomLocaleStrings"].created == 0
+    assert by_sheet["CustomLocaleStrings"].skipped == 2
+
+
+async def test_a_bundle_cannot_create_a_built_in_code(db):
+    """A hand-edited bundle that names a language ``de`` is refused, with its
+    strings — it would otherwise overwrite the German text of every label."""
+    from app.models.custom_locale import CustomLocale, CustomLocaleString
+
+    user = await create_user(db, email="lang-de@test.com", role="admin")
+    loc = CustomLocale(code="nl", name="Nederlands", english_name="Dutch")
+    db.add(loc)
+    await db.flush()
+    db.add(CustomLocaleString(locale_id=loc.id, namespace="common", strings={"a": "x"}, meta={}))
+    await db.flush()
+    raw = await build_bundle(db)
+    await db.execute(delete(CustomLocaleString))
+    await db.execute(delete(CustomLocale))
+    await db.flush()
+
+    bundle = parse_bundle(raw)
+    for row in bundle.rows("CustomLocales"):
+        row["code"] = "de"
+    result = await apply_bundle(db, bundle, user)
+    by_sheet = {s.sheet: s for s in result.sections}
+    assert by_sheet["CustomLocales"].conflict == 1
+    assert "built_in_code" in by_sheet["CustomLocales"].errors[0]
+    assert by_sheet["CustomLocaleStrings"].conflict == 1
+    assert "refused" in by_sheet["CustomLocaleStrings"].errors[0]
+    assert (await db.execute(select(CustomLocale))).first() is None
+    assert (await db.execute(select(CustomLocaleString))).first() is None
+
+
+def test_rewrite_parents_without_a_matched_parent_changes_nothing():
+    from app.services.workspace_io.entities import _rewrite_parents
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    section = next(s for s in ENTITY_SECTIONS if s.sheet == "CustomLocaleStrings")
+    kwargs = {"locale_id": "a", "namespace": "common"}
+    assert _rewrite_parents(section, kwargs, {}) is None
+    assert kwargs == {"locale_id": "a", "namespace": "common"}
+    assert _rewrite_parents(section, kwargs, {"CustomLocales": {"a": "b"}}) is None
+    assert kwargs["locale_id"] == "b"
+    assert "refused" in _rewrite_parents(section, kwargs, {"CustomLocales": {"b": None}})
+
+
+async def test_refused_and_duplicate_language_rows_are_each_handled(db):
+    """Two refused rows count two conflicts and do not stop a valid one after
+    them; two bundle rows for one (language, namespace) land once; two new
+    namespaces of one language both land."""
+    import uuid as uuid_mod
+
+    from app.models.custom_locale import CustomLocale, CustomLocaleString
+
+    user = await create_user(db, email="lang-many@test.com", role="admin")
+    keep = CustomLocale(code="nl", name="Nederlands", english_name="Dutch")
+    db.add(keep)
+    await db.flush()
+    db.add(CustomLocaleString(locale_id=keep.id, namespace="common", strings={"a": "x"}, meta={}))
+    await db.flush()
+    raw = await build_bundle(db)
+    await db.execute(delete(CustomLocaleString))
+    await db.execute(delete(CustomLocale))
+    await db.flush()
+
+    bundle = parse_bundle(raw)
+    (good,) = bundle.rows("CustomLocales")
+    bad_de = {**good, "id": str(uuid_mod.uuid4()), "code": "de"}
+    bad_fr = {**good, "id": str(uuid_mod.uuid4()), "code": "fr"}
+    bundle.sheets["CustomLocales"] = [bad_de, bad_fr, good]
+    (row,) = bundle.rows("CustomLocaleStrings")
+    twin = {**row, "id": str(uuid_mod.uuid4())}
+    nav = {**row, "id": str(uuid_mod.uuid4()), "namespace": "nav"}
+    grc = {**row, "id": str(uuid_mod.uuid4()), "namespace": "grc"}
+    bundle.sheets["CustomLocaleStrings"] = [row, twin, nav, grc]
+
+    result = await apply_bundle(db, bundle, user)
+    by_sheet = {s.sheet: s for s in result.sections}
+    assert by_sheet["CustomLocales"].conflict == 2
+    assert by_sheet["CustomLocales"].created == 1
+    assert by_sheet["CustomLocaleStrings"].created == 3
+    assert by_sheet["CustomLocaleStrings"].skipped == 1
+    namespaces = sorted(
+        r.namespace for r in (await db.execute(select(CustomLocaleString))).scalars()
+    )
+    assert namespaces == ["common", "grc", "nav"]

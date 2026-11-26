@@ -31,6 +31,7 @@ from app.models.architecture_decision_person import ArchitectureDecisionPerson
 from app.models.bookmark import Bookmark
 from app.models.card_logo import CardLogo
 from app.models.comment import Comment
+from app.models.custom_locale import CustomLocale, CustomLocaleString
 from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup
@@ -60,6 +61,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
 from app.models.web_portal import WebPortal
+from app.services import custom_locale_store
 from app.services.workspace_io import remap
 from app.services.workspace_io.entities import EntitySection
 
@@ -380,5 +382,29 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         # A relation answer is a list of {id, name} card refs.
         rewrite=remap.rewrite_survey_response_row,
         id_bearing_columns=("responses",),
+    ),
+    # Custom languages: the language, then its strings (one row per namespace).
+    # ``translate_job`` is this instance's transient AI-job state, not content.
+    # The two blobs are far over a workbook cell's 32 767 characters, so they
+    # travel as JSON assets. A language's ``metamodel`` labels travel inside
+    # the metamodel records' own ``translations`` (bespoke core sections).
+    # A language is matched by its code as well as its id: a target that
+    # created the same language itself keeps its own row, and the bundle's
+    # strings land on it — a namespace it already holds is skipped, a missing
+    # one is added. A row a hand-edited bundle gives a built-in code (``de``)
+    # or an English name unfit for a prompt is refused, with its strings.
+    EntitySection(
+        "CustomLocales",
+        CustomLocale,
+        exclude_columns=("translate_job",),
+        natural_key=("code",),
+        refuse=custom_locale_store.transfer_problem,
+    ),
+    EntitySection(
+        "CustomLocaleStrings",
+        CustomLocaleString,
+        asset_columns=(("strings", "json", "json"), ("meta", "json", "json")),
+        natural_key=("locale_id", "namespace"),
+        parent_columns=(("locale_id", "CustomLocales"),),
     ),
 )

@@ -183,7 +183,7 @@ In this mode, the server authenticates with email/password and refreshes the tok
 
 ## Available Capabilities
 
-The MCP server exposes **70 tools** across two groups: **42 read tools** that query EA data and **28 write tools** (21 additive, 7 destructive) that create and maintain cards, relations, tags, diagrams, risks, ADRs, saved inventory views and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data — and that run the operations installed extensions offer (see [Extension operations](#extension-operations)). Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI. Every tool also refuses an argument it does not declare: the call fails with an error that names the unknown argument and lists the valid ones, and nothing is done. (Before 2.203.0 such an argument was silently ignored, so a call could report success while part of what was asked was lost.)
+The MCP server exposes **73 tools** across two groups: **44 read tools** that query EA data and **29 write tools** (22 additive, 7 destructive) that create and maintain cards, relations, tags, diagrams, risks, ADRs, saved inventory views and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data — and that run the operations installed extensions offer (see [Extension operations](#extension-operations)). Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI. Every tool also refuses an argument it does not declare: the call fails with an error that names the unknown argument and lists the valid ones, and nothing is done. (Before 2.203.0 such an argument was silently ignored, so a call could report success while part of what was asked was lost.)
 
 ### Dry-run safety on writes
 
@@ -196,7 +196,7 @@ Either way, the preview is recorded in the audit log as a dry-run batch, so an a
 
 ### Read tools
 
-The server exposes 42 read tools grouped into eleven clusters.
+The server exposes 44 read tools grouped into twelve clusters.
 
 **Cards & metamodel**
 
@@ -295,13 +295,20 @@ The server exposes 42 read tools grouped into eleven clusters.
 | `list_extension_tools` | List the operations installed extensions offer to you: only extensions that are installed, enabled and licensed, and only the operations your permissions allow, each with its kind (read, write or destructive) and the arguments it takes — see [Extension operations](#extension-operations) |
 | `call_extension_read` | Run a read operation an extension offers. Refuses an operation that changes data, an argument the operation does not take and a missing required one |
 
+**Custom languages**
+
+| Tool | Description |
+|------|-------------|
+| `list_custom_languages` | List the [custom languages](custom-languages.md) an administrator added, with how many of their strings are translated, missing or stale |
+| `get_untranslated_strings` | The English strings a custom language still needs — missing ones and, by default, stale ones whose English text changed — with the translation instructions, the old wording of stale strings and the `source_hashes` to send back. A string that is saved leaves the list, so the next call starts again at `offset` 0; `offset` skips the strings left out or rejected so far, and `next_offset` is returned while more remain. The `metamodel` section holds the names of card types, fields, options and relations, to translate first. Takes `admin.settings` |
+
 All tools are bound by the authenticated user's RBAC — a viewer will simply get an empty list (or 403) for areas they cannot see; nothing on the MCP layer needs configuring per tool.
 
 ### Write tools
 
-The server exposes 28 write tools, each annotated as **additive** (creates or extends data) or **destructive** (modifies or removes existing data) so connectors can warn accordingly.
+The server exposes 29 write tools, each annotated as **additive** (creates or extends data) or **destructive** (modifies or removes existing data) so connectors can warn accordingly.
 
-**Additive (21)**
+**Additive (22)**
 
 | Tool | Description |
 |------|-------------|
@@ -326,6 +333,7 @@ The server exposes 28 write tools, each annotated as **additive** (creates or ex
 | `approve_process_flow` | Approve a pending process flow, which publishes it and archives the previously published revision. Takes approval authority (`bpm.approve_flows`, or the process owner's stakeholder role), and honours the setting that requires a separate approver. A refusal returns the reason the backend gave. Not reversible with `rollback_batch`: a revision published by mistake is withdrawn in the web UI, which keeps it on record and opens a new draft. |
 | `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Three ways to supply the image, one per row: a built-in `icon_slug` (resolved server-side, nothing transferred), an `image_url` the MCP server downloads for you from an allowlisted icon host, or `image_base64` from the agent's own context. The packs are a shortcut, not the source of truth — a dry run lists the slugs they do not carry under `unknown_icon_slugs` **and** fetches every `image_url`, so a missing brand or a dead link is reported before anything is written rather than left as a logo nobody could set. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 | `create_tag_groups` | Create tag groups with their tags, or add tags to an existing group (by its id from `list_tag_groups`). A group sets its description, single or multiple choice, whether it is mandatory and the card types it applies to. Names are matched against the existing groups and tags first, case-insensitively: one that already exists is reported as `exists` and not created again, so repeating a call is safe. Entries that name the same existing group, by id or by name, are merged into one result, and a tag they name twice is created once (the repeat is reported as `duplicate`). The dry run asks the backend to check every group it would create and every tag it would add to an existing group (permission, choice mode, card types); a tag of a new group is checked by the MCP server. Takes `tags.manage`. Not reversible with `rollback_batch`: delete an unwanted group or tag in **Admin → Tags**. |
+| `submit_translations` | Save translated strings into a [custom language](custom-languages.md), as `{namespace: {key: text}}` — interface text and metamodel names alike — with the `source_hashes` from `get_untranslated_strings`, so a name renamed in the meantime is skipped rather than translated wrongly. Each string is checked on its own (same placeholders and `$t(...)` references as the English, no new tags or links); a rejected one is reported with its reason, keys this version does not know are listed under `unknown_keys`, and the others are still saved. Takes `admin.settings`. Not reversible with `rollback_batch`: a wrong string is corrected under **Settings → Custom Languages**. |
 
 **Destructive (7)**
 
@@ -483,7 +491,7 @@ Defense in depth on top of dry-run, so an LLM mishap can't cause mass damage:
 - **Per-call size caps.** The MCP write tools enforce a much smaller cap than the underlying Excel-importer endpoints: 200 rows for `create_cards_bulk`, 500 ops for `upsert_relations_bulk`. Big enough for any realistic single artifact upload, small enough that a dry-run preview is still scannable.
 - **No relation deletion by default.** `upsert_relations_bulk` refuses `action: "delete"` ops — to remove relations, use the web UI where the action is captured under the user's identity. Operators can opt in by setting `MCP_ALLOW_RELATION_DELETE=true`.
 - **No destructive extension operations by default.** `call_extension_write` refuses the operations an extension marks destructive. Operators can opt in by setting `MCP_ALLOW_EXTENSION_DESTRUCTIVE=true`.
-- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 28 write tools without redeploying code. The 42 read tools keep working.
+- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 29 write tools without redeploying code. The 44 read tools keep working.
 - **Logo fetching is allowlisted.** The built-in icon packs cannot cover every product a customer runs, and an assistant is often sandboxed with no route to the web, so `set_card_logos` accepts an `image_url` and the MCP server fetches it. Only `https`, only the hosts in `MCP_LOGO_FETCH_HOSTS`, only a public address, at most two redirects (each re-checked), at most 1 MB read as a stream, and the bytes must carry a real PNG/JPEG/WebP/GIF signature. The fetch happens at the MCP edge, never in the backend, and the image is then uploaded through the ordinary route — so a URL chosen by an LLM never reaches the process holding the database. `MCP_LOGO_FETCH_ENABLED=false` switches it off.
 - **Audit origin tag.** Every backend request from the MCP server carries an `X-Turbo-EA-Origin: mcp` header. Events emitted from those requests are tagged `origin: "mcp"` in the audit-log payload, so admins can filter MCP-driven writes out of the timeline distinct from web-UI actions.
 - **Mutation batches.** Every MCP write call — the preview as well as the commit — is one mutation batch in the audit log, opened before anything is written; every event emitted during the call is stamped with the batch id, and every write tool returns that `batch_id`. Admins (or the `get_change_history` tool) can reconstruct the full per-event diff of a commit from one id, and `rollback_batch` can reverse it — including deleting a diagram that `create_diagram` made, unless someone has published it since. A diagram update is reported as not reversible, because the previous canvas is not kept. A comment posted on a decision or a SoAW is not reversible either: it may already have been read, so it is deleted from the discussion instead. Nor are the process-flow steps: `rollback_batch` reports a submission or an approval as not reversible and changes nothing — an approver rejects a pending revision, and a published one is withdrawn, both in the web UI. A draft saved by `import_bpmn` is not reversible because it records no event; it is deleted from the Drafts sub-tab. Step links set by `link_process_flow_elements` record no event either; set them again to change them. Tags put on or taken off cards by `set_card_tags` are reversed like any other card change, but the tag groups and tags `create_tag_groups` makes are admin records, not card changes: delete them in **Admin → Tags**. A call to an extension with `call_extension_write` is not reversible either: the extension keeps its records in its own tables, so undo it in the extension. Commits above `MCP_BATCH_CONFIRMATION_THRESHOLD` rows must pass back the one-shot `confirm_token` the prior dry-run returned. The backend checks it when the commit's batch opens, before anything is written: it must come from a dry-run of the same tool by the same user less than 15 minutes earlier, and it authorises a single commit. Every bulk write tool follows this preview → confirm cycle: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`, `set_card_tags`, `create_tag_groups`, `link_process_flow_elements`.
@@ -497,6 +505,7 @@ The guardrail environment variables on the MCP container:
 | `MCP_MAX_CARDS_PER_CALL` | `200` | Hard cap on `create_cards_bulk` / `update_cards_bulk` rows, `set_card_tags` operations and the groups plus tags of `create_tag_groups` per request. |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | Hard cap on `upsert_relations_bulk` operations per request. |
 | `MCP_MAX_LOGOS_PER_CALL` | `50` | Hard cap on `set_card_logos` rows per request. Lower than the card cap because each logo is its own upload and carries image bytes. |
+| `MCP_MAX_TRANSLATIONS_PER_CALL` | `200` | Hard cap on the strings one `submit_translations` call sends to a custom language. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | When `true`, `upsert_relations_bulk` accepts `action: "delete"` ops. |
 | `MCP_ALLOW_EXTENSION_DESTRUCTIVE` | `false` | When `true`, `call_extension_write` runs the operations an installed extension marks destructive. |
 | `MCP_LOGO_FETCH_ENABLED` | `true` | When `true`, `set_card_logos` may take an `image_url`: the MCP server downloads the image and uploads it through the ordinary route, so every permission, size and format check still applies. Set to `false` to refuse the URL path entirely — icon slugs and pasted bytes keep working. |

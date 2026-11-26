@@ -20,7 +20,7 @@ from app.models.user import (
     NOTIFICATION_TYPE_SPECS,
     User,
 )
-from app.services import audit_changes, audit_labels, audit_log
+from app.services import audit_changes, audit_labels, audit_log, custom_locale_store
 from app.services.extensions import notification_channels, notification_types
 from app.services.permission_service import PermissionService
 from app.services.sso_service import get_sso_config
@@ -944,8 +944,11 @@ async def update_user(
             raise HTTPException(409, "A user with this email already exists")
 
     if "locale" in data:
-        if data["locale"] not in SUPPORTED_LOCALES:
-            raise HTTPException(400, f"Unsupported locale '{data['locale']}'")
+        # A built-in locale, or a custom language an admin added and enabled.
+        locale = data["locale"]
+        built_in = locale in SUPPORTED_LOCALES
+        if not built_in and not await custom_locale_store.is_enabled_code(db, locale):
+            raise HTTPException(400, f"Unsupported locale '{locale}'")
 
     if "auth_provider" in data:
         new_provider = data.pop("auth_provider")

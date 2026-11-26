@@ -234,3 +234,20 @@ def test_extension_destructive_is_opt_in(monkeypatch):
     finally:
         monkeypatch.undo()
         importlib.reload(config)
+
+
+def test_the_translation_cap_defaults_to_200_and_reads_its_variable(monkeypatch):
+    """``submit_translations`` refuses more strings than this in one call."""
+    import importlib
+
+    monkeypatch.delenv("MCP_MAX_TRANSLATIONS_PER_CALL", raising=False)
+    monkeypatch.delenv("MCP_MAX_LOGOS_PER_CALL", raising=False)
+    try:
+        assert importlib.reload(config).MCP_MAX_TRANSLATIONS_PER_CALL == 200
+        monkeypatch.setenv("MCP_MAX_TRANSLATIONS_PER_CALL", "35")
+        assert importlib.reload(config).MCP_MAX_TRANSLATIONS_PER_CALL == 35
+        # The logo cap is a different variable.
+        assert config.MCP_MAX_LOGOS_PER_CALL == 50
+    finally:
+        monkeypatch.undo()
+        importlib.reload(config)

@@ -5753,6 +5753,89 @@
         "title": "CurrencyPayload",
         "type": "object"
       },
+      "CustomLocaleCreate": {
+        "properties": {
+          "code": {
+            "maxLength": 64,
+            "title": "Code",
+            "type": "string"
+          },
+          "english_name": {
+            "maxLength": 100,
+            "title": "English Name",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "title": "Name",
+            "type": "string"
+          },
+          "rtl": {
+            "default": false,
+            "title": "Rtl",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "english_name"
+        ],
+        "title": "CustomLocaleCreate",
+        "type": "object"
+      },
+      "CustomLocaleUpdate": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "english_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "English Name"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "rtl": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rtl"
+          }
+        },
+        "title": "CustomLocaleUpdate",
+        "type": "object"
+      },
       "DashboardCreate": {
         "additionalProperties": false,
         "properties": {
@@ -17640,6 +17723,48 @@
         "title": "StoreRefreshOut",
         "type": "object"
       },
+      "StringsWrite": {
+        "properties": {
+          "origin": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "import",
+              "mcp"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "source_hashes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Hashes"
+          },
+          "strings": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Strings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "strings"
+        ],
+        "title": "StringsWrite",
+        "type": "object"
+      },
       "StructuredInsight": {
         "properties": {
           "observation": {
@@ -18427,6 +18552,40 @@
           "access_token"
         ],
         "title": "TokenResponse",
+        "type": "object"
+      },
+      "TranslateRequest": {
+        "properties": {
+          "include_manual": {
+            "default": false,
+            "title": "Include Manual",
+            "type": "boolean"
+          },
+          "mode": {
+            "default": "missing",
+            "enum": [
+              "missing",
+              "all"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "namespaces": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namespaces"
+          }
+        },
+        "title": "TranslateRequest",
         "type": "object"
       },
       "TurboLensAnalysisRunOut": {
@@ -29482,6 +29641,560 @@
         "summary": "Security Overview",
         "tags": [
           "Compliance"
+        ]
+      }
+    },
+    "/api/v1/custom-locales": {
+      "get": {
+        "description": "Every custom locale with its translation progress and AI job state.",
+        "operationId": "list_custom_locales_api_v1_custom_locales_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Custom Locales",
+        "tags": [
+          "Custom languages"
+        ]
+      },
+      "post": {
+        "operationId": "create_custom_locale_api_v1_custom_locales_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomLocaleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Custom Locale",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
+    "/api/v1/custom-locales/{code}": {
+      "delete": {
+        "description": "Delete a locale, its strings and its translations of the database\nlabels; its users go back to English.",
+        "operationId": "delete_custom_locale_api_v1_custom_locales__code__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Custom Locale",
+        "tags": [
+          "Custom languages"
+        ]
+      },
+      "get": {
+        "description": "One locale with its per-namespace progress.",
+        "operationId": "get_custom_locale_api_v1_custom_locales__code__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Custom Locale",
+        "tags": [
+          "Custom languages"
+        ]
+      },
+      "patch": {
+        "operationId": "update_custom_locale_api_v1_custom_locales__code__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomLocaleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Custom Locale",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
+    "/api/v1/custom-locales/{code}/bundle": {
+      "get": {
+        "description": "The locale's i18next resources, in the shape of a built-in locale file.\n\nPublic for an enabled locale (the browser loads it before sign-in); a\ndisabled one is visible to ``admin.settings`` holders only \u2014 to anyone\nelse it does not exist (404).",
+        "operationId": "get_custom_locale_bundle_api_v1_custom_locales__code__bundle_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Custom Locale Bundle",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
+    "/api/v1/custom-locales/{code}/export": {
+      "get": {
+        "description": "The language-pack file: ``missing`` / ``all`` English text to translate,\n``current`` \u2014 the stored translations \u2014 or ``share``, the community pack\n(the UI translations plus only the built-in seed's database labels).",
+        "operationId": "export_custom_locale_api_v1_custom_locales__code__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "missing",
+              "enum": [
+                "missing",
+                "all",
+                "current",
+                "share"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "namespaces",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 1000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Namespaces"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Custom Locale",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
+    "/api/v1/custom-locales/{code}/strings": {
+      "get": {
+        "description": "The review rows, the English source beside the translation.",
+        "operationId": "list_custom_locale_strings_api_v1_custom_locales__code__strings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "namespace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 50,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Namespace"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "missing",
+                "stale",
+                "translated",
+                "untranslated",
+                "all"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "Search",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Custom Locale Strings",
+        "tags": [
+          "Custom languages"
+        ]
+      },
+      "post": {
+        "description": "Merge translations, per key: ``null`` clears a key; a value the\nvalidator refuses is reported and never blocks the others.",
+        "operationId": "write_custom_locale_strings_api_v1_custom_locales__code__strings_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StringsWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Custom Locale Strings",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
+    "/api/v1/custom-locales/{code}/translate": {
+      "post": {
+        "description": "Start the AI translation job (one per locale). The locale's row is read\n``FOR UPDATE`` until the commit, so two concurrent starts cannot both pass\nthe running check.",
+        "operationId": "translate_custom_locale_api_v1_custom_locales__code__translate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Translate Custom Locale",
+        "tags": [
+          "Custom languages"
+        ]
+      }
+    },
+    "/api/v1/custom-locales/{code}/translate/cancel": {
+      "post": {
+        "operationId": "cancel_custom_locale_translation_api_v1_custom_locales__code__translate_cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Custom Locale Translation",
+        "tags": [
+          "Custom languages"
         ]
       }
     },

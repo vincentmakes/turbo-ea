@@ -6306,6 +6306,362 @@ _APP_ROLES: list[dict[str, Any]] = _DEFAULT_ROLES + [
 ]
 
 
+# Built-in compliance regulations and resource types. Module-level so the
+# custom-language share filter (``metamodel_strings.seed_english``) can read
+# their keys and labels; ``seed_metamodel`` inserts them insert-only.
+BUILTIN_REGULATIONS: list[dict[str, Any]] = [
+    {
+        "key": "eu_ai_act",
+        "label": "EU AI Act (Regulation (EU) 2024/1689)",
+        "description": (
+            "Assess EU AI Act compliance. For each AI-bearing card classify "
+            "the risk tier (prohibited / high_risk / limited_risk / minimal) "
+            "using use-case signals in the description, and emit findings for "
+            "obligations that apply at that tier: risk management system, "
+            "data governance, technical documentation, transparency, human "
+            "oversight, accuracy / robustness / cybersecurity, logging, "
+            "post-market monitoring, conformity assessment. Also emit "
+            "landscape-level findings (e.g., missing registry of high-risk "
+            "systems, no AI governance role assigned)."
+        ),
+        "sort_order": 10,
+    },
+    {
+        "key": "gdpr",
+        "label": "GDPR (Regulation (EU) 2016/679)",
+        "description": (
+            "Assess GDPR compliance. Flag applications that likely process "
+            "personal data without a documented lawful basis, those that may "
+            "transfer personal data outside the EU without SCCs, and "
+            "high-risk processing that requires a DPIA. Emit landscape findings "
+            "for gaps such as missing DPO assignment or no record of "
+            "processing activities."
+        ),
+        "sort_order": 20,
+    },
+    {
+        "key": "nis2",
+        "label": "NIS2 Directive (Directive (EU) 2022/2555)",
+        "description": (
+            "Assess NIS2 Directive compliance. Consider the cards as the IT "
+            "estate of an essential or important entity. Flag gaps in: "
+            "incident response capability, supply-chain risk concentration "
+            "(single-vendor reliance), business continuity / disaster recovery, "
+            "vulnerability management for essential services."
+        ),
+        "sort_order": 30,
+    },
+    {
+        "key": "dora",
+        "label": "DORA (Regulation (EU) 2022/2554)",
+        "description": (
+            "Assess DORA (Digital Operational Resilience Act) compliance for "
+            "financial-services cards. Flag: ICT third-party concentration, "
+            "missing critical-function mapping, no resilience testing, "
+            "incident classification / reporting gaps."
+        ),
+        "sort_order": 40,
+    },
+    {
+        "key": "soc2",
+        "label": "SOC 2 (Trust Services Criteria)",
+        "description": (
+            "Assess SOC 2 Trust Services Criteria coverage over the landscape. "
+            "Flag: stakeholder / owner assignment gaps (access control), "
+            "change-management gaps (no approval workflow), monitoring / "
+            "availability gaps, confidentiality gaps around sensitive cards."
+        ),
+        "sort_order": 50,
+    },
+    {
+        "key": "iso27001",
+        "label": "ISO/IEC 27001:2022",
+        "description": (
+            "Assess ISO/IEC 27001:2022 Annex A control coverage. Flag: asset "
+            "inventory completeness (data-quality gaps), access control "
+            "ownership, supplier relationships (vendor / provider linkage), "
+            "operations security, incident management."
+        ),
+        "sort_order": 60,
+    },
+]
+
+BUILTIN_RESOURCE_TYPES: list[dict[str, Any]] = [
+    # Link types — `icon` is a Material Symbol name.
+    {
+        "kind": "link_type",
+        "key": "documentation",
+        "label": "Documentation",
+        "icon": "menu_book",
+        "sort_order": 10,
+        "translations": {
+            "de": "Dokumentation",
+            "fr": "Documentation",
+            "es": "Documentación",
+            "it": "Documentazione",
+            "pt": "Documentação",
+            "zh": "文档",
+            "ru": "Документация",
+            "da": "Dokumentation",
+            "ar": "التوثيق",
+        },
+    },
+    {
+        "kind": "link_type",
+        "key": "contract",
+        "label": "Contract",
+        "icon": "contract",
+        "sort_order": 20,
+        "translations": {
+            "de": "Vertrag",
+            "fr": "Contrat",
+            "es": "Contrato",
+            "it": "Contratto",
+            "pt": "Contrato",
+            "zh": "合同",
+            "ru": "Договор",
+            "da": "Kontrakt",
+            "ar": "عقد",
+        },
+    },
+    {
+        "kind": "link_type",
+        "key": "security",
+        "label": "Security",
+        "icon": "shield",
+        "sort_order": 30,
+        "translations": {
+            "de": "Sicherheit",
+            "fr": "Sécurité",
+            "es": "Seguridad",
+            "it": "Sicurezza",
+            "pt": "Segurança",
+            "zh": "安全",
+            "ru": "Безопасность",
+            "da": "Sikkerhed",
+            "ar": "الأمان",
+        },
+    },
+    {
+        "kind": "link_type",
+        "key": "compliance",
+        "label": "Compliance",
+        "icon": "verified",
+        "sort_order": 40,
+        "translations": {
+            "de": "Compliance",
+            "fr": "Conformité",
+            "es": "Cumplimiento",
+            "it": "Conformità",
+            "pt": "Conformidade",
+            "zh": "合规",
+            "ru": "Соответствие",
+            "da": "Compliance",
+            "ar": "الامتثال",
+        },
+    },
+    {
+        "kind": "link_type",
+        "key": "architecture",
+        "label": "Architecture",
+        "icon": "architecture",
+        "sort_order": 50,
+        "translations": {
+            "de": "Architektur",
+            "fr": "Architecture",
+            "es": "Arquitectura",
+            "it": "Architettura",
+            "pt": "Arquitetura",
+            "zh": "架构",
+            "ru": "Архитектура",
+            "da": "Arkitektur",
+            "ar": "المعمارية",
+        },
+    },
+    {
+        "kind": "link_type",
+        "key": "operations",
+        "label": "Operations",
+        "icon": "settings",
+        "sort_order": 60,
+        "translations": {
+            "de": "Betrieb",
+            "fr": "Opérations",
+            "es": "Operaciones",
+            "it": "Operazioni",
+            "pt": "Operações",
+            "zh": "运维",
+            "ru": "Эксплуатация",
+            "da": "Drift",
+            "ar": "العمليات",
+        },
+    },
+    {
+        "kind": "link_type",
+        "key": "support",
+        "label": "Support",
+        "icon": "support_agent",
+        "sort_order": 70,
+        "translations": {
+            "de": "Support",
+            "fr": "Support",
+            "es": "Soporte",
+            "it": "Supporto",
+            "pt": "Suporte",
+            "zh": "支持",
+            "ru": "Поддержка",
+            "da": "Support",
+            "ar": "الدعم",
+        },
+    },
+    {
+        "kind": "link_type",
+        "key": "other",
+        "label": "Other",
+        "icon": "link",
+        "sort_order": 80,
+        "translations": {
+            "de": "Sonstiges",
+            "fr": "Autre",
+            "es": "Otro",
+            "it": "Altro",
+            "pt": "Outro",
+            "zh": "其他",
+            "ru": "Прочее",
+            "da": "Andet",
+            "ar": "أخرى",
+        },
+    },
+    # File categories — no icon (rendered as plain chips).
+    {
+        "kind": "file_category",
+        "key": "architecture",
+        "label": "Architecture",
+        "icon": None,
+        "sort_order": 10,
+        "translations": {
+            "de": "Architektur",
+            "fr": "Architecture",
+            "es": "Arquitectura",
+            "it": "Architettura",
+            "pt": "Arquitetura",
+            "zh": "架构",
+            "ru": "Архитектура",
+            "da": "Arkitektur",
+            "ar": "المعمارية",
+        },
+    },
+    {
+        "kind": "file_category",
+        "key": "security",
+        "label": "Security",
+        "icon": None,
+        "sort_order": 20,
+        "translations": {
+            "de": "Sicherheit",
+            "fr": "Sécurité",
+            "es": "Seguridad",
+            "it": "Sicurezza",
+            "pt": "Segurança",
+            "zh": "安全",
+            "ru": "Безопасность",
+            "da": "Sikkerhed",
+            "ar": "الأمان",
+        },
+    },
+    {
+        "kind": "file_category",
+        "key": "compliance",
+        "label": "Compliance",
+        "icon": None,
+        "sort_order": 30,
+        "translations": {
+            "de": "Compliance",
+            "fr": "Conformité",
+            "es": "Cumplimiento",
+            "it": "Conformità",
+            "pt": "Conformidade",
+            "zh": "合规",
+            "ru": "Соответствие",
+            "da": "Compliance",
+            "ar": "الامتثال",
+        },
+    },
+    {
+        "kind": "file_category",
+        "key": "operations",
+        "label": "Operations",
+        "icon": None,
+        "sort_order": 40,
+        "translations": {
+            "de": "Betrieb",
+            "fr": "Opérations",
+            "es": "Operaciones",
+            "it": "Operazioni",
+            "pt": "Operações",
+            "zh": "运维",
+            "ru": "Эксплуатация",
+            "da": "Drift",
+            "ar": "العمليات",
+        },
+    },
+    {
+        "kind": "file_category",
+        "key": "meeting_notes",
+        "label": "Meeting Notes",
+        "icon": None,
+        "sort_order": 50,
+        "translations": {
+            "de": "Besprechungsnotizen",
+            "fr": "Notes de réunion",
+            "es": "Notas de reunión",
+            "it": "Note riunione",
+            "pt": "Notas de reunião",
+            "zh": "会议记录",
+            "ru": "Протоколы совещаний",
+            "da": "Mødenoter",
+            "ar": "ملاحظات الاجتماع",
+        },
+    },
+    {
+        "kind": "file_category",
+        "key": "design",
+        "label": "Design",
+        "icon": None,
+        "sort_order": 60,
+        "translations": {
+            "de": "Design",
+            "fr": "Conception",
+            "es": "Diseño",
+            "it": "Design",
+            "pt": "Design",
+            "zh": "设计",
+            "ru": "Дизайн",
+            "da": "Design",
+            "ar": "التصميم",
+        },
+    },
+    {
+        "kind": "file_category",
+        "key": "other",
+        "label": "Other",
+        "icon": None,
+        "sort_order": 70,
+        "translations": {
+            "de": "Sonstiges",
+            "fr": "Autre",
+            "es": "Otro",
+            "it": "Altro",
+            "pt": "Outro",
+            "zh": "其他",
+            "ru": "Прочее",
+            "da": "Andet",
+            "ar": "أخرى",
+        },
+    },
+]
+
+
 async def seed_metamodel(db: AsyncSession) -> None:
     """Seed the default metamodel, adding any missing types and relations.
 
@@ -6608,85 +6964,9 @@ async def seed_metamodel(db: AsyncSession) -> None:
     # Alembic migration handles the same seed on existing DBs that
     # arrive at this version via migrations; this branch covers fresh
     # DBs that come up via ``create_all`` and skip migrations.
-    _builtin_regulations = [
-        {
-            "key": "eu_ai_act",
-            "label": "EU AI Act (Regulation (EU) 2024/1689)",
-            "description": (
-                "Assess EU AI Act compliance. For each AI-bearing card classify "
-                "the risk tier (prohibited / high_risk / limited_risk / minimal) "
-                "using use-case signals in the description, and emit findings for "
-                "obligations that apply at that tier: risk management system, "
-                "data governance, technical documentation, transparency, human "
-                "oversight, accuracy / robustness / cybersecurity, logging, "
-                "post-market monitoring, conformity assessment. Also emit "
-                "landscape-level findings (e.g., missing registry of high-risk "
-                "systems, no AI governance role assigned)."
-            ),
-            "sort_order": 10,
-        },
-        {
-            "key": "gdpr",
-            "label": "GDPR (Regulation (EU) 2016/679)",
-            "description": (
-                "Assess GDPR compliance. Flag applications that likely process "
-                "personal data without a documented lawful basis, those that may "
-                "transfer personal data outside the EU without SCCs, and "
-                "high-risk processing that requires a DPIA. Emit landscape findings "
-                "for gaps such as missing DPO assignment or no record of "
-                "processing activities."
-            ),
-            "sort_order": 20,
-        },
-        {
-            "key": "nis2",
-            "label": "NIS2 Directive (Directive (EU) 2022/2555)",
-            "description": (
-                "Assess NIS2 Directive compliance. Consider the cards as the IT "
-                "estate of an essential or important entity. Flag gaps in: "
-                "incident response capability, supply-chain risk concentration "
-                "(single-vendor reliance), business continuity / disaster recovery, "
-                "vulnerability management for essential services."
-            ),
-            "sort_order": 30,
-        },
-        {
-            "key": "dora",
-            "label": "DORA (Regulation (EU) 2022/2554)",
-            "description": (
-                "Assess DORA (Digital Operational Resilience Act) compliance for "
-                "financial-services cards. Flag: ICT third-party concentration, "
-                "missing critical-function mapping, no resilience testing, "
-                "incident classification / reporting gaps."
-            ),
-            "sort_order": 40,
-        },
-        {
-            "key": "soc2",
-            "label": "SOC 2 (Trust Services Criteria)",
-            "description": (
-                "Assess SOC 2 Trust Services Criteria coverage over the landscape. "
-                "Flag: stakeholder / owner assignment gaps (access control), "
-                "change-management gaps (no approval workflow), monitoring / "
-                "availability gaps, confidentiality gaps around sensitive cards."
-            ),
-            "sort_order": 50,
-        },
-        {
-            "key": "iso27001",
-            "label": "ISO/IEC 27001:2022",
-            "description": (
-                "Assess ISO/IEC 27001:2022 Annex A control coverage. Flag: asset "
-                "inventory completeness (data-quality gaps), access control "
-                "ownership, supplier relationships (vendor / provider linkage), "
-                "operations security, incident management."
-            ),
-            "sort_order": 60,
-        },
-    ]
     existing_regs_result = await db.execute(select(ComplianceRegulation))
     existing_reg_keys = {r.key for r in existing_regs_result.scalars().all()}
-    for reg in _builtin_regulations:
+    for reg in BUILTIN_REGULATIONS:
         if reg["key"] in existing_reg_keys:
             continue
         db.add(
@@ -6703,284 +6983,10 @@ async def seed_metamodel(db: AsyncSession) -> None:
         )
 
     # ── Built-in resource types (Resources tab: link types & file categories) ──
-    _builtin_resource_types = [
-        # Link types — `icon` is a Material Symbol name.
-        {
-            "kind": "link_type",
-            "key": "documentation",
-            "label": "Documentation",
-            "icon": "menu_book",
-            "sort_order": 10,
-            "translations": {
-                "de": "Dokumentation",
-                "fr": "Documentation",
-                "es": "Documentación",
-                "it": "Documentazione",
-                "pt": "Documentação",
-                "zh": "文档",
-                "ru": "Документация",
-                "da": "Dokumentation",
-                "ar": "التوثيق",
-            },
-        },
-        {
-            "kind": "link_type",
-            "key": "contract",
-            "label": "Contract",
-            "icon": "contract",
-            "sort_order": 20,
-            "translations": {
-                "de": "Vertrag",
-                "fr": "Contrat",
-                "es": "Contrato",
-                "it": "Contratto",
-                "pt": "Contrato",
-                "zh": "合同",
-                "ru": "Договор",
-                "da": "Kontrakt",
-                "ar": "عقد",
-            },
-        },
-        {
-            "kind": "link_type",
-            "key": "security",
-            "label": "Security",
-            "icon": "shield",
-            "sort_order": 30,
-            "translations": {
-                "de": "Sicherheit",
-                "fr": "Sécurité",
-                "es": "Seguridad",
-                "it": "Sicurezza",
-                "pt": "Segurança",
-                "zh": "安全",
-                "ru": "Безопасность",
-                "da": "Sikkerhed",
-                "ar": "الأمان",
-            },
-        },
-        {
-            "kind": "link_type",
-            "key": "compliance",
-            "label": "Compliance",
-            "icon": "verified",
-            "sort_order": 40,
-            "translations": {
-                "de": "Compliance",
-                "fr": "Conformité",
-                "es": "Cumplimiento",
-                "it": "Conformità",
-                "pt": "Conformidade",
-                "zh": "合规",
-                "ru": "Соответствие",
-                "da": "Compliance",
-                "ar": "الامتثال",
-            },
-        },
-        {
-            "kind": "link_type",
-            "key": "architecture",
-            "label": "Architecture",
-            "icon": "architecture",
-            "sort_order": 50,
-            "translations": {
-                "de": "Architektur",
-                "fr": "Architecture",
-                "es": "Arquitectura",
-                "it": "Architettura",
-                "pt": "Arquitetura",
-                "zh": "架构",
-                "ru": "Архитектура",
-                "da": "Arkitektur",
-                "ar": "المعمارية",
-            },
-        },
-        {
-            "kind": "link_type",
-            "key": "operations",
-            "label": "Operations",
-            "icon": "settings",
-            "sort_order": 60,
-            "translations": {
-                "de": "Betrieb",
-                "fr": "Opérations",
-                "es": "Operaciones",
-                "it": "Operazioni",
-                "pt": "Operações",
-                "zh": "运维",
-                "ru": "Эксплуатация",
-                "da": "Drift",
-                "ar": "العمليات",
-            },
-        },
-        {
-            "kind": "link_type",
-            "key": "support",
-            "label": "Support",
-            "icon": "support_agent",
-            "sort_order": 70,
-            "translations": {
-                "de": "Support",
-                "fr": "Support",
-                "es": "Soporte",
-                "it": "Supporto",
-                "pt": "Suporte",
-                "zh": "支持",
-                "ru": "Поддержка",
-                "da": "Support",
-                "ar": "الدعم",
-            },
-        },
-        {
-            "kind": "link_type",
-            "key": "other",
-            "label": "Other",
-            "icon": "link",
-            "sort_order": 80,
-            "translations": {
-                "de": "Sonstiges",
-                "fr": "Autre",
-                "es": "Otro",
-                "it": "Altro",
-                "pt": "Outro",
-                "zh": "其他",
-                "ru": "Прочее",
-                "da": "Andet",
-                "ar": "أخرى",
-            },
-        },
-        # File categories — no icon (rendered as plain chips).
-        {
-            "kind": "file_category",
-            "key": "architecture",
-            "label": "Architecture",
-            "icon": None,
-            "sort_order": 10,
-            "translations": {
-                "de": "Architektur",
-                "fr": "Architecture",
-                "es": "Arquitectura",
-                "it": "Architettura",
-                "pt": "Arquitetura",
-                "zh": "架构",
-                "ru": "Архитектура",
-                "da": "Arkitektur",
-                "ar": "المعمارية",
-            },
-        },
-        {
-            "kind": "file_category",
-            "key": "security",
-            "label": "Security",
-            "icon": None,
-            "sort_order": 20,
-            "translations": {
-                "de": "Sicherheit",
-                "fr": "Sécurité",
-                "es": "Seguridad",
-                "it": "Sicurezza",
-                "pt": "Segurança",
-                "zh": "安全",
-                "ru": "Безопасность",
-                "da": "Sikkerhed",
-                "ar": "الأمان",
-            },
-        },
-        {
-            "kind": "file_category",
-            "key": "compliance",
-            "label": "Compliance",
-            "icon": None,
-            "sort_order": 30,
-            "translations": {
-                "de": "Compliance",
-                "fr": "Conformité",
-                "es": "Cumplimiento",
-                "it": "Conformità",
-                "pt": "Conformidade",
-                "zh": "合规",
-                "ru": "Соответствие",
-                "da": "Compliance",
-                "ar": "الامتثال",
-            },
-        },
-        {
-            "kind": "file_category",
-            "key": "operations",
-            "label": "Operations",
-            "icon": None,
-            "sort_order": 40,
-            "translations": {
-                "de": "Betrieb",
-                "fr": "Opérations",
-                "es": "Operaciones",
-                "it": "Operazioni",
-                "pt": "Operações",
-                "zh": "运维",
-                "ru": "Эксплуатация",
-                "da": "Drift",
-                "ar": "العمليات",
-            },
-        },
-        {
-            "kind": "file_category",
-            "key": "meeting_notes",
-            "label": "Meeting Notes",
-            "icon": None,
-            "sort_order": 50,
-            "translations": {
-                "de": "Besprechungsnotizen",
-                "fr": "Notes de réunion",
-                "es": "Notas de reunión",
-                "it": "Note riunione",
-                "pt": "Notas de reunião",
-                "zh": "会议记录",
-                "ru": "Протоколы совещаний",
-                "da": "Mødenoter",
-                "ar": "ملاحظات الاجتماع",
-            },
-        },
-        {
-            "kind": "file_category",
-            "key": "design",
-            "label": "Design",
-            "icon": None,
-            "sort_order": 60,
-            "translations": {
-                "de": "Design",
-                "fr": "Conception",
-                "es": "Diseño",
-                "it": "Design",
-                "pt": "Design",
-                "zh": "设计",
-                "ru": "Дизайн",
-                "da": "Design",
-                "ar": "التصميم",
-            },
-        },
-        {
-            "kind": "file_category",
-            "key": "other",
-            "label": "Other",
-            "icon": None,
-            "sort_order": 70,
-            "translations": {
-                "de": "Sonstiges",
-                "fr": "Autre",
-                "es": "Otro",
-                "it": "Altro",
-                "pt": "Outro",
-                "zh": "其他",
-                "ru": "Прочее",
-                "da": "Andet",
-                "ar": "أخرى",
-            },
-        },
-    ]
 
     existing_rt_result = await db.execute(select(ResourceType))
     existing_rt_keys = {(r.kind, r.key) for r in existing_rt_result.scalars().all()}
-    for rt in _builtin_resource_types:
+    for rt in BUILTIN_RESOURCE_TYPES:
         if (rt["kind"], rt["key"]) in existing_rt_keys:
             continue
         db.add(

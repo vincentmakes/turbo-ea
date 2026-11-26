@@ -11,8 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.config import settings as app_config
-from app.core.encryption import decrypt_value
 from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
@@ -25,10 +23,10 @@ from app.schemas.ai_suggest import (
     PortfolioInsightsRequest,
     PortfolioInsightsResponse,
 )
-from app.services import openai_chat
+from app.services import custom_locale_store, openai_chat
 from app.services.ai_service import (
-    DEFAULT_AZURE_API_VERSION,
     EOL_PRODUCT_CONTEXT_KEY,
+    ai_config_from_settings,
     fetch_running_models,
     generate_portfolio_insights,
     subtype_hidden_fields,
@@ -85,20 +83,7 @@ def _log_provider_failure(what: str, exc: httpx.HTTPError) -> None:
 
 def _get_ai_config(general: dict) -> dict:
     """Resolve AI configuration from DB settings with env-var fallback."""
-    ai = general.get("ai", {})
-    encrypted_key = ai.get("apiKey", "")
-    return {
-        "enabled": ai.get("enabled", False),
-        "provider_type": ai.get("providerType", "ollama"),
-        "provider_url": ai.get("providerUrl") or app_config.AI_PROVIDER_URL,
-        "api_key": decrypt_value(encrypted_key) if encrypted_key else "",
-        "model": ai.get("model") or app_config.AI_MODEL,
-        "api_version": ai.get("apiVersion", DEFAULT_AZURE_API_VERSION),
-        "search_provider": "duckduckgo",
-        "search_url": "",
-        "enabled_types": ai.get("enabledTypes", []),
-        "portfolio_insights_enabled": ai.get("portfolioInsightsEnabled", False),
-    }
+    return ai_config_from_settings(general)
 
 
 async def _load_ai_config(db: AsyncSession) -> dict:
@@ -134,7 +119,9 @@ def _effective_locale(requested: str | None, user: User) -> str:
     """The locale a suggestion is written for: the one the request names
     (the live UI language), else the user's saved one, else English. An
     unsupported value is harmless — ``ai_service.language_for_locale`` maps
-    it to English and only a mapped name reaches the prompt."""
+    it to English and only a mapped name reaches the prompt. A custom
+    locale's code is named by its stored English name
+    (``custom_locale_store.english_name_for``), never by the client's text."""
     return requested or user.locale or "en"
 
 
@@ -180,6 +167,7 @@ async def suggest(
     if not card_type:
         raise HTTPException(status_code=404, detail=f"Card type '{body.type_key}' not found")
 
+    locale = _effective_locale(body.locale, user)
     result_data = await _suggest_or_502(
         body.name,
         name=body.name,
@@ -193,8 +181,9 @@ async def suggest(
         api_key=ai_cfg["api_key"],
         api_version=ai_cfg["api_version"],
         fields_schema=card_type.fields_schema or [],
-        locale=_effective_locale(body.locale, user),
+        locale=locale,
         hidden_fields=subtype_hidden_fields(card_type.subtypes, body.subtype),
+        language=await custom_locale_store.english_name_for(db, locale),
     )
 
     return AiSuggestResponse(**result_data)
@@ -217,6 +206,7 @@ async def suggest_eol_product(
     ai_cfg = await _load_ai_config(db)
     _require_ai_ready(ai_cfg)
 
+    locale = _effective_locale(body.locale, user)
     result_data = await _suggest_or_502(
         body.name,
         name=body.name,
@@ -230,7 +220,8 @@ async def suggest_eol_product(
         api_key=ai_cfg["api_key"],
         api_version=ai_cfg["api_version"],
         fields_schema=None,
-        locale=_effective_locale(body.locale, user),
+        locale=locale,
+        language=await custom_locale_store.english_name_for(db, locale),
     )
     return AiSuggestResponse(**result_data)
 

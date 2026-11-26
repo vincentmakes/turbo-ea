@@ -31,6 +31,7 @@ from sqlalchemy import select
 
 from app.core.permissions import ALL_APP_PERMISSION_KEYS
 from app.models.card_type import CardType
+from app.models.custom_locale import CustomLocale
 from app.models.turbolens import TurboLensVendorAnalysis
 from app.services.permission_service import PermissionService
 from tests.conftest import (
@@ -215,6 +216,9 @@ async def world(db, client):
         )
     )
 
+    # A custom language, so the ``/custom-locales/{code}/…`` reads are swept.
+    db.add(CustomLocale(code="nl", name="Nederlands", english_name="Dutch", enabled=True))
+
     ct = (await db.execute(select(CardType).where(CardType.key == "Secret"))).scalar_one()
     ct.role_permissions = {"restricted": {"inventory.view": False}}
     await db.commit()
@@ -238,6 +242,7 @@ async def world(db, client):
             "type_key": "Application",
             "kind": "adr",
             "image_id": image["id"],
+            "code": "nl",
         },
         "sentinel_id": sentinel["id"],
         "held_id": held["id"],

@@ -108,6 +108,10 @@ vi.mock("./TurboLensAdmin", () => ({ default: () => <div data-testid="tab-turbol
 vi.mock("./MigrationHub", () => ({ default: () => <div data-testid="tab-migration" /> }));
 vi.mock("./AuditLogAdmin", () => ({ default: () => <div data-testid="tab-audit-log" /> }));
 vi.mock("./ResourcesAdmin", () => ({ default: () => <div data-testid="tab-resources" /> }));
+// The custom-languages section has its own tests; here it is a marker.
+vi.mock("./customLocales/CustomLocalesSection", () => ({
+  default: () => <div data-testid="custom-locales-section" />,
+}));
 vi.mock("./NavbarStyleCard", () => ({
   default: ({ onSaved }: { onSaved: (m: string) => void }) => (
     <button type="button" data-testid="navbar-style-card" onClick={() => onSaved("navbar saved")} />
@@ -125,7 +129,7 @@ import { MAX_AUDIT_LOG_RETENTION_DAYS } from "@/hooks/useAuditLogRetentionDays";
 import { mockApi } from "@/test/apiMock";
 import { installCanvas } from "@/test/dom";
 import { hookState } from "@/test/hooks";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 
 import SettingsAdmin from "./SettingsAdmin";
 
@@ -278,6 +282,11 @@ describe("SettingsAdmin — initial load", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByTestId("navbar-style-card")).toBeInTheDocument();
+    // The custom-languages section sits right after the enabled-languages paper.
+    const languages = screen
+      .getByRole("heading", { name: t("settings.locales.title") })
+      .closest(".MuiPaper-root");
+    expect(languages?.nextElementSibling).toBe(screen.getByTestId("custom-locales-section"));
   });
 
   it("shows a spinner until the reads land", () => {
@@ -806,6 +815,23 @@ describe("SettingsAdmin — enabled languages", () => {
     expect(mockApi.callsOf("patch", "/settings/enabled-locales")[0].body).toEqual({ locales: expected });
     // The unknown "xx" the server echoed is dropped before the broadcast.
     expect(h.localesInvalidate).toHaveBeenCalledWith(expected);
+  });
+
+  it("keeps unsaved toggles when the cached list is re-sent unchanged, and follows a real change", async () => {
+    const result = await renderGeneral();
+    const card = () => section(t("settings.locales.title"));
+    await result.user.click(card().getByRole("checkbox", { name: "Deutsch" }));
+    expect(card().getByText(`${SUPPORTED_LOCALES.length - 1}/${SUPPORTED_LOCALES.length}`)).toBeInTheDocument();
+
+    h.enabledLocales = [...SUPPORTED_LOCALES];
+    result.rerender(wrapWithProviders(<SettingsAdmin />, { route: "/admin/settings" }));
+    expect(card().getByText(`${SUPPORTED_LOCALES.length - 1}/${SUPPORTED_LOCALES.length}`)).toBeInTheDocument();
+    expect(card().getByRole("checkbox", { name: "Deutsch" })).not.toBeChecked();
+
+    h.enabledLocales = ["en", "fr"];
+    result.rerender(wrapWithProviders(<SettingsAdmin />, { route: "/admin/settings" }));
+    await waitFor(() => expect(card().getByText(`2/${SUPPORTED_LOCALES.length}`)).toBeInTheDocument());
+    expect(card().getByRole("checkbox", { name: "Français" })).toBeChecked();
   });
 
   it("will not let the last enabled locale be unchecked", async () => {

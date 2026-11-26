@@ -5,7 +5,7 @@ import { stopEventStream } from "@/hooks/useEventStream";
 import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
 import { resetExtensionHost } from "@/lib/extensionHost";
 import { clearReturnPath } from "@/lib/returnPath";
-import i18n from "@/i18n";
+import { setAppLanguage } from "@/i18n/customLocales";
 import type { User } from "@/types";
 
 /**
@@ -64,7 +64,9 @@ export function useAuth() {
       // manifest + dynamic import; failures are captured per-extension).
       void import("@/lib/extensionHost").then((m) => m.loadUiExtensions());
       setUser(u as User);
-      i18n.changeLanguage(u.locale || "en");
+      // A custom language is loaded first; one that cannot be loaded, or no
+      // language at all, falls back to English.
+      void setAppLanguage(u.locale);
       startRefreshTimer();
       return u as User;
     } catch {

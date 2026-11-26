@@ -63,6 +63,8 @@ Slå til, hvilke sprog der er tilgængelige for brugere i deres sprogvælger. Al
 
 Mindst ét sprog skal forblive aktiveret til enhver tid.
 
+Et sprog, der ikke findes på denne liste, kan tilføjes som et [brugerdefineret sprog](custom-languages.md): du opretter det under **Brugerdefinerede sprog** lige nedenfor og udfylder dets oversættelser fra en fil, med din AI-udbyder eller via en AI-assistent.
+
 ### Regnskabsårets start
 
 Vælg den måned, der starter din organisations regnskabsår (januar til december). Denne indstilling påvirker, hvordan **budgetlinjer** i PPM-modulet grupperes efter regnskabsår. For eksempel, hvis regnskabsåret starter i april, tilhører en budgetlinje dateret juni 2026 regnskabsåret 2026-2027. Den afgør også, hvilket regnskabsår [Omkostningsrapporten](../guide/reports.md) viser.

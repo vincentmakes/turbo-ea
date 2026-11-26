@@ -24,6 +24,13 @@ describe("dashboardLabel", () => {
     expect(dashboardLabel(d, "fr-CA")).toBe("Vue d'ensemble");
   });
 
+  it("prefers a custom language's own entry over its base language", () => {
+    const pt = { name: "Overview", translations: { pt: "Visão geral", "pt-BR": "Panorama" } };
+    expect(dashboardLabel(pt, "pt-BR")).toBe("Panorama");
+    expect(dashboardLabel(pt, "pt")).toBe("Visão geral");
+    expect(dashboardLabel({ name: "Overview", translations: { "zh-Hant": "總覽" } }, "zh-Hant")).toBe("總覽");
+  });
+
   it("falls back to the stored name when missing or blank", () => {
     expect(dashboardLabel(d, "es")).toBe("Overview");
     expect(dashboardLabel(d, "de")).toBe("Overview");

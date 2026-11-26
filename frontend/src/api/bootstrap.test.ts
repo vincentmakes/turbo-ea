@@ -270,3 +270,88 @@ describe("primeBootstrap — lifecycle phase help guard", () => {
     expect(invalidate).toHaveBeenCalledWith(help);
   });
 });
+
+describe("primeBootstrap — custom languages", () => {
+  const HEBREW = { code: "he", name: "עברית", rtl: true, hash: "h1" };
+
+  it("primes the enabled custom languages, dropping a built-in code", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({
+      ...BASE,
+      custom_locales: [HEBREW, { code: "de", name: "Deutsch", rtl: false, hash: "x" }],
+    });
+    await boot.primeBootstrap();
+    const { renderHook } = await import("@testing-library/react");
+    const { useCustomLocales } = await import("@/hooks/useCustomLocales");
+    const { result } = renderHook(() => useCustomLocales());
+    expect(result.current.customLocales).toEqual([HEBREW]);
+    expect(api.get).toHaveBeenCalledTimes(1);
+    const { isRtlLocale } = await import("@/i18n");
+    expect(isRtlLocale("he")).toBe(true);
+  });
+
+  it("primes an empty list when the field is absent, so the hook does not read again", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({ ...BASE });
+    await boot.primeBootstrap();
+    const { renderHook } = await import("@testing-library/react");
+    const { useCustomLocales } = await import("@/hooks/useCustomLocales");
+    const { result } = renderHook(() => useCustomLocales());
+    expect(result.current.customLocales).toEqual([]);
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("refreshBootstrap", () => {
+  it("reads bootstrap again after it was primed and re-primes the caches", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({ ...BASE, currency: "EUR" });
+    await boot.primeBootstrap();
+    await boot.primeBootstrap();
+    expect(api.get).toHaveBeenCalledTimes(1);
+
+    vi.mocked(api.get).mockResolvedValueOnce({
+      ...BASE,
+      currency: "CHF",
+      custom_locales: [{ code: "th", name: "ไทย", rtl: false, hash: "t" }],
+    });
+    await boot.refreshBootstrap();
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(api.get).toHaveBeenLastCalledWith("/settings/bootstrap");
+
+    const { renderHook } = await import("@testing-library/react");
+    const { useCustomLocales } = await import("@/hooks/useCustomLocales");
+    expect(renderHook(() => useCustomLocales()).result.current.customLocales).toEqual([
+      { code: "th", name: "ไทย", rtl: false, hash: "t" },
+    ]);
+    // Primed again: a plain prime is a no-op once more.
+    await boot.primeBootstrap();
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("waits for a read in flight, then reads again so the newer values win", async () => {
+    const { boot } = await fresh();
+    let release!: (v: unknown) => void;
+    vi.mocked(api.get).mockReturnValueOnce(
+      new Promise<unknown>((r) => {
+        release = r;
+      }) as Promise<never>,
+    );
+    const first = boot.primeBootstrap();
+    vi.mocked(api.get).mockResolvedValueOnce({
+      ...BASE,
+      custom_locales: [{ code: "hi", name: "हिन्दी", rtl: false, hash: "new" }],
+    });
+    const refreshed = boot.refreshBootstrap();
+    expect(api.get).toHaveBeenCalledTimes(1);
+    release({ ...BASE, custom_locales: [{ code: "hi", name: "old", rtl: false, hash: "old" }] });
+    await first;
+    await refreshed;
+    expect(api.get).toHaveBeenCalledTimes(2);
+    const { renderHook } = await import("@testing-library/react");
+    const { useCustomLocales } = await import("@/hooks/useCustomLocales");
+    expect(renderHook(() => useCustomLocales()).result.current.customLocales).toEqual([
+      { code: "hi", name: "हिन्दी", rtl: false, hash: "new" },
+    ]);
+  });
+});

@@ -70,6 +70,7 @@ Each of these loads automatically when you touch its files; read it first when y
 - BPM → `.claude/rules/bpm.md` · PPM → `.claude/rules/ppm.md` · TurboLens + compliance → `.claude/rules/turbolens-grc.md` · Risk Register → `.claude/rules/risk-register.md` · AI suggestions + ServiceNow → `.claude/rules/ai-and-integrations.md`
 - Helm, managed containers, Terraform, Docker images, signing → `.claude/rules/deploy.md`
 - Homepage dashboards: widget registry parity, no ids in widget config, trends → `.claude/rules/dashboards.md`
+- Custom languages (admin-added UI locales, language packs, AI translation) → `.claude/rules/custom-locales.md`
 
 ### Frontend Conventions
 - Route-level pages use `lazy()` imports in `App.tsx` for code splitting.

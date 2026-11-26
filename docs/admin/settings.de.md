@@ -63,6 +63,8 @@ Schalten Sie um, welche Sprachen den Benutzern in ihrer Sprachauswahl zur Verfü
 
 Mindestens eine Sprache muss jederzeit aktiviert bleiben.
 
+Eine Sprache, die nicht in dieser Liste steht, kann als [benutzerdefinierte Sprache](custom-languages.md) hinzugefügt werden: Sie legen sie weiter unten unter **Benutzerdefinierte Sprachen** an und befüllen ihre Übersetzungen aus einer Datei, mit Ihrem KI-Anbieter oder über einen KI-Assistenten.
+
 ### Beginn des Geschäftsjahres
 
 Wählen Sie den Monat, in dem das Geschäftsjahr Ihrer Organisation beginnt (Januar bis Dezember). Diese Einstellung beeinflusst, wie **Budgetzeilen** im PPM-Modul nach Geschäftsjahr gruppiert werden. Wenn das Geschäftsjahr beispielsweise im April beginnt, gehört eine Budgetzeile vom Juni 2026 zum GJ 2026–2027. Sie bestimmt außerdem, welches Geschäftsjahr der [Kostenbericht](../guide/reports.md) zeigt.

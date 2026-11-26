@@ -101,6 +101,10 @@ MCP_MAX_RELATIONS_PER_CALL: int = int(os.environ.get("MCP_MAX_RELATIONS_PER_CALL
 # the cap is lower than the card cap — 50 images is already several
 # megabytes of base64 in the agent's context.
 MCP_MAX_LOGOS_PER_CALL: int = int(os.environ.get("MCP_MAX_LOGOS_PER_CALL", "50"))
+# Strings ``submit_translations`` sends to a custom language in one call.
+# Each is validated per key by the backend; the cap keeps a preview short
+# enough for a person to scan.
+MCP_MAX_TRANSLATIONS_PER_CALL: int = int(os.environ.get("MCP_MAX_TRANSLATIONS_PER_CALL", "200"))
 
 # Kill switch — set to ``false`` to disable all MCP write tools without a
 # code redeploy. Read tools keep working.

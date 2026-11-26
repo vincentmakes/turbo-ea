@@ -63,6 +63,8 @@ Active o desactive los idiomas disponibles para los usuarios en su selector de i
 
 Al menos un idioma debe permanecer habilitado en todo momento.
 
+Un idioma que no esté en esta lista puede añadirse como [idioma personalizado](custom-languages.md): lo crea en **Idiomas personalizados**, justo debajo, y rellena sus traducciones desde un archivo, con su proveedor de IA o mediante un asistente de IA.
+
 ### Inicio del Año Fiscal
 
 Seleccione el mes en que comienza el año fiscal de su organización (enero a diciembre). Esta configuración afecta cómo se agrupan las **líneas de presupuesto** en el módulo PPM por año fiscal. Por ejemplo, si el año fiscal comienza en abril, una línea de presupuesto de junio de 2026 pertenece al AF 2026–2027. También determina qué año fiscal muestra el [Informe de Costos](../guide/reports.md).

@@ -62,6 +62,7 @@ PURE_ADMIN_MODULES = (
     "web_portals.py",
     "principles_catalogue.py",
     "dashboards.py",
+    "custom_locales.py",
 )
 
 # Mostly content routes; only these handlers are administrative.
@@ -259,6 +260,9 @@ KNOWN_BULK_EXPORTS = frozenset(
         # Records ``access.audit_log.exported``: exporting the log is itself
         # on the log.
         "audit_log.py::export_audit_log",
+        # Records ``access.export.language_pack``: a custom language's pack
+        # carries the instance's own database labels (card types, fields).
+        "custom_locales.py::export_custom_locale",
     }
 )
 
@@ -429,7 +433,7 @@ def test_export_records_name_the_access_category():
         module = entry.split("::")[0]
         source = (_V1 / module).read_text(encoding="utf-8")
         assert re.search(
-            r'action="access\.(export\.(cards|workspace|migration)|audit_log\.exported)"',
+            r'action="access\.(export\.(cards|workspace|migration|language_pack)|audit_log\.exported)"',
             source,
         ), module
 

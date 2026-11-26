@@ -41,8 +41,10 @@ import { useTurboLensReady } from "@/hooks/useTurboLensReady";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useAppTitle } from "@/hooks/useAppTitle";
 import { useNavbarStyle } from "@/hooks/useNavbarStyle";
-import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
+import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
+import { localeLabel, setAppLanguage } from "@/i18n/customLocales";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
+import { useCustomLocales } from "@/hooks/useCustomLocales";
 import SearchDialog from "@/components/SearchDialog";
 import {
   EXTENSION_NAV_GROUPS,
@@ -91,6 +93,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const { sponsorButtonEnabled } = useSponsorButtonEnabled();
   const { turboLensReady } = useTurboLensReady();
   const { enabledLocales } = useEnabledLocales();
+  const { customLocales } = useCustomLocales();
   const { mode, toggleMode } = useThemeMode();
   const appTitle = useAppTitle();
   const { bg: navBg, fg: navFg } = useNavbarStyle();
@@ -416,17 +419,17 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ open_todos: 0, pending_surveys: 0 });
 
   const handleLanguageChange = useCallback(
-    async (locale: SupportedLocale) => {
+    async (locale: string) => {
       setLangMenu(null);
       setUserMenu(null);
-      i18n.changeLanguage(locale);
+      void setAppLanguage(locale);
       try {
         await api.patch(`/users/${user.id}`, { locale });
       } catch {
         // best-effort persistence
       }
     },
-    [i18n, user.id],
+    [user.id],
   );
 
   const fetchBadgeCounts = useCallback(async () => {
@@ -981,7 +984,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </ListItemIcon>
               <ListItemText>{t("userMenu.language")}</ListItemText>
               <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                {LOCALE_LABELS[(i18n.language as SupportedLocale)] || "English"}
+                {localeLabel(i18n.language, LOCALE_LABELS.en)}
               </Typography>
             </MenuItem>
             <MenuItem
@@ -1167,7 +1170,16 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             selected={i18n.language === locale}
             onClick={() => handleLanguageChange(locale)}
           >
-            <ListItemText>{LOCALE_LABELS[locale]}</ListItemText>
+            <ListItemText>{localeLabel(locale)}</ListItemText>
+          </MenuItem>
+        ))}
+        {customLocales.map(({ code }) => (
+          <MenuItem
+            key={code}
+            selected={i18n.language === code}
+            onClick={() => handleLanguageChange(code)}
+          >
+            <ListItemText>{localeLabel(code)}</ListItemText>
           </MenuItem>
         ))}
       </Menu>

@@ -49,6 +49,7 @@ import {
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { useNavbarStyle } from "@/hooks/useNavbarStyle";
 import NavbarStyleCard from "./NavbarStyleCard";
+import CustomLocalesSection from "./customLocales/CustomLocalesSection";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
@@ -338,7 +339,14 @@ function GeneralTab() {
   const [serviceAccountJson, setServiceAccountJson] = useState("");
   const [configured, setConfigured] = useState(false);
 
+  // Follow the cached list only when its content changes: a bootstrap
+  // refresh re-emits the same list as a new array, which must not wipe
+  // toggles the admin has not saved yet.
+  const lastCachedLocales = useRef<string | null>(null);
   useEffect(() => {
+    const key = JSON.stringify(cachedLocales);
+    if (key === lastCachedLocales.current) return;
+    lastCachedLocales.current = key;
     setEnabledLocales(cachedLocales);
   }, [cachedLocales]);
 
@@ -1366,6 +1374,8 @@ function GeneralTab() {
           {savingLocales ? t("common:labels.loading") : t("common:actions.save")}
         </Button>
       </Paper>
+
+      <CustomLocalesSection />
 
       {/* File Uploads Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>

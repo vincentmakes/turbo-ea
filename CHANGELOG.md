@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.214.0] - 2026-11-25
+
+### Added
+- Custom languages: administrators can add a language that does not ship with Turbo EA under **Settings → General** — in any script, right-to-left included — translate it, review and correct its strings, and offer it to users once it is ready.
+- A custom language also translates the names of card types, fields and their options, relations, stakeholder roles and the other labels stored in the metamodel.
+- Custom languages can be exported as a language-pack file (new and changed strings, all strings, the current translations, or a share pack without anything specific to your installation) and imported back after translating it anywhere; each string is checked and a report lists what was applied or rejected.
+- **Translate with AI** fills a custom language with the configured AI provider — only the new and changed strings by default, keeping manual corrections — so after an upgrade only what changed needs translating.
+- MCP: `list_custom_languages`, `get_untranslated_strings` and `submit_translations` let an AI assistant translate a custom language (cap `MCP_MAX_TRANSLATIONS_PER_CALL`, default 200).
+
 ## [2.213.0] - 2026-11-24
 
 ### Added

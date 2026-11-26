@@ -52,6 +52,7 @@ and remove, since contributed fields carry weights.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from collections.abc import Set as AbstractSet
 from typing import Any
 
@@ -83,6 +84,74 @@ _ALLOWED_FIELD_PROPS = (
     "badge",
     "badgeTranslations",
 )
+
+
+#: A field's locale maps (``{locale: text}``).
+_FIELD_LOCALE_MAPS = ("translations", "helpTranslations", "badgeTranslations")
+
+
+def merge_locales(stored: Any, manifest: Any, keep: AbstractSet[str] = frozenset()) -> Any:
+    """A locale map re-synced from a manifest: the manifest's map, plus the
+    stored text of every locale in ``keep`` (the instance's custom-language
+    codes) the manifest does not carry. An admin's custom language is written
+    into these maps and a manifest that does not know it must not wipe it; a
+    built-in locale the manifest dropped is dropped. ``None`` when there is
+    nothing to keep and the manifest has no map."""
+    kept = (
+        {loc: text for loc, text in stored.items() if loc in keep}
+        if isinstance(stored, Mapping)
+        else {}
+    )
+    if not kept:
+        return manifest
+    if not isinstance(manifest, Mapping):
+        return kept
+    return {**kept, **manifest}
+
+
+def merge_group_locales(stored: Any, manifest: Any, keep: AbstractSet[str] = frozenset()) -> Any:
+    """``groupTranslations`` (``{group: {locale: text}}``) re-synced per group:
+    only the groups the manifest declares, each merged by :func:`merge_locales`."""
+    if not isinstance(manifest, Mapping):
+        return manifest
+    old = stored if isinstance(stored, Mapping) else {}
+    return {group: merge_locales(old.get(group), texts, keep) for group, texts in manifest.items()}
+
+
+def keep_stored_locales(
+    stored: Any, fresh: dict, keep: AbstractSet[str], maps: tuple[str, ...]
+) -> dict:
+    """``fresh`` (a manifest definition) with the custom-language locales
+    (``keep``) that ``stored`` (the definition on the instance) carries in the
+    locale maps named by ``maps`` (``_FIELD_LOCALE_MAPS`` for a field, just
+    ``translations`` for an option or a subtype) and ``fresh`` does not;
+    option labels are merged per option key the same way."""
+    if not isinstance(stored, Mapping) or not keep:
+        return fresh
+    out = dict(fresh)
+    for prop in maps:
+        merged = merge_locales(stored.get(prop), fresh.get(prop), keep)
+        if merged is not None:
+            out[prop] = merged
+    old_options = stored.get("options")
+    new_options = out.get("options")
+    if isinstance(old_options, list) and isinstance(new_options, list):
+        by_key = {o.get("key"): o for o in old_options if isinstance(o, Mapping)}
+        out["options"] = [
+            keep_stored_locales(by_key.get(o.get("key")), o, keep, ("translations",))
+            if isinstance(o, dict)
+            else o
+            for o in new_options
+        ]
+    return out
+
+
+async def custom_locale_codes(db: AsyncSession) -> frozenset[str]:
+    """The codes of the instance's custom languages (``custom_locales``): the
+    locales a manifest re-sync must keep."""
+    from app.models.custom_locale import CustomLocale
+
+    return frozenset((await db.execute(select(CustomLocale.code))).scalars())
 
 
 def contributions_from_manifest(manifest: dict[str, Any] | None) -> list[dict]:
@@ -207,7 +276,12 @@ def _is_own_field(field: Any, ext_key: str, keys: AbstractSet[str]) -> bool:
 
 
 def _resync_in_place(
-    schema: list, ext_key: str, fields: list[dict], *, skip: dict | None
+    schema: list,
+    ext_key: str,
+    fields: list[dict],
+    *,
+    skip: dict | None,
+    keep: AbstractSet[str] = frozenset(),
 ) -> set[str]:
     """Replace, where it stands, every field of ``fields`` this extension
     already has in a section other than ``skip`` (its own section, if found).
@@ -233,7 +307,7 @@ def _resync_in_place(
         for f in current:
             if _is_own_field(f, ext_key, by_key.keys()):
                 found.add(f["key"])
-                rebuilt.append(_resynced_at(f, by_key[f["key"]]))
+                rebuilt.append(_resynced_at(f, by_key[f["key"]], keep))
             else:
                 rebuilt.append(f)
         section["fields"] = rebuilt
@@ -245,13 +319,13 @@ def _resync_in_place(
 _LAYOUT_PROPS = ("column", "group")
 
 
-def _resynced_at(current: dict, fresh: dict) -> dict:
+def _resynced_at(current: dict, fresh: dict, keep: AbstractSet[str] = frozenset()) -> dict:
     """``fresh`` (the manifest definition) for a field that stands where
     ``current`` stands: its layout props are ``current``'s, never the
     manifest's — the manifest's column and group name its own section."""
     out = {k: v for k, v in fresh.items() if k not in _LAYOUT_PROPS}
     out.update({k: current[k] for k in _LAYOUT_PROPS if k in current})
-    return out
+    return keep_stored_locales(current, out, keep, _FIELD_LOCALE_MAPS)
 
 
 def _manifest_field_keys(contributions: list, type_key: str) -> set[str]:
@@ -311,6 +385,7 @@ async def apply_field_contributions(
     contributions = contributions_from_manifest(manifest)
     if not contributions:
         return 0
+    keep = await custom_locale_codes(db)
 
     applied = 0
     touched_types: set[str] = set()
@@ -379,7 +454,7 @@ async def apply_field_contributions(
 
         # A contributed field an admin moved into another section stays there:
         # re-synced from the manifest in place, never added a second time.
-        elsewhere = _resync_in_place(schema, ext_key, fields, skip=target)
+        elsewhere = _resync_in_place(schema, ext_key, fields, skip=target, keep=keep)
         own_fields = [f for f in fields if f["key"] not in elsewhere]
         touched_types.add(type_key)
         applied += len(fields)
@@ -397,9 +472,13 @@ async def apply_field_contributions(
         if "columns" in contrib:
             target["columns"] = contrib["columns"]
         if "translations" in contrib:
-            target["translations"] = contrib["translations"]
+            target["translations"] = merge_locales(
+                target.get("translations"), contrib["translations"], keep
+            )
         if "groupTranslations" in contrib:
-            target["groupTranslations"] = contrib["groupTranslations"]
+            target["groupTranslations"] = merge_group_locales(
+                target.get("groupTranslations"), contrib["groupTranslations"], keep
+            )
         # Replace our fields; keep admin-added (unstamped) fields in place, and
         # a sibling contribution's field moved here (re-synced by that
         # contribution, before or after this one). Drop only this
@@ -409,6 +488,15 @@ async def apply_field_contributions(
             f
             for f in target.get("fields", [])
             if isinstance(f, dict) and (f.get("ext") != ext_key or f.get("key") in sibling_keys)
+        ]
+        stored_own = {
+            f.get("key"): f
+            for f in target.get("fields", [])
+            if isinstance(f, dict) and f.get("ext") == ext_key
+        }
+        own_fields = [
+            keep_stored_locales(stored_own.get(f["key"]), f, keep, _FIELD_LOCALE_MAPS)
+            for f in own_fields
         ]
         target["fields"] = kept + own_fields
 
@@ -462,7 +550,9 @@ def subtype_contributions_from_manifest(manifest: dict[str, Any] | None) -> list
     return rows if isinstance(rows, list) else []
 
 
-def _merge_subtypes(existing: list, stamped: list[dict], ext_key: str) -> list:
+def _merge_subtypes(
+    existing: list, stamped: list[dict], ext_key: str, keep: AbstractSet[str] = frozenset()
+) -> list:
     """``existing`` with this extension's subtypes re-synced from ``stamped``.
 
     A stamped subtype the manifest still declares keeps its place and every
@@ -483,7 +573,7 @@ def _merge_subtypes(existing: list, stamped: list[dict], ext_key: str) -> list:
         if fresh is None or fresh["key"] in placed:
             continue
         admin_props = {k: v for k, v in s.items() if k not in _ALLOWED_SUBTYPE_PROPS}
-        out.append({**fresh, **admin_props})
+        out.append(keep_stored_locales(s, {**fresh, **admin_props}, keep, ("translations",)))
         placed.add(fresh["key"])
     out.extend(s for s in stamped if s["key"] not in placed)
     return out
@@ -502,6 +592,7 @@ async def apply_subtype_contributions(
     contributed. The caller commits.
     """
     contributions = subtype_contributions_from_manifest(manifest)
+    keep = await custom_locale_codes(db) if contributions else frozenset()
     applied = 0
     touched_types: set[str] = set()
     for contrib in contributions:
@@ -544,7 +635,7 @@ async def apply_subtype_contributions(
             out = {k: v for k, v in s.items() if k in _ALLOWED_SUBTYPE_PROPS}
             out["ext"] = ext_key
             stamped.append(out)
-        merged = _merge_subtypes(existing, stamped, ext_key)
+        merged = _merge_subtypes(existing, stamped, ext_key, keep)
         if not stamped and merged == existing:
             continue
         touched_types.add(type_key)

@@ -11,6 +11,7 @@
  * carries identity across several categories, a hover tooltip on every form.
  */
 import type { EChartsCoreOption } from "echarts/core";
+import { escapeHtml } from "@/lib/escapeHtml";
 import type {
   DashboardCellRow,
   DashboardChartKind,
@@ -557,7 +558,7 @@ function buildHeatmap(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCore
       trigger: "item",
       formatter: (p: { value?: [number, number, number] }) => {
         const [xi, yi, v] = p.value ?? [0, 0, 0];
-        return `${ctx.labels(xs[xi] ?? "")} · ${labelY(ys[yi] ?? "")}: ${fmt(ctx)(v)}`;
+        return `${escapeHtml(ctx.labels(xs[xi] ?? ""))} · ${escapeHtml(labelY(ys[yi] ?? ""))}: ${fmt(ctx)(v)}`;
       },
     }),
     xAxis: {
@@ -696,6 +697,10 @@ function buildSankey(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreO
     }),
   ];
   const arrow = ctx.isRtl ? "←" : "→";
+  // A node's name for the tooltip, escaped: ECharts renders the string as HTML.
+  // Stryker disable next-line StringLiteral: every key in `label` starts "s:" / "t:", so a missing node name misses it whatever string stands in
+  const keyOf = (name: string | undefined) => name ?? "";
+  const nameOf = (name: string | undefined) => escapeHtml(label.get(keyOf(name)) ?? "");
   return {
     ...base(ctx),
     tooltip: tooltip(ctx, {
@@ -703,9 +708,9 @@ function buildSankey(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreO
       formatter: (p: { dataType?: string; name?: string; value?: number; data?: { source?: string; target?: string } }) => {
         const v = fmt(ctx)(Number(p.value ?? 0));
         if (p.dataType === "edge" && p.data) {
-          return `${label.get(p.data.source ?? "") ?? ""} ${arrow} ${label.get(p.data.target ?? "") ?? ""}: ${v}`;
+          return `${nameOf(p.data.source)} ${arrow} ${nameOf(p.data.target)}: ${v}`;
         }
-        return `${label.get(p.name ?? "") ?? ""}: ${v}`;
+        return `${nameOf(p.name)}: ${v}`;
       },
     }),
     series: [

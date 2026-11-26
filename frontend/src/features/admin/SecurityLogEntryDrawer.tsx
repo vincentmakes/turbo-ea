@@ -38,7 +38,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { LOCALE_LABELS, type SupportedLocale } from "@/i18n";
+import { localeLabel } from "@/i18n/customLocales";
 import { originColor } from "./AuditLogBatchDrawer";
 import {
   actionLabelKey,
@@ -129,7 +129,7 @@ export function useValueFormatter(
         case "permission":
           return permissions[value as string] ?? (value as string);
         case "locale":
-          return LOCALE_LABELS[value as SupportedLocale] ?? (value as string);
+          return localeLabel(value as string);
         case "list":
           return (value as unknown[]).map((v) => text(v, field)).join(", ");
         case "code":

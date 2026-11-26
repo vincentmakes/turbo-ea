@@ -1368,3 +1368,195 @@ class TestRemoveWithADescriptionSection:
             {"section": "Ops", "fields": []},
         ]
         assert ct.section_config == {"__order": ["description", "custom:0", "relations"]}
+
+
+# ---------------------------------------------------------------------------
+# A re-apply keeps the locales the manifest does not carry (custom languages)
+# ---------------------------------------------------------------------------
+
+from app.services.extensions.field_contributions import (  # noqa: E402
+    keep_stored_locales,
+    merge_group_locales,
+    merge_locales,
+)
+
+KEEP = frozenset({"nl"})
+FIELD_MAPS = ("translations", "helpTranslations", "badgeTranslations")
+
+
+class TestLocaleMerge:
+    def test_merge_locales_keeps_custom_codes_only(self):
+        stored = {"nl": "a", "de": "old", "fr": "weg"}
+        assert merge_locales(stored, {"de": "new"}, KEEP) == {"nl": "a", "de": "new"}
+        assert merge_locales(stored, {"nl": "manifest"}, KEEP) == {"nl": "manifest"}
+        assert merge_locales({"nl": "a"}, None, KEEP) == {"nl": "a"}
+        assert merge_locales({"de": "a"}, None, KEEP) is None
+        assert merge_locales(stored, {"de": "new"}) == {"de": "new"}
+        assert merge_locales({}, {"de": "x"}, KEEP) == {"de": "x"}
+        assert merge_locales(None, None, KEEP) is None
+
+    def test_merge_group_locales_follows_the_manifest_groups(self):
+        assert merge_group_locales(
+            {"G": {"nl": "groep", "de": "alt"}, "Old": {"nl": "oud"}},
+            {"G": {"de": "Gruppe"}, "H": {"de": "Hah"}},
+            KEEP,
+        ) == {"G": {"nl": "groep", "de": "Gruppe"}, "H": {"de": "Hah"}}
+        assert merge_group_locales(None, {"G": {"de": "x"}}, KEEP) == {"G": {"de": "x"}}
+        assert merge_group_locales({"G": {"nl": "x"}}, None, KEEP) is None
+
+    def test_keep_stored_locales(self):
+        stored = {
+            "key": "f",
+            "translations": {"nl": "veld", "de": "alt"},
+            "helpTranslations": {"nl": "hulp", "fr": "aide"},
+            "options": [{"key": "a", "translations": {"nl": "A-nl", "de": "A-alt"}}, "junk"],
+        }
+        fresh = {
+            "key": "f",
+            "translations": {"de": "Feld"},
+            "options": [{"key": "a", "label": "A"}, {"key": "b", "label": "B"}, "x"],
+        }
+        assert keep_stored_locales(stored, fresh, KEEP, FIELD_MAPS) == {
+            "key": "f",
+            "translations": {"nl": "veld", "de": "Feld"},
+            "helpTranslations": {"nl": "hulp"},
+            "options": [
+                {"key": "a", "label": "A", "translations": {"nl": "A-nl"}},
+                {"key": "b", "label": "B"},
+                "x",
+            ],
+        }
+        assert keep_stored_locales(None, fresh, KEEP, FIELD_MAPS) is fresh
+        assert keep_stored_locales(stored, fresh, frozenset(), FIELD_MAPS) is fresh
+
+
+class TestReapplyKeepsCustomLocales:
+    @pytest.fixture(autouse=True)
+    async def dutch(self, db):
+        from app.models.custom_locale import CustomLocale
+
+        db.add(CustomLocale(code="nl", name="Nederlands", english_name="Dutch"))
+        await db.flush()
+
+    def _contrib(self, de: str, *, fr: bool = True, groups=("Scores",)):
+        texts = {"de": de, **({"fr": f"fr-{de}"} if fr else {})}
+        contrib = contribution(
+            fields=[
+                {
+                    "key": "esgRating",
+                    "label": "ESG Rating",
+                    "type": "single_select",
+                    "group": "Scores",
+                    "help": "How green",
+                    "translations": dict(texts),
+                    "options": [{"key": "a", "label": "A", "translations": {"de": "A-de"}}],
+                }
+            ]
+        )
+        contrib["translations"] = dict(texts)
+        contrib["groupTranslations"] = {g: dict(texts) for g in groups}
+        return contrib
+
+    async def test_a_manifest_update_keeps_a_custom_code(self, db):
+        ct = await create_card_type(db, key="Application", label="Application")
+        await apply_field_contributions(db, EXT, manifest_with([self._contrib("v1")]))
+        schema = json.loads(json.dumps(ct.fields_schema))
+        sec = next(s for s in schema if s.get("ext") == EXT)
+        sec["translations"]["nl"] = "ESG NL"
+        sec["groupTranslations"]["Scores"]["nl"] = "Scores NL"
+        field = sec["fields"][0]
+        field["translations"]["nl"] = "Rating NL"
+        field["helpTranslations"] = {"nl": "Hoe groen", "it": "Quanto verde"}
+        field["options"][0]["translations"]["nl"] = "A NL"
+        ct.fields_schema = schema
+        await db.flush()
+
+        await apply_field_contributions(db, EXT, manifest_with([self._contrib("v2", fr=False)]))
+        sec = section_named(ct, "ESG Metrics")
+        assert sec["translations"] == {"de": "v2", "nl": "ESG NL"}
+        assert sec["groupTranslations"] == {"Scores": {"de": "v2", "nl": "Scores NL"}}
+        field = sec["fields"][0]
+        assert field["translations"] == {"de": "v2", "nl": "Rating NL"}
+        assert field["helpTranslations"] == {"nl": "Hoe groen"}
+        assert field["options"][0]["translations"] == {"de": "A-de", "nl": "A NL"}
+
+    async def test_a_group_the_manifest_drops_is_gone(self, db):
+        ct = await create_card_type(db, key="Application", label="Application")
+        await apply_field_contributions(
+            db, EXT, manifest_with([self._contrib("v1", groups=("Scores", "Old"))])
+        )
+        await apply_field_contributions(db, EXT, manifest_with([self._contrib("v1")]))
+        assert set(section_named(ct, "ESG Metrics")["groupTranslations"]) == {"Scores"}
+
+    async def test_a_field_moved_elsewhere_keeps_a_custom_code(self, db):
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[{"section": "Admin's", "fields": []}],
+        )
+        await apply_field_contributions(db, EXT, manifest_with([self._contrib("v1")]))
+        schema = json.loads(json.dumps(ct.fields_schema))
+        own = next(s for s in schema if s.get("ext") == EXT)
+        moved = own["fields"].pop(0)
+        moved["translations"]["nl"] = "Rating NL"
+        schema[0]["fields"].append(moved)
+        ct.fields_schema = schema
+        await db.flush()
+
+        await apply_field_contributions(db, EXT, manifest_with([self._contrib("v2", fr=False)]))
+        field = section_named(ct, "Admin's")["fields"][0]
+        assert field["key"] == "esgRating"
+        assert field["translations"] == {"de": "v2", "nl": "Rating NL"}
+        assert field["group"] == "Scores"
+
+    async def test_a_subtype_keeps_a_custom_code(self, db):
+        ct = await create_card_type(db, key="Organization", label="Organization")
+        await apply_subtype_contributions(db, EXT, subtype_manifest())
+        subtypes = json.loads(json.dumps(ct.subtypes))
+        subtypes[0]["translations"]["nl"] = "Filiaal"
+        subtypes[0]["translations"]["fr"] = "Succursale"
+        ct.subtypes = subtypes
+        await db.flush()
+        updated = subtype_manifest(
+            subtypes=[{"key": "branch", "label": "Branch", "translations": {"de": "Filiale"}}]
+        )
+        await apply_subtype_contributions(db, EXT, updated)
+        assert ct.subtypes[0]["translations"] == {"de": "Filiale", "nl": "Filiaal"}
+
+    async def test_custom_locale_codes(self, db):
+        from app.services.extensions.field_contributions import custom_locale_codes
+
+        assert await custom_locale_codes(db) == frozenset({"nl"})
+
+
+class TestLocaleMergeEdges:
+    def test_stored_options_without_manifest_options_add_none(self):
+        stored = {"key": "f", "options": [{"key": "a", "translations": {"nl": "A"}}]}
+        assert keep_stored_locales(stored, {"key": "f"}, KEEP, FIELD_MAPS) == {"key": "f"}
+
+    async def test_a_stray_entry_in_the_section_is_dropped(self, db):
+        from app.models.custom_locale import CustomLocale
+
+        db.add(CustomLocale(code="nl", name="Nederlands", english_name="Dutch"))
+        ct = await create_card_type(db, key="Application", label="Application")
+        await apply_field_contributions(db, EXT, manifest_with([contribution()]))
+        schema = json.loads(json.dumps(ct.fields_schema))
+        sec = next(s for s in schema if s.get("ext") == EXT)
+        sec["fields"].insert(0, "junk")
+        ct.fields_schema = schema
+        await db.flush()
+        await apply_field_contributions(db, EXT, manifest_with([contribution()]))
+        sec = section_named(ct, "ESG Metrics")
+        # A non-object entry is not a field: the re-sync drops it, and reads
+        # no key off it on the way.
+        assert [f["key"] for f in sec["fields"]] == ["esgRating", "esgAudited"]
+
+    async def test_no_subtype_contribution_reads_no_codes(self, db, monkeypatch):
+        from app.services.extensions import field_contributions as fc
+
+        async def refuse(_db):
+            raise AssertionError("custom locale codes were read")
+
+        monkeypatch.setattr(fc, "custom_locale_codes", refuse)
+        assert await apply_subtype_contributions(db, EXT, {"metamodel": {}}) == 0

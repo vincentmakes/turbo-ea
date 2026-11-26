@@ -23,6 +23,8 @@ from typing import Any
 
 import httpx
 
+from app.config import settings as app_config
+from app.core.encryption import decrypt_value
 from app.services import azure_openai, bedrock, openai_chat
 
 logger = logging.getLogger("turboea.ai")
@@ -31,6 +33,39 @@ logger = logging.getLogger("turboea.ai")
 # truth — referenced by ai_service.py, settings.py, ai_suggest.py, and AiAdmin.tsx.
 # Update here when bumping the platform-wide default.
 DEFAULT_AZURE_API_VERSION = "2025-01-01"
+
+#: Provider types that cannot be called without an API key.
+KEYED_PROVIDERS = ("openai", "azure_openai", "anthropic")
+
+
+def ai_config_from_settings(general: dict) -> dict:
+    """The AI provider configuration from ``general_settings`` (Admin →
+    Settings → AI), with the env-var fallback for URL and model and the API
+    key decrypted. Shared by the suggestion routes and the custom-language
+    translation job."""
+    ai = general.get("ai", {})
+    return {
+        "enabled": ai.get("enabled", False),
+        "provider_type": ai.get("providerType", "ollama"),
+        "provider_url": ai.get("providerUrl") or app_config.AI_PROVIDER_URL,
+        "api_key": decrypt_value(ai.get("apiKey") or ""),
+        "model": ai.get("model") or app_config.AI_MODEL,
+        "api_version": ai.get("apiVersion", DEFAULT_AZURE_API_VERSION),
+        "search_provider": "duckduckgo",
+        "search_url": "",
+        "enabled_types": ai.get("enabledTypes", []),
+        "portfolio_insights_enabled": ai.get("portfolioInsightsEnabled", False),
+    }
+
+
+def provider_usable(ai_cfg: dict) -> bool:
+    """Whether the provider can be called: a URL and a model, and an API key
+    for a provider type that needs one. The suggestion on/off switch is not
+    part of this — it gates the card suggestions, not every AI caller."""
+    if not ai_cfg.get("provider_url") or not ai_cfg.get("model"):
+        return False
+    return not (ai_cfg.get("provider_type") in KEYED_PROVIDERS and not ai_cfg.get("api_key"))
+
 
 # ---------------------------------------------------------------------------
 # Module-level HTTP clients (reused across requests)
@@ -441,14 +476,17 @@ def build_llm_prompt(
     fields_schema: list[dict] | None = None,
     locale: str = "en",
     hidden_fields: Collection[str] = (),
+    language: str | None = None,
 ) -> list[dict[str, str]]:
     """Build the chat messages for a description-only LLM prompt.
 
     ``locale`` picks the language the description is written in, through
     ``language_for_locale``: the text itself never reaches the prompt.
+    ``language`` is a name already resolved from the database — a custom
+    locale's stored ``english_name`` — and wins over ``locale``.
     """
     item_desc = _get_llm_item_description(type_key, type_label)
-    language = language_for_locale(locale)
+    language = language or language_for_locale(locale)
 
     snippets_text = ""
     for i, sr in enumerate(search_results, 1):
@@ -1356,11 +1394,13 @@ async def suggest_metadata(
     fields_schema: list[dict] | None = None,
     locale: str = "en",
     hidden_fields: Collection[str] = (),
+    language: str | None = None,
 ) -> dict[str, Any]:
     """Full pipeline: web search → LLM description → validated suggestion.
 
     ``locale`` is the UI locale the description is written for;
-    ``hidden_fields`` the keys the card's subtype hides.
+    ``hidden_fields`` the keys the card's subtype hides; ``language`` a
+    custom locale's stored English name (see ``build_llm_prompt``).
     """
     # Step 1: Web search (always DuckDuckGo — commercial APIs have no web access)
     search_suffix = _get_search_suffix(type_key, subtype)
@@ -1382,6 +1422,7 @@ async def suggest_metadata(
         fields_schema=fields_schema,
         locale=locale,
         hidden_fields=hidden_fields,
+        language=language,
     )
     logger.info("[ai] Calling LLM")
     raw_response = await call_llm(

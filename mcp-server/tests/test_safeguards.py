@@ -715,6 +715,7 @@ _BATCH_TOOLS_EXPECTED = [
     "set_card_tags",
     "sign_adr",
     "submit_process_flow",
+    "submit_translations",
     "transition_card_lifecycle",
     "update_adr",
     "update_cards_bulk",
@@ -818,6 +819,9 @@ _BATCH_TOOL_CALLS = {
         dry_run=dry_run,
     ),
     "sign_adr": lambda dry_run: server.sign_adr(adr_id="a1", dry_run=dry_run),
+    "submit_translations": lambda dry_run: server.submit_translations(
+        locale="nl", translations={"common": {"actions.save": "Opslaan"}}, dry_run=dry_run
+    ),
     "save_inventory_view": lambda dry_run: server.save_inventory_view(
         name="V", query={"type": "Application"}, dry_run=dry_run
     ),

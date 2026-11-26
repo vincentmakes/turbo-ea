@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 
 vi.mock("@/api/client", () => ({
@@ -21,7 +21,8 @@ vi.mock("@/api/client", () => ({
   setAuthenticated: vi.fn(),
 }));
 
-import { auth, setToken, clearToken, setAuthenticated } from "@/api/client";
+import { api, auth, setToken, clearToken, setAuthenticated } from "@/api/client";
+import i18n from "@/i18n";
 import { registerExtension, getRegisteredExtensions } from "@/lib/extensionHost";
 import { useAuth } from "./useAuth";
 
@@ -181,5 +182,61 @@ describe("useAuth — SSO landing support", () => {
     });
 
     expect(sessionStorage.getItem("turboea_sso_return_path")).toBeNull();
+  });
+});
+
+describe("useAuth — interface language", () => {
+  const USER = { id: "1", email: "u@example.com", display_name: "U", role: "member" };
+  const THAI_SAVE = "บันทึก";
+
+  afterEach(async () => {
+    vi.mocked(api.get).mockImplementation(async () => []);
+    await i18n.changeLanguage("en");
+  });
+
+  it("switches to a built-in language without loading anything", async () => {
+    vi.mocked(auth.me).mockResolvedValue({ ...USER, locale: "de" });
+    const { result } = renderHook(() => useAuth());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(i18n.language).toBe("de"));
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringMatching(/^\/custom-locales\//));
+  });
+
+  it("loads the user's custom language before switching to it", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/custom-locales/th/bundle"
+        ? {
+            code: "th",
+            name: "ไทย",
+            rtl: false,
+            hash: "t",
+            resources: { common: { "actions.save": THAI_SAVE } },
+          }
+        : [],
+    );
+    vi.mocked(auth.me).mockResolvedValue({ ...USER, locale: "th" });
+    renderHook(() => useAuth());
+    await waitFor(() => expect(i18n.language).toBe("th"));
+    expect(api.get).toHaveBeenCalledWith("/custom-locales/th/bundle");
+    expect(i18n.t("actions.save")).toBe(THAI_SAVE);
+  });
+
+  it("falls back to English when the custom language cannot be loaded", async () => {
+    await i18n.changeLanguage("de");
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/custom-locales/")) throw new Error("gone");
+      return [];
+    });
+    vi.mocked(auth.me).mockResolvedValue({ ...USER, locale: "xq" });
+    renderHook(() => useAuth());
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/custom-locales/xq/bundle"));
+    await waitFor(() => expect(i18n.language).toBe("en"));
+  });
+
+  it("uses English for a user without a language", async () => {
+    await i18n.changeLanguage("de");
+    vi.mocked(auth.me).mockResolvedValue({ ...USER });
+    renderHook(() => useAuth());
+    await waitFor(() => expect(i18n.language).toBe("en"));
   });
 });

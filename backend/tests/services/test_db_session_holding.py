@@ -521,3 +521,31 @@ def test_the_catalogue_imports_never_commit(module, func):
     assert "db.commit()" not in _function_source(module, func), (
         f"{func} was handed its session by the route; the route commits."
     )
+
+
+# ---------------------------------------------------------------------------
+# The custom-language AI job never holds a session across an LLM call
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.source_scan
+def test_the_translate_route_commits_before_the_job_starts():
+    body = _function_source("app/api/v1/custom_locales.py", "translate_custom_locale")
+    launch_at = body.find("translate.launch(")
+    assert launch_at != -1, "the route no longer launches the job — update this guard"
+    assert "await db.commit()" in body[:launch_at]
+
+
+@pytest.mark.source_scan
+def test_the_translation_job_calls_the_llm_outside_any_session():
+    module = "app/services/custom_locale_translate.py"
+    for caller in ("run_job", "translate_chunk", "_ask"):
+        body = _function_source(module, caller)
+        assert "_session()" not in body and "async_session" not in body, caller
+    assert "await _call(" in _function_source(module, "_ask"), (
+        "_ask no longer calls the LLM through _call — update this guard"
+    )
+    for helper in ("_update_job", "_references", "_merge"):
+        source = _function_source(module, helper)
+        assert "async with _session() as db:" in source, helper
+        assert "call_llm" not in source and "_call(" not in source, helper
