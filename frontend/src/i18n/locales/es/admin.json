@@ -129,6 +129,7 @@
   "metamodel.relKeyExcelHint": "En Excel, esta clave encabeza la columna rel:{{key}} en la hoja del tipo de tarjeta de origen y es el valor de relation_type en la hoja Relations.",
   "metamodel.trackLifecycle": "Seguir el ciclo de vida",
   "metamodel.trackLifecycleHint": "Da a cada relación de este tipo su propio ciclo de vida —las mismas fases que una ficha—, de modo que pueda estar planificada, activa o finalizada con independencia de las fichas que conecta.",
+  "metamodel.lifecycleChip": "Ciclo de vida",
   "metamodel.deleteRelationType": "¿Eliminar tipo de relación?",
   "metamodel.deleteRelHasInstances": "Este tipo de relación tiene <strong>{{count}}</strong> instancia(s) de relación que vinculan fichas. Eliminarlo eliminará permanentemente todas ellas.",
   "metamodel.deleteRelBuiltInHidden": "Este tipo de relación integrado se ocultará y podrá restaurarse más adelante.",

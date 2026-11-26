@@ -362,3 +362,48 @@ describe("RelationTypesPanel — Track lifecycle", () => {
     );
   });
 });
+
+describe("RelationTypesPanel — Lifecycle chip", () => {
+  // The list says which relation types track lifecycle without opening the
+  // edit dialog: a chip on the tracked ones, nothing on the others.
+  const HINT =
+    "Gives each relation of this type its own lifecycle — the same phases as a card — so it can be planned, active or ended independently of the cards it connects.";
+  const TRACKED = {
+    ...(ORG_TO_APP as unknown as Record<string, unknown>),
+    lifecycle_enabled: true,
+  } as never;
+  const UNTRACKED = {
+    ...(ORG_TO_ORG as unknown as Record<string, unknown>),
+    lifecycle_enabled: false,
+  } as never;
+
+  it("marks a tracked type in the Relations tab, and not one without the flag", async () => {
+    // ORG_TO_ORG carries no lifecycle_enabled at all: absent reads as off.
+    renderPanel({ relationTypes: [TRACKED, ORG_TO_ORG] });
+    const chips = await screen.findAllByText("Lifecycle");
+    expect(chips).toHaveLength(1);
+    expect(rowFor("uses")).toContainElement(chips[0]);
+    expect(within(rowFor("has site")).queryByText("Lifecycle")).not.toBeInTheDocument();
+  });
+
+  it("marks a tracked type in a card type's list, and not one switched off", async () => {
+    renderPanel({ scopeTypeKey: "Organization", relationTypes: [TRACKED, UNTRACKED] });
+    const chips = await screen.findAllByText("Lifecycle");
+    expect(chips).toHaveLength(1);
+    expect(rowFor("uses")).toContainElement(chips[0]);
+    expect(within(rowFor("has site")).queryByText("Lifecycle")).not.toBeInTheDocument();
+  });
+
+  it("shows no chip when no relation type tracks lifecycle", async () => {
+    renderPanel({ relationTypes: [ORG_TO_APP, UNTRACKED] });
+    expect(await screen.findByText("uses")).toBeInTheDocument();
+    expect(screen.queryByText("Lifecycle")).not.toBeInTheDocument();
+  });
+
+  it("explains itself with the switch's helper text", async () => {
+    const user = userEvent.setup();
+    renderPanel({ relationTypes: [TRACKED] });
+    await user.hover(await screen.findByText("Lifecycle"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(HINT);
+  });
+});

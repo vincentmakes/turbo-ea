@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - Relations can carry their own lifecycle dates — the five card phases — to record when a relation is planned, in effect and ended, for example one application adopted by several organisations at different times.
-- A **Track lifecycle** switch on each relation type (Admin → Metamodel, built-in types included) gives relations of that type their own lifecycle; a clock on each relation in a card's Relations section sets or clears its dates.
+- A **Track lifecycle** switch on each relation type (Admin → Metamodel, built-in types included) gives relations of that type their own lifecycle; a clock on each relation in a card's Relations section sets or clears its dates, and relation types that track it show a Lifecycle chip in the list.
 - A relation row shows a chip when its dates say something — *Planned · from …*, *Until …* or *Ended …* — and ended relations are tucked behind a **Show ended** toggle in each group.
 - The LeanIX import keeps a relation's active-from and active-until dates.
 - Workspace transfer exports and imports relation dates and the Track lifecycle switch.

@@ -548,6 +548,18 @@ export default function RelationTypesPanel({
                   </Tooltip>
                 )}
 
+                {rt.lifecycle_enabled && (
+                  <Tooltip title={t("metamodel.trackLifecycleHint")} describeChild>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      icon={<MaterialSymbol icon="schedule" size={13} color="inherit" />}
+                      label={t("metamodel.lifecycleChip")}
+                      sx={{ height: 22, fontSize: 11 }}
+                    />
+                  </Tooltip>
+                )}
+
                 {rt.is_hidden ? (
                   <Tooltip title={t("common:actions.restore")}>
                     <IconButton size="small" onClick={() => handleRestoreRelation(rt.key)}>
