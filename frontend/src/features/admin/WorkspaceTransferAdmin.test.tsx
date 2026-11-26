@@ -264,6 +264,47 @@ describe("WorkspaceTransferAdmin", () => {
     expect(screen.queryByText(/will be created deactivated/)).not.toBeInTheDocument();
   });
 
+  it("uses the singular for one user the applied import created deactivated", async () => {
+    (api.upload as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "t5",
+      filename: "ws.zip",
+      status: "parsing",
+    });
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "t5",
+      filename: "ws.zip",
+      status: "applied",
+      result: {
+        dry_run: false,
+        sections: [
+          {
+            sheet: "Users",
+            created: 1,
+            updated: 0,
+            skipped: 0,
+            conflict: 0,
+            failed: 0,
+            errors: [],
+            notes: { users_deactivated: 1 },
+          },
+        ],
+        totals: { created: 1, updated: 0, skipped: 0, conflict: 0, failed: 0 },
+      },
+    });
+    const { container } = render(<WorkspaceTransferAdmin />);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, new File(["zip"], "ws.zip"));
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(
+            "1 user was created deactivated, because passwords are not transferred. Activate it under Admin → Users.",
+          ),
+        ).toBeInTheDocument(),
+      { timeout: 4000 },
+    );
+  });
+
   it("shows no deactivated-users notice when no user is created", async () => {
     await previewWith({ notes: { users_deactivated: 0 } });
     expect(screen.queryByText(/created deactivated/)).not.toBeInTheDocument();
