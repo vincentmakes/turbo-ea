@@ -1876,7 +1876,7 @@ async def _apply_sso_role_mapping(
             await _check_role_map_targets(db, rows, stored.get("role_map"))
             _set_sso_key(sso, "role_map", rows)
         directory_roles.check_role_map_config(
-            provider=sso.get("provider", "microsoft"),
+            provider=sso.get("provider"),
             tenant_id=sso.get("tenant_id"),
             claim=directory_roles.role_claim(sso),
             rows=directory_roles.normalise_role_map(sso.get("role_map")),

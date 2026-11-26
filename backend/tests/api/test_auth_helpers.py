@@ -578,6 +578,27 @@ async def test_the_last_active_admin_is_kept(db, roles, caplog):
     ]
 
 
+async def test_only_active_admins_count_towards_the_last_admin(db, roles):
+    # other active accounts that are not admins do not make the admin demotable
+    person = await create_user(db, email="only@example.com", role="admin")
+    await create_user(db, email="m1@example.com", role="member")
+    await create_user(db, email="m2@example.com", role="viewer")
+    changes, context = await auth._apply_directory_role(db, person, "viewer")
+    assert (changes, context) == (None, {"last_admin_kept": True})
+    assert person.role == "admin"
+
+
+async def test_a_role_change_is_logged_with_the_old_and_new_role(db, roles, caplog):
+    person = await create_user(db, email="a@example.com", role="member")
+    with caplog.at_level("INFO", logger=auth.logger.name):
+        await auth._apply_directory_role(db, person, "viewer")
+    assert [r.getMessage() for r in caplog.records if r.name == auth.logger.name] == [
+        "Directory sign-in: role for a@example.com changed from 'member' to 'viewer'."
+    ]
+    assert [r.levelname for r in caplog.records if r.name == auth.logger.name] == ["INFO"]
+    assert person.role == "viewer"
+
+
 async def test_an_admin_is_demoted_while_another_admin_is_active(db, roles):
     person = await create_user(db, email="one@example.com", role="admin")
     await create_user(db, email="two@example.com", role="admin")
@@ -612,7 +633,10 @@ async def test_a_demotion_locks_the_active_admin_rows_before_counting(db, roles,
     await create_user(db, email="two@example.com", role="admin")
     user_selects.clear()
     await auth._apply_directory_role(db, person, "viewer")
-    assert [s for s in user_selects if "FOR UPDATE" in s], user_selects
+    locked = [s for s in user_selects if "FOR UPDATE" in s]
+    assert locked, user_selects
+    # the lock selects the admin ids it counts, not a constant
+    assert all(s.startswith("SELECT USERS.ID FROM USERS WHERE ") for s in locked), locked
     assert person.role == "viewer"
 
 

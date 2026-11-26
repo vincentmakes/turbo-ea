@@ -110,7 +110,7 @@ class UserBulkDelete(BaseModel):
     ids: list[str]
 
 
-def _user_response(u: User, *, role_managed: bool = False) -> dict:
+def _user_response(u: User, *, role_managed: bool) -> dict:
     """The full user record, for the Users admin and the user's own profile.
 
     ``role_managed`` is the request's ``_RoleLock`` answer for this account: the

@@ -455,6 +455,41 @@ class TestSsoRoleMapping:
         assert await _rows(db) == []
 
 
+class TestSsoAuditShape:
+    """``_sso_audit_shape`` directly: the copy of the SSO block an audit row holds."""
+
+    async def test_the_role_map_becomes_flat_value_to_label_strings(self, db, env):
+        from app.api.v1 import settings as settings_api
+
+        stored = {
+            "provider": "okta",
+            "role_claim": "groups",
+            "role_map": [
+                {"value": "EA-Admins", "role": "admin"},
+                {"value": "Ghosts", "role": "ghost"},
+            ],
+        }
+        shaped = await settings_api._sso_audit_shape(db, stored)
+        assert shaped == {
+            "provider": "okta",
+            "role_claim": "groups",
+            "role_map": ["EA-Admins → Admin", "Ghosts → ghost"],
+        }
+        # a copy: the stored block keeps its rows
+        assert stored["role_map"] == [
+            {"value": "EA-Admins", "role": "admin"},
+            {"value": "Ghosts", "role": "ghost"},
+        ]
+
+    async def test_a_block_without_a_role_map_is_returned_unchanged(self, db, env):
+        from app.api.v1 import settings as settings_api
+
+        stored = {"provider": "okta", "client_id": "c"}
+        shaped = await settings_api._sso_audit_shape(db, stored)
+        assert shaped == {"provider": "okta", "client_id": "c"}
+        assert shaped is not stored
+
+
 class TestNotRecorded:
     async def test_denied_write_records_nothing(self, client, db, env):
         resp = await client.patch(

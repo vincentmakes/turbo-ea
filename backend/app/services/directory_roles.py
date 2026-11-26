@@ -293,7 +293,7 @@ def login_scopes(sso: Mapping[str, Any], base: str) -> str:
     otherwise break every sign-in. Portal and published-diagram visitors never use
     this; they keep ``base``.
     """
-    if sso.get("provider", "microsoft") == "google":
+    if sso.get("provider") == "google":
         return base
     return merge_scopes(base, sso.get("extra_scopes"))
 
