@@ -223,6 +223,12 @@ export interface ChangeLabels {
   attributes: Record<string, string>;
   /** Approval status enum → its label, as the approval badge shows it. */
   statuses: Record<string, string>;
+  /**
+   * The label of a `lifecycle` row when the lifecycle is NOT the card's — a
+   * relation event carries the relation's own dates, and a bare "Active"
+   * would read as the card going live. Given the phase's label.
+   */
+  ownedPhase?: (phaseLabel: string) => string;
 }
 
 function isDict(value: unknown): boolean {
@@ -252,8 +258,9 @@ export function parseChanges(changes: Record<string, unknown>, labels: ChangeLab
             rows.push({ field: label(key), oldVal: fmt(oldD[key]), newVal: fmt(newD[key]) });
           }
         } else if (oldD[key] !== newD[key]) {
+          const phase = labels.phases[key] || key;
           rows.push({
-            field: labels.phases[key] || key,
+            field: labels.ownedPhase ? labels.ownedPhase(phase) : phase,
             oldVal: fmt(oldD[key]),
             newVal: fmt(newD[key]),
           });
@@ -271,6 +278,16 @@ export function parseChanges(changes: Record<string, unknown>, labels: ChangeLab
     }
   }
   return rows;
+}
+
+/**
+ * Whether the event's change rows describe something other than the card
+ * itself, so the detail line naming it must stay above them. A relation event
+ * carries the RELATION's attributes and dates; without the line, a relation's
+ * new end date would read as the card's own lifecycle.
+ */
+export function changesDescribeRelation(eventType: string): boolean {
+  return eventType.startsWith("relation.");
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   NO_VALUE,
   RISK_LEVEL_COLOR,
   attributeLabels,
+  changesDescribeRelation,
   eventDetailModel,
   eventMeta,
   eventSurvey,
@@ -171,6 +172,34 @@ describe("parseChanges", () => {
     ]);
   });
 
+  it("names a lifecycle that is not the card's through ownedPhase, the phase label given", () => {
+    const changes = {
+      lifecycle: {
+        old: { active: "2026-06-01" },
+        new: { active: "2026-07-01", endOfLife: "2030-01-01" },
+      },
+    };
+    expect(
+      parseChanges(changes, labels({ ownedPhase: (p) => `${p} (relation)` })),
+    ).toEqual([
+      { field: "Active (relation)", oldVal: "2026-06-01", newVal: "2026-07-01" },
+      { field: "endOfLife (relation)", oldVal: "—", newVal: "2030-01-01" },
+    ]);
+  });
+
+  it("leaves attribute and scalar rows alone when ownedPhase is given", () => {
+    const own = labels({ ownedPhase: (p) => `${p} (relation)` });
+    expect(
+      parseChanges(
+        { attributes: { old: { costTotal: 1 }, new: { costTotal: 2 } }, name: { old: "A", new: "B" } },
+        own,
+      ),
+    ).toEqual([
+      { field: "Total cost", oldVal: "1", newVal: "2" },
+      { field: "Name", oldVal: "A", newVal: "B" },
+    ]);
+  });
+
   it("names approval states as the badge does, falling back to the raw value", () => {
     expect(
       parseChanges({ approval_status: { old: "DRAFT", new: "BROKEN" } }, labels()),
@@ -178,6 +207,16 @@ describe("parseChanges", () => {
     expect(
       parseChanges({ approval_status: { old: null, new: "APPROVED" } }, labels()),
     ).toEqual([{ field: "Approval", oldVal: "—", newVal: "Approved" }]);
+  });
+});
+
+describe("changesDescribeRelation", () => {
+  it("is true for every relation event and nothing else", () => {
+    expect(changesDescribeRelation("relation.updated")).toBe(true);
+    expect(changesDescribeRelation("relation.created")).toBe(true);
+    expect(changesDescribeRelation("card.updated")).toBe(false);
+    expect(changesDescribeRelation("risk.updated")).toBe(false);
+    expect(changesDescribeRelation("xrelation.updated")).toBe(false);
   });
 });
 

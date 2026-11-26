@@ -10,6 +10,7 @@
  */
 
 import { runsAgainstType } from "@/lib/relationSort";
+import { isRelationInEffect, todayLifecycleMs } from "@/lib/relationLifecycle";
 import type { Relation } from "@/types";
 import type { ExpandChildData, ExpandChildRelation } from "./drawio-shapes";
 
@@ -20,6 +21,17 @@ export interface RelationGroup {
   primary: Relation;
   /** Further relations to the same card, in encounter order. */
   extras: Relation[];
+}
+
+/**
+ * The relations in effect on `dateMs` (today when omitted) — the ones the
+ * expand menu counted. Its counts come from the card's relation summary, which
+ * counts only relations in effect, while `GET /relations` lists every row; a
+ * relation that is planned or has ended would otherwise be drawn by an entry
+ * whose count left it out.
+ */
+export function relationsInEffect(rels: Relation[], dateMs: number = todayLifecycleMs()): Relation[] {
+  return rels.filter((r) => isRelationInEffect(r.lifecycle, dateMs));
 }
 
 /**

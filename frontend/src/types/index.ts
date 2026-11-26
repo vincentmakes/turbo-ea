@@ -396,6 +396,13 @@ export interface RelationType {
   source_mandatory: boolean;
   target_visible: boolean;
   target_mandatory: boolean;
+  /**
+   * Whether card detail offers the date editor (the clock) on relations of
+   * this type. It governs ONLY the editor: dates a relation of any type
+   * carries — from an import, the API or an integration — are shown and
+   * counted regardless.
+   */
+  lifecycle_enabled?: boolean;
 }
 
 export interface TagRef {
@@ -618,6 +625,12 @@ export interface Relation {
   target?: RelationRef;
   attributes?: Record<string, unknown>;
   description?: string;
+  /**
+   * The relation's own lifecycle — the five card phases (`plan`, `phaseIn`,
+   * `active`, `phaseOut`, `endOfLife`) → `YYYY-MM-DD`. Empty or absent means
+   * always in effect. See `lib/relationLifecycle.ts`.
+   */
+  lifecycle?: Record<string, string>;
   created_at?: string;
 }
 

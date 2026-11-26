@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.216.0] - 2026-11-26
+
+### Added
+- Relations can carry their own lifecycle dates — the five card phases — to record when a relation is planned, in effect and ended, for example one application adopted by several organisations at different times.
+- A **Track lifecycle** switch on each relation type (Admin → Metamodel, built-in types included) offers a clock on each relation of that type in a card's Relations section to set or clear its dates.
+- A relation row shows a chip when its dates say something — *Planned · from …*, *Until …* or *Ended …* — and ended relations are tucked behind a **Show ended** toggle in each group.
+- The LeanIX import keeps a relation's active-from and active-until dates.
+- Workspace transfer exports and imports relation dates and the Track lifecycle switch.
+
+### Changed
+- A relation that is planned or has ended no longer counts in reports, dashboards, the orphaned flag, calculated fields or the data-quality score; a mandatory relation met only by planned or ended relations is flagged as missing. Cards are refreshed overnight when a relation's start or end date arrives.
+- A card's History shows a change to a relation's dates or attributes under the relation it belongs to.
+- Expanding a card on a diagram draws only the relations in effect today, matching the counts in the expand menu.
+
 ## [2.215.1] - 2026-11-26
 
 ### Security

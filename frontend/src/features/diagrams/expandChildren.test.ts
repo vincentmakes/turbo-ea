@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { edgeIncoming, groupRelationsByOtherCard, pruneDeletedRelations } from "./expandChildren";
+import {
+  edgeIncoming,
+  groupRelationsByOtherCard,
+  pruneDeletedRelations,
+  relationsInEffect,
+} from "./expandChildren";
 import type { ExpandChildData } from "./drawio-shapes";
 import type { Relation } from "@/types";
 
@@ -185,5 +190,36 @@ describe("edgeIncoming", () => {
   it("falls back to the stored row when the relation type is unknown", () => {
     const r = stored(IF, APP);
     expect(edgeIncoming(r, APP.id, undefined)).toBe(true);
+  });
+});
+
+describe("relationsInEffect", () => {
+  const at = Date.parse("2027-06-01");
+
+  it("keeps undated relations and those in effect on the day, in order", () => {
+    const rels = [
+      rel({ id: "a", type: "t" }),
+      rel({ id: "b", type: "t", lifecycle: { active: "2027-06-01" } }),
+      rel({ id: "c", type: "t", lifecycle: { active: "2020-01-01", endOfLife: "2027-06-02" } }),
+    ];
+    expect(relationsInEffect(rels, at).map((r) => r.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("drops a planned relation and one whose end date has arrived", () => {
+    const rels = [
+      rel({ id: "planned", type: "t", lifecycle: { active: "2027-06-02" } }),
+      rel({ id: "onlyPlan", type: "t", lifecycle: { plan: "2020-01-01" } }),
+      rel({ id: "ended", type: "t", lifecycle: { endOfLife: "2027-06-01" } }),
+      rel({ id: "kept", type: "t" }),
+    ];
+    expect(relationsInEffect(rels, at).map((r) => r.id)).toEqual(["kept"]);
+  });
+
+  it("reads today when no day is given", () => {
+    const rels = [
+      rel({ id: "past", type: "t", lifecycle: { endOfLife: "2000-01-01" } }),
+      rel({ id: "now", type: "t", lifecycle: { active: "2000-01-01", endOfLife: "2999-01-01" } }),
+    ];
+    expect(relationsInEffect(rels).map((r) => r.id)).toEqual(["now"]);
   });
 });

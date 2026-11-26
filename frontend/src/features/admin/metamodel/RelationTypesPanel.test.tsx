@@ -267,3 +267,98 @@ describe("RelationTypesPanel — delete confirmation", () => {
     expect(api.get).toHaveBeenCalledWith("/metamodel/relation-types/relOrgToApp/instance-count");
   });
 });
+
+describe("RelationTypesPanel — Track lifecycle", () => {
+  // The switch decides only whether card detail offers the date editor on
+  // relations of the type. It sits in both dialogs and works on a built-in
+  // type like any other.
+  const TRACKED = {
+    ...(ORG_TO_APP as unknown as Record<string, unknown>),
+    lifecycle_enabled: true,
+  } as never;
+
+  it("is off by default when creating, explained, and sent when turned on", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post).mockResolvedValue({} as never);
+    const onRefresh = renderPanel({ scopeTypeKey: "Organization" });
+    await user.click(screen.getByRole("button", { name: /new relation/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    const toggle = within(dialog).getByRole("checkbox", { name: "Track lifecycle" });
+    expect(toggle).not.toBeChecked();
+    expect(toggle).toHaveAccessibleDescription(
+      "Offers a clock on each relation of this type to record when the relation is planned, active and ended.",
+    );
+
+    // Pick the target and verb so Create enables.
+    const selects = within(dialog).getAllByRole("combobox");
+    await user.click(selects[1]);
+    await user.click(await screen.findByRole("option", { name: /Application/ }));
+    await user.type(within(dialog).getByRole("textbox", { name: /^Label/ }), "runs");
+    await user.click(toggle);
+    expect(toggle).toBeChecked();
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(api.post).toHaveBeenCalledWith(
+      "/metamodel/relation-types",
+      expect.objectContaining({ lifecycle_enabled: true, source_type_key: "Organization" }),
+    );
+    expect(onRefresh).toHaveBeenCalled();
+  });
+
+  it("sends false on create when left off", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post).mockResolvedValue({} as never);
+    renderPanel({ scopeTypeKey: "Organization" });
+    await user.click(screen.getByRole("button", { name: /new relation/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: /Application/ }));
+    await user.type(within(dialog).getByRole("textbox", { name: /^Label/ }), "runs");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        "/metamodel/relation-types",
+        expect.objectContaining({ lifecycle_enabled: false }),
+      ),
+    );
+  });
+
+  it("reflects the stored value on edit of a built-in type and sends the toggled one", async () => {
+    const user = userEvent.setup();
+    renderPanel({ scopeTypeKey: "Organization", relationTypes: [TRACKED, ORG_TO_ORG] });
+
+    await user.click(within(rowFor("uses")).getByRole("button", { name: /^edit$/i }));
+    const dialog = await screen.findByRole("dialog");
+    const toggle = within(dialog).getByRole("checkbox", { name: "Track lifecycle" });
+    expect(toggle).toBeChecked();
+
+    await user.click(toggle);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith(
+        "/metamodel/relation-types/relOrgToApp",
+        expect.objectContaining({ lifecycle_enabled: false }),
+      ),
+    );
+  });
+
+  it("sends true on edit when an untracked type is switched on", async () => {
+    const user = userEvent.setup();
+    renderPanel({ scopeTypeKey: "Organization" });
+    await user.click(within(rowFor("has site")).getByRole("button", { name: /^edit$/i }));
+    const dialog = await screen.findByRole("dialog");
+    const toggle = within(dialog).getByRole("checkbox", { name: "Track lifecycle" });
+    // Absent on the stored type reads as off.
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith(
+        "/metamodel/relation-types/relOrgToOrg",
+        expect.objectContaining({ lifecycle_enabled: true }),
+      ),
+    );
+  });
+});

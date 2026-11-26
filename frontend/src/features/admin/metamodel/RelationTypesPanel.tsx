@@ -69,6 +69,44 @@ function mergeVerbTranslation(
   };
 }
 
+/**
+ * "Track lifecycle": whether card detail offers the clock that dates each
+ * relation of this type. It governs only the editor — dates a relation
+ * already carries (from an import, the API or an integration) are shown and
+ * counted whatever this says.
+ */
+function TrackLifecycleSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const { t } = useTranslation("admin");
+  return (
+    <Box sx={{ mt: 2 }}>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={checked}
+            onChange={(e) => onChange(e.target.checked)}
+            inputProps={{ "aria-describedby": "relation-track-lifecycle-hint" }}
+          />
+        }
+        label={t("metamodel.trackLifecycle")}
+      />
+      <Typography
+        id="relation-track-lifecycle-hint"
+        variant="caption"
+        color="text.secondary"
+        component="div"
+      >
+        {t("metamodel.trackLifecycleHint")}
+      </Typography>
+    </Box>
+  );
+}
+
 export interface RelationTypesPanelProps {
   /** ALL card types — the endpoint pickers, colour dots and delete-confirm
    *  labels resolve against this, hidden types included. */
@@ -130,6 +168,7 @@ export default function RelationTypesPanel({
     source_type_key: "",
     target_type_key: "",
     cardinality: "1:n" as "1:1" | "1:n" | "n:m",
+    lifecycle_enabled: false,
     translations: {} as MetamodelTranslations,
   });
   const [editRelOpen, setEditRelOpen] = useState(false);
@@ -223,6 +262,7 @@ export default function RelationTypesPanel({
       source_type_key: scopeTypeKey || "",
       target_type_key: "",
       cardinality: "1:n",
+      lifecycle_enabled: false,
       translations: {},
     });
     setRelError(null);
@@ -266,6 +306,7 @@ export default function RelationTypesPanel({
       source_type_key: "",
       target_type_key: "",
       cardinality: "1:n",
+      lifecycle_enabled: false,
       translations: {},
     });
   };
@@ -277,6 +318,7 @@ export default function RelationTypesPanel({
         label: editRel.label,
         reverse_label: editRel.reverse_label,
         cardinality: editRel.cardinality,
+        lifecycle_enabled: !!editRel.lifecycle_enabled,
         // `translations` is NOT NULL in the DB — send an empty map, never null.
         translations: cleanTranslations(editRel.translations) || {},
       });
@@ -700,6 +742,10 @@ export default function RelationTypesPanel({
               ))}
             </Select>
           </FormControl>
+          <TrackLifecycleSwitch
+            checked={newRel.lifecycle_enabled}
+            onChange={(v) => setNewRel({ ...newRel, lifecycle_enabled: v })}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateRelOpen(false)}>{t("common:actions.cancel")}</Button>
@@ -817,6 +863,12 @@ export default function RelationTypesPanel({
                   ))}
                 </Select>
               </FormControl>
+              {/* Offered on built-in types too: dating a relation is about
+                  the data, not the type's origin. */}
+              <TrackLifecycleSwitch
+                checked={!!editRel.lifecycle_enabled}
+                onChange={(v) => setEditRel({ ...editRel, lifecycle_enabled: v })}
+              />
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setEditRelOpen(false)}>{t("common:actions.cancel")}</Button>

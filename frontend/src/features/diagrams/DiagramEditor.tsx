@@ -112,7 +112,7 @@ import type {
   RelationFlowDirection,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
-import { edgeIncoming, groupRelationsByOtherCard } from "./expandChildren";
+import { edgeIncoming, groupRelationsByOtherCard, relationsInEffect } from "./expandChildren";
 import { applyMemory, hasDeletions, recordCollapse, recordExpansion } from "./groupMemory";
 import type { GroupMemory } from "./groupMemory";
 import { relationCreatePayload } from "./relationSync";
@@ -1171,7 +1171,8 @@ export default function DiagramEditor() {
               type: entry.relation_type_key,
             });
             const rels = await api.get<Relation[]>(`/relations?${params}`);
-            for (const r of rels) {
+            // Only what the menu counted: relations in effect today.
+            for (const r of relationsInEffect(rels)) {
               const isOutgoing = r.source_id === target.cardId;
               if (entry.direction === "outgoing" && !isOutgoing) continue;
               if (entry.direction === "incoming" && isOutgoing) continue;

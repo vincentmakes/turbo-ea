@@ -9,12 +9,11 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import HelpTip from "@/components/HelpTip";
 import { useLifecyclePhaseHelp } from "@/hooks/useLifecyclePhaseHelp";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
-import { PHASES, getPhaseLabels, lifecycleOrderIssues } from "@/lib/lifecyclePhases";
+import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { todayIsoDate } from "@/lib/dates";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
@@ -26,14 +25,10 @@ import {
 } from "@/features/cards/dataQualityJump";
 import type { Card } from "@/types";
 import { LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
+import { useLifecycleOrderWarning } from "@/hooks/useLifecycleOrderWarning";
+import LifecycleDateFields, { type PhaseAnnotation } from "./LifecycleDateFields";
 
-/** What a caller wants said about one phase, beyond its date. */
-export type PhaseAnnotation = {
-  /** Rendered under the phase, in both the timeline and the edit row. */
-  note?: React.ReactNode;
-  /** Marks the phase as differing from some baseline the caller knows about. */
-  highlighted?: boolean;
-};
+export type { PhaseAnnotation } from "./LifecycleDateFields";
 
 // ── Section: Lifecycle ──────────────────────────────────────────
 function LifecycleSection({
@@ -107,15 +102,7 @@ function LifecycleSection({
 
   // Advisory only: a phase dated after one that should follow it is flagged,
   // never refused — real lifecycles do slip, and the save stays the user's call.
-  const orderIssues = lifecycleOrderIssues(lifecycle);
-  const orderWarning = (phase: (typeof PHASES)[number]) => {
-    const later = orderIssues[phase];
-    if (!later) return null;
-    return t("lifecycle.orderWarning", {
-      phase: phaseLabels[later],
-      date: formatDate(lifecycle[later]),
-    });
-  };
+  const orderWarning = useLifecycleOrderWarning(lifecycle);
 
   const save = async () => {
     await onSave({ lifecycle });
@@ -336,42 +323,11 @@ function LifecycleSection({
         </Box>
         {editing && (
           <Box>
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
-              {PHASES.map((phase) => {
-                const annotation = phaseAnnotation?.(phase);
-                const warning = orderWarning(phase);
-                return (
-                  <Box key={phase} data-phase={phase} sx={{ maxWidth: 170 }}>
-                    <DateField
-                      label={phaseLabels[phase]}
-                      size="small"
-                      value={lifecycle[phase] || ""}
-                      onChange={(v) =>
-                        setLifecycle({ ...lifecycle, [phase]: v })
-                      }
-                      helperText={warning ?? undefined}
-                      slotProps={
-                        warning
-                          ? { formHelperText: { sx: { color: "warning.main", mx: 0 } } }
-                          : undefined
-                      }
-                      sx={{
-                        width: 170,
-                        ...(annotation?.highlighted
-                          ? {
-                              "& .MuiOutlinedInput-notchedOutline": {
-                                borderColor: "primary.main",
-                              },
-                              "& .MuiInputLabel-root": { color: "primary.main" },
-                            }
-                          : null),
-                      }}
-                    />
-                    {annotation?.note}
-                  </Box>
-                );
-              })}
-            </Box>
+            <LifecycleDateFields
+              lifecycle={lifecycle}
+              onChange={setLifecycle}
+              phaseAnnotation={phaseAnnotation}
+            />
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
               <Button
                 size="small"
