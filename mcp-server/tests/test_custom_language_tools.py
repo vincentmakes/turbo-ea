@@ -640,6 +640,21 @@ class TestSubmitTranslations:
         assert "filled" not in out
 
     @pytest.mark.asyncio
+    async def test_every_call_carries_the_callers_token(self, fake_token):
+        """The batch's open, the write and the close all go out as the caller."""
+        tokens: list = []
+        backend = _Backend()
+
+        async def post(client, path, json=None):
+            tokens.append(client._token)
+            return await backend.post(path, json)
+
+        with patch.object(server.TurboEAClient, "post", autospec=True, side_effect=post):
+            await server.submit_translations(locale="nl", translations=TWO)
+        assert len(tokens) == 3
+        assert set(tokens) == {fake_token}
+
+    @pytest.mark.asyncio
     async def test_filling_can_be_switched_off(self, fake_token):
         backend = _Backend()
         await backend.run(locale="nl", translations=TWO, fill_identical=False)

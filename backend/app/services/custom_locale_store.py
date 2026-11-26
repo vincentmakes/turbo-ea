@@ -419,7 +419,7 @@ async def fill_identical(
     namespaces filled)``. The write is conditional on each key still being
     empty (``expected``), so a label the field editor set meanwhile stays."""
     skip = {(r.get("namespace"), r.get("key")) for r in report.get("rejected") or []}
-    views = await load_views(db, locale, cat, None)
+    views = await load_views(db, locale, cat)
     fills = identical_text_fills(views, submitted, skip, source_hashes)  # type: ignore[arg-type]
     if not fills:
         return {"filled": 0, "fill_rejected": 0}, []

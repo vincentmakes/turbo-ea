@@ -461,6 +461,12 @@ class TestIdenticalTextFills:
             "admin": {"x": "Hoog"},
             "common": {"a": "Hoog", "b": "Hoog"},
         }
+        # A value that is not text, for a key English has, is passed by too.
+        sent = {"common": {"a": None, "c": "Hoog"}}
+        assert store.identical_text_fills(views, sent, set()) == {
+            "admin": {"x": "Hoog"},
+            "common": {"b": "Hoog"},
+        }
         # A refused entry ahead of a good one, too.
         sent = {"common": {"a": "<b>Hoog</b>", "c": "Hoog"}}
         assert store.identical_text_fills(views, sent, {("common", "a")}) == {
