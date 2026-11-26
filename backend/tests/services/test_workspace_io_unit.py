@@ -477,14 +477,29 @@ def test_only_the_discussion_and_the_timeline_carry_a_timestamp():
     assert "created_at" not in _entity_section("Adrs").value_columns()
 
 
-def test_empty_text_is_kept_for_the_not_null_text_columns_of_those_two_sections():
+def test_empty_text_is_kept_for_every_not_null_text_column_of_every_section():
+    """#1435: an empty NOT NULL text cell reads back as ``""`` in every
+    section, so a new section cannot reintroduce the NULL insert."""
+    import sqlalchemy as sa
+
     from app.services.workspace_io.sections import ENTITY_SECTIONS
 
-    kept = {s.sheet: s.empty_text_columns() for s in ENTITY_SECTIONS if s.empty_text_columns()}
-    assert kept == {
-        "DocumentComments": frozenset({"author_name", "body", "kind"}),
-        "DocumentHistory": frozenset({"kind"}),
-    }
+    for section in ENTITY_SECTIONS:
+        values = set(section.value_columns())
+        expected = {
+            c.name
+            for c in section.model.__table__.columns
+            if c.name in values and not c.nullable and isinstance(c.type, sa.String)
+        }
+        assert section.empty_text_columns() == frozenset(expected), section.sheet
+
+    by_sheet = {s.sheet: s.empty_text_columns() for s in ENTITY_SECTIONS}
+    assert "description" in by_sheet["PpmCostLines"]
+    assert "description" in by_sheet["Todos"]
+    assert {"author_name", "body", "kind"} <= by_sheet["DocumentComments"]
+    # Nullable text and non-text columns are never coerced.
+    assert "date" not in by_sheet["PpmCostLines"]
+    assert "link" not in by_sheet["Todos"]
 
 
 def test_import_value_reads_an_empty_cell_as_empty_text_only_where_kept():

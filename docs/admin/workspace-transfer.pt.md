@@ -59,7 +59,7 @@ A importação é **idempotente**: metamodelo e configuração são correspondid
 ## Após importar
 
 - Reinsira quaisquer credenciais de SMTP, SSO e IA em suas respectivas abas de configurações.
-- Usuários sintéticos referenciados pelo pacote são criados **desativados**; ative-os em **Administração → Usuários** conforme necessário.
+- Os usuários que o destino ainda não tem são criados **desativados**, porque as senhas nunca são transferidas. A pré-visualização e o resultado da importação indicam quantos são; ative-os em **Administração → Usuários** conforme necessário.
 - **Dados pertencentes ao usuário seguem o usuário, correspondido por e-mail.** Tarefas, visualizações salvas, favoritos e outros dados pessoais pertencem à conta cujo e-mail corresponde ao do pacote. Se você entrar no destino com um e-mail diferente do que usou na origem, seus itens pessoais parecerão estar faltando — eles estão vinculados à conta correspondente (possivelmente desativada). Entre com o mesmo e-mail, ou ative a conta correspondente em **Administração → Usuários**.
 - Visualizações salvas privadas são visíveis apenas para o proprietário; visualizações compartilhadas e públicas seguem suas configurações de visibilidade.
 

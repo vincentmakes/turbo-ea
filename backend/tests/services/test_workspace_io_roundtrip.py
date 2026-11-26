@@ -3670,3 +3670,71 @@ async def test_refused_and_duplicate_language_rows_are_each_handled(db):
         r.namespace for r in (await db.execute(select(CustomLocaleString))).scalars()
     )
     assert namespaces == ["common", "grc", "nav"]
+
+
+async def test_empty_text_in_a_not_null_column_survives_export_and_import(db):
+    """#1435: a cost line saved without a description failed the whole import.
+
+    The workbook reads an empty string back as an empty cell, so a NOT NULL
+    text column holding ``""`` reached the insert as NULL. Every entity section
+    now reads that cell back as ``""``, not only the two discussion sections.
+    """
+    from app.models.ppm_cost_line import PpmCostLine
+    from app.models.todo import Todo
+
+    user = await create_user(db, email="ppm@test.com", role="admin")
+    await create_card_type(db, key="Initiative", label="Initiative")
+    initiative = await create_card(db, card_type="Initiative", name="Move", user_id=user.id)
+    line = PpmCostLine(
+        initiative_id=initiative.id, description="", category="capex", planned=0, actual=20000
+    )
+    todo = Todo(card_id=initiative.id, description="", created_by=user.id)
+    db.add_all([line, todo])
+    await db.flush()
+    line_id, todo_id = line.id, todo.id
+
+    raw = await build_bundle(db)
+    await db.execute(delete(PpmCostLine))
+    await db.execute(delete(Todo))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    db.expire_all()
+    restored_line = (
+        await db.execute(select(PpmCostLine).where(PpmCostLine.id == line_id))
+    ).scalar_one()
+    assert restored_line.description == ""
+    assert restored_line.actual == 20000
+    restored_todo = (await db.execute(select(Todo).where(Todo.id == todo_id))).scalar_one()
+    assert restored_todo.description == ""
+
+    # Re-importing the same bundle stays a no-op.
+    again = await apply_bundle(db, parse_bundle(raw), user)
+    assert again.total_failed == 0, again.as_dict()
+    for sheet in ("PpmCostLines", "Todos"):
+        section = next(s for s in again.sections if s.sheet == sheet)
+        assert (section.created, section.updated, section.skipped) == (0, 0, 1), sheet
+
+
+async def test_an_entity_sheet_without_a_not_null_column_takes_its_default(db):
+    """A bundle written before a column existed carries no cell for it: the
+    column takes its default, not ``""`` and not NULL."""
+    from app.models.todo import Todo
+
+    user = await create_user(db, email="legacy@test.com", role="admin")
+    todo_id = "7a0c1f7e-2b7e-4d55-9a61-0d3f6f1c2a11"
+    columns = ("id", "description", "is_system")
+    raw = _make_bundle(
+        {
+            "Todos": (
+                columns,
+                frozenset(),
+                [{"id": todo_id, "description": "Call the vendor", "is_system": False}],
+            )
+        }
+    )
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    created = (await db.execute(select(Todo).where(Todo.description == "Call the vendor"))).one()
+    assert created[0].status == "open"

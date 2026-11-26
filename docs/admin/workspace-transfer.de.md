@@ -59,7 +59,7 @@ Der Import ist **idempotent**: Metamodell und Konfiguration werden über den Sch
 ## Nach dem Import
 
 - Geben Sie alle SMTP-, SSO- und AI-Zugangsdaten unter den jeweiligen Einstellungs-Tabs erneut ein.
-- Vom Bundle referenzierte synthetische Benutzer werden **deaktiviert** erstellt; aktivieren Sie sie bei Bedarf unter **Admin → Benutzer**.
+- Benutzer, die das Ziel noch nicht hat, werden **deaktiviert** erstellt, da Passwörter nie übertragen werden. Die Vorschau und das Importergebnis nennen die Anzahl; aktivieren Sie sie bei Bedarf unter **Admin → Benutzer**.
 - **Benutzereigene Daten folgen dem Benutzer, abgeglichen über die E-Mail.** Todos, gespeicherte Ansichten, Favoriten und andere persönliche Daten gehören zu dem Konto, dessen E-Mail mit der im Bundle übereinstimmt. Wenn Sie sich auf dem Ziel mit einer anderen E-Mail anmelden als auf der Quelle, scheinen Ihre persönlichen Elemente zu fehlen — sie hängen am (möglicherweise deaktivierten) passenden Konto. Melden Sie sich mit derselben E-Mail an oder aktivieren Sie das zugeordnete Konto unter **Admin → Benutzer**.
 - Private gespeicherte Ansichten sind nur für ihren Eigentümer sichtbar; geteilte und öffentliche Ansichten folgen ihren Sichtbarkeitseinstellungen.
 

@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.215.2] - 2026-11-26
+
+### Fixed
+- Workspace import no longer fails when the bundle holds a cost line, to-do, comment or other item saved with an empty text field, such as a cost line without a description (#1435).
+
+### Changed
+- The workspace import preview and result now say how many users will be (or were) created deactivated, and where to activate them.
+
 ## [2.215.1] - 2026-11-26
 
 ### Security

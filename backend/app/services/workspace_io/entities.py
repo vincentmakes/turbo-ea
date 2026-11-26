@@ -108,11 +108,6 @@ class EntitySection:
     # ``created_at`` is its date. Read back as a datetime; an empty cell
     # leaves the column to its server default.
     carry_timestamps: tuple[str, ...] = ()
-    # Whether an empty cell in a NOT NULL text column is the empty string
-    # rather than ``None``. The workbook reads ``""`` back as an empty cell,
-    # and a deleted comment or a rejection without a reason is stored with
-    # ``body == ""``: without this the row would reach the flush as NULL.
-    keep_empty_text: bool = False
     # A natural key besides the preserved PK. A row whose PK is not on the
     # target but whose natural key is (two instances that each created the
     # same custom language) is matched to that row and skipped, and the
@@ -139,9 +134,15 @@ class EntitySection:
 
     def empty_text_columns(self) -> frozenset[str]:
         """The value columns whose empty cell reads back as ``""``: the NOT
-        NULL string columns, when the section keeps empty text."""
-        if not self.keep_empty_text:
-            return frozenset()
+        NULL string columns, in every section.
+
+        The workbook reads ``""`` back as an empty cell, and a NOT NULL text
+        column can legitimately hold ``""`` (a cost line or a to-do without a
+        description, a deleted comment, a rejection without a reason). Read
+        as ``None``, one such row reached the flush as NULL and failed the
+        whole import (#1435). A column the sheet does not carry at all is a
+        different thing, a bundle older than the column, and is left to the
+        column's default (:func:`apply_entity_section`)."""
         values = set(self.value_columns())
         return frozenset(
             col.name
@@ -473,12 +474,19 @@ async def apply_entity_section(
             existing_by_natural[tuple(getattr(obj, c) for c in section.natural_key)] = obj
     own_matches = matched.setdefault(section.sheet, {})
 
+    # An empty-text column no row carries is absent from the sheet (a bundle
+    # older than the column): it takes its default rather than ``""``.
+    carried = set().union(*(r.keys() for r in rows))
+    absent_text = empty_text - carried
+
     for row in _topo_rows(rows, section):
         # Build the full row first — a PK column can itself be a card FK (the
         # association tables RiskCard / AdrCard), so the PK isn't knowable until
         # the card reference is resolved.
         kwargs: dict[str, Any] = {}
         for col in value_cols:
+            if col in absent_text:
+                continue
             kwargs[col] = import_value(model, col, row.get(col), empty_text)
         for col in section.carry_timestamps:
             # An empty cell must not insert NULL: the server default dates it.

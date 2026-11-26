@@ -42,6 +42,10 @@ interface SectionResult {
   /** What translating the card / relation / tag ids inside this section's
    *  diagrams, reports, filters … did (remapped, relinked_by_name, …). */
   references?: Record<string, number>;
+  /** Things to act on that are neither a skip nor an error, e.g.
+   *  `users_deactivated`: users created without a password, who cannot sign
+   *  in until an admin activates them (#1435). */
+  notes?: Record<string, number>;
 }
 
 interface TransferReport {
@@ -391,8 +395,27 @@ function ReportTable({ report, t }: { report: TransferReport; t: Translate }) {
   const rows = report.sections.filter(
     (s) => s.created || s.updated || s.skipped || s.conflict || s.failed,
   );
+  const deactivated = report.sections.reduce(
+    (n, s) => n + (s.notes?.users_deactivated ?? 0),
+    0,
+  );
   return (
     <Box>
+      {deactivated > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {report.dry_run
+            ? t(
+                "workspaceTransfer.report.usersDeactivatedPreview",
+                "{{count}} users will be created deactivated, because passwords are not transferred. Activate them under Admin → Users once the import is applied.",
+                { count: deactivated },
+              )
+            : t(
+                "workspaceTransfer.report.usersDeactivatedApplied",
+                "{{count}} users were created deactivated, because passwords are not transferred. Activate them under Admin → Users.",
+                { count: deactivated },
+              )}
+        </Alert>
+      )}
       <Typography variant="body2" sx={{ mb: 0.5 }}>
         {t("workspaceTransfer.report.heading", "Preview")} — {t("workspaceTransfer.report.created", "Created")}: {report.totals.created},{" "}
         {t("workspaceTransfer.report.updated", "Updated")}: {report.totals.updated},{" "}
