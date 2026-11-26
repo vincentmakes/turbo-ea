@@ -2398,9 +2398,9 @@ async def dependencies(
             }
         )
 
-    # Build edges (only between visible nodes). Keyed by card pair AND relation
-    # type: two cards may be connected by several relation types and each
-    # carries its own verb / attributes, so each contributes its own edge. Two
+    # Build edges (only between visible nodes). Keyed by card pair AND
+    # relation type: two cards may be connected by several relation types and
+    # each carries its own verb / attributes, so each contributes its own edge. Two
     # rows of the SAME type between the same pair (either direction, a
     # self-referencing type) still collapse to one — and the row that speaks for
     # them is the one whose dates cover the most (`lifecycle_breadth`): undated
