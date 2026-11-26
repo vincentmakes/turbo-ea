@@ -90,6 +90,7 @@ describe("TranslateDialog", () => {
       screen.getByRole("checkbox", { name: t("customLocales.translate.includeManual") }),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("translate-job")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("counts from the fresh detail rather than the list row", async () => {
@@ -426,6 +427,40 @@ describe("TranslateDialog", () => {
     expect(startButton()).toBeEnabled();
     expect(onStarted).not.toHaveBeenCalled();
     expect(screen.queryByTestId("translate-job")).not.toBeInTheDocument();
+  });
+
+  it("locks Start while a start is on its way and clears an earlier error", async () => {
+    mockApi.on("get", DETAIL_PATH, detail());
+    mockApi.fail("post", "/custom-locales/he/translate", 500, "boom");
+    const { user } = renderDialog();
+    await screen.findByText(t("customLocales.translate.count", { count: 40 }));
+    await user.click(startButton());
+    await screen.findByText(t("customLocales.translate.startFailed"));
+
+    let release!: (v: unknown) => void;
+    mockApi.on("post", "/custom-locales/he/translate", () => new Promise((r) => (release = r)));
+    await user.click(startButton());
+    await waitFor(() => expect(startButton()).toBeDisabled());
+    expect(screen.queryByRole("alert")).toBeNull();
+    release({ job: job() });
+    await screen.findByText(t("customLocales.jobStatus.running"));
+  });
+
+  it("locks Stop while a cancel is on its way and clears an earlier error", async () => {
+    mockApi.on("get", DETAIL_PATH, detail({ job: job() }));
+    mockApi.fail("post", "/custom-locales/he/translate/cancel", 500);
+    const { user } = renderDialog({ ...HEBREW, job: job() });
+    const stop = () => screen.getByRole("button", { name: t("customLocales.translate.cancelJob") });
+    await user.click(stop());
+    await screen.findByText(t("customLocales.translate.cancelFailed"));
+
+    let release!: (v: unknown) => void;
+    mockApi.on("post", "/custom-locales/he/translate/cancel", () => new Promise((r) => (release = r)));
+    await user.click(stop());
+    await waitFor(() => expect(stop()).toBeDisabled());
+    expect(screen.queryByRole("alert")).toBeNull();
+    release({ job: job({ status: "cancelled" }) });
+    await screen.findByText(t("customLocales.jobStatus.cancelled"));
   });
 
   it("closes on Close", () => {

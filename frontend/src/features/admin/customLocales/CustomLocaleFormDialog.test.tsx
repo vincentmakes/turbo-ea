@@ -195,6 +195,66 @@ describe("CustomLocaleFormDialog — add", () => {
   });
 });
 
+describe("CustomLocaleFormDialog — field state", () => {
+  it("opens clean: no error, no refusal, the code's help text", () => {
+    renderDialog();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText(t("customLocales.form.codeHelp"))).toBeInTheDocument();
+    expect(screen.queryByText(t("customLocales.form.codeInvalid"))).toBeNull();
+    expect(field("customLocales.form.code")).toHaveAttribute("aria-invalid", "false");
+    expect(field("customLocales.form.englishName")).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("marks the code and English-name fields invalid only while they are", async () => {
+    const { user } = renderDialog();
+    await user.type(field("customLocales.form.code"), "X");
+    expect(field("customLocales.form.code")).toHaveAttribute("aria-invalid", "true");
+    await user.type(field("customLocales.form.englishName"), "1x");
+    expect(field("customLocales.form.englishName")).toHaveAttribute("aria-invalid", "true");
+    await user.clear(field("customLocales.form.code"));
+    await user.type(field("customLocales.form.code"), "th");
+    expect(field("customLocales.form.code")).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("caps the native name at 100 characters", () => {
+    renderDialog();
+    expect(field("customLocales.form.name")).toHaveAttribute("maxlength", "100");
+  });
+
+  it("treats a name of spaces as no name, without calling it invalid", async () => {
+    const { user } = renderDialog();
+    await user.type(field("customLocales.form.code"), "th");
+    await user.type(field("customLocales.form.name"), "   ");
+    await user.type(field("customLocales.form.englishName"), "Thai");
+    expect(saveButton()).toBeDisabled();
+    await user.clear(field("customLocales.form.name"));
+    await user.type(field("customLocales.form.name"), "ไทย");
+    await user.clear(field("customLocales.form.englishName"));
+    await user.type(field("customLocales.form.englishName"), "   ");
+    expect(screen.queryByText(t("customLocales.form.englishNameInvalid"))).toBeNull();
+    expect(field("customLocales.form.englishName")).toHaveAttribute("aria-invalid", "false");
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("locks Save while saving and clears an earlier error", async () => {
+    mockApi.fail("post", "/custom-locales", 409, "locale_exists");
+    const { user } = renderDialog();
+    await user.type(field("customLocales.form.code"), "th");
+    await user.type(field("customLocales.form.name"), "ไทย");
+    await user.type(field("customLocales.form.englishName"), "Thai");
+    await user.click(saveButton());
+    await screen.findByText(t("customLocales.errors.locale_exists"));
+
+    let release!: (v: unknown) => void;
+    mockApi.on("post", "/custom-locales", () => new Promise((r) => (release = r)));
+    await user.click(saveButton());
+    await waitFor(() => expect(saveButton()).toBeDisabled());
+    expect(screen.queryByRole("alert")).toBeNull();
+    release({});
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith("th"));
+  });
+});
+
 describe("CustomLocaleFormDialog — edit", () => {
   it("keeps the code fixed and patches the other fields", async () => {
     mockApi.on("patch", "/custom-locales/th", {});
