@@ -1528,3 +1528,35 @@ class TestReapplyKeepsCustomLocales:
         from app.services.extensions.field_contributions import custom_locale_codes
 
         assert await custom_locale_codes(db) == frozenset({"nl"})
+
+
+class TestLocaleMergeEdges:
+    def test_stored_options_without_manifest_options_add_none(self):
+        stored = {"key": "f", "options": [{"key": "a", "translations": {"nl": "A"}}]}
+        assert keep_stored_locales(stored, {"key": "f"}, KEEP, FIELD_MAPS) == {"key": "f"}
+
+    async def test_a_stray_entry_in_the_section_is_dropped(self, db):
+        from app.models.custom_locale import CustomLocale
+
+        db.add(CustomLocale(code="nl", name="Nederlands", english_name="Dutch"))
+        ct = await create_card_type(db, key="Application", label="Application")
+        await apply_field_contributions(db, EXT, manifest_with([contribution()]))
+        schema = json.loads(json.dumps(ct.fields_schema))
+        sec = next(s for s in schema if s.get("ext") == EXT)
+        sec["fields"].insert(0, "junk")
+        ct.fields_schema = schema
+        await db.flush()
+        await apply_field_contributions(db, EXT, manifest_with([contribution()]))
+        sec = section_named(ct, "ESG Metrics")
+        # A non-object entry is not a field: the re-sync drops it, and reads
+        # no key off it on the way.
+        assert [f["key"] for f in sec["fields"]] == ["esgRating", "esgAudited"]
+
+    async def test_no_subtype_contribution_reads_no_codes(self, db, monkeypatch):
+        from app.services.extensions import field_contributions as fc
+
+        async def refuse(_db):
+            raise AssertionError("custom locale codes were read")
+
+        monkeypatch.setattr(fc, "custom_locale_codes", refuse)
+        assert await apply_subtype_contributions(db, EXT, {"metamodel": {}}) == 0

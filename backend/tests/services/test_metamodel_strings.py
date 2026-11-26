@@ -598,3 +598,17 @@ class TestRoundTrip:
         }
         rows = (await db.execute(select(CardType.key))).scalars().all()
         assert "Widget" in rows
+
+
+async def test_clear_code_reads_the_labels_once(db, records, monkeypatch):
+    await mm.apply(db, "nl", {"category.A & B": "A en B"})
+    calls = []
+    real = mm.load
+
+    async def counting(db_):
+        calls.append(1)
+        return await real(db_)
+
+    monkeypatch.setattr(mm, "load", counting)
+    assert await mm.clear_code(db, "nl") == 1
+    assert len(calls) == 1

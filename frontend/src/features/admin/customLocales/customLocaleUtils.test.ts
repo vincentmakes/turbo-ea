@@ -223,6 +223,14 @@ describe("importBody", () => {
     });
   });
 
+  it("sends a pack without any hashes", () => {
+    const bare = { ...p, source_hashes: undefined };
+    expect(importBody(bare, "common")).toEqual({
+      strings: { common: { "actions.save": "שמור", "actions.cancel": "ביטול" } },
+      origin: "import",
+    });
+  });
+
   it("leaves the hashes out for a namespace that has none", () => {
     expect(importBody(p, "metamodel")).toEqual({
       strings: { metamodel: { "type.Application.label": "יישום" } },
@@ -235,6 +243,30 @@ describe("readFileText", () => {
   it("reads a file as text, keeping every character", async () => {
     const text = 'שמור · सहेजें · क्‍ष · บันทึก';
     await expect(readFileText(new Blob([text]))).resolves.toBe(text);
+  });
+
+  it("reads an empty result as an empty text", async () => {
+    class EmptyReader {
+      result: string | null = null;
+      onload: (() => void) | null = null;
+      readAsText() {
+        this.onload?.();
+      }
+    }
+    vi.stubGlobal("FileReader", EmptyReader);
+    await expect(readFileText(new Blob(["x"]))).resolves.toBe("");
+  });
+
+  it("rejects with its own message when the reader gives no error", async () => {
+    class SilentReader {
+      error = null;
+      onerror: (() => void) | null = null;
+      readAsText() {
+        this.onerror?.();
+      }
+    }
+    vi.stubGlobal("FileReader", SilentReader);
+    await expect(readFileText(new Blob(["x"]))).rejects.toThrow("read failed");
   });
 
   it("rejects when the file cannot be read", async () => {
@@ -306,6 +338,9 @@ describe("apiErrorCode / errorMessage", () => {
     expect(apiErrorCode(new ApiError("m", 400, ["x"]))).toBeNull();
     expect(apiErrorCode(new Error("locale_exists"))).toBeNull();
     expect(apiErrorCode("locale_exists")).toBeNull();
+    // Only an API error carries a code, whatever else looks like one.
+    expect(apiErrorCode({ detail: "locale_exists" })).toBeNull();
+    expect(apiErrorCode(null)).toBeNull();
   });
 
   it("knows only the listed codes", () => {

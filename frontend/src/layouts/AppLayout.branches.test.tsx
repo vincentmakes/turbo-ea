@@ -459,6 +459,10 @@ describe("AppLayout — user menu", () => {
       await user.click(screen.getByRole("button", { name: /account_circle/i }));
       const language = await screen.findByRole("menuitem", { name: /שפה/ });
       expect(language).toHaveTextContent(/עברית$/);
+      // The language menu marks the custom language as the current one.
+      await user.click(language);
+      expect(await screen.findByRole("menuitem", { name: "עברית" })).toHaveClass("Mui-selected");
+      expect(screen.getByRole("menuitem", { name: "English" })).not.toHaveClass("Mui-selected");
     } finally {
       invalidateCustomLocales([]);
       await act(() => i18n.changeLanguage("en"));

@@ -184,7 +184,7 @@ class TestBundleWithoutCatalogue:
             ),
             "metamodel": CustomLocaleString(namespace="metamodel", strings={"x": "y"}),
         }
-        assert store.bundle_resources(None, rows) == {"common": {"a": "Opslaan"}}
+        assert store.bundle_resources(None, rows, "nl") == {"common": {"a": "Opslaan"}}
 
 
 class TestShareFilter:
@@ -215,7 +215,7 @@ class TestMetamodelView:
         await create_card_type(
             db, key="Widget", label="Widget", translations={"label": {"nl": "Ding"}}
         )
-        view = store.metamodel_view(await mm.load(db), "nl", {})
+        view = store.metamodel_view(await mm.load(db), "nl", None)
         assert view.strings["type.Widget.label"] == "Ding"
         assert view.meta["type.Widget.label"] == {"h": lp.source_hash("Widget"), "o": "manual"}
         assert lp.key_status(view.ns, "type.Widget.label", view.strings, view.meta) == (
@@ -229,7 +229,7 @@ class TestMetamodelView:
         row = CustomLocaleString(
             namespace="metamodel", strings={}, meta={"type.Widget.label": {"h": OLD, "o": "ai"}}
         )
-        view = store.metamodel_view(await mm.load(db), "nl", {"metamodel": row})
+        view = store.metamodel_view(await mm.load(db), "nl", row)
         assert view.meta["type.Widget.label"] == {"h": OLD, "o": "ai"}
 
 

@@ -114,6 +114,140 @@ describe("ReviewStringsDialog", () => {
     expect(within(rowOf("Cancel")).getByText(t("customLocales.status.stale"))).toBeInTheDocument();
     expect(screen.getByText(t("customLocales.review.displayedRows", { from: 1, to: 3, total: 3 })))
       .toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(t("customLocales.review.empty"))).toBeNull();
+  });
+
+  it("colours each status chip by what it means", async () => {
+    serve([SAVED, TYPE_LABEL, STALE, { ...SAVED, key: "odd", status: "weird" as never }]);
+    renderDialog();
+    await screen.findByText("שמור");
+    const chip = (row: HTMLElement, label: string) =>
+      within(row).getByText(label).closest(".MuiChip-root") as HTMLElement;
+    expect(chip(rowOf("Application"), t("customLocales.status.missing"))).toHaveClass("MuiChip-colorError");
+    expect(chip(rowOf("Cancel"), t("customLocales.status.stale"))).toHaveClass("MuiChip-colorWarning");
+    const rows = screen.getAllByTestId("review-row");
+    expect(within(rows[0]).getByText(t("customLocales.status.translated")).closest(".MuiChip-root")).toHaveClass(
+      "MuiChip-colorSuccess",
+    );
+    expect(rows[3].querySelector(".MuiChip-root")).toHaveClass("MuiChip-colorDefault");
+  });
+
+  it("shows nothing but the loading bar until the strings and namespaces arrive", async () => {
+    let releaseStrings!: (v: unknown) => void;
+    let releaseDetail!: (v: unknown) => void;
+    mockApi.on("get", STRINGS, () => new Promise((r) => (releaseStrings = r)));
+    mockApi.on("get", "/custom-locales/he", () => new Promise((r) => (releaseDetail = r)));
+    const { user } = renderDialog();
+    await waitFor(() => expect(screen.getByRole("progressbar")).toBeInTheDocument());
+    expect(screen.queryAllByTestId("review-row")).toHaveLength(0);
+    expect(screen.queryByText(t("customLocales.review.empty"))).toBeNull();
+    await user.click(screen.getByRole("combobox", { name: new RegExp(`^${t("customLocales.review.namespace")}`) }));
+    const list = await screen.findByRole("listbox");
+    expect(within(list).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      t("customLocales.review.allNamespaces"),
+    ]);
+    await user.keyboard("{Escape}");
+    releaseDetail({ ...HEBREW, namespaces: [] });
+    releaseStrings({ total: 0, items: [] });
+    expect(await screen.findByText(t("customLocales.review.empty"))).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("shows the loading bar while a search is waiting to be sent", async () => {
+    serve([SAVED]);
+    renderDialog();
+    await screen.findByText("שמור");
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    fireEvent.change(screen.getByRole("textbox", { name: t("customLocales.review.search") }), {
+      target: { value: "Sav" },
+    });
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByText(t("customLocales.review.empty"))).toBeNull();
+    await waitFor(() => expect(lastRead().search).toBe("Sav"));
+    await waitFor(() => expect(screen.queryByRole("progressbar")).toBeNull());
+  });
+
+  it("edits only the row it was asked to, when two namespaces share a key", async () => {
+    serve([SAVED, { ...SAVED, namespace: "metamodel", source: "Save it", value: "לשמור" }]);
+    const { user } = renderDialog();
+    await screen.findByText("לשמור");
+    await user.click(within(rowOf("Save")).getByRole("button", { name: /Edit/ }));
+    expect(screen.getAllByRole("textbox", { name: t("customLocales.review.translation") })).toHaveLength(1);
+    expect(within(rowOf("Save it")).queryByRole("textbox")).toBeNull();
+  });
+
+  it("will not save a translation of only spaces", async () => {
+    serve([SAVED]);
+    const { user } = renderDialog();
+    await screen.findByText("שמור");
+    await user.click(within(rowOf("Save")).getByRole("button", { name: /Edit/ }));
+    const input = screen.getByRole("textbox", { name: t("customLocales.review.translation") });
+    await user.clear(input);
+    await user.type(input, "   ");
+    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
+  });
+
+  it("locks Save while a write is out and clears an earlier refusal", async () => {
+    serve([SAVED]);
+    mockApi.on("post", "/custom-locales/he/strings", {
+      applied: 0, unchanged: 0, cleared: 0, unknown: 0,
+      rejected: [{ namespace: "common", key: "actions.save", reason: "empty" }],
+    });
+    const { user } = renderDialog();
+    await screen.findByText("שמור");
+    await user.click(within(rowOf("Save")).getByRole("button", { name: /Edit/ }));
+    await user.click(screen.getByRole("button", { name: /Save/ }));
+    await screen.findByRole("alert");
+    let release!: (v: unknown) => void;
+    mockApi.on("post", "/custom-locales/he/strings", () => new Promise((r) => (release = r)));
+    await user.click(screen.getByRole("button", { name: /Save/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled());
+    expect(screen.queryByRole("alert")).toBeNull();
+    release({ applied: 1, unchanged: 0, cleared: 0, unknown: 0, rejected: [] });
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith("common"));
+  });
+
+  it("takes a write answered with no body as done", async () => {
+    serve([SAVED]);
+    mockApi.on("post", "/custom-locales/he/strings", undefined);
+    const { user } = renderDialog();
+    await screen.findByText("שמור");
+    await user.click(within(rowOf("Save")).getByRole("button", { name: t("customLocales.review.clear") }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith("common"));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("reads the strings again after every save, not just the first", async () => {
+    serve([SAVED]);
+    mockApi.on("post", "/custom-locales/he/strings", {
+      applied: 0, unchanged: 0, cleared: 1, unknown: 0, rejected: [],
+    });
+    const { user } = renderDialog();
+    await screen.findByText("שמור");
+    const before = stringReads().length;
+    await user.click(within(rowOf("Save")).getByRole("button", { name: t("customLocales.review.clear") }));
+    await waitFor(() => expect(stringReads().length).toBe(before + 1));
+    await user.click(within(rowOf("Save")).getByRole("button", { name: t("customLocales.review.clear") }));
+    await waitFor(() => expect(stringReads().length).toBe(before + 2));
+  });
+
+  it("goes back to the first page when the namespace or the status changes", async () => {
+    serve([SAVED], 60);
+    const { user } = renderDialog();
+    await screen.findByText(t("customLocales.review.displayedRows", { from: 1, to: 25, total: 60 }));
+    const nextPage = () => user.click(screen.getByRole("button", { name: t("customLocales.review.nextPage") }));
+    await nextPage();
+    await waitFor(() => expect(lastRead().offset).toBe("25"));
+    await user.click(screen.getByRole("combobox", { name: new RegExp(`^${t("customLocales.review.namespace")}`) }));
+    await user.click(await screen.findByRole("option", { name: "common (5/10)" }));
+    await waitFor(() => expect(lastRead()).toMatchObject({ namespace: "common", offset: "0" }));
+
+    await nextPage();
+    await waitFor(() => expect(lastRead().offset).toBe("25"));
+    await user.click(screen.getByRole("combobox", { name: new RegExp(`^${t("customLocales.review.status")}`) }));
+    await user.click(await screen.findByRole("option", { name: t("customLocales.review.filter.all") }));
+    await waitFor(() => expect(lastRead()).toMatchObject({ status: "all", offset: "0" }));
   });
 
   it("offers each namespace with its progress, the database labels by name", async () => {
@@ -170,6 +304,17 @@ describe("ReviewStringsDialog", () => {
     await user.click(screen.getByRole("button", { name: t("customLocales.review.nextPage") }));
     await waitFor(() => expect(lastRead().offset).toBe("25"));
     expect(screen.getByRole("button", { name: t("customLocales.review.previousPage") })).toBeEnabled();
+    // A page that still has rows is kept, the last one included.
+    expect(await screen.findByText(t("customLocales.review.displayedRows", { from: 26, to: 50, total: 60 })))
+      .toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: t("customLocales.review.nextPage") }));
+    await waitFor(() => expect(lastRead().offset).toBe("50"));
+    expect(await screen.findByText(t("customLocales.review.displayedRows", { from: 51, to: 60, total: 60 })))
+      .toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(lastRead().offset).toBe("50");
+    await user.click(screen.getByRole("button", { name: t("customLocales.review.previousPage") }));
+    await waitFor(() => expect(lastRead().offset).toBe("25"));
 
     await user.click(screen.getByRole("combobox", { name: new RegExp(`^${t("customLocales.review.rowsPerPage")}`) }));
     await user.click(await screen.findByRole("option", { name: "50" }));
@@ -210,6 +355,8 @@ describe("ReviewStringsDialog", () => {
     });
     await waitFor(() => expect(stringReads().length).toBe(readsBefore + 1));
     expect(screen.queryByRole("textbox", { name: t("customLocales.review.translation") })).toBeNull();
+    // The namespace progress in the filter is read again too.
+    await waitFor(() => expect(mockApi.callsOf("get", "/custom-locales/he")).toHaveLength(2));
   });
 
   it("starts an edit of an untranslated string empty, with the English as a hint", async () => {

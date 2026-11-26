@@ -912,3 +912,97 @@ async def test_card_type_rows_are_untouched_by_a_ui_write(client, db, env):
     await db.refresh(ct)
     assert ct.translations == {}
     assert (await db.execute(select(CardType.key))).scalars().all() == ["Application"]
+
+
+class TestPermissionKey:
+    """The routes check exactly ``admin.settings``: a role holding only that
+    key manages languages; one holding every other admin key does not."""
+
+    async def test_admin_settings_alone_is_enough(self, client, db, env):
+        await create_role(
+            db, key="settings_admin", label="Settings", permissions={"admin.settings": True}
+        )
+        user = await create_user(db, email="settings@test.com", role="settings_admin")
+        await _add(db)
+        listed = await client.get(BASE, headers=auth_headers(user))
+        assert listed.status_code == 200 and listed.json()[0]["code"] == "nl"
+        patched = await client.patch(
+            f"{BASE}/nl", json={"enabled": True}, headers=auth_headers(user)
+        )
+        assert patched.status_code == 200 and patched.json()["enabled"] is True
+
+    async def test_other_admin_keys_are_not(self, client, db, env):
+        await create_role(
+            db,
+            key="other_admin",
+            label="Other",
+            permissions={"admin.users": True, "admin.metamodel": True, "admin.roles": True},
+        )
+        user = await create_user(db, email="other@test.com", role="other_admin")
+        await _add(db)
+        assert (await client.get(BASE, headers=auth_headers(user))).status_code == 403
+        assert (await client.get(f"{BASE}/nl", headers=auth_headers(user))).status_code == 403
+
+
+class TestRouteHelpers:
+    @pytest.fixture
+    def sql(self, db):
+        from sqlalchemy import event as sa_event
+
+        statements: list[str] = []
+        bind = db.sync_session.get_bind()
+
+        @sa_event.listens_for(bind, "before_cursor_execute")
+        def _record(conn, cursor, statement, parameters, context, executemany):
+            statements.append(" ".join(statement.split()))
+
+        yield statements
+        sa_event.remove(bind, "before_cursor_execute", _record)
+
+    @staticmethod
+    def locale_reads(statements):
+        return [s for s in statements if s.startswith("SELECT") and "FROM custom_locales" in s]
+
+    async def test_reads_do_not_lock_and_decisions_do(self, client, db, env, sql):
+        loc = await _add(db)
+        loc.translate_job = tr.new_job("missing", 1)
+        await db.flush()
+        await client.get(f"{BASE}/nl", headers=auth_headers(env["admin"]))
+        assert not any("FOR UPDATE" in s for s in self.locale_reads(sql))
+        sql.clear()
+        await client.post(f"{BASE}/nl/translate/cancel", headers=auth_headers(env["admin"]))
+        assert any(
+            s.endswith("FOR UPDATE") and "custom_locales.code" in s for s in self.locale_reads(sql)
+        )
+
+    async def test_an_unknown_code_is_a_404_with_its_code(self, client, env):
+        for path in ("/xx", "/xx/strings", "/xx/export"):
+            resp = await client.get(f"{BASE}{path}", headers=auth_headers(env["admin"]))
+            assert resp.status_code == 404 and resp.json()["detail"] == "locale_not_found"
+
+    async def test_the_audit_target_is_the_language(self, client, db, env):
+        resp = await client.post(
+            BASE,
+            json={"code": "nl", "name": "Nederlands", "english_name": "Dutch"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 201
+        (row,) = await _audit(db, "admin.custom_locale.created")
+        loc = (await db.execute(select(CustomLocale))).scalar_one()
+        assert (row.target_type, row.target_id, row.target_label) == (
+            "custom_locale",
+            str(loc.id),
+            "Nederlands",
+        )
+
+    async def test_no_settings_row_means_no_ai(self, client, db, env, monkeypatch):
+        from app.models.app_settings import AppSettings
+
+        monkeypatch.setattr(app_config, "AI_PROVIDER_URL", "")
+        monkeypatch.setattr(app_config, "AI_MODEL", "")
+        assert (await db.execute(select(AppSettings))).first() is None
+        await _add(db)
+        resp = await client.post(
+            f"{BASE}/nl/translate", json={"mode": "missing"}, headers=auth_headers(env["admin"])
+        )
+        assert resp.status_code == 400 and resp.json()["detail"] == "ai_not_configured"
