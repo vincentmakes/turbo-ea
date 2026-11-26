@@ -209,6 +209,8 @@ Stakeholder-Zuweisungen beeinflussen **Berechtigungen**: Die effektiven Berechti
 
 Wenn für eine Rolle im Metamodell eine **Farbe** festgelegt ist, wird ihre Gruppe damit gekennzeichnet, sodass Sie einen Eigentümer auf einen Blick von einem Beobachter unterscheiden können.
 
+Rollen erscheinen in der Reihenfolge, die Ihr Administrator für den Kartentyp festgelegt hat. Rollen, die niemanden zum Verantwortlichen der Karte machen, etwa **Beobachter**, stehen zuletzt unter **Diese Karte verfolgen**: Die dort aufgeführten Personen verfolgen die Karte und werden auf dem Laufenden gehalten, zählen aber weder als ihre Verantwortlichen noch für ihre Datenqualität.
+
 Hat eine Rolle eine **Beschreibung**, erscheint neben ihrem Namen ein Info-Symbol: Fahren Sie darüber, um zu lesen, was die Rolle bedeutet. Die Beschreibung steht außerdem unter dem Rollennamen in der Rollenauswahl, wenn Sie einen Stakeholder hinzufügen.
 
 ### Suchen und einladen

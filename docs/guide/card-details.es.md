@@ -209,6 +209,8 @@ Las asignaciones de partes interesadas afectan los **permisos**: los permisos ef
 
 Cuando un rol tiene un **color** definido en el metamodelo, su grupo se marca con él, de modo que puede distinguir un propietario de un observador de un vistazo.
 
+Los roles aparecen en el orden que su administrador haya fijado para el tipo de tarjeta. Los roles que no convierten a nadie en responsable de la tarjeta, como **Observador**, van al final bajo **Siguen esta tarjeta**: las personas listadas ahí siguen la tarjeta y se mantienen informadas, pero no cuentan como sus responsables ni para su calidad de datos.
+
 Cuando un rol tiene una **descripción**, aparece un icono de información junto a su nombre: pase el cursor sobre él para leer qué significa el rol. La descripción también se muestra bajo el nombre del rol en el selector de roles al añadir una parte interesada.
 
 ### Búsqueda e invitación

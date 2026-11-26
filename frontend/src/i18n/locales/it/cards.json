@@ -218,6 +218,8 @@
   "stakeholders.user": "Utente",
   "stakeholders.userPlaceholder": "Cerca per nome o e-mail",
   "stakeholders.noneAssigned": "Nessun {{role}} assegnato",
+  "stakeholders.followingHeading": "Seguono questa scheda",
+  "stakeholders.followingHelp": "Le persone con questi ruoli seguono la scheda e restano informate. Non contano come responsabili della scheda né per la sua qualità dei dati.",
   "stakeholders.inviteOption": "Aggiungi «{{email}}» come nuovo utente",
   "stakeholders.inviteNewUser": "Aggiungi un nuovo utente…",
   "stakeholders.inviteFormTitle": "Aggiungi nuovo utente",

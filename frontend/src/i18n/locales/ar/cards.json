@@ -278,6 +278,8 @@
   "stakeholders.user": "المستخدم",
   "stakeholders.userPlaceholder": "البحث بالاسم أو البريد الإلكتروني",
   "stakeholders.noneAssigned": "لم يتم تعيين {{role}}",
+  "stakeholders.followingHeading": "يتابعون هذه البطاقة",
+  "stakeholders.followingHelp": "يتابع الأشخاص في هذه الأدوار البطاقة ويُبقَون على اطلاع. لا يُعدّون من مالكيها ولا يُحتسبون ضمن جودة بياناتها.",
   "stakeholders.inviteOption": "إضافة «{{email}}» كمستخدم جديد",
   "stakeholders.inviteNewUser": "إضافة مستخدم جديد…",
   "stakeholders.inviteFormTitle": "إضافة مستخدم جديد",

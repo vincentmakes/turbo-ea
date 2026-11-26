@@ -218,6 +218,8 @@
   "stakeholders.user": "用户",
   "stakeholders.userPlaceholder": "按姓名或邮箱搜索",
   "stakeholders.noneAssigned": "未分配 {{role}}",
+  "stakeholders.followingHeading": "关注此卡片",
+  "stakeholders.followingHelp": "担任这些角色的人员会关注该卡片并及时获知动态。他们不被视为该卡片的负责人，也不计入其数据质量。",
   "stakeholders.inviteOption": "添加「{{email}}」作为新用户",
   "stakeholders.inviteNewUser": "添加新用户…",
   "stakeholders.inviteFormTitle": "添加新用户",
