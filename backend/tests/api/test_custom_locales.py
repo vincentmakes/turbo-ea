@@ -1006,3 +1006,89 @@ class TestRouteHelpers:
             f"{BASE}/nl/translate", json={"mode": "missing"}, headers=auth_headers(env["admin"])
         )
         assert resp.status_code == 400 and resp.json()["detail"] == "ai_not_configured"
+
+
+class TestIdenticalText:
+    """English "Description" is ``labels.description`` and at least two other
+    ``common`` keys of the real catalogue."""
+
+    async def test_collapse_lists_each_text_once(self, client, db, env):
+        await _add(db)
+        headers = auth_headers(env["admin"])
+        params = {"namespace": "common", "search": "description", "limit": 500}
+        full = await client.get(f"{BASE}/nl/strings", params=params, headers=headers)
+        once = await client.get(
+            f"{BASE}/nl/strings", params={**params, "collapse": "true"}, headers=headers
+        )
+        assert once.status_code == 200
+        rows = [i for i in once.json()["items"] if i["source"] == "Description"]
+        assert len(rows) == 1
+        same = sum(1 for i in full.json()["items"] if i["source"] == "Description")
+        assert same >= 3 and rows[0]["same_text"] == same
+        assert once.json()["total"] < full.json()["total"]
+        assert all("same_text" not in i for i in full.json()["items"])
+
+    async def test_fill_identical_fills_the_untranslated_twins(self, client, db, env):
+        loc = await _add(db)
+        await _post_strings(
+            client,
+            env["admin"],
+            {"strings": {"common": {"portal.description": "Al vertaald"}}, "origin": "manual"},
+        )
+        resp = await _post_strings(
+            client,
+            env["admin"],
+            {
+                "strings": {"common": {"labels.description": "Beschrijving"}},
+                "origin": "mcp",
+                "fill_identical": True,
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["applied"] == 1
+        assert body["filled"] >= 1 and body["fill_rejected"] == 0
+        row = (
+            await db.execute(
+                select(CustomLocaleString).where(
+                    CustomLocaleString.locale_id == loc.id,
+                    CustomLocaleString.namespace == "common",
+                )
+            )
+        ).scalar_one()
+        await db.refresh(row)
+        assert row.strings["dashboard.settings.description"] == "Beschrijving"
+        assert row.meta["dashboard.settings.description"]["o"] == "mcp"
+        # Never over a translation already there.
+        assert row.strings["portal.description"] == "Al vertaald"
+        audits = await _audit(db, "admin.custom_locale.strings_updated")
+        assert audits[-1].details["context"]["filled"] == body["filled"]
+
+    async def test_off_by_default(self, client, db, env):
+        await _add(db)
+        resp = await _post_strings(
+            client,
+            env["admin"],
+            {"strings": {"common": {"labels.description": "Beschrijving"}}, "origin": "mcp"},
+        )
+        assert "filled" not in resp.json()
+        (audit,) = await _audit(db, "admin.custom_locale.strings_updated")
+        assert audit.details["context"]["filled"] == 0
+
+    async def test_a_viewer_may_not_fill(self, client, db, env):
+        await _add(db)
+        resp = await _post_strings(
+            client,
+            env["viewer"],
+            {"strings": {"common": {"labels.description": "x"}}, "fill_identical": True},
+        )
+        assert resp.status_code == 403
+
+    async def test_fill_identical_must_be_a_boolean(self, client, db, env):
+        await _add(db)
+        resp = await _post_strings(
+            client,
+            env["admin"],
+            {"strings": {"common": {}}, "fill_identical": "lots"},
+        )
+        assert resp.status_code == 422

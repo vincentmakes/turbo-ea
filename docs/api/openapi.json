@@ -17736,6 +17736,11 @@
       },
       "StringsWrite": {
         "properties": {
+          "fill_identical": {
+            "default": false,
+            "title": "Fill Identical",
+            "type": "boolean"
+          },
           "origin": {
             "default": "manual",
             "enum": [
@@ -30045,7 +30050,7 @@
     },
     "/api/v1/custom-locales/{code}/strings": {
       "get": {
-        "description": "The review rows, the English source beside the translation.",
+        "description": "The review rows, the English source beside the translation. With\n``collapse`` each English text is listed once (``same_text`` says how many\nrows it stands for); ``total`` and paging then count texts.",
         "operationId": "list_custom_locale_strings_api_v1_custom_locales__code__strings_get",
         "parameters": [
           {
@@ -30123,6 +30128,16 @@
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "collapse",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Collapse",
+              "type": "boolean"
             }
           }
         ],
@@ -36852,7 +36867,7 @@
         ]
       },
       "post": {
-        "description": "Open a mutation batch. Returns the batch id and, when the row\ncount exceeds the confirmation threshold on a dry-run, a one-shot\n``confirm_token``. A real batch above the threshold must present that\ntoken, or the open is refused before any write happens.",
+        "description": "Open a mutation batch. Returns the batch id and, when the row\ncount exceeds the confirmation threshold on a dry-run, a one-shot\n``confirm_token``. A real batch above the threshold must present that\ntoken, or the open is refused before any write happens \u2014 except a tool\nin ``CONFIRMATION_EXEMPT_TOOLS``, which is neither issued nor asked one.",
         "operationId": "open_batch_api_v1_mutation_batches_post",
         "parameters": [
           {

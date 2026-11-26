@@ -3045,6 +3045,7 @@
   "securityLog.fields.namespaces": "Sections",
   "securityLog.fields.origin": "Source",
   "securityLog.fields.cleared": "Cleared",
+  "securityLog.fields.filled": "Filled from identical text",
   "securityLog.fields.rejected": "Rejected",
   "securityLog.fields.strings": "Strings",
   "securityLog.fields.include_manual": "Including strings corrected by hand",

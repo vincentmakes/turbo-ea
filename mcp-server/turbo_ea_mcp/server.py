@@ -7793,6 +7793,9 @@ def _translation_instructions(language: str) -> str:
 def _custom_locale_refusal(exc: httpx.HTTPStatusError, error: str) -> dict:
     refused = {"error": error, **_refusal(exc)}
     refused.pop("status")
+    if refused["detail"] is None and exc.response.status_code == 429:
+        # The rate limiter answers without a ``detail``.
+        refused["detail"] = "rate_limited"
     return refused
 
 
@@ -7825,6 +7828,7 @@ async def get_untranslated_strings(
     include_stale: bool = True,
     offset: int = 0,
     include_source_hashes: bool = False,
+    collapse_identical: bool = True,
 ) -> str:
     """Get English UI strings a custom language still needs, to translate them.
 
@@ -7834,7 +7838,13 @@ async def get_untranslated_strings(
     ``remaining`` says how many more are waiting after this page.
 
     The loop: fetch a page (up to 500 strings), submit it in one call, then
-    call this again with ``offset=0``. The server remembers which English
+    call this again with ``offset=0``.
+
+    Identical English text is listed once (``collapse_identical``, default
+    True): "High" or "Not started" may sit under dozens of keys, and one key
+    stands for all of them — ``identical`` says how many keys a text stands for
+    when more than one. ``submit_translations`` then gives that translation to
+    every untranslated key with the same English. The server remembers which English
     text each string was taken from and attaches it when you submit, so you
     do not send it back yourself.
 
@@ -7862,13 +7872,17 @@ async def get_untranslated_strings(
             they were translated (default True); False = missing ones only.
         offset: Strings to skip from the start of the list (default 0).
         include_source_hashes: Also return ``source_hashes`` (default False:
-            the server remembers them for ``submit_translations``). Only for
-            a client that submits through another server.
+            the server remembers them for ``submit_translations``). For a
+            client that submits through another server process, which does
+            not share this one's memory.
+        collapse_identical: List each English text once (default True);
+            ``returned``, ``remaining`` and ``offset`` then count texts.
 
     Returns: JSON with ``locale``, ``language`` (English name), ``native_name``,
     ``rtl``, ``instructions``, ``strings``, ``returned``, ``remaining``,
     ``next_offset`` while more remain, for stale strings the old wording
-    under ``previous_translations`` and, when asked, ``source_hashes``.
+    under ``previous_translations``, ``identical`` (``{namespace: {key: n}}``
+    for a text standing for n > 1 keys) and, when asked, ``source_hashes``.
     Requires ``admin.settings``.
     """
     token = await _get_current_token()
@@ -7883,6 +7897,7 @@ async def get_untranslated_strings(
             "namespace": namespace,
             "limit": max(1, min(limit, _UNTRANSLATED_LIMIT_MAX)),
             "offset": offset,
+            "collapse": "true" if collapse_identical else None,
         }
     )
     client = TurboEAClient(token)
@@ -7897,9 +7912,13 @@ async def get_untranslated_strings(
     strings: dict[str, dict] = {}
     hashes: dict[str, dict] = {}
     previous: dict[str, dict] = {}
+    identical: dict[str, dict] = {}
     for item in items:
         namespace_key, key = item.get("namespace"), item.get("key")
         strings.setdefault(namespace_key, {})[key] = item.get("source")
+        same = item.get("same_text")
+        if isinstance(same, int) and same > 1:
+            identical.setdefault(namespace_key, {})[key] = same
         if isinstance(item.get("source_hash"), str):
             hashes.setdefault(namespace_key, {})[key] = item["source_hash"]
         if item.get("status") == "stale" and item.get("value"):
@@ -7923,6 +7942,8 @@ async def get_untranslated_strings(
         out["next_offset"] = offset + len(items)
     if previous:
         out["previous_translations"] = previous
+    if identical:
+        out["identical"] = identical
     if include_source_hashes:
         out["source_hashes"] = hashes
     return _fmt(out)
@@ -8007,6 +8028,7 @@ async def submit_translations(
     translations: dict,
     source_hashes: dict | None = None,
     dry_run: bool = False,
+    fill_identical: bool = True,
 ) -> str:
     """Save translated strings into a custom language — on the first call.
 
@@ -8039,12 +8061,20 @@ async def submit_translations(
             (``{namespace: {key: hash}}``), they are used as given.
         dry_run: True only to check strings without storing them (default
             False: the call saves).
+        fill_identical: Give each accepted translation to every other key of
+            the language whose English is the same text and that has no
+            translation yet (default True) — one translation of "High" fills
+            all of them; a key already translated is never changed. Set False
+            when the same English needs different words in different places.
+            A wrong fill is corrected in Admin → Settings → Custom Languages.
 
     Returns: JSON with ``applied`` (``would_apply`` on a dry run),
     ``unchanged``, ``rejected[]`` (``namespace``, ``key``, ``reason``),
     ``unknown`` (the number of keys the backend did not recognise),
     ``unknown_keys`` (the first 200 of them), ``accepted`` (per namespace,
-    how many strings were taken), ``dry_run`` and ``batch_id``.
+    how many strings were taken), ``filled`` (other keys given one of these
+    translations; ``would_fill`` on a dry run) and ``fill_rejected``,
+    ``dry_run`` and ``batch_id``.
     """
     token = await _get_current_token()
     if not token:
@@ -8071,9 +8101,12 @@ async def submit_translations(
     if source_hashes is None:
         source_hashes = _HASH_MEMORY.recall(token, locale, translations) or None
     try:
-        return await _submit_translations(locale, translations, source_hashes, rows, dry_run, token)
+        return await _submit_translations(
+            locale, translations, source_hashes, rows, dry_run, token, fill_identical
+        )
     except httpx.HTTPStatusError as exc:
-        # The batch itself was refused before anything was written.
+        # Raised by the batch's open or close (a write's refusal is answered
+        # inside); only an open can ask for a token, before anything is written.
         if (outdated := _outdated_backend(exc)) is not None:
             return _fmt(outdated)
         raise
@@ -8086,6 +8119,7 @@ async def _submit_translations(
     rows: int,
     dry_run: bool,
     token: str,
+    fill_identical: bool = True,
 ) -> str:
     """The batch and the write of ``submit_translations`` (its checks done)."""
     async with mutation_batch(
@@ -8096,7 +8130,12 @@ async def _submit_translations(
             data = await batch.client().post(
                 _locale_path(locale, f"/strings?dry_run={_bool_param(dry_run)}"),
                 json=_compact(
-                    {"strings": translations, "source_hashes": source_hashes, "origin": "mcp"}
+                    {
+                        "strings": translations,
+                        "source_hashes": source_hashes,
+                        "origin": "mcp",
+                        "fill_identical": True if fill_identical else None,
+                    }
                 ),
             )
         except httpx.HTTPStatusError as exc:
@@ -8121,6 +8160,8 @@ async def _submit_translations(
                 "unknown": body.get("unknown"),
                 "unknown_keys": body.get("unknown_keys") or [],
                 "accepted": _accepted_counts(translations, body),
+                ("would_fill" if dry_run else "filled"): body.get("filled", 0),
+                "fill_rejected": body.get("fill_rejected", 0),
                 "reversible": False,
                 "note": _TRANSLATIONS_NOT_REVERSIBLE,
                 **fields,
@@ -8150,12 +8191,13 @@ def _job_running(detail: object) -> bool:
     return isinstance(job, dict) and job.get("status") == "running"
 
 
-@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+@mcp.tool(annotations=_WRITE_DESTRUCTIVE_ANNOT)
 async def start_ai_translation(
     locale: str,
     mode: str = "missing",
     include_manual: bool = False,
     dry_run: bool = True,
+    confirm_token: str = "",
 ) -> str:
     """Translate a whole custom language with the server's AI translation job.
 
@@ -8166,8 +8208,11 @@ async def start_ai_translation(
     (``job``: ``status``, ``done``, ``total``, ``failed``) with
     ``list_custom_languages``, and stop it with ``stop_ai_translation``.
 
-    It spends the configured provider's budget, so it previews first: the
-    dry run reports how many strings would be sent and starts nothing.
+    It spends the configured provider's budget (and with ``mode="all"`` and
+    ``include_manual`` replaces strings corrected by hand), so it previews
+    first: the dry run reports how many strings would be sent and starts
+    nothing. Above the confirmation threshold (counted in strings) the
+    commit must pass back the dry run's ``confirm_token``.
 
     Args:
         locale: The custom language code (from ``list_custom_languages``).
@@ -8177,10 +8222,15 @@ async def start_ai_translation(
             corrected by hand (default False).
         dry_run: When True (default), report what would be sent; False starts
             the job.
+        confirm_token: For a commit above the confirmation threshold, the
+            token the dry run returned.
 
-    Returns: JSON with ``strings`` (how many would be / are sent), ``mode``,
-    ``already_running`` on a preview, the started ``job`` on a commit,
-    ``dry_run`` and ``batch_id``. Requires ``admin.settings``.
+    Returns: JSON with ``strings`` (an estimate on the preview: with mode
+    "all", strings corrected by hand that the job skips are still counted;
+    the job's own count after it started), ``mode``, ``already_running`` on a
+    preview, the started ``job`` on a commit, ``dry_run`` and ``batch_id``
+    (plus ``confirm_token`` on a preview above the threshold). Requires
+    ``admin.settings``.
     """
     token = await _get_current_token()
     if not token:
@@ -8197,17 +8247,26 @@ async def start_ai_translation(
                 "mode": mode,
             }
         )
+    # A read before the batch: the batch counts the strings the job would send,
+    # so the confirm-token cycle applies above the threshold.
+    try:
+        detail = await TurboEAClient(token).get(_locale_path(locale))
+    except httpx.HTTPStatusError as exc:
+        return _fmt(_custom_locale_refusal(exc, "start_ai_translation_refused"))
+    count = _ai_translation_count(detail, mode)
+    rows = max(count or 0, 1)
+    if not dry_run:
+        gate = _confirmation_required_message("start_ai_translation", rows)
+        if gate is not None and not confirm_token:
+            return gate
+    body = {"mode": mode, "include_manual": mode == "all" and include_manual}
     async with mutation_batch(
-        token, tool_name="start_ai_translation", row_count=1, dry_run=dry_run
+        token,
+        tool_name="start_ai_translation",
+        row_count=rows,
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
     ) as batch:
-        try:
-            detail = await batch.client().get(_locale_path(locale))
-        except httpx.HTTPStatusError as exc:
-            batch.summary = {"status": "refused"}
-            refused = _custom_locale_refusal(exc, "start_ai_translation_refused")
-            return _fmt({**refused, "batch_id": batch.batch_id})
-        count = _ai_translation_count(detail, mode)
-        body = {"mode": mode, "include_manual": mode == "all" and include_manual}
         if dry_run:
             batch.summary = {"status": "preview", "strings": count}
             return _fmt(
@@ -8225,20 +8284,18 @@ async def start_ai_translation(
             data = await batch.client().post(_locale_path(locale, "/translate"), json=body)
         except httpx.HTTPStatusError as exc:
             batch.summary = {"status": "refused"}
-            return _fmt(
-                {
-                    **_custom_locale_refusal(exc, "start_ai_translation_refused"),
-                    "batch_id": batch.batch_id,
-                }
-            )
+            refused = _custom_locale_refusal(exc, "start_ai_translation_refused")
+            return _fmt({**refused, "batch_id": batch.batch_id})
         job = data.get("job") if isinstance(data, dict) else None
-        batch.summary = {"status": "started", "strings": count}
+        total = job.get("total") if isinstance(job, dict) else None
+        sent = total if isinstance(total, int) else count
+        batch.summary = {"status": "started", "strings": sent}
         return _fmt(
             {
                 "dry_run": False,
                 "locale": locale,
                 "mode": mode,
-                "strings": count,
+                "strings": sent,
                 "job": job,
                 "note": (
                     "The job runs in the background; follow it with "
@@ -8294,15 +8351,10 @@ async def stop_ai_translation(locale: str, dry_run: bool = True) -> str:
                     "batch_id": batch.batch_id,
                 }
             )
-        batch.summary = {"status": "stopped"}
-        return _fmt(
-            {
-                "dry_run": False,
-                "locale": locale,
-                "job": data.get("job") if isinstance(data, dict) else None,
-                "batch_id": batch.batch_id,
-            }
-        )
+        job = data.get("job") if isinstance(data, dict) else None
+        # What the job is now: ``cancelled`` when one was running, else as it was.
+        batch.summary = {"status": job.get("status") if isinstance(job, dict) else None}
+        return _fmt({"dry_run": False, "locale": locale, "job": job, "batch_id": batch.batch_id})
 
 
 # ── Resources ───────────────────────────────────────────────────────────────

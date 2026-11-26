@@ -93,6 +93,9 @@ class StringsWrite(BaseModel):
     strings: dict[str, dict[str, Any]]
     source_hashes: dict[str, dict[str, Any]] | None = None
     origin: Literal["manual", "import", "mcp"] = "manual"
+    #: Also give each accepted translation to every untranslated key of the
+    #: language with the same English text (the MCP tool turns it on).
+    fill_identical: bool = False
 
     @model_validator(mode="after")
     def _bounded(self) -> StringsWrite:
@@ -394,10 +397,13 @@ async def list_custom_locale_strings(
     search: str = Query(default="", max_length=200),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
+    collapse: bool = False,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """The review rows, the English source beside the translation."""
+    """The review rows, the English source beside the translation. With
+    ``collapse`` each English text is listed once (``same_text`` says how many
+    rows it stands for); ``total`` and paging then count texts."""
     await _require_admin(db, user)
     locale = await _locale_or_404(db, code)
     cat = _catalog_or_503()
@@ -405,6 +411,8 @@ async def list_custom_locale_strings(
         raise HTTPException(400, "unknown_namespace")
     views = await store.load_views(db, locale, cat, [namespace] if namespace else None)
     items = store.list_strings(views, namespace=namespace, status=status, search=search)
+    if collapse:
+        items = store.collapse_identical(items)
     return {"total": len(items), "items": items[offset : offset + limit]}
 
 
@@ -430,7 +438,14 @@ async def write_custom_locale_strings(
         source_hashes=body.source_hashes,
         dry_run=dry_run,
     )
-    if not dry_run and (report["applied"] or report["cleared"]):
+    if body.fill_identical:
+        report.update(
+            await store.fill_identical(
+                db, locale, cat, body.strings, report, origin=body.origin, dry_run=dry_run
+            )
+        )
+    filled = report.get("filled", 0)
+    if not dry_run and (report["applied"] or report["cleared"] or filled):
         await audit_log.record(
             db,
             action="admin.custom_locale.strings_updated",
@@ -445,6 +460,7 @@ async def write_custom_locale_strings(
                 "applied": report["applied"],
                 "cleared": report["cleared"],
                 "rejected": len(report["rejected"]),
+                "filled": filled,
             },
         )
     if not dry_run:

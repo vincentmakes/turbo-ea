@@ -290,7 +290,10 @@ class TestGetUntranslatedStrings:
         out = await reads.run(locale="nl", include_source_hashes=True)
         assert reads.calls == [
             ("/custom-locales/nl", None),
-            ("/custom-locales/nl/strings", {"status": "untranslated", "limit": 100, "offset": 0}),
+            (
+                "/custom-locales/nl/strings",
+                {"status": "untranslated", "limit": 100, "offset": 0, "collapse": "true"},
+            ),
         ]
         assert out == {
             "locale": "nl",
@@ -317,8 +320,38 @@ class TestGetUntranslatedStrings:
         await reads.run(locale="pt-BR", namespace="admin", include_stale=False, limit=20)
         assert reads.calls[1] == (
             "/custom-locales/pt-BR/strings",
-            {"status": "missing", "namespace": "admin", "limit": 20, "offset": 0},
+            {
+                "status": "missing",
+                "namespace": "admin",
+                "limit": 20,
+                "offset": 0,
+                "collapse": "true",
+            },
         )
+
+    @pytest.mark.asyncio
+    async def test_identical_english_is_listed_once_with_its_key_count(self, fake_token):
+        page = {
+            "total": 2,
+            "items": [
+                {"namespace": "common", "key": "level.high", "source": "High",
+                 "source_hash": "aaaaaaaaaaaa", "status": "missing", "same_text": 12},
+                {"namespace": "admin", "key": "title", "source": "Admin",
+                 "source_hash": "bbbbbbbbbbbb", "status": "missing", "same_text": 1},
+                {"namespace": "admin", "key": "odd", "source": "Odd",
+                 "source_hash": "cccccccccccc", "status": "missing", "same_text": "3"},
+            ],
+        }
+        out = await _Reads(page=page).run(locale="nl")
+        # Only a text standing for more than one key is named.
+        assert out["identical"] == {"common": {"level.high": 12}}
+
+    @pytest.mark.asyncio
+    async def test_collapsing_can_be_switched_off(self, fake_token):
+        reads = _Reads()
+        out = await reads.run(locale="nl", collapse_identical=False)
+        assert "collapse" not in reads.calls[1][1]
+        assert "identical" not in out
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(("asked", "sent"), [(0, 0), (-3, 0), (40, 40)])
@@ -484,6 +517,9 @@ def threshold_two(monkeypatch):
     monkeypatch.setattr(server, "MCP_REQUIRE_DRYRUN_FIRST", True)
 
 
+#: What ``submit_translations`` posts for ``TWO`` by default.
+SENT_TWO = {"strings": TWO, "origin": "mcp", "fill_identical": True}
+
 THREE = {"common": {"a": "1", "b": "2"}, "admin": {"c": "3"}}
 
 
@@ -497,7 +533,7 @@ class TestSubmitTranslations:
             {"tool_name": "submit_translations", "dry_run": True},
         )
         assert backend.writes() == [
-            ("/custom-locales/nl/strings?dry_run=true", {"strings": TWO, "origin": "mcp"})
+            ("/custom-locales/nl/strings?dry_run=true", SENT_TWO)
         ]
         assert backend.posts[-1][0] == "/mutation-batches/B-1/commit"
         assert backend.closed_summary() == {"rows": 2, "would_apply": 1, "rejected": 1}
@@ -511,6 +547,8 @@ class TestSubmitTranslations:
             "unknown": 0,
             "unknown_keys": [],
             "accepted": {"common": 1},
+            "would_fill": 0,
+            "fill_rejected": 0,
             "reversible": False,
             "note": server._TRANSLATIONS_NOT_REVERSIBLE,
             "batch_id": "B-1",
@@ -522,7 +560,7 @@ class TestSubmitTranslations:
         out = await backend.run(locale="pt-BR", translations=TWO)
         assert backend.posts[0][1] == {"tool_name": "submit_translations", "dry_run": False}
         assert backend.writes() == [
-            ("/custom-locales/pt-BR/strings?dry_run=false", {"strings": TWO, "origin": "mcp"})
+            ("/custom-locales/pt-BR/strings?dry_run=false", SENT_TWO)
         ]
         assert backend.closed_summary() == {"rows": 2, "applied": 1, "rejected": 1}
         assert out["dry_run"] is False
@@ -553,7 +591,7 @@ class TestSubmitTranslations:
         assert backend.writes() == [
             (
                 "/custom-locales/he/strings?dry_run=false",
-                {"strings": strings_with_gone, "origin": "mcp"},
+                {"strings": strings_with_gone, "origin": "mcp", "fill_identical": True},
             )
         ]
         assert out["unknown"] == 1
@@ -568,9 +606,34 @@ class TestSubmitTranslations:
         assert backend.writes() == [
             (
                 "/custom-locales/nl/strings?dry_run=false",
-                {"strings": TWO, "source_hashes": hashes, "origin": "mcp"},
+                {
+                    "strings": TWO,
+                    "source_hashes": hashes,
+                    "origin": "mcp",
+                    "fill_identical": True,
+                },
             )
         ]
+
+    @pytest.mark.asyncio
+    async def test_identical_text_fills_are_reported_apart_from_applied(self, fake_token):
+        backend = _Backend(answer={**REPORT, "filled": 9, "fill_rejected": 2})
+        out = await backend.run(locale="nl", translations=TWO)
+        assert (out["applied"], out["filled"], out["fill_rejected"]) == (1, 9, 2)
+        assert "would_fill" not in out
+        out = await backend.run(locale="nl", translations=TWO, dry_run=True)
+        assert (out["would_fill"], out["fill_rejected"]) == (9, 2)
+        assert "filled" not in out
+
+    @pytest.mark.asyncio
+    async def test_filling_can_be_switched_off(self, fake_token):
+        backend = _Backend()
+        await backend.run(locale="nl", translations=TWO, fill_identical=False)
+        assert backend.writes() == [
+            ("/custom-locales/nl/strings?dry_run=false", {"strings": TWO, "origin": "mcp"})
+        ]
+        tool = server.mcp._tool_manager._tools["submit_translations"]
+        assert tool.fn_metadata.arg_model.model_fields["fill_identical"].default is True
 
     @pytest.mark.asyncio
     async def test_a_non_object_answer_reports_zero(self, fake_token):
@@ -580,6 +643,7 @@ class TestSubmitTranslations:
         assert out["unknown"] is None
         assert out["unknown_keys"] == []
         assert out["accepted"] == {"common": 2}
+        assert (out["filled"], out["fill_rejected"]) == (0, 0)
         assert backend.closed_summary() == {"rows": 2, "applied": 0, "rejected": 0}
 
     @pytest.mark.asyncio
@@ -805,23 +869,62 @@ class TestStartAiTranslation:
             "already_running": False,
             "batch_id": "B-1",
         }
+        # The batch counts the strings the job would send, so the confirm
+        # cycle of any other write applies above the threshold.
         assert backend.posts[0] == (
-            "/mutation-batches?row_count=1",
+            "/mutation-batches?row_count=5700",
             {"tool_name": "start_ai_translation", "dry_run": True},
         )
+        assert backend.posts[-1][1]["summary"] == {"status": "preview", "strings": 5700}
         assert backend.writes() == []
         assert backend.gets == ["/custom-locales/nl"]
 
     @pytest.mark.asyncio
+    async def test_a_commit_above_the_threshold_needs_the_preview_token(self, fake_token):
+        backend = _JobBackend()
+        out = await backend.run("start_ai_translation", locale="nl", dry_run=False)
+        assert out["error"] == "confirm_token_required"
+        assert backend.posts == []
+        out = await backend.run(
+            "start_ai_translation", locale="nl", dry_run=False, confirm_token="TOK-1"
+        )
+        assert backend.posts[0] == (
+            "/mutation-batches?row_count=5700",
+            {"tool_name": "start_ai_translation", "dry_run": False, "confirm_token": "TOK-1"},
+        )
+        assert out["dry_run"] is False
+        assert backend.posts[-1][1]["summary"] == {"status": "started", "strings": 5700}
+
+    @pytest.mark.asyncio
+    async def test_a_small_job_or_an_unknown_count_needs_no_token(self, fake_token):
+        small = {**LOCALE_DETAIL, "stats": {"total": 30, "missing": 3, "stale": 2}}
+        backend = _JobBackend(detail=small)
+        out = await backend.run("start_ai_translation", locale="nl", dry_run=False)
+        assert out["dry_run"] is False
+        assert backend.posts[0][0] == "/mutation-batches?row_count=5"
+        backend = _JobBackend(detail={"code": "nl", "stats": None})
+        out = await backend.run("start_ai_translation", locale="nl", dry_run=False)
+        assert out["dry_run"] is False
+        assert backend.posts[0][0] == "/mutation-batches?row_count=1"
+
+    @pytest.mark.asyncio
     async def test_all_counts_every_string_and_passes_include_manual(self, fake_token):
         backend = _JobBackend()
+        preview = await backend.run("start_ai_translation", locale="nl", mode="all")
+        assert preview["strings"] == 7700
         out = await backend.run(
-            "start_ai_translation", locale="nl", mode="all", include_manual=True, dry_run=False
+            "start_ai_translation",
+            locale="nl",
+            mode="all",
+            include_manual=True,
+            dry_run=False,
+            confirm_token="TOK-1",
         )
         assert backend.writes() == [
             ("/custom-locales/nl/translate", {"mode": "all", "include_manual": True})
         ]
-        assert out["strings"] == 7700
+        # After the start, the job's own count (it skips hand-corrected strings).
+        assert out["strings"] == 5700
         assert out["job"] == {"status": "running", "total": 5700, "done": 0}
         assert out["dry_run"] is False
         assert out["batch_id"] == "B-1"
@@ -830,10 +933,29 @@ class TestStartAiTranslation:
     @pytest.mark.asyncio
     async def test_include_manual_is_only_for_all(self, fake_token):
         backend = _JobBackend()
-        await backend.run("start_ai_translation", locale="nl", include_manual=True, dry_run=False)
+        await backend.run(
+            "start_ai_translation",
+            locale="nl",
+            include_manual=True,
+            dry_run=False,
+            confirm_token="TOK-1",
+        )
         assert backend.writes() == [
             ("/custom-locales/nl/translate", {"mode": "missing", "include_manual": False})
         ]
+
+    @pytest.mark.asyncio
+    async def test_a_job_without_a_total_reports_the_estimate(self, fake_token):
+        backend = _JobBackend(answer={"job": {"status": "running", "total": "?"}})
+        out = await backend.run(
+            "start_ai_translation", locale="nl", dry_run=False, confirm_token="TOK-1"
+        )
+        assert out["strings"] == 5700
+        backend = _JobBackend(answer=["odd"])
+        out = await backend.run(
+            "start_ai_translation", locale="nl", dry_run=False, confirm_token="TOK-1"
+        )
+        assert (out["strings"], out["job"]) == (5700, None)
 
     @pytest.mark.asyncio
     async def test_a_running_job_is_reported_on_the_preview(self, fake_token):
@@ -871,7 +993,10 @@ class TestStartAiTranslation:
             patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
             patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=backend.get)),
         ):
-            out = _parse(await server.start_ai_translation(locale="nl", dry_run=False))
+            out = _parse(
+                await server.start_ai_translation(locale="nl", dry_run=False, confirm_token="T")
+            )
+        assert backend.posts[-1][1]["summary"] == {"status": "refused"}
         assert out == {
             "error": "start_ai_translation_refused",
             "http_status": status,
@@ -880,12 +1005,13 @@ class TestStartAiTranslation:
         }
 
     @pytest.mark.asyncio
-    async def test_an_unknown_language_is_refused_on_the_preview(self, fake_token):
+    async def test_an_unknown_language_is_refused_before_any_batch(self, fake_token):
         async def get(path, params=None):
             raise _http_error(404, "locale_not_found")
 
+        backend = _JobBackend()
         with (
-            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=_JobBackend().post)),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=backend.post)),
             patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=get)),
         ):
             out = _parse(await server.start_ai_translation(locale="nl"))
@@ -893,8 +1019,8 @@ class TestStartAiTranslation:
             "error": "start_ai_translation_refused",
             "http_status": 404,
             "detail": "locale_not_found",
-            "batch_id": "B-1",
         }
+        assert backend.posts == []
 
     @pytest.mark.asyncio
     async def test_an_unknown_mode_and_a_bad_code_are_refused_before_any_call(self, fake_token):
@@ -927,8 +1053,21 @@ class TestStartAiTranslation:
 
     def test_annotations(self):
         tools = server.mcp._tool_manager._tools
-        assert tools["start_ai_translation"].annotations == server._WRITE_ADDITIVE_ANNOT
+        # Destructive: with mode "all" and include_manual it replaces strings
+        # an admin corrected by hand.
+        assert tools["start_ai_translation"].annotations == server._WRITE_DESTRUCTIVE_ANNOT
         assert tools["stop_ai_translation"].annotations == server._WRITE_ADDITIVE_ANNOT
+
+
+def test_a_rate_limited_refusal_is_named():
+    assert server._custom_locale_refusal(_http_error(429, None), "x_refused") == {
+        "error": "x_refused",
+        "http_status": 429,
+        "detail": "rate_limited",
+    }
+    # Any other status without a detail keeps None; a 429 with one keeps it.
+    assert server._custom_locale_refusal(_http_error(500, None), "x")["detail"] is None
+    assert server._custom_locale_refusal(_http_error(429, "slow"), "x")["detail"] == "slow"
 
 
 class TestStopAiTranslation:
@@ -956,6 +1095,10 @@ class TestStopAiTranslation:
             "job": {"status": "cancelled"},
             "batch_id": "B-1",
         }
+        assert backend.posts[-1][1]["summary"] == {"status": "cancelled"}
+        backend = _JobBackend(answer="odd")
+        await backend.run("stop_ai_translation", locale="nl", dry_run=False)
+        assert backend.posts[-1][1]["summary"] == {"status": None}
 
     @pytest.mark.asyncio
     async def test_a_refusal_is_readable(self, fake_token):

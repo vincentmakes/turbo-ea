@@ -324,6 +324,90 @@ def list_strings(
     return out
 
 
+# ---------------------------------------------------------------------------
+# Identical English text: shown once, translated once
+# ---------------------------------------------------------------------------
+
+
+def _text_class(source_hash: Any, key: str) -> tuple[Any, str | None]:
+    """What makes two keys "the same text": the hash of their English and their
+    plural category, so a ``_few`` form never stands for an ``_other`` key or a
+    plain one with the same English."""
+    parts = lp.plural_parts(key)
+    return source_hash, parts[1] if parts else None
+
+
+def collapse_identical(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The review rows with each English text once: the first row of every
+    text stands for the others and carries ``same_text``, how many rows have
+    it (itself included). For a translator who fills all of them with one
+    answer (``POST …/strings`` with ``fill_identical``)."""
+    first: dict[tuple[Any, str | None], dict[str, Any]] = {}
+    out: list[dict[str, Any]] = []
+    for item in items:
+        kind = _text_class(item.get("source_hash"), item["key"])
+        if kind in first:
+            first[kind]["same_text"] += 1
+            continue
+        row = {**item, "same_text": 1}
+        first[kind] = row
+        out.append(row)
+    return out
+
+
+def identical_text_fills(
+    views: Mapping[str, View],
+    submitted: Mapping[str, Any],
+    skip: set[tuple[str, str]],
+) -> dict[str, dict[str, str]]:
+    """For every text value submitted for a key English has (and not in
+    ``skip``, the keys the merge refused), the same value for every OTHER key
+    of the language with the same English and plural category that holds no
+    translation yet — never one already translated, whatever its origin."""
+    by_text: dict[tuple[Any, str | None], str] = {}
+    for name in sorted(submitted):
+        view, entries = views.get(name), submitted[name]
+        if view is None or not isinstance(entries, Mapping):
+            continue
+        for key in sorted(entries):
+            value = entries[key]
+            if isinstance(value, str) and key in view.ns.strings and (name, key) not in skip:
+                by_text.setdefault(_text_class(view.ns.current_hash(key), key), value)
+    fills: dict[str, dict[str, str]] = {}
+    for name, view in views.items():
+        sent = submitted.get(name)
+        sent = sent if isinstance(sent, Mapping) else {}
+        for key in view.ns.strings:
+            if key in sent or view.strings.get(key):
+                continue
+            value = by_text.get(_text_class(view.ns.current_hash(key), key))
+            if value is not None:
+                fills.setdefault(name, {})[key] = value
+    return fills
+
+
+async def fill_identical(
+    db: AsyncSession,
+    locale: CustomLocale,
+    cat: lp.Catalog,
+    submitted: Mapping[str, Any],
+    report: Mapping[str, Any],
+    *,
+    origin: str,
+    dry_run: bool,
+) -> dict[str, int]:
+    """After a write, give its accepted translations to every untranslated key
+    with the same English (:func:`identical_text_fills`), through the same
+    merge and validator. Returns ``{filled, fill_rejected}``."""
+    skip = {(r.get("namespace"), r.get("key")) for r in report.get("rejected") or []}
+    views = await load_views(db, locale, cat, None)
+    fills = identical_text_fills(views, submitted, skip)  # type: ignore[arg-type]
+    if not fills:
+        return {"filled": 0, "fill_rejected": 0}
+    filled = await apply_strings(db, locale, cat, fills, origin=origin, dry_run=dry_run)
+    return {"filled": filled["applied"], "fill_rejected": len(filled["rejected"])}
+
+
 def export_parts(views: Mapping[str, View], mode: str) -> dict[str, tuple[dict, dict]]:
     """``{namespace: (strings, source_hashes)}`` of an export.
 

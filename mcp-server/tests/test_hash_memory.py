@@ -15,7 +15,7 @@ class Clock:
 
 
 def test_the_bounds():
-    assert (hm.MAX_ENTRIES, hm.MAX_KEYS_PER_ENTRY, hm.TTL_SECONDS) == (64, 20_000, 7200)
+    assert (hm.MAX_ENTRIES, hm.MAX_KEYS_PER_ENTRY, hm.TTL_SECONDS) == (16, 20_000, 7200)
 
 
 def test_recall_returns_only_the_submitted_keys():
@@ -67,6 +67,16 @@ def test_an_entry_expires(monkeypatch):
     clock.now += 1
     assert memory.recall("tok", "nl", {"c": {"a": ""}}) == {}
     assert memory._entries == {}
+
+
+def test_a_page_after_expiry_starts_a_fresh_entry():
+    clock = Clock()
+    memory = hm.HashMemory(clock=clock)
+    memory.remember("tok", "nl", {"c": {"a": "old"}})
+    clock.now += hm.TTL_SECONDS + 1
+    memory.remember("tok", "nl", {"c": {"b": "new"}})
+    # The expired page's hash is gone, not revived with the new page's stamp.
+    assert memory.recall("tok", "nl", {"c": {"a": "", "b": ""}}) == {"c": {"b": "new"}}
 
 
 def test_the_least_recently_used_entry_goes_first(monkeypatch):

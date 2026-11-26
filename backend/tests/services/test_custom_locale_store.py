@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from sqlalchemy import select
 
 from app.models.custom_locale import CustomLocale, CustomLocaleString
 from app.services import custom_locale_store as store
@@ -332,3 +333,158 @@ class TestApplyStrings:
         assert locks == ["nl"]
         assert report["applied"] == 1
         assert json.loads(json.dumps(report)) == report
+
+
+# ── Identical English text ──────────────────────────────────────────────────
+
+TWINS = lp.Namespace.from_tree(
+    "common",
+    {
+        "a": "High",
+        "b": "High",
+        "c": "High",
+        "d": "Low",
+        "n_one": "{{count}} item",
+        "n_other": "{{count}} items",
+        "m_other": "{{count}} items",
+        "p": "{{count}} items",
+    },
+)
+
+
+def twin_view(strings: dict | None = None) -> store.View:
+    return store.View(ns=TWINS, strings=dict(strings or {}), meta={})
+
+
+def row(key: str) -> dict:
+    return {"namespace": "common", "key": key, "source_hash": TWINS.current_hash(key)}
+
+
+class TestCollapseIdentical:
+    def test_each_text_once_with_its_key_count(self):
+        out = store.collapse_identical([row(k) for k in ("a", "d", "b", "c")])
+        assert [(r["key"], r["same_text"]) for r in out] == [("a", 3), ("d", 1)]
+
+    def test_a_plural_category_is_its_own_text(self):
+        """``n_other``, ``m_other`` and plain ``p`` share English; only the
+        two ``_other`` forms are one text."""
+        out = store.collapse_identical([row(k) for k in ("n_other", "p", "m_other", "n_one")])
+        assert [(r["key"], r["same_text"]) for r in out] == [
+            ("n_other", 2),
+            ("p", 1),
+            ("n_one", 1),
+        ]
+
+    def test_the_rows_are_copies(self):
+        rows = [row("a"), row("b")]
+        store.collapse_identical(rows)
+        assert "same_text" not in rows[0]
+
+
+class TestIdenticalTextFills:
+    def test_untranslated_twins_get_the_value(self):
+        views = {"common": twin_view()}
+        fills = store.identical_text_fills(views, {"common": {"a": "Hoog"}}, set())
+        assert fills == {"common": {"b": "Hoog", "c": "Hoog"}}
+
+    def test_a_translated_twin_is_never_overwritten(self):
+        views = {"common": twin_view({"b": "Hoog (oud)"})}
+        fills = store.identical_text_fills(views, {"common": {"a": "Hoog"}}, set())
+        assert fills == {"common": {"c": "Hoog"}}
+
+    def test_a_submitted_twin_keeps_its_own_value(self):
+        views = {"common": twin_view()}
+        sent = {"common": {"a": "Hoog", "b": "Hoge"}}
+        assert store.identical_text_fills(views, sent, set()) == {"common": {"c": "Hoog"}}
+
+    def test_a_refused_value_is_never_spread(self):
+        views = {"common": twin_view()}
+        sent = {"common": {"a": "Hoog"}}
+        assert store.identical_text_fills(views, sent, {("common", "a")}) == {}
+
+    def test_plural_categories_do_not_mix(self):
+        views = {"common": twin_view()}
+        fills = store.identical_text_fills(
+            views, {"common": {"n_other": "{{count}} dingen"}}, set()
+        )
+        assert fills == {"common": {"m_other": "{{count}} dingen"}}
+
+    def test_unknown_keys_namespaces_and_odd_values_are_ignored(self):
+        views = {"common": twin_view()}
+        sent = {"common": {"zz": "High", "a": None}, "nope": {"a": "x"}, "nav": "odd"}
+        assert store.identical_text_fills(views, sent, set()) == {}
+
+    def test_across_namespaces(self):
+        other = lp.Namespace.from_tree("admin", {"x": "High"})
+        views = {
+            "common": twin_view(),
+            "admin": store.View(ns=other, strings={}, meta={}),
+        }
+        fills = store.identical_text_fills(views, {"admin": {"x": "Hoog"}}, set())
+        assert fills == {"common": {"a": "Hoog", "b": "Hoog", "c": "Hoog"}}
+
+
+class TestFillIdentical:
+    """On the real catalogue: "Description" is ``labels.description``,
+    ``dashboard.settings.description`` and ``portal.description``."""
+
+    TWINS = ("dashboard.settings.description", "portal.description")
+
+    @staticmethod
+    def others() -> int:
+        """Every other key of the catalogue whose English is "Description"."""
+        cat = store.catalog()
+        return (
+            sum(
+                text == "Description"
+                for name in cat.names()
+                for text in cat.namespace(name).strings.values()
+            )
+            - 1
+        )
+
+    async def _locale(self, db):
+        loc = CustomLocale(code="nl", name="N", english_name="Dutch")
+        db.add(loc)
+        await db.flush()
+        return loc
+
+    async def _stored(self, db, loc) -> CustomLocaleString | None:
+        await db.flush()
+        found = await db.execute(
+            select(CustomLocaleString).where(
+                CustomLocaleString.locale_id == loc.id,
+                CustomLocaleString.namespace == "common",
+            )
+        )
+        return found.scalar_one_or_none()
+
+    async def test_fills_the_twins_with_the_writes_origin(self, db):
+        loc = await self._locale(db)
+        cat = store.catalog()
+        sent = {"common": {"labels.description": "Beschrijving"}}
+        report = await store.apply_strings(db, loc, cat, sent, origin="mcp")
+        out = await store.fill_identical(db, loc, cat, sent, report, origin="mcp", dry_run=False)
+        assert out == {"filled": self.others(), "fill_rejected": 0}
+        stored = await self._stored(db, loc)
+        for key in self.TWINS:
+            assert stored.strings[key] == "Beschrijving"
+            assert stored.meta[key]["o"] == "mcp"
+
+    async def test_a_dry_run_counts_and_stores_nothing(self, db):
+        loc = await self._locale(db)
+        cat = store.catalog()
+        sent = {"common": {"labels.description": "Beschrijving"}}
+        report = await store.apply_strings(db, loc, cat, sent, origin="mcp", dry_run=True)
+        out = await store.fill_identical(db, loc, cat, sent, report, origin="mcp", dry_run=True)
+        assert out == {"filled": self.others(), "fill_rejected": 0}
+        assert await self._stored(db, loc) is None
+
+    async def test_a_rejected_value_fills_nothing(self, db):
+        loc = await self._locale(db)
+        cat = store.catalog()
+        sent = {"common": {"labels.description": "<b>Beschrijving</b>"}}
+        report = await store.apply_strings(db, loc, cat, sent, origin="mcp")
+        assert report["rejected"]
+        out = await store.fill_identical(db, loc, cat, sent, report, origin="mcp", dry_run=False)
+        assert out == {"filled": 0, "fill_rejected": 0}
