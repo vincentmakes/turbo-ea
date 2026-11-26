@@ -463,7 +463,7 @@ class TestFillIdentical:
         cat = store.catalog()
         return sorted(
             name
-            for name in cat.names()
+            for name in cat.names
             if any(
                 text == "Description" and (name, key) != ("common", "labels.description")
                 for key, text in cat.namespace(name).strings.items()
@@ -477,7 +477,7 @@ class TestFillIdentical:
         return (
             sum(
                 text == "Description"
-                for name in cat.names()
+                for name in cat.names
                 for text in cat.namespace(name).strings.values()
             )
             - 1

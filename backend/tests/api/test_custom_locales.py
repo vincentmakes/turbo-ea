@@ -1012,16 +1012,14 @@ def _description_keys() -> int:
     """How many keys of the catalogue read "Description" in English."""
     cat = store.catalog()
     return sum(
-        text == "Description"
-        for name in cat.names()
-        for text in cat.namespace(name).strings.values()
+        text == "Description" for name in cat.names for text in cat.namespace(name).strings.values()
     )
 
 
 def _description_namespaces() -> list[str]:
     cat = store.catalog()
     return sorted(
-        name for name in cat.names() if "Description" in cat.namespace(name).strings.values()
+        name for name in cat.names if "Description" in cat.namespace(name).strings.values()
     )
 
 
