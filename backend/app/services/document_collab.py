@@ -55,7 +55,18 @@ WORKFLOW_STEPS: tuple[str, ...] = (
     "rejected",
     "recalled",
     "recorded",
+    # Review outcomes (``services/review_outcome.py``): ``rejected`` above
+    # closes the document; these three came with them (migration 182).
+    "changes_requested",
+    "withdrawn",
+    "reopened",
 )
+
+#: The steps by a person that open a thread carrying their reason, and its kind.
+REASON_THREAD_STEPS: dict[str, str] = {
+    "rejected": "rejection",
+    "changes_requested": "change_request",
+}
 
 #: Workflow steps that open a timeline and carry the document's first content.
 CONTENT_STEPS: frozenset[str] = frozenset({"created", "revised"})
@@ -287,9 +298,11 @@ async def on_workflow(
     A ``created`` or ``revised`` row carries the document's content as it is
     now (the shared writers call this once the content, people included, is
     in place). ``signatories`` is kept (as ``[{user_id, display_name}]``) on a
-    ``sent_for_review`` row only; ``note`` is the reason of a rejection or the
-    signer's note. A ``rejected`` step by a person also opens a ``rejection``
-    thread in the discussion (an empty reason gives an empty body), and a
+    ``sent_for_review`` row only; ``note`` is the reason of a rejection, a
+    request for changes or a withdrawal, or the signer's note. A ``rejected``
+    step by a person also opens a ``rejection`` thread in the discussion, a
+    ``changes_requested`` step a ``change_request`` thread (an empty reason
+    gives an empty body), and a
     ``signature`` with a note adds a ``sign_note`` comment, so neither is lost
     on a recall.
     """
@@ -316,16 +329,17 @@ async def on_workflow(
     )
     db.add(entry)
     await db.flush()
-    if isinstance(user, User) and (step == "rejected" or (step == "signature" and note)):
-        # A rejection opens a thread carrying the reason; a signing note becomes
-        # a comment. Imported here: the discussion service builds on this module.
+    if isinstance(user, User) and (step in REASON_THREAD_STEPS or (step == "signature" and note)):
+        # A rejection or a request for changes opens a thread carrying the
+        # reason; a signing note becomes a comment. Imported here: the
+        # discussion service builds on this module.
         from app.services import document_discussion_service as discussion
 
         await discussion.add_system_comment(
             db,
             doc_kind,
             doc,
-            kind=discussion.REJECTION if step == "rejected" else discussion.SIGN_NOTE,
+            kind=REASON_THREAD_STEPS.get(step, discussion.SIGN_NOTE),
             user=user,
             text=note,
         )

@@ -57,6 +57,7 @@ from app.models.user import User
 from app.services import document_collab as collab
 from app.services import document_discussion_service as discussion
 from app.services import document_history_service as history
+from app.services import review_outcome
 from app.services.mention_markup import canonical_span
 from app.services.mention_service import marker_of
 from app.services.seed_demo import (
@@ -479,6 +480,16 @@ async def _seed_container_rejection(
         )
         rejected.actor_id = None
         rejected.actor_name = ENTERPRISE_ARCHITECT
+        # What a rejection meant when this story was written (and what
+        # migration 182 backfills): sent back as an editable draft.
+        review_outcome.set_outcome(
+            doc,
+            review_outcome.CHANGES_REQUESTED,
+            user=None,
+            note=REJECTION_REASON,
+            now=clock.days_ago(8),
+        )
+        doc.outcome_by_name = ENTERPRISE_ARCHITECT
         seq = await _date_new_rows(db, collab.ADR, doc.id, seq, clock.days_ago(8))
         thread = (
             await db.execute(

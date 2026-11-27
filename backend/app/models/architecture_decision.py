@@ -68,6 +68,19 @@ class ArchitectureDecision(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     )
     recorded_at = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Review outcome (migration 182, ``services/review_outcome.py``): how a
+    # review ended when it did not end in a signature. ``changes_requested``
+    # leaves an editable draft; ``rejected`` / ``withdrawn`` close it until it
+    # is reopened. ``status`` is always ``draft`` while one is set.
+    outcome: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    outcome_at = mapped_column(DateTime(timezone=True), nullable=True)
+    outcome_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # The name at the time, so a deleted user still reads correctly.
+    outcome_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    outcome_note: Mapped[str | None] = mapped_column(String(4000), nullable=True)
+
     parent = relationship(
         "ArchitectureDecision", remote_side="ArchitectureDecision.id", lazy="noload"
     )

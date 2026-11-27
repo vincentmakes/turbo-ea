@@ -47,6 +47,7 @@ from app.services import (
     decision_people_service,
     document_collab,
     notification_service,
+    review_outcome,
 )
 from app.services import decision_standing as ds
 from app.services import revision_chain as rc
@@ -278,7 +279,8 @@ def date_fields(adr: ArchitectureDecision) -> dict[str, Any]:
 
 
 def revisions_payload(register: ds.Register, decision_id: Any) -> list[dict[str, Any]]:
-    """The decision's chain in order, each revision with its status and standing."""
+    """The decision's chain in order, each revision with its status, standing
+    and review outcome (the kind only)."""
     st = register.get(decision_id)
     if st is None:
         return []
@@ -287,6 +289,7 @@ def revisions_payload(register: ds.Register, decision_id: Any) -> list[dict[str,
             **(ref_payload(ref) or {}),
             "status": register.row(ref.id).status,
             "standing": register[ref.id].standing,
+            "outcome": register.row(ref.id).outcome,
         }
         for ref in st.chain
     ]
@@ -348,11 +351,18 @@ def keep_in_list(
     *,
     include_earlier: bool,
     standings: frozenset[str] | None,
+    include_closed: bool = True,
+    outcomes: frozenset[str] | None = None,
 ) -> bool:
-    """Whether a list row survives ``include_earlier`` and ``standing=``."""
+    """Whether a list row survives ``include_earlier``, ``standing=``,
+    ``include_closed`` and ``outcome=`` (:func:`review_outcome.keep_in_list`)."""
     st = register.get(decision_id)
     if st is None:
-        return include_earlier and standings is None
+        return include_earlier and standings is None and outcomes is None
+    if not review_outcome.keep_in_list(
+        register.row(decision_id).outcome, include_closed=include_closed, outcomes=outcomes
+    ):
+        return False
     if not include_earlier and st.is_earlier_revision:
         return False
     return standings is None or st.standing in standings
@@ -430,13 +440,22 @@ def lock_refusal(
 EDITABLE_IN_REVIEW: frozenset[str] = frozenset({"linked_card_ids", "linked_diagram_ids"})
 
 
-def check_editable(current_status: str, new_status: str | None, fields: Iterable[str]) -> None:
-    """Refuse a PATCH the decision's status does not allow.
+def check_editable(
+    current_status: str,
+    new_status: str | None,
+    fields: Iterable[str],
+    *,
+    outcome: str | None = None,
+) -> None:
+    """Refuse a PATCH the decision's status or review outcome does not allow.
 
     A signed decision is never edited (403). A ``status`` value that names a
     workflow step is a 400 pointing at its endpoint. In review, only
     :data:`EDITABLE_IN_REVIEW` may change: anything else is a 403 telling the
-    caller to recall the signatures first.
+    caller to recall the signatures first. A closed decision (``outcome``
+    rejected or withdrawn, :mod:`review_outcome`) is locked the same way: a
+    403 telling the caller to reopen it. Past the locks, any ``status`` but
+    ``draft`` is a 400: the three statuses are fixed.
     """
     if current_status == ds.LOCKED_STATUS:
         raise HTTPException(403, "Cannot edit a signed decision. Create a new revision instead.")
@@ -446,10 +465,22 @@ def check_editable(current_status: str, new_status: str | None, fields: Iterable
         raise HTTPException(400, "Use the request-signatures endpoint to send for review")
     if new_status == "draft" and current_status == "in_review":
         raise HTTPException(400, "Use the recall-signatures endpoint to reset to draft")
-    if current_status == "in_review" and set(fields) - EDITABLE_IN_REVIEW:
+    changed = set(fields) - EDITABLE_IN_REVIEW
+    if current_status == "in_review" and changed:
         raise HTTPException(
             403,
             "Cannot edit a decision in review. Recall the signatures to edit it.",
+        )
+    if review_outcome.is_closed_kind(outcome) and changed:
+        raise HTTPException(403, review_outcome.closed_message("decision", outcome))
+    if new_status is not None and new_status != "draft":
+        raise HTTPException(
+            400,
+            {
+                "error": "unknown_status",
+                "message": 'A decision\'s status is "draft", "in_review" or "signed"; '
+                'only "draft" can be set here',
+            },
         )
 
 

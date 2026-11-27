@@ -79,7 +79,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag
 from app.models.todo import Todo
-from app.services import adr_service
+from app.services import adr_service, review_outcome
 from app.services.event_bus import event_bus
 from app.services.extensions import field_gate
 from app.services.mutation_batch_service import batch_to_dict, create_batch
@@ -794,9 +794,10 @@ async def _apply_delete_adr(db: AsyncSession, op: dict[str, Any]) -> dict[str, A
     ).scalar_one_or_none()
     if adr is None:
         return _skip(op, "already_deleted")
-    if adr.status != "draft":
+    if adr.status != "draft" or review_outcome.is_closed(adr):
         # Signing is a human act on top of the draft; the draft is no
-        # longer only what the batch created.
+        # longer only what the batch created. So is a rejection or a
+        # withdrawal, which closes it (a closed draft is no plain draft).
         return _skip(op, "adr_not_draft")
     await adr_service.delete_draft(db, adr)
     return _ok(op)

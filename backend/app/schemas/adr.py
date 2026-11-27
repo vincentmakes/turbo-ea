@@ -124,8 +124,33 @@ class ADRRecordRequest(BaseModel):
 
 
 class ADRRejectRequest(BaseModel):
-    # The reason, which also opens the rejection thread (and the history row's note).
+    """Body of ``POST /adr/{id}/reject``, ``/request-changes`` and ``/withdraw``.
+
+    The reason: the outcome's note and the timeline row's note; a rejection
+    or a request for changes also opens a thread carrying it.
+    """
+
     comment: str = Field(max_length=4000)
+
+
+class ReviewOutcomeBy(BaseModel):
+    """Who recorded a review outcome: ``id`` is ``None`` once the user was deleted."""
+
+    id: str | None = None
+    display_name: str | None = None
+
+
+class ReviewOutcomeOut(BaseModel):
+    """How a review ended short of a signature (``services/review_outcome.py``).
+
+    ``rejected`` and ``withdrawn`` close the document until it is reopened;
+    ``changes_requested`` leaves an editable draft.
+    """
+
+    kind: Literal["changes_requested", "rejected", "withdrawn"]
+    at: datetime | None = None
+    by: ReviewOutcomeBy | None = None
+    note: str | None = None
 
 
 class ADRCardLink(BaseModel):
@@ -182,6 +207,9 @@ class ADRResponse(BaseModel):
     diagrams: list[ADRLinkedDiagram] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # ``None`` unless a review ended in a request for changes, a rejection or
+    # a withdrawal.
+    outcome: ReviewOutcomeOut | None = None
 
     model_config = {"from_attributes": True}
 

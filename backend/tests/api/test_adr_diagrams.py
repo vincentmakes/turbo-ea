@@ -393,6 +393,29 @@ class TestLock:
         )
         assert resp.status_code == 403
 
+    async def test_a_closed_decision_may_change_them_like_one_in_review(self, client, db, env):
+        """Linked diagrams are filing: a rejected decision keeps them changeable,
+        through the endpoints and PATCH alike, while its content stays locked."""
+        admin = env["admin"]
+        adr = await _create(client, admin, linked_diagram_ids=[str(env["alpha"].id)])
+        await _to_review(client, admin, adr["id"])
+        resp = await client.post(
+            f"{URL}/{adr['id']}/reject", json={"comment": "No"}, headers=auth_headers(admin)
+        )
+        assert resp.json()["outcome"]["kind"] == "rejected"
+        resp = await _link(client, admin, adr["id"], env["beta"].id)
+        assert resp.status_code == 201, resp.text
+        assert (await _unlink(client, admin, adr["id"], env["alpha"].id)).status_code == 204
+        resp = await _patch(client, admin, adr["id"], [env["gamma"].id])
+        assert resp.status_code == 200, resp.text
+        assert _ids(resp.json()) == [str(env["gamma"].id)]
+        resp = await client.patch(
+            f"{URL}/{adr['id']}",
+            json={"title": "X", "linked_diagram_ids": []},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 403
+
 
 class TestCarriedAndRemoved:
     async def test_revision_carries_the_links(self, client, db, env):

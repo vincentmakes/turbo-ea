@@ -21,10 +21,12 @@ A thread whose top-level comment is deleted is *closed*: it stays listed with
 its replies, but nobody replies to it (409, :func:`reply_refusal`), resolves it
 or reopens it.
 
-Three kinds: ``comment`` (written by a person), ``rejection`` (opened by a
-rejection, carrying the reason) and ``sign_note`` (a signer's note, never
-open). A thread is open when it is top-level, unresolved, not deleted and of
-kind ``comment`` or ``rejection``.
+Four kinds: ``comment`` (written by a person), ``rejection`` (opened by a
+rejection, carrying the reason), ``change_request`` (opened by a request for
+changes, carrying the reason; the same rules as a rejection) and
+``sign_note`` (a signer's note, never open). A thread is open when it is
+top-level, unresolved, not deleted and of kind ``comment``, ``rejection`` or
+``change_request``.
 
 Bodies are short rich text, restricted at write time (:func:`comment_html`):
 every tag is escaped except a few attribute-less ones, http(s)/mailto links
@@ -75,9 +77,14 @@ from app.services.permission_service import PermissionService
 COMMENT = "comment"
 SIGN_NOTE = "sign_note"
 REJECTION = "rejection"
-COMMENT_KINDS: tuple[str, ...] = (COMMENT, SIGN_NOTE, REJECTION)
+#: Opened by a request for changes, carrying the reason (same rules as a rejection).
+CHANGE_REQUEST = "change_request"
+COMMENT_KINDS: tuple[str, ...] = (COMMENT, SIGN_NOTE, REJECTION, CHANGE_REQUEST)
 #: The kinds a thread can be open in (a signing note never is).
-OPEN_KINDS: tuple[str, ...] = (COMMENT, REJECTION)
+OPEN_KINDS: tuple[str, ...] = (COMMENT, REJECTION, CHANGE_REQUEST)
+#: The system threads a workflow step opens with its reason: resolved, never
+#: deleted by a moderator.
+REASON_KINDS: tuple[str, ...] = (REJECTION, CHANGE_REQUEST)
 #: What a comment may mention.
 MENTION_KINDS: tuple[str, ...] = ("card", "decision", "user")
 
@@ -224,7 +231,7 @@ def delete_refusal(comment: Any, user_id: Any, *, moderate: bool) -> tuple[int, 
         return None
     if moderate and comment.kind == COMMENT:
         return None
-    if moderate and comment.kind == REJECTION:
+    if moderate and comment.kind in REASON_KINDS:
         return 403, "A rejection reason is resolved, not deleted"
     return 403, "Only the author or an editor may delete a comment"
 
@@ -255,7 +262,8 @@ def may_resolve(comment: Any, *, may_comment: bool) -> bool:
 
 
 def is_open(comment: Any) -> bool:
-    """Top-level, unresolved, not deleted, and a ``comment`` or ``rejection``."""
+    """Top-level, unresolved, not deleted, and a ``comment``, ``rejection`` or
+    ``change_request``."""
     return (
         comment.parent_id is None
         and comment.deleted_at is None
@@ -1210,7 +1218,7 @@ async def reopen_thread(
     return comment
 
 
-SYSTEM_KINDS: tuple[str, ...] = (REJECTION, SIGN_NOTE)
+SYSTEM_KINDS: tuple[str, ...] = (REJECTION, CHANGE_REQUEST, SIGN_NOTE)
 
 
 async def add_system_comment(
@@ -1222,8 +1230,9 @@ async def add_system_comment(
     user: User,
     text: str | None,
 ) -> DocumentComment:
-    """The thread a workflow step opens: a ``rejection`` carrying the reason
-    (an empty reason gives an empty body) or a ``sign_note``, authored by the
+    """The thread a workflow step opens: a ``rejection`` or a
+    ``change_request`` carrying the reason (an empty reason gives an empty
+    body) or a ``sign_note``, authored by the
     person who took the step. No notification and no event of its own: the
     step's own (``adr_rejected`` …) already carry it. Flushed."""
     if kind not in SYSTEM_KINDS:

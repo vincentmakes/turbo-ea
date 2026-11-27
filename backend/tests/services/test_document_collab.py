@@ -42,7 +42,16 @@ def test_the_kinds_and_steps():
         "rejected",
         "recalled",
         "recorded",
+        "changes_requested",
+        "withdrawn",
+        "reopened",
     )
+    assert collab.REASON_THREAD_STEPS == {
+        "rejected": "rejection",
+        "changes_requested": "change_request",
+    }
+    # Every step fits the timeline's ``kind`` column.
+    assert max(len(step) for step in collab.WORKFLOW_STEPS) <= 20
 
 
 def test_owner_fields():

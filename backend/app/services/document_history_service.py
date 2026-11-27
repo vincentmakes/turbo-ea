@@ -55,6 +55,7 @@ from app.services import (
     decision_people_service,
     document_collab,
     mention_service,
+    review_outcome,
     soaw_service,
 )
 from app.services.card_read_scope import CardReadScope
@@ -759,11 +760,16 @@ async def _live_user_ids(db: AsyncSession, fields: Mapping[str, Any]) -> set[str
     return {str(uid) for uid in found}
 
 
-def restore_refusal(doc_kind: str, status: str) -> tuple[int, Any] | None:
+def restore_refusal(
+    doc_kind: str, status: str, outcome: str | None = None
+) -> tuple[int, Any] | None:
     """Only a document whose content may be edited can be restored: 409
     ``not_draft`` otherwise. A decision: a draft. A SoAW: what
     ``soaw_service.content_editable`` allows (a draft, a legacy approved
-    SoAW), the same rule as its saves."""
+    SoAW), the same rule as its saves. A draft closed by its review
+    ``outcome`` is 409 ``closed`` until it is reopened."""
+    if review_outcome.is_closed_kind(outcome):
+        return 409, {"error": "closed", "outcome": outcome}
     if doc_kind == document_collab.SOAW:
         editable = soaw_service.content_editable(status)
     else:
@@ -795,7 +801,7 @@ async def restore(
     whose user no longer exists comes back as the stored name. Links, linked
     cards, the initiative, files and attributes are never touched.
     """
-    refusal = restore_refusal(doc_kind, doc.status)
+    refusal = restore_refusal(doc_kind, doc.status, getattr(doc, "outcome", None))
     if refusal is not None:
         raise HTTPException(refusal[0], refusal[1])
     entry = await load_version(db, doc_kind, doc, entry_id)

@@ -526,6 +526,28 @@ async def test_delete_adr(db):
         assert await apply(db, bad) == skipped(bad, "missing_adr_id")
 
 
+async def test_delete_adr_skips_a_closed_draft_but_not_one_sent_back(db):
+    rejected = ArchitectureDecision(
+        reference_number="ADR-903", title="Rejected", status="draft", outcome="rejected"
+    )
+    withdrawn = ArchitectureDecision(
+        reference_number="ADR-904", title="Withdrawn", status="draft", outcome="withdrawn"
+    )
+    sent_back = ArchitectureDecision(
+        reference_number="ADR-905", title="Sent back", status="draft", outcome="changes_requested"
+    )
+    db.add_all([rejected, withdrawn, sent_back])
+    await db.flush()
+    for closed in (rejected, withdrawn):
+        keep = {"op": "delete_adr", "adr_id": str(closed.id)}
+        assert await apply(db, keep) == skipped(keep, "adr_not_draft")
+        assert await exists(db, ArchitectureDecision, closed.id)
+    op = {"op": "delete_adr", "adr_id": str(sent_back.id)}
+    assert await apply(db, op) == ok(op)
+    await db.flush()
+    assert not await exists(db, ArchitectureDecision, sent_back.id)
+
+
 async def test_delete_todo(db):
     open_todo = Todo(description="open")
     system = Todo(description="system", is_system=True)

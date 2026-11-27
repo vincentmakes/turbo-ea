@@ -278,7 +278,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     EntitySection(
         "Adrs",
         ArchitectureDecision,
-        user_fk_columns=("created_by", "recorded_by"),
+        user_fk_columns=("created_by", "recorded_by", "outcome_by"),
         self_parent_column="parent_id",
         # Mention spans name cards and users in the four text sections; the
         # signatories name users.
@@ -314,7 +314,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "Soaws",
         SoAW,
         card_fk_columns=("initiative_id",),
-        user_fk_columns=("created_by",),
+        user_fk_columns=("created_by", "outcome_by"),
         self_parent_column="parent_id",
         # Mention spans in each section's rich text; signatories name users.
         rewrite=remap.rewrite_soaw_row,

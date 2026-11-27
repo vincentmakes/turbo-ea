@@ -34,8 +34,9 @@ MODULES = (
     "mentions.py",
 )
 
-# Helpers that publish a persisted event themselves.
-PUBLISHING_HELPERS = frozenset({"_publish_adr_card_event"})
+# Helpers that publish a persisted event themselves (the route commits after
+# calling them): a call counts as a publish, so it must precede the commit.
+PUBLISHING_HELPERS = frozenset({"_publish_adr_card_event", "_review_verdict"})
 
 
 def _position(node: ast.AST) -> tuple[int, int]:
@@ -97,8 +98,8 @@ def test_the_scanned_modules_have_handlers_that_publish():
         publishing[module] = sum(1 for node in ast.walk(tree) if _persisted_publish(node))
     # The collaboration modules publish nothing yet; the comment routes will.
     assert publishing == {
-        "adr.py": 8,
-        "soaw.py": 4,
+        "adr.py": 12,
+        "soaw.py": 8,
         "comments.py": 2,
         "document_comments.py": 0,
         "document_history.py": 0,
