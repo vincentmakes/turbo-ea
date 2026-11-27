@@ -67,6 +67,7 @@ import {
   capturePixelRatio,
   exportReportToPptx,
   exportReportToXlsx,
+  exportCellText,
   extractSheetsFromDOM,
   headerAt,
   keepWithNext,
@@ -150,7 +151,34 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("exportCellText", () => {
+  it("drops Material Symbols ligature text and collapses whitespace", () => {
+    const root = mount(`<div id="c"> <button><span class="material-symbols-outlined">unfold_more</span></button>
+      Name <span class="material-symbols-outlined x">expand_more</span>  here </div>`);
+    const cell = root.querySelector("#c")!;
+    expect(exportCellText(cell)).toBe("Name here");
+    // The page itself keeps its icons.
+    expect(cell.querySelectorAll(".material-symbols-outlined")).toHaveLength(2);
+  });
+
+  it("keeps text in a hidden separator and in other spans", () => {
+    const root = mount(`<div id="c"><p>Finance</p><span hidden> · </span><span>uses</span></div>`);
+    expect(exportCellText(root.querySelector("#c")!)).toBe("Finance · uses");
+  });
+});
+
 describe("extractSheetsFromDOM", () => {
+  it("leaves icon ligatures out of header and body cells", () => {
+    const root = mount(`
+      <table>
+        <thead><tr><th><button><span class="material-symbols-outlined">unfold_more</span></button>Name</th></tr></thead>
+        <tbody><tr><td><span class="material-symbols-outlined">chevron_right</span>Hub</td></tr></tbody>
+      </table>`);
+    const [sheet] = extractSheetsFromDOM(root);
+    expect(sheet.columns[0].label).toBe("Name");
+    expect(sheet.rows).toEqual([{ c0: "Hub" }]);
+  });
+
   it("returns no sheets for a missing node", () => {
     expect(extractSheetsFromDOM(null)).toEqual([]);
   });

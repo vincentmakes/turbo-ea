@@ -729,6 +729,47 @@ describe("AddRelationsDialog relation dates", () => {
     }
   });
 
+  it("keeps the date fields usable while the dates are applied, and applies them in order", async () => {
+    // A date commits when its field is left — usually by entering the next
+    // one. Disabling the fields during the PATCHes threw that field's focus
+    // and keystrokes away.
+    const pending: Array<() => void> = [];
+    vi.mocked(api.patch).mockImplementation(
+      (url: string, body: unknown) =>
+        new Promise((resolve) =>
+          pending.push(() => resolve({ id: url.split("/").pop(), ...(body as object) } as never)),
+        ) as never,
+    );
+    mountDialog({ relationType: tracked });
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(await within(dialog).findByText("Finance"));
+    await waitFor(() => expect(within(dialog).getByText(/1 added/i)).toBeInTheDocument());
+    await userEvent.click(await within(dialog).findByText("Legal"));
+    await waitFor(() => expect(within(dialog).getByText(/2 added/i)).toBeInTheDocument());
+    await userEvent.click(datesToggle(dialog));
+
+    await setPhase(dialog, "Active", "2027-03-01");
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+    // The first PATCH is still in flight: every field stays enabled.
+    for (const label of ["Plan", "Active", "End of Life"]) {
+      expect(within(dialog).getByLabelText(label)).toBeEnabled();
+    }
+    await setPhase(dialog, "End of Life", "2030-12-31");
+    // Queued behind the first batch, not interleaved with it.
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    while (vi.mocked(api.patch).mock.calls.length < 4 || pending.length) {
+      const next = pending.shift();
+      if (next) next();
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    expect(vi.mocked(api.patch).mock.calls.map((c) => c[1])).toEqual([
+      { lifecycle: { active: "2027-03-01" } },
+      { lifecycle: { active: "2027-03-01" } },
+      { lifecycle: { active: "2027-03-01", endOfLife: "2030-12-31" } },
+      { lifecycle: { active: "2027-03-01", endOfLife: "2030-12-31" } },
+    ]);
+  });
+
   it("says why when applying the dates fails", async () => {
     vi.mocked(api.patch).mockRejectedValue(new Error("Unknown lifecycle phase"));
     mountDialog({ relationType: tracked });

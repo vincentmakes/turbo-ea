@@ -529,8 +529,11 @@ export default function LifecycleReport() {
     const el = timelineRef.current;
     if (!el || items.length === 0 || !totalRange) return;
     const viewMinPct = (viewMin - totalMin) / totalRange;
-    el.scrollLeft = el.scrollWidth * viewMinPct;
-  }, [items.length, viewMin, totalMin, totalRange]);
+    // Right to left, the axis runs from the right edge and the browser counts
+    // scrollLeft from there, negative — scrolling the positive way left the
+    // viewport on the oldest dates, with today and the relation rows off-screen.
+    el.scrollLeft = (isRtl ? -1 : 1) * el.scrollWidth * viewMinPct;
+  }, [items.length, viewMin, totalMin, totalRange, isRtl]);
 
   const singleSelectFields = useMemo(
     () => selectFields.filter((f) => f.type === "single_select"),
@@ -686,6 +689,34 @@ export default function LifecycleReport() {
     </Tooltip>
   );
   const typeColor = (key: string) => types.find((tp) => tp.key === key)?.color;
+  type CardRow = Extract<DisplayRow<RoadmapItem>, { kind: "card" }>;
+  /** A card row's fold chevron, in the chart and the table alike — or, on a
+   *  card without dated relations, a spacer that keeps the names aligned. */
+  const relationToggle = (row: CardRow) => {
+    if (row.relationCount === 0) {
+      return hasRelRows ? <Box sx={{ width: 22, flexShrink: 0 }} /> : null;
+    }
+    const label = row.expanded
+      ? t("lifecycle.collapseRelations", { name: row.item.name })
+      : t("lifecycle.expandRelations", { name: row.item.name });
+    return (
+      <IconButton
+        size="small"
+        sx={{ p: 0.25 }}
+        aria-expanded={row.expanded}
+        aria-label={`${label} (${t("lifecycle.relationCount", { count: row.relationCount })})`}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleRelations(row.item.id);
+        }}
+      >
+        <MaterialSymbol
+          icon={row.expanded ? "expand_more" : isRtl ? "chevron_left" : "chevron_right"}
+          size={18}
+        />
+      </IconButton>
+    );
+  };
 
   const phaseLabel = (phase: string) => t(PHASES[phaseRank(phase)].labelKey);
 
@@ -926,43 +957,31 @@ export default function LifecycleReport() {
                       sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                       onClick={() => setSidePanelCardId(item.id)}
                     >
-                      {row.relationCount > 0 ? (
-                        <IconButton
-                          size="small"
-                          sx={{ p: 0.25 }}
-                          aria-expanded={row.expanded}
-                          aria-label={
-                            row.expanded
-                              ? t("lifecycle.collapseRelations", { name: item.name })
-                              : t("lifecycle.expandRelations", { name: item.name })
-                          }
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleRelations(item.id);
-                          }}
-                        >
-                          <MaterialSymbol
-                            icon={row.expanded ? "expand_more" : isRtl ? "chevron_left" : "chevron_right"}
-                            size={18}
-                          />
-                        </IconButton>
-                      ) : (
-                        // Keeps the names in one column beside rows that have a chevron.
-                        hasRelRows && <Box sx={{ width: 22, flexShrink: 0 }} />
-                      )}
+                      {relationToggle(row)}
                       {isEol && <MaterialSymbol icon="warning" size={14} color={STATUS_COLORS.error} />}
                       <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400, minWidth: 0 }}>
                         {item.name}
                       </Typography>
                       {row.relationCount > 0 && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          noWrap
-                          sx={{ flexShrink: 0, marginInlineStart: "auto" }}
-                        >
-                          {t("lifecycle.relationCount", { count: row.relationCount })}
-                        </Typography>
+                        // The number only, so a long card name keeps its room;
+                        // the sentence is its tooltip and the chevron's label.
+                        <Tooltip title={t("lifecycle.relationCount", { count: row.relationCount })}>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            data-relation-count
+                            sx={{
+                              flexShrink: 0,
+                              marginInlineStart: "auto",
+                              px: 0.75,
+                              borderRadius: 1,
+                              bgcolor: "action.selected",
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            {row.relationCount}
+                          </Typography>
+                        </Tooltip>
                       )}
                     </Box>
                   );
@@ -1133,6 +1152,8 @@ export default function LifecycleReport() {
                     >
                       <TableCell sx={{ paddingInlineStart: 5 }}>
                         <Typography variant="body2">{row.entry.related_name}</Typography>
+                        {/* Unseen, but an export reads "Other card · verb". */}
+                        <span hidden> · </span>
                         <Typography variant="caption" color="text.secondary">{row.verb}</Typography>
                       </TableCell>
                       <TableCell>{cardTypeLabel(row.entry.related_type)}</TableCell>
@@ -1172,7 +1193,16 @@ export default function LifecycleReport() {
                 const phase = PHASES[phaseRank(currentPhase(d.lifecycle))];
                 return (
                   <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
-                    <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>
+                      {hasRelRows ? (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          {relationToggle(row)}
+                          {d.name}
+                        </Box>
+                      ) : (
+                        d.name
+                      )}
+                    </TableCell>
                     <TableCell>{cardTypeLabel(d.type)}</TableCell>
                     <TableCell>
                       <Chip size="small" label={t(phase.labelKey)} sx={phaseChipSx(phase.color)} />

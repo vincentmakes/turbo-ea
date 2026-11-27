@@ -367,9 +367,15 @@ export default function RelationLifecyclesPanel({
           onClose={() => setEditing(null)}
           relation={editing.relation}
           onSaved={(updated) => {
-            // The PATCH answers without the embedded card refs: merge, keep them.
+            // Overlay only what the PATCH changed: its `source` / `target` may
+            // come back null or shallower than the list's, which would blank
+            // the other card's name and link (as RelationsSection notes).
             setRelations((prev) =>
-              prev ? prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)) : prev,
+              prev
+                ? prev.map((r) =>
+                    r.id === updated.id ? { ...r, lifecycle: updated.lifecycle ?? r.lifecycle } : r,
+                  )
+                : prev,
             );
             onChanged?.();
           }}

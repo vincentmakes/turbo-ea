@@ -439,23 +439,29 @@ export default function AddRelationsDialog({
    * The relation dates, likewise: a date set after cards were added is
    * re-applied to every relation added in this opening, and blanking every
    * field clears their dates again.
+   *
+   * Unlike the attributes, this does NOT mark the dialog busy: a date field
+   * commits when it is left, which is usually the moment the next one is
+   * entered, and disabling the fields during the PATCHes threw that next
+   * field's focus and keystrokes away. The writes queue instead, one batch
+   * after the other, so the last dates entered are the ones that stay.
    */
-  const applyLifecycle = async (next: Record<string, string>) => {
+  const lifecycleWrites = useRef<Promise<void>>(Promise.resolve());
+  const applyLifecycle = (next: Record<string, string>) => {
     setLifecycle(next);
     if (added.length === 0) return;
-    setBusy(true);
-    setError("");
-    try {
-      const dates = cleanRelationLifecycle(next);
-      for (const a of added) {
-        const updated = await api.patch<Relation>(`/relations/${a.relId}`, { lifecycle: dates });
-        onUpdated(updated);
+    const targets = added;
+    const dates = cleanRelationLifecycle(next);
+    lifecycleWrites.current = lifecycleWrites.current.then(async () => {
+      try {
+        for (const a of targets) {
+          const updated = await api.patch<Relation>(`/relations/${a.relId}`, { lifecycle: dates });
+          onUpdated(updated);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("relations.errors.create"));
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("relations.errors.create"));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   /** Undo one of this batch's adds from its chip. */
@@ -569,7 +575,7 @@ export default function AddRelationsDialog({
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, mb: 1.5 }}>
                 {t("relations.lifecycle.addDatesHelp")}
               </Typography>
-              <LifecycleDateFields lifecycle={lifecycle} onChange={applyLifecycle} disabled={busy} />
+              <LifecycleDateFields lifecycle={lifecycle} onChange={applyLifecycle} />
             </Collapse>
           </Box>
         )}

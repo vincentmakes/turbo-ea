@@ -35,6 +35,7 @@ import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType, makeField, makeRelationType, makeSection } from "@/test/fixtures/metamodel";
 import { wrapWithProviders } from "@/test/render";
 import LifecycleReport from "./LifecycleReport";
+import { extractSheetsFromDOM } from "./reportExport";
 
 const NOW = Date.parse("2026-07-01T00:00:00.000Z");
 const FIVE_YEARS = 5 * 365.25 * 86400000;
@@ -164,8 +165,11 @@ function chart() {
 const leftOf = (el: Element) => parseFloat(getComputedStyle(el).left);
 const widthOf = (el: Element) => parseFloat(getComputedStyle(el).width);
 const nameTexts = () => chart().names.map((r) => r.textContent);
+/** The chevron for a card (the chart's, or the table's in table view). */
 const chevron = (name: string) =>
-  screen.queryByRole("button", { name: new RegExp(`(Show|Hide) the dated relations of ${name}$`) });
+  screen.queryByRole("button", {
+    name: new RegExp(`^(Show|Hide) the dated relations of ${name} \\(\\d+ relations?\\)$`),
+  });
 
 async function openSaveDialog(): Promise<Record<string, unknown>> {
   fireEvent.click(screen.getByRole("button", { name: /save report/i }));
@@ -204,10 +208,13 @@ describe("LifecycleReport relation rows", () => {
     renderReport();
     await screen.findByText("Solo", undefined, LONG);
     expect(nameTexts().map((t) => t?.replace(/chevron_right|expand_more/, ""))).toEqual([
-      "Hub3 relations",
-      "Peer1 relation",
+      "Hub3",
+      "Peer1",
       "Solo",
     ]);
+    // The count is a bare number; the sentence is its tooltip and in the chevron's name.
+    expect(chevron("Hub")).toHaveAccessibleName("Show the dated relations of Hub (3 relations)");
+    expect(chevron("Peer")).toHaveAccessibleName("Show the dated relations of Peer (1 relation)");
     expect(chevron("Hub")).toHaveAttribute("aria-expanded", "false");
     expect(chevron("Peer")).toHaveAttribute("aria-expanded", "false");
     expect(chevron("Solo")).toBeNull();
@@ -401,7 +408,7 @@ describe("LifecycleReport relation rows", () => {
     const cells = (i: number) => within(rows[i]).getAllByRole("cell").map((c) => c.textContent);
     expect(rows).toHaveLength(6);
     expect(cells(1)).toEqual([
-      "Alpha Serverruns on",
+      "Alpha Server · runs on",
       "IT Component",
       "Ended",
       "—",
@@ -410,13 +417,83 @@ describe("LifecycleReport relation rows", () => {
       "—",
       "2024-03-15",
     ]);
-    expect(cells(2).slice(0, 3)).toEqual(["Peeris fed by", "Application", "In effect"]);
-    expect(cells(3).slice(0, 5)).toEqual(["Zeta Serverruns on", "IT Component", "Planned", "2026-03-15", "—"]);
+    expect(cells(2).slice(0, 3)).toEqual(["Peer · is fed by", "Application", "In effect"]);
+    expect(cells(3).slice(0, 5)).toEqual(["Zeta Server · runs on", "IT Component", "Planned", "2026-03-15", "—"]);
     expect(rows[1]).toHaveAttribute("data-relation-row");
     fireEvent.click(rows[3]);
     expect(screen.getByTestId("side-panel")).toHaveTextContent("zeta");
     // The Name header carries the expand-all control here too.
     fireEvent.click(screen.getByRole("button", { name: "Show every card's dated relations" }));
     expect(screen.getAllByRole("row")).toHaveLength(1 + 3 + 3 + 1);
+  });
+
+  it("hovers the relation count for the full sentence", async () => {
+    renderReport();
+    await screen.findByText("Hub", undefined, LONG);
+    const count = chart().names[0].querySelector("[data-relation-count]")!;
+    expect(count).toHaveTextContent(/^3$/);
+    fireEvent.mouseOver(count);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("3 relations");
+  });
+
+  it("folds and unfolds one card in the table, without opening it", async () => {
+    storeConfig({ view: "table" });
+    renderReport();
+    await screen.findByRole("table", undefined, LONG);
+    expect(chevron("Solo")).toBeNull();
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+    fireEvent.click(chevron("Peer")!);
+    expect(chevron("Peer")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByRole("row")).toHaveLength(5);
+    expect(screen.queryByTestId("side-panel")).not.toBeInTheDocument();
+    // The same state the chart reads, and saves.
+    expect(await openSaveDialog()).toMatchObject({ relToggledIds: ["peer"] });
+    fireEvent.click(chevron("Peer")!);
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+    // A card without relations keeps its name in line behind a spacer.
+    const soloCell = within(screen.getAllByRole("row")[3]).getAllByRole("cell")[0];
+    expect(soloCell.firstElementChild!.childNodes).toHaveLength(2);
+    expect(soloCell.firstElementChild!.querySelector("button")).toBeNull();
+  });
+
+  it("exports the table with a clean Name header and readable relation rows", async () => {
+    storeConfig({ view: "table", relToggledIds: ["peer"] });
+    renderReport();
+    const table = await screen.findByRole("table", undefined, LONG);
+    const [sheet] = extractSheetsFromDOM(table.parentElement as HTMLElement);
+    expect(sheet.columns[0].label).toBe("Name");
+    expect(sheet.rows.map((r) => r.c0)).toEqual(["Hub", "Peer", "Hub · feeds", "Solo"]);
+    expect(sheet.rows[2]).toEqual({
+      c0: "Hub · feeds",
+      c1: "Application",
+      c2: "In effect",
+      c3: "\u2014",
+      c4: "\u2014",
+      c5: "2025-03-15",
+      c6: "\u2014",
+      c7: "2040-06-15",
+    });
+  });
+
+  it("scrolls the timeline to the last five years from the right in a right-to-left language", async () => {
+    const desc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollWidth");
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => 2000 });
+    try {
+      const g = axis("2018-03-15", "2040-06-15");
+      const expected = 2000 * ((NOW - FIVE_YEARS - g.min) / g.range);
+      hookState.isRtl = true;
+      const { unmount } = renderReport();
+      await screen.findByText("Hub", undefined, LONG);
+      const timeline = chart().content.parentElement!;
+      expect(timeline.scrollLeft).toBeCloseTo(-expected, 3);
+      unmount();
+      hookState.isRtl = false;
+      renderReport();
+      await screen.findByText("Hub", undefined, LONG);
+      expect(chart().content.parentElement!.scrollLeft).toBeCloseTo(expected, 3);
+    } finally {
+      if (desc) Object.defineProperty(HTMLElement.prototype, "scrollWidth", desc);
+      else delete (HTMLElement.prototype as { scrollWidth?: number }).scrollWidth;
+    }
   });
 });

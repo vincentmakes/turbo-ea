@@ -316,6 +316,37 @@ describe("RelationLifecyclesPanel", () => {
     expect(api.get).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the other card's name and link when the PATCH answers without refs", async () => {
+    vi.mocked(api.get).mockResolvedValue([BOX] as never);
+    vi.mocked(api.patch).mockResolvedValue({
+      id: BOX.id,
+      type: "runsOn",
+      source_id: "me",
+      target_id: "box",
+      source: null,
+      target: null,
+      lifecycle: { active: "2025-01-01", endOfLife: "2032-01-01" },
+    } as never);
+    renderPanel();
+    await panel();
+    fireEvent.click(screen.getByRole("button", { name: "Edit relation dates" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Until 2032-01-01")).toBeInTheDocument();
+    expect(names()).toEqual(["Box Server"]);
+    expect(screen.getByRole("link", { name: /Box Server/ })).toHaveAttribute("href", "/cards/box");
+  });
+
+  it("keeps the row's dates when the PATCH answer carries none", async () => {
+    vi.mocked(api.get).mockResolvedValue([BOX] as never);
+    vi.mocked(api.patch).mockResolvedValue({ id: BOX.id, type: "runsOn" } as never);
+    const { onChanged } = renderPanel();
+    await panel();
+    fireEvent.click(screen.getByRole("button", { name: "Edit relation dates" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(screen.getByText("Until 2030-01-01")).toBeInTheDocument();
+  });
+
   it("closes the clock without saving on cancel", async () => {
     vi.mocked(api.get).mockResolvedValue([BOX] as never);
     const { onChanged } = renderPanel();
