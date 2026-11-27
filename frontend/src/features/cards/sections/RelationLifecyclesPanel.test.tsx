@@ -344,7 +344,11 @@ describe("RelationLifecyclesPanel", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Save" }));
     expect(await screen.findByText("Until 2032-01-01")).toBeInTheDocument();
     expect(names()).toEqual(["Box Server"]);
-    expect(screen.getByRole("link", { name: /Box Server/ })).toHaveAttribute("href", "/cards/box");
+    // The popover's modal hides the panel from role queries until its unmount cleanup has run.
+    expect(await screen.findByRole("link", { name: /Box Server/ })).toHaveAttribute(
+      "href",
+      "/cards/box",
+    );
   });
 
   it("keeps the row's dates when the PATCH answer carries none", async () => {
@@ -355,6 +359,8 @@ describe("RelationLifecyclesPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit relation dates" }));
     fireEvent.click(await screen.findByRole("button", { name: "Save" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    // onChanged runs before the commit that merges the row and closes the popover: wait for it.
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Save" })).toBeNull());
     expect(screen.getByText("Until 2030-01-01")).toBeInTheDocument();
   });
 
