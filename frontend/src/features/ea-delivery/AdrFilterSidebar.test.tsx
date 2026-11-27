@@ -204,6 +204,41 @@ describe("AdrFilterSidebar register filters", () => {
     });
   });
 
+  it("switches closed decisions on and off", () => {
+    const onChange = vi.fn();
+    const { unmount } = renderSidebar({ onFiltersChange: onChange });
+    const toggle = screen.getByRole("checkbox", { name: /rejected and withdrawn/ });
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_ADR_FILTERS, showClosed: true });
+    unmount();
+
+    renderSidebar({ filters: { showClosed: true }, onFiltersChange: onChange });
+    const on = screen.getByRole("checkbox", { name: /rejected and withdrawn/ });
+    expect(on).toBeChecked();
+    fireEvent.click(on);
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_ADR_FILTERS, showClosed: false });
+  });
+
+  it("offers every outcome and 'No outcome' as chips, toggles one and counts it", () => {
+    const onChange = vi.fn();
+    const { unmount } = renderSidebar({ onFiltersChange: onChange });
+    for (const label of ["Changes requested", "Rejected", "Withdrawn", "No outcome"]) {
+      expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "false");
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Withdrawn" }));
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_ADR_FILTERS, outcomes: ["withdrawn"] });
+    unmount();
+
+    renderSidebar({ filters: { outcomes: ["withdrawn", "none"] }, onFiltersChange: onChange });
+    const chip = screen.getByRole("button", { name: "Withdrawn" });
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+    expect(chip.className).toContain("MuiChip-filled");
+    expect(screen.getByText("Outcome").parentElement as HTMLElement).toHaveTextContent("Outcome2");
+    fireEvent.click(chip);
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_ADR_FILTERS, outcomes: ["none"] });
+  });
+
   it("lists the statuses from the shared vocabulary and toggles one", () => {
     const onChange = vi.fn();
     renderSidebar({ onFiltersChange: onChange });
@@ -306,6 +341,8 @@ describe("AdrFilterSidebar per-section clear, every section", () => {
     dateDecidedFrom: "2026-04-01",
     dateDecidedTo: "2026-04-30",
     showEarlierRevisions: true,
+    showClosed: true,
+    outcomes: ["rejected"],
   };
 
   it.each<[string, Partial<AdrFilters>]>([
@@ -313,6 +350,7 @@ describe("AdrFilterSidebar per-section clear, every section", () => {
     ["Linked Cards", { linkedCards: [] }],
     ["Status", { statuses: [] }],
     ["Standing", { standings: [] }],
+    ["Outcome", { outcomes: [] }],
     ["Signed By", { signedBy: [] }],
     ["Date Created", { dateCreatedFrom: "", dateCreatedTo: "" }],
     ["Date Modified", { dateModifiedFrom: "", dateModifiedTo: "" }],

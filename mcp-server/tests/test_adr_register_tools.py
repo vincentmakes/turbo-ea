@@ -127,6 +127,52 @@ class TestListAdrs:
         }
 
 
+class TestListAdrsOutcome:
+    @pytest.mark.asyncio
+    async def test_passes_outcome_and_hides_closed_on_request(self, fake_token):
+        mocks, calls = _backend(get=[])
+        with mocks[2]:
+            await server.list_adrs(outcome=" rejected , withdrawn,", include_closed=False)
+        assert calls["get"] == [
+            (
+                "/adr",
+                {
+                    "include_earlier": "false",
+                    "outcome": "rejected,withdrawn",
+                    "include_closed": "false",
+                },
+            )
+        ]
+
+    @pytest.mark.asyncio
+    async def test_unknown_outcome_is_refused_before_any_request(self, fake_token):
+        mocks, calls = _backend(get=[])
+        with mocks[2]:
+            out = await server.list_adrs(outcome="rejected,closed")
+        assert calls["get"] == []
+        assert _parse(out) == {
+            "error": "unknown_outcome",
+            "values": ["closed"],
+            "allowed": ["changes_requested", "rejected", "withdrawn"],
+            "message": (
+                "outcome takes one value or a comma-separated list of: "
+                "changes_requested, rejected, withdrawn."
+            ),
+        }
+
+    def test_the_outcome_filter(self):
+        assert server._adr_outcome_filter("") == (None, None)
+        assert server._adr_outcome_filter(" , ") == (None, None)
+        for value in server._ADR_OUTCOMES:
+            assert server._adr_outcome_filter(value) == (value, None)
+        assert server._ADR_OUTCOMES == ("changes_requested", "rejected", "withdrawn")
+
+    def test_the_docstring_explains_the_outcome(self):
+        doc = server.list_adrs.__doc__
+        assert "changes_requested" in doc and "closed" in doc
+        assert "include_closed" in doc
+
+
 class TestStandingFilter:
     def test_empty_means_no_filter(self):
         assert server._adr_standing_filter("") == (None, None)
@@ -151,6 +197,13 @@ class TestListSoaws:
         with mocks[2]:
             await server.list_soaws(initiative_id="i-1", include_earlier=True)
         assert calls["get"] == [("/soaw", {"initiative_id": "i-1", "include_earlier": "true"})]
+
+    @pytest.mark.asyncio
+    async def test_include_closed_false_is_sent(self, fake_token):
+        mocks, calls = _backend(get=[])
+        with mocks[2]:
+            await server.list_soaws(include_closed=False)
+        assert calls["get"] == [("/soaw", {"include_earlier": "false", "include_closed": "false"})]
 
 
 # ── field translation ───────────────────────────────────────────────────────
@@ -580,6 +633,20 @@ class TestUpdateAdrRegisterFields:
                 "decision_in_review",
                 "A decision sent for signature is locked: only linked_card_ids and "
                 "linked_diagram_ids can change. Recall the signature requests in the "
+                "web UI to edit it.",
+            ),
+            (
+                "This decision was rejected and is closed. Reopen it to edit it.",
+                "decision_closed",
+                "This decision was rejected or withdrawn and is closed: only "
+                "linked_card_ids and linked_diagram_ids can change. Reopen it in the "
+                "web UI to edit it.",
+            ),
+            (
+                "This decision was withdrawn and is closed. Reopen it to edit it.",
+                "decision_closed",
+                "This decision was rejected or withdrawn and is closed: only "
+                "linked_card_ids and linked_diagram_ids can change. Reopen it in the "
                 "web UI to edit it.",
             ),
             (

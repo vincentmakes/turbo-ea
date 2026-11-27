@@ -230,6 +230,28 @@ describe("SoAWTab", () => {
     }
   });
 
+  it("labels a closed draft by its outcome and offers no Delete until it is reopened", async () => {
+    mockApi.on("get", LIST, [
+      soaw("a", {
+        name: "Rejected plan",
+        outcome: { kind: "rejected", at: "2026-11-27T10:00:00Z", by: null, note: "No" },
+      }),
+      soaw("b", {
+        name: "Returned plan",
+        outcome: { kind: "changes_requested", at: "2026-11-27T10:00:00Z", by: null, note: "Fix" },
+      }),
+    ]);
+    renderTab();
+    const rows = await screen.findAllByRole("row");
+    const rejected = within(rows[1]).getByText("Rejected").closest(".MuiChip-root");
+    expect(rejected).toHaveClass("MuiChip-colorError");
+    expect(within(rows[1]).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(within(rows[2]).getByText("Changes requested").closest(".MuiChip-root")).toHaveClass(
+      "MuiChip-colorWarning",
+    );
+    expect(within(rows[2]).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
   it("deletes nothing when the confirmation is declined", async () => {
     confirmSpy.mockReturnValue(false);
     mockApi.on("get", LIST, [soaw("a")]);

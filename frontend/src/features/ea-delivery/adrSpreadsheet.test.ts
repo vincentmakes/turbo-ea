@@ -95,6 +95,9 @@ describe("adrRow", () => {
       "",
       "",
       "",
+      // outcome, outcome_note
+      "",
+      "",
     ]);
   });
 
@@ -149,6 +152,8 @@ describe("adrRow", () => {
       "amends",
       "revokes",
       "consolidates",
+      "outcome",
+      "outcome_note",
     ]);
     expect(at("related_decisions")).toBe("ADR-001; ADR-002");
     expect(at("standing")).toBe("amended");
@@ -166,7 +171,22 @@ describe("adrRow", () => {
 
   it("leaves a link kind blank when the row carries no link references", () => {
     const row = adrRow({ ...ADR, link_references: { replaces: ["ADR-003"] } });
-    expect(row.slice(-4)).toEqual(["ADR-003", "", "", ""]);
+    const links = row.slice(ADR_COLUMNS.indexOf("replaces"), ADR_COLUMNS.indexOf("consolidates") + 1);
+    expect(links).toEqual(["ADR-003", "", "", ""]);
+  });
+
+  it("writes the review outcome's kind and reason last", () => {
+    const row = adrRow({
+      ...ADR,
+      status: "draft",
+      outcome: {
+        kind: "withdrawn",
+        at: "2026-11-27T10:00:00Z",
+        by: { id: "u1", display_name: "Ada" },
+        note: "Superseded by the cloud plan",
+      },
+    });
+    expect(row.slice(-2)).toEqual(["withdrawn", "Superseded by the cloud plan"]);
   });
 
   it("leaves optional facts blank", () => {

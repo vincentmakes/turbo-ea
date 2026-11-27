@@ -174,3 +174,15 @@ describe("CommentThread — a thread with nothing live left", () => {
     expect(screen.getByTestId("thread-t1")).toHaveAttribute("data-compact", "true");
   });
 });
+
+describe("CommentThread — a request for changes", () => {
+  it("is marked as one, can be resolved, and an empty reason reads as none given", () => {
+    renderThread(
+      thread({ kind: "change_request", body: "", can: { edit: false, delete: false, resolve: true } }),
+    );
+    expect(screen.getByText("Changes requested")).toBeInTheDocument();
+    expect(screen.queryByText("Rejection reason")).not.toBeInTheDocument();
+    expect(screen.getByText("No reason given")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resolve" })).toBeInTheDocument();
+  });
+});

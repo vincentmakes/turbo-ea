@@ -18,7 +18,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_current():
-    assert sdk.SDK_VERSION == "1.20"
+    assert sdk.SDK_VERSION == "1.21"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -214,13 +214,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.18")
     assert sdk.sdk_compatible("1.19")
     assert sdk.sdk_compatible("1.20")
+    assert sdk.sdk_compatible("1.21")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.21")
+    assert sdk.sdk_minor_newer("1.22")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.21")
     assert not sdk.sdk_minor_newer("1.20")
     assert not sdk.sdk_minor_newer("1.19")
     assert not sdk.sdk_minor_newer("1.18")
@@ -610,3 +612,21 @@ def test_sdk_1_20_surface_exists():
     from app.services.extensions import bundle
 
     assert not any("lifecycle" in grant for grant in bundle.VALID_GRANTS)
+
+
+def test_sdk_1_21_surface_exists():
+    # SDK 1.21 — review outcomes. ``ExtDecision.outcome`` is trailing and
+    # defaulted, so the construction older extensions use still works; the
+    # status vocabulary is unchanged and no grant came with it.
+    import dataclasses
+
+    decision = sdk.ExtDecision("d", "ADR-001", "T", "draft", 1, (), {}, None)
+    assert decision.outcome is None
+    names = [f.name for f in dataclasses.fields(sdk.ExtDecision)]
+    assert names[-1] == "outcome"
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        decision.outcome = "rejected"  # type: ignore[misc]
+
+    from app.services.extensions import bundle
+
+    assert not any("outcome" in grant for grant in bundle.VALID_GRANTS)

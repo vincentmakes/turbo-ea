@@ -29,7 +29,7 @@ Gli ADR documentano importanti decisioni architetturali insieme al loro contesto
 
 Il registro risponde innanzitutto a una domanda: **quali decisioni sono in vigore oggi?** Ogni decisione firmata ha una [vigenza](#standing) che Turbo EA ricava dalle sue date, dalle sue revisioni e dalle altre decisioni che agiscono su di essa, e la griglia elenca solo la revisione corrente di ogni decisione, a meno che non chiediate anche quelle precedenti.
 
-La griglia può anche essere **raggruppata per stato** o **per vigenza** tramite il pulsante *Raggruppa per* accanto alla casella di ricerca: ogni stato o vigenza si comprime sotto la propria intestazione, e la casella di controllo nell'intestazione seleziona l'intero gruppo per un'esportazione in blocco.
+La griglia può anche essere **raggruppata per stato** o **per vigenza** tramite il pulsante *Raggruppa per* accanto alla casella di ricerca: ogni stato o vigenza si comprime sotto la propria intestazione (raggruppando per stato, ogni esito della revisione ha il proprio gruppo), e la casella di controllo nell'intestazione seleziona l'intero gruppo per un'esportazione in blocco.
 
 #### Stato e vigenza {: #standing }
 
@@ -37,6 +37,18 @@ Una decisione ha due stati distinti:
 
 - Lo **Stato** è il workflow di firma, ed è ciò su cui agite: **Bozza** → **In Revisione** (firme richieste) → **Firmato**. Una decisione presa al di fuori di Turbo EA e [registrata come presa](#recording-a-past-decision) mostra **Registrato** al posto di Firmato.
 - La **Vigenza** indica la situazione odierna di una decisione firmata o registrata. È derivata — mai impostata a mano — e una bozza o una decisione in revisione non ne ha alcuna (*Non ancora firmata*).
+
+Una bozza può anche portare un **esito della revisione**, che indica come si è conclusa senza firma la sua ultima revisione. Compare al posto di *Bozza* sul chip di stato e un banner sulla decisione indica chi, quando e perché (*Rifiutata da Ada Lovelace il 27 nov 2026: …*):
+
+| Esito | Significato |
+|-------|-------------|
+| **Modifiche richieste** | Un firmatario ha rimandato indietro la decisione per la rielaborazione. È una bozza modificabile; l'etichetta scompare quando vengono richieste di nuovo le firme |
+| **Rifiutata** | Un firmatario ha rifiutato la decisione. È **chiusa** |
+| **Ritirata** | Il lato dell'autore ha ritirato la decisione. È **chiusa** |
+
+Una decisione **chiusa** resta registrata ma è bloccata come una in revisione: solo le sue card collegate e i suoi [diagrammi](#decision-diagrams) possono ancora cambiare, e il suo autore non può inviarla in revisione, registrarla, ripristinarla o eliminarla (eliminarla richiede il permesso `adr.delete`). Per lavorarci di nuovo, cliccate su **Riaprire**, che la rende una semplice bozza. Il registro nasconde le decisioni chiuse finché non si attiva **Mostra chiuse**. Una bozza la cui ultima revisione è stata rifiutata prima della versione 2.221.0 — quando un rifiuto riportava ancora la decisione in bozza — riporta **Modifiche richieste**.
+
+Il ciclo di vita è fisso: i tre stati, le sei vigenze e i tre esiti sono gli stessi in ogni spazio di lavoro e non possono essere configurati, né da un amministratore né da un'estensione.
 
 | Vigenza | Significato |
 |---------|-------------|
@@ -56,7 +68,7 @@ La griglia ADR rispecchia il layout della griglia Inventario:
 | Colonna | Descrizione |
 |---------|-------------|
 | **N. rif.** | Numero di riferimento generato automaticamente (ADR-001, ADR-002, …) con un punto di stato; una revisione successiva alla prima aggiunge il proprio numero (ADR-012 · Rev. 2) |
-| **Stato** | Chip colorato — Bozza, In Revisione, Firmato o Registrato |
+| **Stato** | Chip colorato — Bozza, In Revisione, Firmato o Registrato, oppure l'esito della revisione (Modifiche richieste, Rifiutata, Ritirata) di una bozza che ne ha uno |
 | **Vigenza** | La situazione odierna di una decisione firmata — vedere [Stato e vigenza](#standing); vuota finché non è firmata |
 | **Titolo** | Titolo dell'ADR |
 | **Decisione** | Estratto in testo semplice della decisione |
@@ -78,15 +90,17 @@ La barra laterale persistente a sinistra ha due schede:
 - **Filtri** — filtri a faccette sull'elenco degli ADR:
     - **In vigore** — un clic mostra solo le decisioni in vigore oggi (In vigore e In vigore (modificata)); un secondo clic lo disattiva
     - **Mostra revisioni precedenti** — disattivato per impostazione predefinita, così ogni decisione compare una sola volta, come revisione corrente (più un'eventuale revisione in fase di redazione). Attivatelo per elencare anche le revisioni precedenti; il pulsante **Esporta** segue la stessa impostazione
+    - **Mostra chiuse** — disattivato per impostazione predefinita, così le decisioni rifiutate e ritirate restano da parte. Attivatelo per elencarle anch'esse
     - **Tipi di card** — caselle di controllo con punti colorati che filtrano per tipi di card collegate
     - **Card collegate** — filtra per card collegate specifiche
     - **Stato** — Bozza / In Revisione / Firmato (una decisione registrata conta come firmata)
     - **Vigenza** — Programmata / In vigore / In vigore (modificata) / Sostituita / Revocata / Scaduta / Non ancora firmata
+    - **Esito** — Modifiche richieste / Rifiutata / Ritirata / Nessun esito. Scegliere **Rifiutata** o **Ritirata** elenca quelle decisioni anche con **Mostra chiuse** disattivato
     - **Firmato da** — filtra per firmatario
     - **Data di creazione / modifica / firma / della decisione** — intervalli di date da/a (**Data della decisione** corrisponde alla data *Decisa il* di una decisione firmata o registrata)
 - **Colonne** — scegliete quali colonne della griglia sono visibili. **N. rif.** e **Titolo** sono sempre mostrati; **Ripristina** ripristina la selezione predefinita. La scelta viene memorizzata per browser.
 
-Usate la barra del **filtro rapido** per la ricerca full-text. Fate clic destro su una riga per un menu contestuale (**Modifica**, **Anteprima**, **Duplica**, **Elimina**).
+Usate la barra del **filtro rapido** per la ricerca full-text. Fate clic destro su una riga per un menu contestuale (**Modifica**, **Anteprima**, **Duplica**, **Elimina** e, su una decisione chiusa, **Riaprire** per chi ha `adr.manage`). **Elimina** è offerto su una bozza; su una decisione chiusa, solo a chi ha `adr.delete`.
 
 #### Esportare e importare le decisioni {: #decisions-import }
 
@@ -256,17 +270,24 @@ La sezione **Diagrammi**, dopo **File allegati**, allega a una decisione diagram
 - **Chi li vede.** Per vedere la sezione serve il permesso di visualizzare i diagrammi (`diagrams.view`); per allegare e staccare serve anche `adr.manage`. Un lettore senza `diagrams.view` non vede alcuna sezione Diagrammi. Anche una decisione che non può essere modificata e non ha diagrammi non mostra la sezione.
 - **Dove compaiono.** L'[anteprima](#preview) mostra i diagrammi in sola lettura; la copia PDF / stampata e l'esportazione Word ne elencano i nomi. Una revisione e un duplicato riportano i diagrammi. I diagrammi non fanno parte di una versione della [Cronologia](#decision-history).
 
-#### Workflow di firma
+#### Workflow di firma {: #sign-off-workflow }
 
 Gli ADR supportano un processo formale di firma:
 
 1. Create l'ADR con stato **Bozza**.
 2. Cliccate su **Richiedi firme** e cercate i firmatari per nome o e-mail (oppure cliccate su **Aggiungi decisori**). Le firme possono essere richieste solo da una bozza.
 3. L'ADR passa a **In Revisione** — ogni firmatario riceve una notifica e un Todo.
-4. I firmatari esaminano e cliccano su **Firma**.
+4. I firmatari esaminano e cliccano su **Firma**, **Richiedere modifiche** o **Rifiutare**.
 5. Quando tutti i firmatari hanno firmato, l'ADR passa automaticamente allo stato **Firmato**.
 
-**Una decisione in revisione è bloccata**, così i firmatari firmano esattamente ciò che è stato loro inviato: il testo, le date, le persone, i collegamenti ad altre decisioni, i file e i pannelli delle estensioni sono in sola lettura, e solo le card collegate e i [diagrammi](#decision-diagrams) allegati possono ancora cambiare. Per modificarla, cliccate su **Ritirare le firme**, che la riporta in bozza. Anche un firmatario che clicca su **Rifiutare** la riporta in bozza, con lo stesso numero di revisione.
+**Una decisione in revisione è bloccata**, così i firmatari firmano esattamente ciò che è stato loro inviato: il testo, le date, le persone, i collegamenti ad altre decisioni, i file e i pannelli delle estensioni sono in sola lettura, e solo le card collegate e i [diagrammi](#decision-diagrams) allegati possono ancora cambiare. Per modificarla, cliccate su **Ritirare le firme**, che la riporta in bozza.
+
+Un firmatario in sospeso che non firma ha due possibilità, ciascuna con un motivo (fino a 4.000 caratteri) di cui vengono notificati tutti gli altri firmatari e l'autore:
+
+- **Richiedere modifiche** rimanda indietro la decisione per la rielaborazione: torna a essere una bozza modificabile, con lo stesso numero di revisione, contrassegnata come **Modifiche richieste**. Modificatela e richiedete di nuovo le firme; l'etichetta scompare allora. Fino alla versione 2.221.0 era ciò che faceva **Rifiutare**.
+- **Rifiutare** chiude la decisione: resta una bozza, contrassegnata come **Rifiutata**, ed è bloccata finché qualcuno non la riapre. Basta un solo firmatario per rifiutare.
+
+Lato autore, chi ha `adr.manage` può **Ritirare** una bozza salvata o una decisione in revisione, con un motivo: le richieste di firma in sospeso vengono annullate, i loro firmatari notificati e la decisione viene chiusa, contrassegnata come **Ritirata**. **Riaprire** riporta una decisione rifiutata o ritirata a una semplice bozza che può essere modificata e inviata di nuovo in revisione. Ogni passaggio compare nella sequenza temporale della [Cronologia](#decision-history).
 
 Gli ADR firmati sono bloccati e non possono essere modificati — per apportare modifiche create una nuova revisione.
 
@@ -284,6 +305,7 @@ Aprite un ADR firmato e scegliete **Revisiona → Revisiona questa decisione** p
 - **La revisione corrente è quella in vigore.** Quando una revisione è firmata ed efficace, quelle precedenti diventano **Sostituite** e mostrano un banner con un collegamento a quella corrente. La striscia **Revisioni** su ogni revisione elenca l'intera catena e contrassegna quella corrente.
 - **Solo la revisione corrente può essere revisionata**, e non più una volta che la decisione è stata revocata o sostituita. Una decisione scaduta o modificata può ancora essere revisionata.
 - **Un rifiuto non conta come revisione**: il numero di revisione cambia solo quando viene creata una nuova revisione.
+- **Una revisione rifiutata o ritirata resta la revisione aperta.** Continua a bloccare una nuova revisione della sua decisione, e il menu **Rivedi** la nomina (*Apri la revisione in corso di stesura (ADR-012 · Rev 3, Rifiutata)*). Per riprovare, apritela e cliccate su **Riaprire**; oppure eliminatela per avviare una nuova revisione.
 - Le decisioni revisionate prima della versione 2.199.0 mantengono i numeri di riferimento con cui sono state emesse, e si leggono comunque come un'unica decisione con un'unica striscia di revisioni.
 
 #### Anteprima {: #preview }
@@ -303,10 +325,10 @@ Ogni decisione ha la propria **Discussione**, così una decisione può essere de
 - **Formattazione.** Un commento accetta grassetto, corsivo, barrato, **Codice in linea**, elenchi puntati e numerati, citazioni e [link](#decision-text-links) (il pulsante **Link** o Ctrl/Cmd+K). Intestazioni, blocchi di codice, immagini e tabelle vanno nelle sezioni, non nei commenti.
 - **Chi può pubblicare.** La lettura della discussione segue chi può aprire la decisione (`adr.view`). Pubblicare, rispondere, risolvere e riaprire richiedono il permesso `adr.comment`, che membri e amministratori hanno per impostazione predefinita e i visualizzatori no; un amministratore può modificarlo per ruolo. I firmatari della decisione possono sempre commentarla, comprese le persone a cui è stato chiesto di firmarla in un precedente giro di revisione ritirato o rifiutato.
 - **Durante la revisione e dopo la firma.** Il [blocco durante la revisione](#workflow-di-firma) riguarda il contenuto, non la conversazione: la discussione resta aperta mentre la decisione è in revisione e dopo che è stata firmata.
-- **Note di revisione.** Quando un firmatario rifiuta una decisione, il motivo apre un thread contrassegnato **Motivo del rifiuto** (*Nessun motivo indicato* se il firmatario lo ha lasciato vuoto), a cui si risponde e che si risolve come qualsiasi altro. Un firmatario può aggiungere una nota facoltativa al momento della firma; compare nella discussione come **Nota di firma**. Nessuna delle due va più persa quando le firme vengono ritirate, ed entrambe sono mostrate anche nella [Cronologia](#decision-history).
-- **Thread aperti prima della revisione.** **Richiedi firme**, **Firma** e **Rifiutare** avvisano quando la decisione ha ancora thread aperti (*2 thread di discussione aperti su questo documento.*). È solo un avviso: nulla viene bloccato.
+- **Note di revisione.** Quando un firmatario rifiuta una decisione, il motivo apre un thread contrassegnato **Motivo del rifiuto** (*Nessun motivo indicato* se il firmatario lo ha lasciato vuoto), a cui si risponde e che si risolve come qualsiasi altro; una richiesta di modifiche ne apre uno contrassegnato **Modifiche richieste**. Il motivo di un ritiro è conservato sulla decisione e nella Cronologia, non nella discussione. Un firmatario può aggiungere una nota facoltativa al momento della firma; compare nella discussione come **Nota di firma**. Nessuna delle due va più persa quando le firme vengono ritirate, ed entrambe sono mostrate anche nella [Cronologia](#decision-history).
+- **Thread aperti prima della revisione.** **Richiedi firme**, **Firma**, **Richiedere modifiche**, **Rifiutare** e **Ritirare** avvisano quando la decisione ha ancora thread aperti (*2 thread di discussione aperti su questo documento.*). È solo un avviso: nulla viene bloccato.
 - **Notifiche.** Un nuovo commento notifica l'autore della decisione, i suoi firmatari, i suoi decisori e partecipanti che sono utenti di Turbo EA e le persone che hanno già commentato — mai chi lo ha pubblicato. Digitate **@** in un commento per menzionare un collega: riceverà invece una notifica di menzione. Una persona menzionata che non può aprire la decisione non viene avvisata, e il pannello ve lo segnala (*… non sono stati notificati: non possono aprire questo documento.*). Le notifiche non contengono il testo del commento, e un clic su una di esse apre l'anteprima della decisione con il pannello su quel thread. Vedere [Notifiche](notifications.md#tipi-di-notifica).
-- **Modifica ed eliminazione.** Potete modificare i vostri commenti; un commento modificato è contrassegnato *(modificato)*. Potete eliminare i vostri commenti, e chiunque possa modificare la decisione (`adr.manage`) può eliminare qualsiasi commento; un commento eliminato si riduce al suo posto a una piccola riga, con il suo autore, la sua data e *Commento eliminato*. Eliminare il primo commento di un thread chiude il thread: le risposte già presenti restano, ma nessuno può più rispondervi, risolverlo o riaprirlo. Un motivo di rifiuto e una nota di firma non possono essere modificati né eliminati: un rifiuto viene invece risolto.
+- **Modifica ed eliminazione.** Potete modificare i vostri commenti; un commento modificato è contrassegnato *(modificato)*. Potete eliminare i vostri commenti, e chiunque possa modificare la decisione (`adr.manage`) può eliminare qualsiasi commento; un commento eliminato si riduce al suo posto a una piccola riga, con il suo autore, la sua data e *Commento eliminato*. Eliminare il primo commento di un thread chiude il thread: le risposte già presenti restano, ma nessuno può più rispondervi, risolverlo o riaprirlo. Un motivo di rifiuto, una richiesta di modifiche e una nota di firma non possono essere modificati né eliminati: i primi due vengono invece risolti.
 - **Revisioni precedenti.** Un thread appartiene alla revisione su cui è stato avviato. Attivate **Mostra la discussione sulle revisioni precedenti** per leggere i thread delle revisioni precedenti della decisione, raggruppati per revisione.
 
 #### Menzioni {: #decision-mentions }
@@ -322,13 +344,13 @@ Mentre scrivete una decisione, digitate **@** in una qualsiasi delle sue quattro
 
 #### Cronologia {: #decision-history }
 
-Il pulsante **Cronologia** in cima all'editor o all'anteprima della decisione, accanto alla barra delle revisioni quando la decisione ha più revisioni, apre un'unica vista ampia: la sequenza temporale a sinistra, la versione selezionata a destra. La sequenza temporale registra ciò che è accaduto alla decisione, dal più recente: creata, salvata, inviata per la revisione, ogni firma (con la sua nota), rifiutata (con il motivo), firme ritirate, completamente firmata, registrata come decisa, una revisione avviata, una versione precedente ripristinata. Chiunque possa aprire la decisione vede questa cronologia. Gli eventi di revisione — inviata per la revisione, firmata, ritirata, rifiutata — sono conservati a partire dalla versione 2.200.0; prima venivano mostrati in tempo reale ma mai memorizzati. Le decisioni esistenti prima di quella versione iniziano con una cronologia ricostruita da ciò che era memorizzato: creata, revisionata, inviata per la revisione (per una decisione in revisione al momento dell'aggiornamento, con i firmatari a cui era stata inviata), ogni firma, firmata e registrata.
+Il pulsante **Cronologia** in cima all'editor o all'anteprima della decisione, accanto alla barra delle revisioni quando la decisione ha più revisioni, apre un'unica vista ampia: la sequenza temporale a sinistra, la versione selezionata a destra. La sequenza temporale registra ciò che è accaduto alla decisione, dal più recente: creata, salvata, inviata per la revisione, ogni firma (con la sua nota), modifiche richieste, rifiutata e ritirata (ciascuna con il motivo), riaperta, firme ritirate, completamente firmata, registrata come decisa, una revisione avviata, una versione precedente ripristinata. Chiunque possa aprire la decisione vede questa cronologia. Gli eventi di revisione — inviata per la revisione, firmata, ritirata, rifiutata — sono conservati a partire dalla versione 2.200.0; prima venivano mostrati in tempo reale ma mai memorizzati. Le decisioni esistenti prima di quella versione iniziano con una cronologia ricostruita da ciò che era memorizzato: creata, revisionata, inviata per la revisione (per una decisione in revisione al momento dell'aggiornamento, con i firmatari a cui era stata inviata), ogni firma, firmata e registrata.
 
 La Cronologia non è la tabella **Cronologia versioni del documento** compilata a mano di uno [Statement of Architecture Work](delivery.md#leditor-soaw), che registra ciò che gli autori scelgono di scriverci.
 
 - **Versioni.** Una versione viene conservata ogni volta che una bozza viene salvata con modifiche. Contiene il titolo, le quattro sezioni, le date, il riepilogo delle modifiche e le persone; collegamenti ad altre decisioni, card collegate, file e diagrammi non fanno parte di una versione. I passaggi che contengono una versione sono contrassegnati nella sequenza temporale; le persone che possono modificare la decisione e i suoi firmatari ne selezionano uno per mostrarlo a destra, e all'apertura della vista è selezionata la versione più recente. Gli altri lettori vedono la sequenza temporale senza le versioni (*Le versioni salvate sono visibili solo a editor e firmatari.*). Su uno schermo stretto la vista mostra prima la sequenza temporale, poi la versione selezionata con un pulsante **Indietro**.
 - **Modifiche.** Sopra la versione selezionata, **Versione** la mostra così come è stata salvata e **Modifiche** mostra cosa è cambiato tra essa e la versione precedente, parola per parola per sezione, insieme alle date e alle persone modificate; scegliete qualsiasi altra versione in **Confronta con**. Si possono confrontare solo le versioni già caricate nella sequenza temporale: quando la versione precedente a quella selezionata non è ancora caricata, **Modifiche** lo segnala, e **Carica altro** la carica. Una modifica della sola formattazione viene segnalata come *Solo formattazione: le parole sono le stesse.*; un link il cui indirizzo è cambiato conta come modifica, e una riga di tabella si legge come una sola riga, con le celle separate da ` | `.
-- **Ripristina.** Su una bozza, chi può modificare la decisione può ripristinare la versione selezionata con **Ripristina questa versione**. Il ripristino procede solo in avanti: il testo, le date e le persone della versione sostituiscono quelli della bozza e sono conservati come nuova versione, e lo stato della bozza prima del ripristino resta nella cronologia. Collegamenti ad altre decisioni, card collegate, file e diagrammi non vengono ripristinati. Quando l'editor contiene modifiche non salvate, la conferma avvisa che andranno perse. Dopo il ripristino, la pagina mostra la decisione ripristinata e la vista si chiude. Una decisione in revisione o firmata non può essere ripristinata.
+- **Ripristina.** Su una bozza, chi può modificare la decisione può ripristinare la versione selezionata con **Ripristina questa versione**. Il ripristino procede solo in avanti: il testo, le date e le persone della versione sostituiscono quelli della bozza e sono conservati come nuova versione, e lo stato della bozza prima del ripristino resta nella cronologia. Collegamenti ad altre decisioni, card collegate, file e diagrammi non vengono ripristinati. Quando l'editor contiene modifiche non salvate, la conferma avvisa che andranno perse. Dopo il ripristino, la pagina mostra la decisione ripristinata e la vista si chiude. Una decisione in revisione, firmata o chiusa (rifiutata o ritirata) non può essere ripristinata; riaprite prima una chiusa.
 
 #### Limiti noti {: #collaboration-limits }
 

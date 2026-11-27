@@ -582,6 +582,7 @@ describe("ADREditor — actions by status", () => {
     expect(screen.queryByText("Recall Signatures")).toBeNull();
     expect(screen.queryByRole("button", { name: /^draw Sign$/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^block Reject$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^rate_review Request changes$/ })).toBeNull();
   });
 
   it("in review offers a labelled Recall and no new signature request", async () => {
@@ -596,6 +597,14 @@ describe("ADREditor — actions by status", () => {
     expect(screen.getByText("1 of 2 signatures collected")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^draw Sign$/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^block Reject$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^rate_review Request changes$/ })).toBeNull();
+  });
+
+  it("in review offers a pending signatory Sign, Request changes and Reject together", async () => {
+    await renderLoaded(IN_REVIEW);
+    expect(screen.getByRole("button", { name: /^draw Sign$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^rate_review Request changes$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^block Reject$/ })).toBeInTheDocument();
   });
 });
 
@@ -761,28 +770,29 @@ describe("ADREditor — workflow actions", () => {
     expect(screen.queryByRole("button", { name: /Save$/ })).toBeNull();
   });
 
-  it("rejecting: needs real text, is busy in flight, closes, applies the reply and clears the reason", async () => {
-    const reject = deferred();
-    await renderLoaded(IN_REVIEW, { post: () => reject.promise }, "/ea-delivery/adr/adr-1", "/ea-delivery/adr/adr-1?action=reject");
+  // Until 2.221.0 this was Reject; returning to draft is Request changes now.
+  it("requesting changes: needs real text, is busy in flight, closes, applies the reply and clears the reason", async () => {
+    const requestChanges = deferred();
+    await renderLoaded(IN_REVIEW, { post: () => requestChanges.promise }, "/ea-delivery/adr/adr-1", "/ea-delivery/adr/adr-1?action=request-changes");
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: /^block Reject$/ }));
+    await user.click(screen.getByRole("button", { name: /^rate_review Request changes$/ }));
     const dialog = within(await screen.findByRole("dialog"));
     expect(
-      dialog.getByText(/Explain why you are rejecting this decision\./),
+      dialog.getByText(/Explain what needs to change\./),
     ).toBeInTheDocument();
-    const confirm = dialog.getByRole("button", { name: "Reject" });
-    await user.type(dialog.getByLabelText("Reason for rejection"), "   ");
+    const confirm = dialog.getByRole("button", { name: "Request changes" });
+    await user.type(dialog.getByLabelText("What needs to change"), "   ");
     expect(confirm).toBeDisabled();
 
-    await user.type(dialog.getByLabelText("Reason for rejection"), "No budget");
+    await user.type(dialog.getByLabelText("What needs to change"), "No budget");
     await user.click(confirm);
     expect(confirm).toBeDisabled();
     // The row button behind the modal is busy too.
-    expect(screen.getByRole("button", { name: /^block Reject$/, hidden: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^rate_review Request changes$/, hidden: true })).toBeDisabled();
 
-    reject.resolve({ ...IN_REVIEW, status: "draft", signatories: [GRACE_SIGNED] });
-    expect(await screen.findByText("Decision rejected and reset to draft")).toBeInTheDocument();
+    requestChanges.resolve({ ...IN_REVIEW, status: "draft", signatories: [GRACE_SIGNED] });
+    expect(await screen.findByText("Changes requested: the decision is back to draft")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(chipLabels()).toEqual(["ADR-0001", "Draft"]);
     expect(screen.getByText("1 of 1 signatures collected")).toBeInTheDocument();
@@ -791,17 +801,17 @@ describe("ADREditor — workflow actions", () => {
     // Opened again (here through a deep link), the reason starts blank.
     await user.click(screen.getByRole("button", { name: "follow-deep-link" }));
     const again = within(await screen.findByRole("dialog"));
-    expect(again.getByLabelText("Reason for rejection")).toHaveValue("");
+    expect(again.getByLabelText("What needs to change")).toHaveValue("");
   });
 
-  it("a reject reply without signatories empties the list", async () => {
+  it("a request-changes reply without signatories empties the list", async () => {
     await renderLoaded(IN_REVIEW, { post: () => ({ ...IN_REVIEW, status: "draft", signatories: undefined }) });
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^block Reject$/ }));
+    await user.click(screen.getByRole("button", { name: /^rate_review Request changes$/ }));
     const dialog = within(await screen.findByRole("dialog"));
-    await user.type(dialog.getByLabelText("Reason for rejection"), "No");
-    await user.click(dialog.getByRole("button", { name: "Reject" }));
-    expect(await screen.findByText("Decision rejected and reset to draft")).toBeInTheDocument();
+    await user.type(dialog.getByLabelText("What needs to change"), "No");
+    await user.click(dialog.getByRole("button", { name: "Request changes" }));
+    expect(await screen.findByText("Changes requested: the decision is back to draft")).toBeInTheDocument();
     expect(screen.queryByText(/signatures collected/)).toBeNull();
   });
 

@@ -4025,3 +4025,94 @@ async def test_an_entity_sheet_without_a_not_null_column_takes_its_default(db):
     assert result.total_failed == 0, result.as_dict()
     created = (await db.execute(select(Todo).where(Todo.description == "Call the vendor"))).one()
     assert created[0].status == "open"
+
+
+async def test_review_outcomes_roundtrip_with_their_user_by_email(db, tmp_path):
+    """A decision's and a SoAW's review outcome survive export → delete →
+    re-import; ``outcome_by`` travels as an e-mail address, never as this
+    instance's user id, and a deleted user's name snapshot stays."""
+    from datetime import datetime, timezone
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.soaw import SoAW
+
+    admin = await create_user(db, email="outcome-admin@test.com", role="admin")
+    signer = await create_user(db, email="outcome-signer@test.com", role="admin")
+    at = datetime(2026, 11, 20, 9, 30, tzinfo=timezone.utc)
+    rejected = ArchitectureDecision(
+        reference_number="ADR-971",
+        title="Rejected one",
+        status="draft",
+        created_by=admin.id,
+        outcome="rejected",
+        outcome_at=at,
+        outcome_by=signer.id,
+        outcome_by_name="Sig (then)",
+        outcome_note="Too costly",
+    )
+    orphaned = ArchitectureDecision(
+        reference_number="ADR-972",
+        title="Withdrawn by someone gone",
+        status="draft",
+        created_by=admin.id,
+        outcome="withdrawn",
+        outcome_at=at,
+        outcome_by=None,
+        outcome_by_name="Former colleague",
+    )
+    soaw = SoAW(
+        name="Sent back plan",
+        sections={},
+        signatories=[],
+        created_by=admin.id,
+        outcome="changes_requested",
+        outcome_at=at,
+        outcome_by=signer.id,
+        outcome_by_name="Sig (then)",
+        outcome_note="Scope?",
+    )
+    db.add_all([rejected, orphaned, soaw])
+    await db.flush()
+    rejected_id, orphaned_id, soaw_id = rejected.id, orphaned.id, soaw.id
+
+    raw = await build_bundle(db)
+    adrs = {r["reference_number"]: r for r in parse_bundle(raw).rows("Adrs")}
+    assert "outcome_by" not in adrs["ADR-971"]
+    assert adrs["ADR-971"]["outcome_by__email"] == "outcome-signer@test.com"
+    assert adrs["ADR-972"].get("outcome_by__email") is None
+    (soaw_row,) = [r for r in parse_bundle(raw).rows("Soaws") if r["name"] == "Sent back plan"]
+    assert soaw_row["outcome_by__email"] == "outcome-signer@test.com"
+
+    await db.execute(delete(ArchitectureDecision))
+    await db.execute(delete(SoAW))
+    await db.flush()
+    db.expunge_all()
+
+    path = tmp_path / "workspace.zip"
+    path.write_bytes(raw)
+    with parse_bundle(path) as bundle:
+        result = await apply_bundle(db, bundle, admin)
+    assert result.total_failed == 0, result.as_dict()
+
+    got = await db.get(ArchitectureDecision, rejected_id)
+    assert (got.outcome, got.outcome_at, got.outcome_by) == ("rejected", at, signer.id)
+    assert (got.outcome_by_name, got.outcome_note) == ("Sig (then)", "Too costly")
+    gone = await db.get(ArchitectureDecision, orphaned_id)
+    assert (gone.outcome, gone.outcome_by, gone.outcome_by_name, gone.outcome_note) == (
+        "withdrawn",
+        None,
+        "Former colleague",
+        None,
+    )
+    restored = await db.get(SoAW, soaw_id)
+    assert (restored.outcome, restored.outcome_by, restored.outcome_note) == (
+        "changes_requested",
+        signer.id,
+        "Scope?",
+    )
+
+    # Same instance again: all-skip.
+    again = await apply_bundle(db, parse_bundle(raw), admin)
+    assert again.total_failed == 0, again.as_dict()
+    sections = {s.sheet: s for s in again.sections}
+    assert (sections["Adrs"].created, sections["Soaws"].created) == (0, 0)

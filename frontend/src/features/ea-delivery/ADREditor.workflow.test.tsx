@@ -444,16 +444,16 @@ describe("ADREditor — action replies refresh the links, standing and banners",
     ).toBeNull();
   });
 
-  it("reject: the reply's content fills the draft again", async () => {
+  it("request changes: the reply's content fills the draft again", async () => {
     await renderLoaded(IN_REVIEW, {
       post: () => ({ ...base, status: "draft", context: "<p>as stored</p>", links: LINKS }),
     });
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^block Reject$/ }));
+    await user.click(screen.getByRole("button", { name: /^rate_review Request changes$/ }));
     const dialog = within(await screen.findByRole("dialog"));
-    await user.type(dialog.getByLabelText("Reason for rejection"), "No");
-    await user.click(dialog.getByRole("button", { name: "Reject" }));
-    expect(await screen.findByText("Decision rejected and reset to draft")).toBeInTheDocument();
+    await user.type(dialog.getByLabelText("What needs to change"), "No");
+    await user.click(dialog.getByRole("button", { name: "Request changes" }));
+    expect(await screen.findByText("Changes requested: the decision is back to draft")).toBeInTheDocument();
     expect(screen.getByDisplayValue("<p>as stored</p>")).toBeInTheDocument();
     expect(screen.getByLabelText("Decision")).toHaveValue("ADR-0007 — Use Kafka");
   });

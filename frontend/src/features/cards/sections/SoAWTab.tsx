@@ -22,6 +22,7 @@ import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import OriginChip from "@/components/OriginChip";
 import CreateSoAWDialog from "@/features/ea-delivery/CreateSoAWDialog";
+import { isClosed, outcomeChipProps } from "@/features/ea-delivery/reviewOutcome";
 import type { SoAW } from "@/types";
 import { brand } from "@/theme/tokens";
 
@@ -39,7 +40,9 @@ interface Props {
 }
 
 export default function SoAWTab({ initiativeId, canManage }: Props) {
-  const { t } = useTranslation(["grc", "common"]);
+  const { t } = useTranslation(["grc", "common", "delivery"]);
+  // The outcome labels live in the `delivery` namespace.
+  const tDelivery = (key: string) => t(key, { ns: "delivery" });
   const theme = useTheme();
   const navigate = useNavigate();
   const [soaws, setSoaws] = useState<SoAW[]>([]);
@@ -152,12 +155,18 @@ export default function SoAWTab({ initiativeId, canManage }: Props) {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      size="small"
-                      label={s.status.replace("_", " ")}
-                      color={STATUS_COLOR[s.status]}
-                      variant={s.status === "signed" ? "filled" : "outlined"}
-                    />
+                    {(() => {
+                      // A review outcome ("Rejected", …) stands in for "draft".
+                      const outcome = outcomeChipProps(s, tDelivery);
+                      return (
+                        <Chip
+                          size="small"
+                          label={outcome?.label ?? s.status.replace("_", " ")}
+                          color={outcome?.color ?? STATUS_COLOR[s.status]}
+                          variant={outcome?.variant ?? (s.status === "signed" ? "filled" : "outlined")}
+                        />
+                      );
+                    })()}
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="caption" color="text.secondary">
@@ -187,8 +196,9 @@ export default function SoAWTab({ initiativeId, canManage }: Props) {
                           <MaterialSymbol icon="open_in_new" size={18} />
                         </IconButton>
                       </Tooltip>
-                      {/* Only a draft can be deleted (the API refuses the rest). */}
-                      {canManage && s.status === "draft" && (
+                      {/* Only a draft can be deleted (the API refuses the rest); a
+                          closed one is reopened first. */}
+                      {canManage && s.status === "draft" && !isClosed(s) && (
                         <Tooltip title={t("soaw.actions.delete")}>
                           <IconButton size="small" color="error" onClick={() => handleDelete(s)}>
                             <MaterialSymbol icon="delete" size={18} />

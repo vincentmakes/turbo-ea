@@ -352,6 +352,22 @@ describe("exportAdrsToDocx — diagrams", () => {
     expect(xml).not.toContain("<svg");
   });
 
+  it("names a rejected draft's outcome in the facts and the summary table", async () => {
+    const rejected = adr({
+      status: "draft",
+      outcome: {
+        kind: "rejected",
+        at: "2026-11-27T10:00:00Z",
+        by: { id: "u2", display_name: "Grace" },
+        note: "Not costed",
+      },
+    });
+    const single = await documentXml(rejected);
+    expect(single).toContain(">Rejected</w:t>");
+    expect(single).toContain("Not costed");
+    expect(single).not.toContain(">Draft</w:t>");
+  });
+
   it("writes no diagrams heading when there are none", async () => {
     expect(await documentXml(adr())).not.toContain(">Diagrams</w:t>");
     expect(await documentXml(adr({ diagrams: [] }))).not.toContain(">Diagrams</w:t>");

@@ -12,7 +12,12 @@ import { Link as RouterLink } from "react-router";
 import { useTranslation } from "react-i18next";
 
 import { useDateFormat } from "@/hooks/useDateFormat";
-import type { DecisionRevision, DecisionStanding, SoAWRevision } from "@/types";
+import type {
+  DecisionRevision,
+  DecisionStanding,
+  ReviewOutcomeKind,
+  SoAWRevision,
+} from "@/types";
 import {
   STANDING_CHIP,
   STATUS_CHIP,
@@ -20,6 +25,7 @@ import {
   standingLabelKey,
   type Translate,
 } from "./decisionStanding";
+import { OUTCOME_CHIP, isReviewOutcome } from "./reviewOutcome";
 
 export interface RevisionStripItem {
   id: string;
@@ -28,6 +34,13 @@ export interface RevisionStripItem {
   status: string;
   standing?: DecisionStanding | null;
   signedAt?: string | null;
+  /** A draft's review outcome (changes requested, rejected, withdrawn). */
+  outcome?: ReviewOutcomeKind | null;
+}
+
+/** The outcome a draft revision shows in place of "Draft"; null otherwise. */
+function draftOutcome(item: Pick<RevisionStripItem, "status" | "outcome">) {
+  return item.status === "draft" && isReviewOutcome(item.outcome) ? OUTCOME_CHIP[item.outcome] : null;
 }
 
 /** Status label keys, SoAW's `approved` included. */
@@ -48,6 +61,7 @@ export function decisionRevisionItems(
     label: revisionLabel(r.revision_number, t),
     status: r.status,
     standing: r.standing,
+    outcome: r.outcome ?? null,
   }));
 }
 
@@ -58,6 +72,7 @@ export function soawRevisionItems(revisions: SoAWRevision[], t: Translate): Revi
     label: revisionLabel(r.revision_number, t),
     status: r.status,
     signedAt: r.signed_at ?? null,
+    outcome: r.outcome ?? null,
   }));
 }
 
@@ -101,14 +116,17 @@ export default function RevisionStrip({
       {items.map((item) => {
         const active = item.id === activeId;
         const isCurrent = item.id === currentId;
+        // Status maps ask the review outcome first ("Rejected" over "Draft").
+        const outcome = draftOutcome(item);
         const tip = [
-          t(STATUS_LABEL_KEYS[item.status] ?? "status.draft"),
+          t(outcome?.labelKey ?? STATUS_LABEL_KEYS[item.status] ?? "status.draft"),
           item.standing ? t(standingLabelKey(item.standing)) : null,
           item.signedAt ? t("adr.revision.signedOn", { date: formatDate(item.signedAt) }) : null,
         ]
           .filter(Boolean)
           .join(" · ");
         const dot =
+          outcome?.dot ||
           (item.standing && STANDING_CHIP[item.standing]?.dot) ||
           STATUS_CHIP[item.status as keyof typeof STATUS_CHIP]?.dot ||
           STATUS_CHIP.draft.dot;

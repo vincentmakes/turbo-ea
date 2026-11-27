@@ -33,7 +33,7 @@ ADRs document important architecture decisions along with their context, consequ
 
 The register answers one question first: **which decisions are in force today?** Every signed decision carries a [standing](#standing) that Turbo EA works out from its dates, its revisions and the other decisions that act on it, and the grid lists only the current revision of each decision unless you ask for the earlier ones.
 
-The grid can also be **grouped by status** or **by standing** via the *Group by* button next to the search box: each status or standing collapses under its own header, and the header checkbox selects the whole group for a bulk export.
+The grid can also be **grouped by status** or **by standing** via the *Group by* button next to the search box: each status or standing collapses under its own header (grouped by status, each review outcome gets its own group), and the header checkbox selects the whole group for a bulk export.
 
 #### Status and standing {: #standing }
 
@@ -41,6 +41,18 @@ A decision has two separate states:
 
 - **Status** is the sign-off workflow, and it is what you act on: **Draft** → **In Review** (signatures requested) → **Signed**. A decision taken outside Turbo EA and [recorded as decided](#recording-a-past-decision) shows **Recorded** instead of Signed.
 - **Standing** says where a signed or recorded decision stands today. It is derived — never set by hand — and a draft or a decision in review has none (*Not signed yet*).
+
+A draft can also carry a **review outcome**, which says how its last review ended without a signature. It shows in place of *Draft* on the status chip, and a banner on the decision says who, when and why (*Rejected by Ada Lovelace on 27 Nov 2026: …*):
+
+| Outcome | Meaning |
+|---------|---------|
+| **Changes requested** | A signatory sent the decision back for rework. It is an editable draft; the label clears when signatures are requested again |
+| **Rejected** | A signatory rejected the decision. It is **closed** |
+| **Withdrawn** | The author side withdrew the decision. It is **closed** |
+
+A **closed** decision is kept on record but locked like one in review: only its linked cards and [diagrams](#decision-diagrams) can still change, and it cannot be sent for review, recorded, restored or deleted by its author (deleting it needs the `adr.delete` permission). To work on it again, click **Reopen**, which makes it a plain draft. The register hides closed decisions until you switch on **Show closed**. A draft whose last review was rejected before version 2.221.0 — when a rejection still returned a decision to draft — reads **Changes requested**.
+
+The lifecycle is fixed: the three statuses, the six standings and the three outcomes are the same in every workspace and cannot be configured, by an administrator or by an extension.
 
 | Standing | Meaning |
 |----------|---------|
@@ -60,7 +72,7 @@ The ADR grid mirrors the Inventory grid layout:
 | Column | Description |
 |--------|-------------|
 | **Reference #** | Auto-generated reference number (ADR-001, ADR-002, …) with a status dot; a revision after the first adds its number (ADR-012 · Rev 2) |
-| **Status** | Coloured chip — Draft, In Review, Signed or Recorded |
+| **Status** | Coloured chip — Draft, In Review, Signed or Recorded, or the review outcome (Changes requested, Rejected, Withdrawn) of a draft that has one |
 | **Standing** | Where a signed decision stands today — see [Status and standing](#standing); blank until it is signed |
 | **Title** | ADR title |
 | **Decision** | Plain-text excerpt of the decision |
@@ -82,15 +94,17 @@ The persistent sidebar on the left has two tabs:
 - **Filters** — facet filters over the ADR list:
     - **In force** — one click shows only the decisions in force today (In force and In force (amended)); click it again to clear it
     - **Show earlier revisions** — off by default, so each decision appears once, as its current revision (plus a revision being drafted). Switch it on to list the earlier revisions too; the **Export** button follows the same switch
+    - **Show closed** — off by default, so rejected and withdrawn decisions stay out of the way. Switch it on to list them too
     - **Card Types** — checkboxes with coloured dots that filter by linked card types
     - **Linked Cards** — filter by specific linked cards
     - **Status** — Draft / In Review / Signed (a recorded decision counts as signed)
     - **Standing** — Scheduled / In force / In force (amended) / Superseded / Revoked / Expired / Not signed yet
+    - **Outcome** — Changes requested / Rejected / Withdrawn / No outcome. Picking **Rejected** or **Withdrawn** lists those decisions even while **Show closed** is off
     - **Signed By** — filter by signatory
     - **Date Created** / **Date Modified** / **Date Signed** / **Date Decided** — from/to date ranges (**Date Decided** matches a signed or recorded decision's *Decided on* date)
 - **Columns** — choose which grid columns are visible. **Reference #** and **Title** are always shown; **Reset** restores the default set. Your selection is remembered per browser.
 
-Use the **quick filter** search bar for full-text search across all ADRs. Right-click any row for a context menu (**Edit**, **Preview**, **Duplicate**, **Delete**).
+Use the **quick filter** search bar for full-text search across all ADRs. Right-click any row for a context menu (**Edit**, **Preview**, **Duplicate**, **Delete**, and **Reopen** on a closed decision for holders of `adr.manage`). **Delete** is offered on a draft; on a closed decision only to holders of `adr.delete`.
 
 #### Exporting and importing decisions {: #decisions-import }
 
@@ -267,10 +281,17 @@ ADRs support a formal sign-off process:
 1. Create the ADR in **Draft** status.
 2. Click **Request Signatures** and search for signatories by name or email (or click **Add decision makers**). Signatures can only be requested from a draft.
 3. The ADR moves to **In Review** — each signatory receives a notification and a task.
-4. Signatories review and click **Sign**.
+4. Signatories review and click **Sign**, **Request changes** or **Reject**.
 5. Once every signatory has signed, the ADR automatically moves to **Signed**.
 
-**A decision in review is locked**, so signatories sign exactly what they were sent: the text, the dates, the people, the links to other decisions, the files and the extension panels are read-only, and only the linked cards and the attached [diagrams](#decision-diagrams) can still change. To edit it, click **Recall Signatures**, which returns it to draft. A signatory who clicks **Reject** also returns it to draft, under the same revision number.
+**A decision in review is locked**, so signatories sign exactly what they were sent: the text, the dates, the people, the links to other decisions, the files and the extension panels are read-only, and only the linked cards and the attached [diagrams](#decision-diagrams) can still change. To edit it, click **Recall Signatures**, which returns it to draft.
+
+A pending signatory who does not sign has two choices, each with a reason (up to 4,000 characters) that every other signatory and the author are notified of:
+
+- **Request changes** sends the decision back for rework: it returns to an editable draft, under the same revision number, marked **Changes requested**. Edit it and request signatures again; the mark clears then. Until version 2.221.0 this is what **Reject** did.
+- **Reject** closes the decision: it stays a draft, marked **Rejected**, and is locked until someone reopens it. Any single signatory can reject.
+
+On the author side, a holder of `adr.manage` can **Withdraw** a saved draft or a decision in review, with a reason: pending signature requests are cancelled, their signatories are notified, and the decision is closed, marked **Withdrawn**. **Reopen** turns a rejected or withdrawn decision back into a plain draft that can be edited and sent for review again. Each step appears on the [History](#decision-history) timeline.
 
 Signed ADRs are locked and cannot be edited — to make changes, create a new revision.
 
@@ -288,6 +309,7 @@ Open a signed ADR and choose **Revise → Revise this decision** to create a new
 - **The current revision is the one in force.** Once a revision is signed and effective, the earlier ones are **Superseded** and show a banner linking to the current one. The **Revisions** strip on every revision lists the whole chain and marks the current one.
 - **Only the current revision can be revised**, and not once the decision has been revoked or replaced. An expired or amended decision can still be revised.
 - **A rejection does not count as a revision**: the revision number only moves when a new revision is created.
+- **A rejected or withdrawn revision stays the open revision.** It keeps blocking a new revision of its decision, and the **Revise** menu names it (*Open the revision being drafted (ADR-012 · Rev 3, Rejected)*). To try again, open it and click **Reopen**; or delete it to start a fresh revision.
 - Decisions revised before version 2.199.0 keep the reference numbers they were issued, and still read as one decision with one revision strip.
 
 #### Preview
@@ -307,10 +329,10 @@ Every decision has its own **Discussion**, so a decision can be settled in Turbo
 - **Formatting.** A comment takes bold, italic, strikethrough, **Inline code**, bulleted and numbered lists, quotes and [links](#decision-text-links) (the **Link** button or Ctrl/Cmd+K). Headings, code blocks, pictures and tables belong in the sections, not in comments.
 - **Who can post.** Reading the discussion follows who can open the decision (`adr.view`). Posting, replying, resolving and reopening need the `adr.comment` permission, which members and admins hold by default and viewers do not; an administrator can change it per role. The decision's signatories can always comment on it, including the people asked to sign it in an earlier review round that was recalled or rejected.
 - **During review and after signing.** The [review lock](#sign-off-workflow) covers the content, not the conversation: the discussion stays open while the decision is in review and after it is signed.
-- **Review notes.** When a signatory rejects a decision, the reason opens a thread marked **Rejection reason** (*No reason given* when the signatory left it empty), to be answered and resolved like any other. A signatory can add an optional note when signing; it appears in the discussion as a **Signing note**. Neither is lost any more when signatures are recalled, and both are also shown in the [History](#decision-history).
-- **Open threads before review.** **Request Signatures**, **Sign** and **Reject** warn when the decision still has open threads (*2 open discussion threads on this document.*). It is a warning only: nothing is blocked.
+- **Review notes.** When a signatory rejects a decision, the reason opens a thread marked **Rejection reason** (*No reason given* when the signatory left it empty), to be answered and resolved like any other; a request for changes opens one marked **Changes requested**. A withdrawal's reason is kept on the decision and in the History, not in the discussion. A signatory can add an optional note when signing; it appears in the discussion as a **Signing note**. Neither is lost any more when signatures are recalled, and both are also shown in the [History](#decision-history).
+- **Open threads before review.** **Request Signatures**, **Sign**, **Request changes**, **Reject** and **Withdraw** warn when the decision still has open threads (*2 open discussion threads on this document.*). It is a warning only: nothing is blocked.
 - **Notifications.** A new comment notifies the decision's author, its signatories, its decision makers and participants who are Turbo EA users, and the people who commented before — never the person who posted it. Type **@** in a comment to mention a colleague: they receive a mention notification instead. Someone you mention who cannot open the decision is not notified, and the panel tells you so (*… was not notified: they cannot open this document.*). Notifications carry no comment text, and clicking one opens the decision's preview with the panel on that thread. See [Notifications](notifications.md#notification-types).
-- **Editing and deleting.** You can edit your own comments; an edited comment is marked *(edited)*. You can delete your own comments, and anyone who can edit the decision (`adr.manage`) can delete any comment; a deleted comment shrinks to one small line in its place, with its author, its date and *Comment deleted*. Deleting the first comment of a thread closes the thread: the replies already there stay, but nobody can reply to it, resolve it or reopen it. A rejection reason and a signing note cannot be edited or deleted: a rejection is resolved instead.
+- **Editing and deleting.** You can edit your own comments; an edited comment is marked *(edited)*. You can delete your own comments, and anyone who can edit the decision (`adr.manage`) can delete any comment; a deleted comment shrinks to one small line in its place, with its author, its date and *Comment deleted*. Deleting the first comment of a thread closes the thread: the replies already there stay, but nobody can reply to it, resolve it or reopen it. A rejection reason, a request for changes and a signing note cannot be edited or deleted: the first two are resolved instead.
 - **Earlier revisions.** A thread belongs to the revision it was started on. Switch on **Show discussion on earlier revisions** to read the threads of the decision's earlier revisions, grouped by revision.
 
 #### Mentions {: #decision-mentions }
@@ -326,13 +348,13 @@ While writing a decision, type **@** in any of its four sections to mention a **
 
 #### History {: #decision-history }
 
-The **History** button at the top of the decision's editor or preview, beside the revision strip when the decision has several revisions, opens one wide view: the timeline on the left, the selected version on the right. The timeline records what happened to the decision, newest first: created, saved, sent for review, each signature (with its note), rejected (with the reason), signatures recalled, fully signed, recorded as decided, a revision started, an earlier version restored. Everyone who can open the decision sees this timeline. Review events — sent for review, signed, recalled, rejected — are kept from version 2.200.0 on; before, they were shown live but never stored. Decisions that existed before that version start with a timeline rebuilt from what was stored: created, revised, sent for review (for a decision in review at the upgrade, with the signatories it was sent to), each signature, signed and recorded.
+The **History** button at the top of the decision's editor or preview, beside the revision strip when the decision has several revisions, opens one wide view: the timeline on the left, the selected version on the right. The timeline records what happened to the decision, newest first: created, saved, sent for review, each signature (with its note), changes requested, rejected and withdrawn (each with the reason), reopened, signatures recalled, fully signed, recorded as decided, a revision started, an earlier version restored. Everyone who can open the decision sees this timeline. Review events — sent for review, signed, recalled, rejected — are kept from version 2.200.0 on; before, they were shown live but never stored. Decisions that existed before that version start with a timeline rebuilt from what was stored: created, revised, sent for review (for a decision in review at the upgrade, with the signatories it was sent to), each signature, signed and recorded.
 
 The History is not the hand-kept **Document Version History** table of a [Statement of Architecture Work](delivery.md#the-soaw-editor), which records what the authors choose to write in it.
 
 - **Versions.** A version is kept each time a draft is saved with changes. It holds the title, the four sections, the dates, the change summary and the people; links to other decisions, linked cards, files and diagrams are not part of a version. The steps that hold a version are marked in the timeline; the people who can edit the decision and its signatories select one to show it on the right, and the newest version is selected when the view opens. Other readers see the timeline without the versions (*Saved versions are shown to editors and signatories only.*). On a narrow screen the view shows the timeline first, then the selected version with a **Back** button.
 - **Changes.** Above the selected version, **Version** shows it as it was saved and **Changes** shows what changed between it and the version before it, word by word per section, together with the dates and people that changed; pick any other version under **Compare with**. Only the versions already loaded in the timeline can be compared: when the version before the selected one is not loaded yet, **Changes** says so, and **Load more** brings it in. A change of formatting alone is reported as *Formatting only: the words are the same.*; a link whose address changed counts as a change, and a table row reads as one line, its cells separated by ` | `.
-- **Restore.** On a draft, someone who can edit the decision can restore the selected version with **Restore this version**. Restoring is forward only: the version's text, dates and people replace the draft's and are kept as a new version, and the draft's state before the restore stays in the history. Links to other decisions, linked cards, files and diagrams are not restored. When the editor holds unsaved edits, the confirmation says they will be discarded. Once restored, the page shows the restored decision and the view closes. A decision in review or signed cannot be restored.
+- **Restore.** On a draft, someone who can edit the decision can restore the selected version with **Restore this version**. Restoring is forward only: the version's text, dates and people replace the draft's and are kept as a new version, and the draft's state before the restore stays in the history. Links to other decisions, linked cards, files and diagrams are not restored. When the editor holds unsaved edits, the confirmation says they will be discarded. Once restored, the page shows the restored decision and the view closes. A decision in review, signed or closed (rejected or withdrawn) cannot be restored; reopen a closed one first.
 
 #### Known limits {: #collaboration-limits }
 

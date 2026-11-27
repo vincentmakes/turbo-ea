@@ -229,6 +229,240 @@ class TestReject:
         (other_note,) = await _notifications(db, env["two"], "soaw_rejected")
         assert other_note.message == creator_note.message
         assert await _notifications(db, env["one"], "soaw_rejected") == []
+        # Reject closes the document (the former behaviour is request-changes).
+        assert (body["outcome"]["kind"], body["outcome"]["note"]) == ("rejected", "Scope is wrong")
+        assert creator_note.data["outcome"] == "rejected"
+
+    async def test_an_over_long_reason_is_422(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        await _request(client, env["admin"], doc["id"], [env["one"]])
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/reject",
+            json={"comment": "x" * 4001},
+            headers=auth_headers(env["one"]),
+        )
+        assert resp.status_code == 422
+
+
+async def _closed_soaw(client, env, outcome="rejected") -> dict:
+    doc = await _create(client, env["admin"], name="Closed plan")
+    await _request(client, env["admin"], doc["id"], [env["one"]])
+    if outcome == "rejected":
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/reject", json={"comment": "No"}, headers=auth_headers(env["one"])
+        )
+    else:
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/withdraw",
+            json={"comment": "Gone"},
+            headers=auth_headers(env["admin"]),
+        )
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+class TestRequestChanges:
+    async def test_back_to_an_editable_draft(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        await _request(client, env["admin"], doc["id"], [env["one"], env["two"]])
+
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/request-changes",
+            json={"comment": "Scope is wrong"},
+            headers=auth_headers(env["one"]),
+        )
+
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert (body["status"], body["signatories"], body["revision_number"]) == ("draft", [], 1)
+        assert body["outcome"]["kind"] == "changes_requested"
+        assert body["outcome"]["by"] == {"id": str(env["one"].id), "display_name": "One"}
+        assert [r["outcome"] for r in body["revisions"]] == ["changes_requested"]
+        assert await _open_sign_todos(db) == []
+        (creator_note,) = await _notifications(db, env["admin"], "soaw_rejected")
+        assert creator_note.message == (
+            'One requested changes to "Cloud Migration SoAW": Scope is wrong'
+        )
+        assert creator_note.data["outcome"] == "changes_requested"
+
+        patched = await client.patch(
+            f"{SOAW}/{doc['id']}", json={"name": "Better"}, headers=auth_headers(env["admin"])
+        )
+        assert patched.status_code == 200, patched.text
+        resent = await _request(client, env["admin"], doc["id"], [env["one"]])
+        assert resent["outcome"] is None
+
+    async def test_a_non_signatory_or_a_viewer_is_403(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        await _request(client, env["admin"], doc["id"], [env["one"], env["viewer"]])
+        for who in ("two", "viewer"):
+            resp = await client.post(
+                f"{SOAW}/{doc['id']}/request-changes",
+                json={"comment": "no"},
+                headers=auth_headers(env[who]),
+            )
+            assert resp.status_code == 403
+
+    async def test_only_in_review_and_a_capped_reason(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/request-changes",
+            json={"comment": "no"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 400
+        await _request(client, env["admin"], doc["id"], [env["one"]])
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/request-changes",
+            json={"comment": "x" * 4001},
+            headers=auth_headers(env["one"]),
+        )
+        assert resp.status_code == 422
+
+
+class TestWithdraw:
+    async def test_withdraw_a_draft(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/withdraw",
+            json={"comment": "Not needed"},
+            headers=auth_headers(env["one"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert (resp.json()["status"], resp.json()["outcome"]["kind"]) == ("draft", "withdrawn")
+
+    async def test_withdraw_in_review_tells_the_pending_signers(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        await _request(client, env["admin"], doc["id"], [env["one"], env["two"]])
+        await client.post(f"{SOAW}/{doc['id']}/sign", headers=auth_headers(env["one"]))
+
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/withdraw",
+            json={"comment": "Rethink"},
+            headers=auth_headers(env["admin"]),
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["signatories"] == []
+        assert await _open_sign_todos(db) == []
+        assert await _notifications(db, env["one"], "soaw_sign_recalled") == []
+        (note,) = await _notifications(db, env["two"], "soaw_sign_recalled")
+        assert note.message == 'Ada withdrew "Cloud Migration SoAW": Rethink'
+        assert note.data["outcome"] == "withdrawn"
+
+    async def test_without_soaw_manage_is_403(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/withdraw",
+            json={"comment": "x"},
+            headers=auth_headers(env["viewer"]),
+        )
+        assert resp.status_code == 403
+
+    async def test_signed_is_400_closed_is_409_long_reason_is_422(self, client, db, env):
+        signed = await _create(client, env["admin"], name="Signed")
+        await _request(client, env["admin"], signed["id"], [env["one"]])
+        await client.post(f"{SOAW}/{signed['id']}/sign", headers=auth_headers(env["one"]))
+        resp = await client.post(
+            f"{SOAW}/{signed['id']}/withdraw",
+            json={"comment": "x"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 400
+
+        closed = await _closed_soaw(client, env)
+        resp = await client.post(
+            f"{SOAW}/{closed['id']}/withdraw",
+            json={"comment": "x"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert (resp.status_code, resp.json()["detail"]) == (
+            409,
+            {"error": "closed", "outcome": "rejected"},
+        )
+
+        draft = await _create(client, env["admin"], name="Draft")
+        resp = await client.post(
+            f"{SOAW}/{draft['id']}/withdraw",
+            json={"comment": "x" * 4001},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 422
+
+
+class TestReopen:
+    @pytest.mark.parametrize("outcome", ["rejected", "withdrawn"])
+    async def test_reopen_makes_a_plain_editable_draft(self, client, db, env, outcome):
+        doc = await _closed_soaw(client, env, outcome)
+        resp = await client.post(f"{SOAW}/{doc['id']}/reopen", headers=auth_headers(env["one"]))
+        assert resp.status_code == 200, resp.text
+        assert (resp.json()["status"], resp.json()["outcome"]) == ("draft", None)
+        patched = await client.patch(
+            f"{SOAW}/{doc['id']}", json={"name": "Again"}, headers=auth_headers(env["admin"])
+        )
+        assert patched.status_code == 200, patched.text
+
+    async def test_without_soaw_manage_is_403(self, client, db, env):
+        doc = await _closed_soaw(client, env)
+        resp = await client.post(f"{SOAW}/{doc['id']}/reopen", headers=auth_headers(env["viewer"]))
+        assert resp.status_code == 403
+
+    async def test_not_closed_is_409(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        resp = await client.post(f"{SOAW}/{doc['id']}/reopen", headers=auth_headers(env["admin"]))
+        assert (resp.status_code, resp.json()["detail"]) == (409, {"error": "not_closed"})
+
+
+class TestClosedLock:
+    async def test_content_locked_initiative_allowed(self, client, db, env):
+        doc = await _closed_soaw(client, env)
+        resp = await client.patch(
+            f"{SOAW}/{doc['id']}", json={"name": "x"}, headers=auth_headers(env["admin"])
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"].endswith("Reopen it to edit it.")
+        resp = await client.patch(
+            f"{SOAW}/{doc['id']}",
+            json={"initiative_id": str(env["initiative"].id)},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 200, resp.text
+
+    async def test_request_signatures_restore_and_delete_are_refused(self, client, db, env):
+        doc = await _closed_soaw(client, env, "withdrawn")
+        closed = {"error": "closed", "outcome": "withdrawn"}
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/request-signatures",
+            json={"user_ids": [str(env["one"].id)]},
+            headers=auth_headers(env["admin"]),
+        )
+        assert (resp.status_code, resp.json()["detail"]) == (409, closed)
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/history/{uuid.uuid4()}/restore",
+            headers=auth_headers(env["admin"]),
+        )
+        assert (resp.status_code, resp.json()["detail"]) == (409, closed)
+        resp = await client.delete(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))
+        assert resp.status_code == 400
+        assert await db.get(SoAW, uuid.UUID(doc["id"])) is not None
+
+        await client.post(f"{SOAW}/{doc['id']}/reopen", headers=auth_headers(env["admin"]))
+        resp = await client.delete(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))
+        assert resp.status_code == 204
+
+    async def test_the_list_hides_closed_on_request(self, client, db, env):
+        closed = await _closed_soaw(client, env)
+        open_doc = await _create(client, env["admin"], name="Open")
+
+        async def ids(**params):
+            resp = await client.get(SOAW, params=params, headers=auth_headers(env["viewer"]))
+            assert resp.status_code == 200, resp.text
+            return {row["id"]: row["outcome"] for row in resp.json()}
+
+        everything = await ids()
+        assert everything[closed["id"]]["kind"] == "rejected"
+        assert everything[open_doc["id"]] is None
+        assert set(await ids(include_closed="false")) == {open_doc["id"]}
 
 
 class TestRevisions:
@@ -472,6 +706,7 @@ class TestChainFields:
                 "revision_number": 1,
                 "status": "signed",
                 "signed_at": first["signed_at"],
+                "outcome": None,
             },
             {
                 "id": second["id"],
@@ -479,6 +714,7 @@ class TestChainFields:
                 "revision_number": 2,
                 "status": "draft",
                 "signed_at": None,
+                "outcome": None,
             },
         ]
 

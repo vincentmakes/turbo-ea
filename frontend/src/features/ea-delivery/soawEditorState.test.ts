@@ -37,6 +37,11 @@ describe("soawSavePayload", () => {
     expect(soawSavePayload("draft", fields)).toBe(fields);
     expect(soawSavePayload("approved", fields)).toBe(fields);
   });
+
+  it("sends only the initiative link on a closed draft", () => {
+    expect(soawSavePayload("draft", fields, true)).toEqual({ initiative_id: "init-1" });
+    expect(soawSavePayload("draft", fields, false)).toBe(fields);
+  });
 });
 
 describe("canRequestSoawSignatures", () => {
@@ -45,6 +50,11 @@ describe("canRequestSoawSignatures", () => {
     expect(canRequestSoawSignatures("approved")).toBe(true);
     expect(canRequestSoawSignatures("in_review")).toBe(false);
     expect(canRequestSoawSignatures("signed")).toBe(false);
+  });
+
+  it("is not offered on a closed draft", () => {
+    expect(canRequestSoawSignatures("draft", true)).toBe(false);
+    expect(canRequestSoawSignatures("draft", false)).toBe(true);
   });
 });
 
@@ -196,6 +206,14 @@ describe("soawEditorFields", () => {
     const out = soawEditorFields(soawStateFromLoaded(LOADED));
     expect(out.initiative_id).toBe("init-1");
     expect(out.sections.custom_9).toEqual({ content: "<p>c</p>", hidden: false, title: "Glossary", insertAfter: "1.1" });
+  });
+});
+
+describe("canSaveSoaw on a closed draft", () => {
+  it("only when the initiative link changed", () => {
+    expect(canSaveSoaw("draft", false, true)).toBe(false);
+    expect(canSaveSoaw("draft", true, true)).toBe(true);
+    expect(canSaveSoaw("draft", false, false)).toBe(true);
   });
 });
 

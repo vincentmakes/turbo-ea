@@ -33,7 +33,7 @@ ADR'er dokumenterer vigtige arkitekturbeslutninger sammen med deres kontekst, ko
 
 Registret besvarer først ét spørgsmål: **hvilke beslutninger er gældende i dag?** Hver underskrevet beslutning har en [gyldighed](#standing), som Turbo EA udleder af dens datoer, dens revisioner og de andre beslutninger, der virker på den, og gitteret viser kun den aktuelle revision af hver beslutning, medmindre du beder om de tidligere.
 
-Tabellen kan også **grupperes efter status** eller **efter gyldighed** via knappen *Gruppér efter* ved siden af søgefeltet: hver status eller gyldighed foldes sammen under sin egen overskrift, og afkrydsningsfeltet i overskriften vælger hele gruppen til en samlet eksport.
+Tabellen kan også **grupperes efter status** eller **efter gyldighed** via knappen *Gruppér efter* ved siden af søgefeltet: hver status eller gyldighed foldes sammen under sin egen overskrift (grupperet efter status får hvert gennemgangsudfald sin egen gruppe), og afkrydsningsfeltet i overskriften vælger hele gruppen til en samlet eksport.
 
 #### Status og gyldighed {: #standing }
 
@@ -41,6 +41,18 @@ En beslutning har to separate tilstande:
 
 - **Status** er underskriftsforløbet, og det er den, du handler på: **Kladde** → **Under gennemgang** (underskrifter anmodet) → **Underskrevet**. En beslutning truffet uden for Turbo EA og [registreret som truffet](#recording-a-past-decision) viser **Registreret** i stedet for Underskrevet.
 - **Gyldighed** angiver, hvor en underskrevet eller registreret beslutning står i dag. Den udledes — sættes aldrig manuelt — og en kladde eller en beslutning under gennemgang har ingen (*Endnu ikke underskrevet*).
+
+En kladde kan også have et **gennemgangsudfald**, der angiver, hvordan dens seneste gennemgang sluttede uden underskrift. Det vises i stedet for *Kladde* på statuschippen, og et banner på beslutningen fortæller, hvem, hvornår og hvorfor (*Afvist af Ada Lovelace den 27. nov. 2026: …*):
+
+| Udfald | Betydning |
+|--------|-----------|
+| **Ændringer anmodet** | En underskriver sendte beslutningen tilbage til omarbejdelse. Den er en redigerbar kladde; mærket fjernes, når der igen anmodes om underskrifter |
+| **Afvist** | En underskriver afviste beslutningen. Den er **lukket** |
+| **Trukket tilbage** | Forfatterens side trak beslutningen tilbage. Den er **lukket** |
+
+En **lukket** beslutning bevares, men er låst som en under gennemgang: kun dens tilknyttede kort og [diagrammer](#decision-diagrams) kan stadig ændres, og dens forfatter kan ikke sende den til gennemgang, registrere, gendanne eller slette den (sletning kræver tilladelsen `adr.delete`). For at arbejde videre med den skal du klikke på **Genåbn**, som gør den til en almindelig kladde. Registeret skjuler lukkede beslutninger, indtil **Vis lukkede** er slået til. En kladde, hvis seneste gennemgang blev afvist før version 2.221.0 — dengang en afvisning stadig satte en beslutning tilbage til kladde — vises som **Ændringer anmodet**.
+
+Livscyklussen er fast: de tre statusser, de seks gyldigheder og de tre udfald er de samme i alle arbejdsområder og kan ikke konfigureres, hverken af en administrator eller af en udvidelse.
 
 | Gyldighed | Betydning |
 |-----------|-----------|
@@ -60,7 +72,7 @@ ADR-gitteret afspejler Inventar-gitter-layoutet:
 | Kolonne | Beskrivelse |
 |---------|-------------|
 | **Reference #** | Autogenereret referencenummer (ADR-001, ADR-002, …) med en statusprik; en revision efter den første tilføjer sit nummer (ADR-012 · Rev 2) |
-| **Status** | Farvet chip — Kladde, Under gennemgang, Underskrevet eller Registreret |
+| **Status** | Farvet chip — Kladde, Under gennemgang, Underskrevet eller Registreret, eller gennemgangsudfaldet (Ændringer anmodet, Afvist, Trukket tilbage) for en kladde, der har et |
 | **Gyldighed** | Hvor en underskrevet beslutning står i dag — se [Status og gyldighed](#standing); tom, indtil den er underskrevet |
 | **Title** | ADR-titel |
 | **Decision** | Uddrag af beslutningen i ren tekst |
@@ -82,15 +94,17 @@ Det vedvarende sidepanel til venstre har to faner:
 - **Filtre** — facetfiltre over ADR-listen:
     - **Gældende** — ét klik viser kun de beslutninger, der er gældende i dag (Gældende og Gældende (ændret)); klik igen for at rydde det
     - **Vis tidligere revisioner** — slået fra som standard, så hver beslutning vises én gang, som sin aktuelle revision (plus en revision under udarbejdelse). Slå det til for også at vise de tidligere revisioner; knappen **Eksportér** følger samme kontakt
+    - **Vis lukkede** — slået fra som standard, så afviste og tilbagetrukne beslutninger holdes ude af vejen. Slå det til for også at vise dem
     - **Card Types** — afkrydsningsfelter med farvede prikker, der filtrerer efter linkede korttyper
     - **Linked Cards** — filtrér efter specifikke linkede kort
     - **Status** — Kladde / Under gennemgang / Underskrevet (en registreret beslutning tæller som underskrevet)
     - **Gyldighed** — Planlagt / Gældende / Gældende (ændret) / Erstattet / Ophævet / Udløbet / Endnu ikke underskrevet
+    - **Udfald** — Ændringer anmodet / Afvist / Trukket tilbage / Intet udfald. Vælger du **Afvist** eller **Trukket tilbage**, vises disse beslutninger, selv når **Vis lukkede** er slået fra
     - **Signed By** — filtrér efter underskriver
     - **Date Created** / **Date Modified** / **Date Signed** / **Beslutningsdato** — fra/til-datointervaller (**Beslutningsdato** matcher datoen *Truffet den* for en underskrevet eller registreret beslutning)
 - **Kolonner** — vælg, hvilke gitterkolonner der er synlige. **Reference #** og **Title** vises altid; **Nulstil** gendanner standardsættet. Dit valg huskes pr. browser.
 
-Brug **quick filter**-søgelinjen til fuldtekstsøgning på tværs af alle ADR'er. Højreklik på enhver række for en kontekstmenu (**Edit**, **Preview**, **Duplicate**, **Delete**).
+Brug **quick filter**-søgelinjen til fuldtekstsøgning på tværs af alle ADR'er. Højreklik på enhver række for en kontekstmenu (**Edit**, **Preview**, **Duplicate**, **Delete** samt **Reopen** på en lukket beslutning for indehavere af `adr.manage`). **Delete** tilbydes på en kladde; på en lukket beslutning kun for indehavere af `adr.delete`.
 
 #### Eksport og import af beslutninger {: #decisions-import }
 
@@ -260,17 +274,24 @@ Sektionen **Diagrammer**, efter **Filer**, vedhæfter diagrammer fra modulet [Di
 - **Hvem der ser dem.** At se sektionen kræver tilladelsen til at se diagrammer (`diagrams.view`); at vedhæfte og fjerne kræver også `adr.manage`. En læser uden `diagrams.view` ser slet ingen sektion Diagrammer. En beslutning, der ikke kan redigeres og ikke har noget diagram, viser heller ingen sektion.
 - **Hvor de vises.** [Forhåndsvisningen](#preview) viser diagrammerne skrivebeskyttet; PDF-/printkopien og Word-eksporten oplister deres navne. En revision og en kopi overtager diagrammerne. Diagrammer er ikke en del af en version i [Historik](#decision-history).
 
-#### Underskrifts­arbejdsproces
+#### Underskrifts­arbejdsproces {: #sign-off-workflow }
 
 ADR'er understøtter en formel underskriftsproces:
 
 1. Opret ADR'en med status **Draft**.
 2. Klik på **Request Signatures**, og søg efter underskrivere efter navn eller e-mail (eller klik på **Tilføj beslutningstagere**). Der kan kun anmodes om underskrifter fra en kladde.
 3. ADR'en flyttes til **In Review** — hver underskriver modtager en notifikation og en opgave.
-4. Underskrivere gennemgår og klikker på **Sign**.
+4. Underskrivere gennemgår og klikker på **Sign**, **Anmod om ændringer** eller **Afvis**.
 5. Når hver underskriver har underskrevet, flytter ADR'en automatisk til **Signed**.
 
-**En beslutning under gennemgang er låst**, så underskriverne underskriver præcis det, de fik tilsendt: teksten, datoerne, personerne, tilknytningerne til andre beslutninger, filerne og udvidelsespanelerne er skrivebeskyttede, og kun de tilknyttede kort og de vedhæftede [diagrammer](#decision-diagrams) kan stadig ændres. Klik på **Tilbagekald underskrifter** for at redigere den; det sender den tilbage til kladde. En underskriver, der klikker på **Afvis**, sender den også tilbage til kladde, under samme revisionsnummer.
+**En beslutning under gennemgang er låst**, så underskriverne underskriver præcis det, de fik tilsendt: teksten, datoerne, personerne, tilknytningerne til andre beslutninger, filerne og udvidelsespanelerne er skrivebeskyttede, og kun de tilknyttede kort og de vedhæftede [diagrammer](#decision-diagrams) kan stadig ændres. Klik på **Tilbagekald underskrifter** for at redigere den; det sender den tilbage til kladde.
+
+En afventende underskriver, der ikke underskriver, har to valg, hvert med en begrundelse (op til 4.000 tegn), som alle andre underskrivere og forfatteren får besked om:
+
+- **Anmod om ændringer** sender beslutningen tilbage til omarbejdelse: den bliver igen en redigerbar kladde under samme revisionsnummer, markeret **Ændringer anmodet**. Rediger den og anmod om underskrifter igen; mærket fjernes så. Indtil version 2.221.0 var det, hvad **Afvis** gjorde.
+- **Afvis** lukker beslutningen: den forbliver en kladde, markeret **Afvist**, og er låst, indtil nogen genåbner den. Enhver enkelt underskriver kan afvise.
+
+På forfattersiden kan en indehaver af `adr.manage` **Trække tilbage** en gemt kladde eller en beslutning under gennemgang med en begrundelse: afventende underskriftsanmodninger annulleres, deres underskrivere får besked, og beslutningen lukkes, markeret **Trukket tilbage**. **Genåbn** gør en afvist eller tilbagetrukket beslutning til en almindelig kladde, der kan redigeres og sendes til gennemgang igen. Hvert trin vises på tidslinjen i [Historik](#decision-history).
 
 Underskrevne ADR'er er låst og kan ikke redigeres — for at lave ændringer skal du oprette en ny revision.
 
@@ -288,6 +309,7 @@ Beslutningen låses derefter som en underskrevet og får sin gyldighed, men dens
 - **Den aktuelle revision er den gældende.** Når en revision er underskrevet og trådt i kraft, er de tidligere **Erstattet** og viser et banner med et link til den aktuelle. **Revisioner**-båndet på hver revision viser hele kæden og markerer den aktuelle.
 - **Kun den aktuelle revision kan revideres**, og ikke længere, når beslutningen er ophævet eller erstattet. En udløbet eller ændret beslutning kan stadig revideres.
 - **En afvisning tæller ikke som en revision**: revisionsnummeret ændres kun, når en ny revision oprettes.
+- **En afvist eller tilbagetrukket revision forbliver den åbne revision.** Den blokerer fortsat en ny revision af sin beslutning, og menuen **Revidér** nævner den (*Åbn den revision, der er under udarbejdelse (ADR-012 · Rev 3, Afvist)*). For at prøve igen skal du åbne den og klikke på **Genåbn**; eller slette den for at starte en ny revision.
 - Beslutninger, der er revideret før version 2.199.0, beholder de referencenumre, de fik, og vises stadig som én beslutning med ét revisionsbånd.
 
 #### Preview
@@ -307,10 +329,10 @@ Hver beslutning har sin egen **Diskussion**, så en beslutning kan afklares i Tu
 - **Formatering.** En kommentar kan indeholde fed, kursiv, gennemstreget, **Inline-kode**, punktlister og nummererede lister, citater og [links](#decision-text-links) (knappen **Link** eller Ctrl/Cmd+K). Overskrifter, kodeblokke, billeder og tabeller hører hjemme i sektionerne, ikke i kommentarer.
 - **Hvem der kan skrive.** Læsning af diskussionen følger, hvem der kan åbne beslutningen (`adr.view`). At skrive, svare, løse og genåbne kræver tilladelsen `adr.comment`, som medlemmer og administratorer har som standard, og læsere ikke har; en administrator kan ændre den pr. rolle. Beslutningens underskrivere kan altid kommentere den, herunder de personer, der blev bedt om at underskrive den i en tidligere gennemgangsrunde, som blev tilbagekaldt eller afvist.
 - **Under gennemgang og efter underskrift.** [Låsen under gennemgang](#underskriftsarbejdsproces) omfatter indholdet, ikke samtalen: diskussionen forbliver åben, mens beslutningen er under gennemgang, og efter at den er underskrevet.
-- **Gennemgangsnoter.** Når en underskriver afviser en beslutning, åbner begrundelsen en tråd markeret **Begrundelse for afvisning** (*Ingen begrundelse angivet*, når underskriveren lod den stå tom), som besvares og løses som enhver anden. En underskriver kan tilføje en valgfri note ved underskrift; den vises i diskussionen som en **Note til underskrift**. Ingen af dem går længere tabt, når underskrifter tilbagekaldes, og begge vises også i [Historik](#decision-history).
-- **Åbne tråde før gennemgang.** **Anmod om underskrifter**, **Underskriv** og **Afvis** advarer, når beslutningen stadig har åbne tråde (*2 åbne diskussionstråde på dette dokument.*). Det er kun en advarsel: intet blokeres.
+- **Gennemgangsnoter.** Når en underskriver afviser en beslutning, åbner begrundelsen en tråd markeret **Begrundelse for afvisning** (*Ingen begrundelse angivet*, når underskriveren lod den stå tom), som besvares og løses som enhver anden; en anmodning om ændringer åbner en tråd markeret **Ændringer anmodet**. Begrundelsen for en tilbagetrækning gemmes på beslutningen og i Historik, ikke i diskussionen. En underskriver kan tilføje en valgfri note ved underskrift; den vises i diskussionen som en **Note til underskrift**. Ingen af dem går længere tabt, når underskrifter tilbagekaldes, og begge vises også i [Historik](#decision-history).
+- **Åbne tråde før gennemgang.** **Anmod om underskrifter**, **Underskriv**, **Anmod om ændringer**, **Afvis** og **Træk tilbage** advarer, når beslutningen stadig har åbne tråde (*2 åbne diskussionstråde på dette dokument.*). Det er kun en advarsel: intet blokeres.
 - **Notifikationer.** En ny kommentar giver besked til beslutningens forfatter, dens underskrivere, dens beslutningstagere og deltagere, der er Turbo EA-brugere, og de personer, der har kommenteret før — aldrig til den, der skrev den. Skriv **@** i en kommentar for at omtale en kollega: vedkommende modtager i stedet en notifikation om omtalen. En person, du omtaler, og som ikke kan åbne beslutningen, får ikke besked, og panelet fortæller dig det (*… fik ikke besked: de kan ikke åbne dette dokument.*). Notifikationer indeholder ingen kommentartekst, og et klik på en åbner beslutningens forhåndsvisning med panelet ved den pågældende tråd. Se [Notifikationer](notifications.md#notifikationstyper).
-- **Redigering og sletning.** Du kan redigere dine egne kommentarer; en redigeret kommentar markeres *(redigeret)*. Du kan slette dine egne kommentarer, og alle, der kan redigere beslutningen (`adr.manage`), kan slette enhver kommentar; en slettet kommentar skrumper på sin plads ind til én lille linje med dens forfatter, dens dato og *Kommentar slettet*. Sletning af den første kommentar i en tråd lukker tråden: de svar, der allerede er der, bliver, men ingen kan svare i den, løse den eller genåbne den. En begrundelse for afvisning og en note til underskrift kan ikke redigeres eller slettes: en afvisning løses i stedet.
+- **Redigering og sletning.** Du kan redigere dine egne kommentarer; en redigeret kommentar markeres *(redigeret)*. Du kan slette dine egne kommentarer, og alle, der kan redigere beslutningen (`adr.manage`), kan slette enhver kommentar; en slettet kommentar skrumper på sin plads ind til én lille linje med dens forfatter, dens dato og *Kommentar slettet*. Sletning af den første kommentar i en tråd lukker tråden: de svar, der allerede er der, bliver, men ingen kan svare i den, løse den eller genåbne den. En begrundelse for afvisning, en anmodning om ændringer og en note til underskrift kan ikke redigeres eller slettes: de to første løses i stedet.
 - **Tidligere revisioner.** En tråd hører til den revision, den blev startet på. Slå **Vis diskussion om tidligere revisioner** til for at læse trådene fra beslutningens tidligere revisioner, grupperet efter revision.
 
 #### Omtaler {: #decision-mentions }
@@ -326,13 +348,13 @@ Mens du skriver en beslutning, kan du skrive **@** i en af dens fire sektioner f
 
 #### Historik {: #decision-history }
 
-Knappen **Historik** øverst i beslutningens editor eller forhåndsvisning, ved siden af revisionsbjælken når beslutningen har flere revisioner, åbner én bred visning: tidslinjen til venstre, den valgte version til højre. Tidslinjen registrerer, hvad der er sket med beslutningen, nyeste først: oprettet, gemt, sendt til gennemgang, hver underskrift (med dens note), afvist (med begrundelsen), underskrifter tilbagekaldt, fuldt underskrevet, registreret som truffet, en revision påbegyndt, en tidligere version gendannet. Alle, der kan åbne beslutningen, ser denne tidslinje. Gennemgangshændelser — sendt til gennemgang, underskrevet, tilbagekaldt, afvist — gemmes fra version 2.200.0; før blev de vist live, men aldrig gemt. Beslutninger, der fandtes før den version, starter med en tidslinje genopbygget ud fra det, der var gemt: oprettet, revideret, sendt til gennemgang (for en beslutning, der var under gennemgang ved opgraderingen, med de underskrivere, den blev sendt til), hver underskrift, underskrevet og registreret.
+Knappen **Historik** øverst i beslutningens editor eller forhåndsvisning, ved siden af revisionsbjælken når beslutningen har flere revisioner, åbner én bred visning: tidslinjen til venstre, den valgte version til højre. Tidslinjen registrerer, hvad der er sket med beslutningen, nyeste først: oprettet, gemt, sendt til gennemgang, hver underskrift (med dens note), ændringer anmodet, afvist og trukket tilbage (hver med begrundelsen), genåbnet, underskrifter tilbagekaldt, fuldt underskrevet, registreret som truffet, en revision påbegyndt, en tidligere version gendannet. Alle, der kan åbne beslutningen, ser denne tidslinje. Gennemgangshændelser — sendt til gennemgang, underskrevet, tilbagekaldt, afvist — gemmes fra version 2.200.0; før blev de vist live, men aldrig gemt. Beslutninger, der fandtes før den version, starter med en tidslinje genopbygget ud fra det, der var gemt: oprettet, revideret, sendt til gennemgang (for en beslutning, der var under gennemgang ved opgraderingen, med de underskrivere, den blev sendt til), hver underskrift, underskrevet og registreret.
 
 Historikken er ikke den håndførte tabel **Dokumentets versionshistorik** i en [Statement of Architecture Work](delivery.md#soaw-editoren), som registrerer det, forfatterne vælger at skrive i den.
 
 - **Versioner.** En version gemmes, hver gang en kladde gemmes med ændringer. Den indeholder titlen, de fire sektioner, datoerne, ændringsresuméet og personerne; tilknytninger til andre beslutninger, tilknyttede kort, filer og diagrammer er ikke en del af en version. De trin, der indeholder en version, er markeret i tidslinjen; de personer, der kan redigere beslutningen, og dens underskrivere vælger et for at vise det til højre, og den nyeste version er valgt, når visningen åbnes. Andre læsere ser tidslinjen uden versionerne (*Gemte versioner vises kun for redaktører og underskrivere.*). På en smal skærm viser visningen først tidslinjen, derefter den valgte version med en knap **Tilbage**.
 - **Ændringer.** Over den valgte version viser **Version** den, som den blev gemt, og **Ændringer** viser, hvad der er ændret mellem den og den forrige version, ord for ord pr. sektion, sammen med de datoer og personer, der er ændret; vælg en vilkårlig anden version under **Sammenlign med**. Kun de versioner, der allerede er indlæst i tidslinjen, kan sammenlignes: når versionen før den valgte endnu ikke er indlæst, siger **Ændringer** det, og **Indlæs flere** henter den ind. En ændring alene af formatering rapporteres som *Kun formatering: ordene er de samme.*; et link, hvis adresse er ændret, tæller som en ændring, og en tabelrække læses som én linje, med cellerne adskilt af ` | `.
-- **Gendan.** På en kladde kan en person, der kan redigere beslutningen, gendanne den valgte version med **Gendan denne version**. Gendannelse virker kun fremad: versionens tekst, datoer og personer erstatter kladdens og gemmes som en ny version, og kladdens tilstand før gendannelsen forbliver i historikken. Tilknytninger til andre beslutninger, tilknyttede kort, filer og diagrammer gendannes ikke. Når editoren har ikke-gemte ændringer, siger bekræftelsen, at de vil blive kasseret. Efter gendannelsen viser siden den gendannede beslutning, og visningen lukkes. En beslutning under gennemgang eller en underskrevet beslutning kan ikke gendannes.
+- **Gendan.** På en kladde kan en person, der kan redigere beslutningen, gendanne den valgte version med **Gendan denne version**. Gendannelse virker kun fremad: versionens tekst, datoer og personer erstatter kladdens og gemmes som en ny version, og kladdens tilstand før gendannelsen forbliver i historikken. Tilknytninger til andre beslutninger, tilknyttede kort, filer og diagrammer gendannes ikke. Når editoren har ikke-gemte ændringer, siger bekræftelsen, at de vil blive kasseret. Efter gendannelsen viser siden den gendannede beslutning, og visningen lukkes. En beslutning under gennemgang, en underskrevet eller en lukket (afvist eller trukket tilbage) beslutning kan ikke gendannes; genåbn først en lukket.
 
 #### Kendte begrænsninger {: #collaboration-limits }
 

@@ -201,6 +201,8 @@ class TestDecisionEvents:
             "revision_number": 1,
             "title": "Event ADR",
             "rejector": "One",
+            "actor": "One",
+            "outcome": "rejected",
         }
         assert event.user_id == env["ids"]["one"]
         # ...the people it is addressed to still get it.
@@ -214,6 +216,62 @@ class TestDecisionEvents:
         ).scalars()
         (note,) = list(notes)
         assert note.data["comment"] == "Budget not agreed"
+        assert note.data["outcome"] == "rejected"
+
+    async def test_request_changes_withdraw_and_reopen(self, client, db, env, publish_commit_log):
+        adr = await _adr(client, env)
+        await _adr_request(client, env, adr["id"], "one", "two")
+        base = {
+            "id": adr["id"],
+            "reference_number": adr["reference_number"],
+            "revision_number": 1,
+            "title": "Event ADR",
+        }
+
+        await _commit_setup(db, publish_commit_log)
+        resp = await client.post(
+            f"{ADR}/{adr['id']}/request-changes",
+            json={"comment": "Add the numbers"},
+            headers=env["headers"]["one"],
+        )
+        assert resp.status_code == 200, resp.text
+        _assert_published_before_the_last_commit(publish_commit_log, "adr.changes_requested")
+        (event,) = await _stored(db, "adr.changes_requested")
+        # The reason stays out of the event, as on a rejection.
+        assert event.data == {**base, "actor": "One", "outcome": "changes_requested"}
+        assert event.user_id == env["ids"]["one"]
+        notes = (
+            await db.execute(
+                select(Notification).where(
+                    Notification.type == "adr_rejected",
+                    Notification.user_id == env["ids"]["two"],
+                )
+            )
+        ).scalars()
+        (note,) = list(notes)
+        assert note.title == "ADR Changes Requested"
+        assert (note.data["outcome"], note.data["comment"]) == (
+            "changes_requested",
+            "Add the numbers",
+        )
+
+        await _commit_setup(db, publish_commit_log)
+        resp = await client.post(
+            f"{ADR}/{adr['id']}/withdraw",
+            json={"comment": "Not needed"},
+            headers=env["headers"]["admin"],
+        )
+        assert resp.status_code == 200, resp.text
+        _assert_published_before_the_last_commit(publish_commit_log, "adr.withdrawn")
+        (event,) = await _stored(db, "adr.withdrawn")
+        assert event.data == {**base, "actor": "Ada", "outcome": "withdrawn"}
+
+        await _commit_setup(db, publish_commit_log)
+        resp = await client.post(f"{ADR}/{adr['id']}/reopen", headers=env["headers"]["admin"])
+        assert resp.status_code == 200, resp.text
+        _assert_published_before_the_last_commit(publish_commit_log, "adr.reopened")
+        (event,) = await _stored(db, "adr.reopened")
+        assert event.data == {**base, "actor": "Ada", "outcome": None}
 
     async def test_link_and_unlink_a_card(self, client, db, env, publish_commit_log):
         adr = await _adr(client, env)
@@ -353,6 +411,8 @@ class TestSoAWEvents:
             "name": "Event SoAW",
             "revision_number": 1,
             "rejector": "One",
+            "actor": "One",
+            "outcome": "rejected",
         }
         assert event.user_id == env["ids"]["one"]
         notes = (
@@ -365,6 +425,51 @@ class TestSoAWEvents:
         ).scalars()
         (note,) = list(notes)
         assert note.data["comment"] == "Scope unclear"
+        assert note.data["outcome"] == "rejected"
+
+    async def test_request_changes_withdraw_and_reopen(self, client, db, env, publish_commit_log):
+        doc = await _soaw(client, env)
+        await _soaw_request(client, env, doc["id"], "one", "two")
+        base = {"id": doc["id"], "name": "Event SoAW", "revision_number": 1}
+
+        await _commit_setup(db, publish_commit_log)
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/request-changes",
+            json={"comment": "Scope"},
+            headers=env["headers"]["one"],
+        )
+        assert resp.status_code == 200, resp.text
+        _assert_published_before_the_last_commit(publish_commit_log, "soaw.changes_requested")
+        (event,) = await _stored(db, "soaw.changes_requested")
+        assert event.data == {**base, "actor": "One", "outcome": "changes_requested"}
+        notes = (
+            await db.execute(
+                select(Notification).where(
+                    Notification.type == "soaw_rejected",
+                    Notification.user_id == env["ids"]["two"],
+                )
+            )
+        ).scalars()
+        (note,) = list(notes)
+        assert (note.title, note.data["outcome"]) == ("SoAW Changes Requested", "changes_requested")
+
+        await _commit_setup(db, publish_commit_log)
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/withdraw",
+            json={"comment": "Not needed"},
+            headers=env["headers"]["admin"],
+        )
+        assert resp.status_code == 200, resp.text
+        _assert_published_before_the_last_commit(publish_commit_log, "soaw.withdrawn")
+        (event,) = await _stored(db, "soaw.withdrawn")
+        assert event.data == {**base, "actor": "Ada", "outcome": "withdrawn"}
+
+        await _commit_setup(db, publish_commit_log)
+        resp = await client.post(f"{SOAW}/{doc['id']}/reopen", headers=env["headers"]["admin"])
+        assert resp.status_code == 200, resp.text
+        _assert_published_before_the_last_commit(publish_commit_log, "soaw.reopened")
+        (event,) = await _stored(db, "soaw.reopened")
+        assert event.data == {**base, "actor": "Ada", "outcome": None}
 
 
 class TestTheLog:

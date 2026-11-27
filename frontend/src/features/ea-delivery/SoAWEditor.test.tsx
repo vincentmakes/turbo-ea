@@ -96,7 +96,7 @@ import { mockApi } from "@/test/apiMock";
 import { hookState } from "@/test/hooks";
 import { ADMIN_USER, makeCard } from "@/test/fixtures/metamodel";
 import { setViewportWidth } from "@/test/matchMedia";
-import { renderWithProviders } from "@/test/render";
+import { makeUser, renderWithProviders } from "@/test/render";
 import { DELIVERABLE_COLORS, brand } from "@/theme/tokens";
 
 import SoAWEditor from "./SoAWEditor";
@@ -717,7 +717,8 @@ describe("SoAWEditor — signatures", () => {
     expect(pendingCard).toHaveStyle({ backgroundColor: "rgba(0, 0, 0, 0.04)" });
   });
 
-  it("rejects with a comment back to a draft, keeping the revision number", async () => {
+  // Until 2.221.0 Reject returned the document to draft; that is Request changes now.
+  it("requests changes with a comment back to a draft, keeping the revision number", async () => {
     mockApi.on("get", "/auth/me", { id: "u2" });
     mockApi.on("get", "/soaw/s1", {
       ...SOAW,
@@ -725,23 +726,132 @@ describe("SoAWEditor — signatures", () => {
       signatories: [PENDING_U2],
       revision_number: 2,
     });
-    // A rejection does not move the number; the page shows the reply's.
-    mockApi.on("post", "/soaw/s1/reject", { ...SOAW, status: "draft", signatories: [], revision_number: 2 });
+    // A request for changes does not move the number; the page shows the reply's.
+    mockApi.on("post", "/soaw/s1/request-changes", {
+      ...SOAW,
+      status: "draft",
+      signatories: [],
+      revision_number: 2,
+      outcome: {
+        kind: "changes_requested",
+        at: "2026-06-03T10:00:00Z",
+        by: { id: "u2", display_name: "Grace Hopper" },
+        note: "Scope unclear",
+      },
+    });
+    renderEdit();
+    await waitForLoaded();
+
+    fireEvent.click(button(t("editor.requestChanges")));
+    const dialog = await dialogTitled(t("editor.requestChangesDialog.title"));
+    const confirm = within(dialog).getByText(t("editor.requestChanges"), { selector: "button" });
+    expect(confirm).toBeDisabled();
+    setValue(
+      within(dialog).getByLabelText(new RegExp(`^${t("editor.requestChangesDialog.commentLabel")}`)),
+      "Scope unclear",
+    );
+    fireEvent.click(confirm);
+
+    expect(await screen.findByText(t("editor.changesRequested"))).toBeInTheDocument();
+    expect(mockApi.callsOf("post", "/soaw/s1/request-changes")[0].body).toEqual({ comment: "Scope unclear" });
+    expect(screen.getByText(t("editor.revisionLabel", { number: 2 }))).toBeInTheDocument();
+    // The outcome stands in for "Draft"; the banner says who and why.
+    expect(screen.getByText(t("outcome.changesRequested"))).toBeInTheDocument();
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    const banner = document.querySelector('[data-banner="changes-requested"]') as HTMLElement;
+    expect(banner).toHaveTextContent("Changes requested by Grace Hopper on");
+    expect(banner).toHaveTextContent("Scope unclear");
+    // Still an editable draft.
+    expect(button(t("editor.requestSignatures"))).toBeInTheDocument();
+  });
+
+  it("rejects with a comment: the document is closed and locked until reopened", async () => {
+    mockApi.on("get", "/auth/me", { id: "u2" });
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", signatories: [PENDING_U2] });
+    const rejected = {
+      ...SOAW,
+      status: "draft" as const,
+      signatories: [],
+      outcome: {
+        kind: "rejected" as const,
+        at: "2026-06-03T10:00:00Z",
+        by: { id: "u2", display_name: "Grace Hopper" },
+        note: "Out of scope",
+      },
+    };
+    mockApi.on("post", "/soaw/s1/reject", rejected);
+    mockApi.on("post", "/soaw/s1/reopen", { ...rejected, outcome: null });
     renderEdit();
     await waitForLoaded();
 
     fireEvent.click(button(t("editor.reject")));
     const dialog = await dialogTitled(t("editor.rejectDialog.title"));
-    const confirm = within(dialog).getByText(t("editor.reject"), { selector: "button" });
-    expect(confirm).toBeDisabled();
-    setValue(within(dialog).getByLabelText(new RegExp(`^${t("editor.rejectDialog.commentLabel")}`)), "Scope unclear");
-    fireEvent.click(confirm);
+    setValue(within(dialog).getByLabelText(new RegExp(`^${t("editor.rejectDialog.commentLabel")}`)), "Out of scope");
+    fireEvent.click(within(dialog).getByText(t("editor.reject"), { selector: "button" }));
 
     expect(await screen.findByText(t("editor.documentRejected"))).toBeInTheDocument();
-    expect(mockApi.callsOf("post", "/soaw/s1/reject")[0].body).toEqual({ comment: "Scope unclear" });
-    expect(screen.getByText(t("editor.revisionLabel", { number: 2 }))).toBeInTheDocument();
-    expect(screen.getByText(t("status.draft"))).toBeInTheDocument();
+    expect(mockApi.callsOf("post", "/soaw/s1/reject")[0].body).toEqual({ comment: "Out of scope" });
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(screen.getByText(t("outcome.rejected"))).toBeInTheDocument();
+    expect(screen.getByText(t("adr.banner.closedLock"))).toBeInTheDocument();
+    expect(queryButton(t("editor.requestSignatures"))).toBeNull();
+    expect(screen.queryAllByText(t("editor.save"), { selector: "button" })).toHaveLength(0);
+    expect(screen.getByDisplayValue(SOAW.name)).toBeDisabled();
+    expect(queryButton(t("editor.withdraw"))).toBeNull();
+
+    fireEvent.click(button(t("editor.reopen")));
+    expect(await screen.findByText(t("editor.reopened"))).toBeInTheDocument();
+    expect(mockApi.callsOf("post", "/soaw/s1/reopen")).toHaveLength(1);
+    expect(await screen.findByText(t("status.draft"))).toBeInTheDocument();
+    expect(button(t("editor.requestSignatures"))).toBeInTheDocument();
+  });
+
+  it("withdraws a draft with a reason, for a holder of soaw.manage", async () => {
+    mockApi.on("post", "/soaw/s1/withdraw", {
+      ...SOAW,
+      outcome: {
+        kind: "withdrawn",
+        at: "2026-06-03T10:00:00Z",
+        by: { id: "u1", display_name: "Ada" },
+        note: "No longer needed",
+      },
+    });
+    renderEdit();
+    await waitForLoaded();
+    fireEvent.click(button(t("editor.withdraw")));
+    const dialog = await dialogTitled(t("editor.withdrawDialog.title"));
+    setValue(
+      within(dialog).getByLabelText(new RegExp(`^${t("editor.withdrawDialog.commentLabel")}`)),
+      "No longer needed",
+    );
+    fireEvent.click(within(dialog).getByText(t("editor.withdraw"), { selector: "button" }));
+    expect(await screen.findByText(t("editor.withdrawn"))).toBeInTheDocument();
+    expect(mockApi.callsOf("post", "/soaw/s1/withdraw")[0].body).toEqual({ comment: "No longer needed" });
+    expect(screen.getByText(t("outcome.withdrawn"))).toBeInTheDocument();
+  });
+
+  it("offers no Withdraw or Reopen without soaw.manage", async () => {
+    mockApi.on("get", "/soaw/s1", {
+      ...SOAW,
+      outcome: { kind: "withdrawn", at: "2026-06-03T10:00:00Z", by: null, note: null },
+    });
+    renderWithProviders(<SoAWEditor />, {
+      route: "/ea-delivery/soaw/s1",
+      routes: [{ path: "/ea-delivery/soaw/:id" }],
+      user: makeUser({ permissions: { "soaw.view": true } }),
+    });
+    await waitForLoaded();
+    expect(screen.getByText(t("outcome.withdrawn"))).toBeInTheDocument();
+    expect(queryButton(t("editor.withdraw"))).toBeNull();
+    expect(queryButton(t("editor.reopen"))).toBeNull();
+  });
+
+  it("opens the request changes dialog from a ?action=request-changes deep link", async () => {
+    mockApi.on("get", "/auth/me", { id: "u2" });
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", signatories: [PENDING_U2] });
+    renderEdit("?action=request-changes");
+    await waitForLoaded();
+    expect(await dialogTitled(t("editor.requestChangesDialog.title"))).toBeInTheDocument();
   });
 
   it("shows the sign and reject errors", async () => {

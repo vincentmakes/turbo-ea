@@ -7,6 +7,10 @@
 import { toIsoDate, toLocalDate } from "@/lib/dates";
 import type { ArchitectureDecision } from "@/types";
 import { IN_FORCE_STANDINGS, matchesStanding } from "./decisionStanding";
+import { isClosedOutcome, outcomeKind } from "./reviewOutcome";
+
+/** Outcome filter value for decisions with no review outcome. */
+export const NO_OUTCOME = "none";
 
 export interface AdrFilters {
   cardTypes: string[];
@@ -26,6 +30,11 @@ export interface AdrFilters {
   dateDecidedTo: string;
   /** Keep the earlier revisions of a decision (off: current and open only). */
   showEarlierRevisions: boolean;
+  /** Keep closed (rejected or withdrawn) decisions; off by default, so the
+   *  register shows what is being worked on or in force. */
+  showClosed: boolean;
+  /** Review outcomes to keep (`reviewOutcome.ts` kinds, {@link NO_OUTCOME} for none). */
+  outcomes: string[];
 }
 
 export const EMPTY_ADR_FILTERS: AdrFilters = {
@@ -43,6 +52,8 @@ export const EMPTY_ADR_FILTERS: AdrFilters = {
   dateDecidedFrom: "",
   dateDecidedTo: "",
   showEarlierRevisions: false,
+  showClosed: false,
+  outcomes: [],
 };
 
 /** Whether the standing selection is exactly the "In force" preset. */
@@ -59,14 +70,15 @@ export function toggleInForcePreset(standings: readonly string[]): string[] {
   return isInForcePreset(standings) ? [] : [...IN_FORCE_STANDINGS];
 }
 
-/** Active filters, for the rail chip and the tab dot. The revisions switch
- *  counts when on: it widens what the register shows. */
+/** Active filters, for the rail chip and the tab dot. The revisions and
+ *  closed switches count when on: they widen what the register shows. */
 export function countActiveAdrFilters(filters: AdrFilters): number {
   return (
     filters.cardTypes.length +
     filters.linkedCards.length +
     filters.statuses.length +
     filters.standings.length +
+    filters.outcomes.length +
     filters.signedBy.length +
     (filters.dateCreatedFrom ? 1 : 0) +
     (filters.dateCreatedTo ? 1 : 0) +
@@ -76,7 +88,8 @@ export function countActiveAdrFilters(filters: AdrFilters): number {
     (filters.dateSignedTo ? 1 : 0) +
     (filters.dateDecidedFrom ? 1 : 0) +
     (filters.dateDecidedTo ? 1 : 0) +
-    (filters.showEarlierRevisions ? 1 : 0)
+    (filters.showEarlierRevisions ? 1 : 0) +
+    (filters.showClosed ? 1 : 0)
   );
 }
 
@@ -97,6 +110,29 @@ export function inDayRange(value: string | null | undefined, from: string, to: s
   return (!from || day >= from) && (!to || day <= to);
 }
 
+/**
+ * Whether a decision passes the outcome filter. An empty selection keeps
+ * everything; a decision with no outcome matches {@link NO_OUTCOME}.
+ */
+export function matchesOutcome(
+  adr: Pick<ArchitectureDecision, "outcome">,
+  selected: readonly string[],
+): boolean {
+  if (selected.length === 0) return true;
+  return selected.includes(outcomeKind(adr) ?? NO_OUTCOME);
+}
+
+/**
+ * Whether a closed decision is shown: with "Show closed" on, or when the
+ * outcome filter asks for its outcome by name (picking "Rejected" means
+ * wanting to see the rejected decisions).
+ */
+function closedShown(adr: Pick<ArchitectureDecision, "outcome">, filters: AdrFilters): boolean {
+  const kind = outcomeKind(adr);
+  if (!isClosedOutcome(kind)) return true;
+  return filters.showClosed || (kind !== null && filters.outcomes.includes(kind));
+}
+
 /** The rows the register shows for `filters`, in their loaded order. */
 export function filterAdrs(
   adrs: ArchitectureDecision[],
@@ -105,6 +141,10 @@ export function filterAdrs(
   let list = adrs;
   if (!filters.showEarlierRevisions) {
     list = list.filter((a) => a.is_earlier_revision !== true);
+  }
+  list = list.filter((a) => closedShown(a, filters));
+  if (filters.outcomes.length > 0) {
+    list = list.filter((a) => matchesOutcome(a, filters.outcomes));
   }
   if (filters.statuses.length > 0) {
     list = list.filter((a) => filters.statuses.includes(a.status));
@@ -145,7 +185,9 @@ export function filterAdrs(
   return list;
 }
 
-/** The register export query: the earlier revisions only when they are shown. */
+/** The register export query: the earlier revisions only when they are shown.
+ *  Closed decisions are always fetched: the export keeps only the visible
+ *  rows, and an outcome filter can show a closed one with "Show closed" off. */
 export function adrExportPath(showEarlierRevisions: boolean): string {
   return `/adr?include_content=true&include_earlier=${showEarlierRevisions ? "true" : "false"}`;
 }

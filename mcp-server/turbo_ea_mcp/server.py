@@ -219,15 +219,18 @@ mcp = _StrictFastMCP(
 
         Architecture decisions (ADRs) have a status (draft, in_review,
         signed) and, once signed, a derived standing (scheduled, in_force,
-        amended, superseded, revoked, expired). list_adrs shows the current
+        amended, superseded, revoked, expired). A review that ended without
+        a signature leaves an outcome on the draft (changes_requested,
+        rejected, withdrawn); a rejected or withdrawn one is closed until it
+        is reopened in the web UI. list_adrs shows the current
         revision of each decision; the ones in force are
         standing="in_force,amended". revise_adr starts a signed decision's
         next revision; replacing or revoking one is a new decision
         (create_adr) with a replaces / revokes link, signed in the web UI.
 
         Decisions and SoAWs each have a discussion and a timeline:
-        get_document_discussion reads the threads (rejection reasons and
-        signing notes included), add_document_comment posts a plain-text
+        get_document_discussion reads the threads (rejection reasons, change
+        requests and signing notes included), add_document_comment posts a plain-text
         comment or reply, get_document_history lists what happened.
 
         Write tools default to dry_run=True: they validate and return a
@@ -909,6 +912,35 @@ async def list_principles() -> str:
 _ADR_STANDINGS = ("scheduled", "in_force", "amended", "superseded", "revoked", "expired")
 
 
+#: How a review can end short of a signature (``review_outcome.OUTCOMES``);
+#: ``rejected`` and ``withdrawn`` close the decision until it is reopened.
+_ADR_OUTCOMES = ("changes_requested", "rejected", "withdrawn")
+
+
+def _adr_outcome_filter(outcome: str) -> tuple[str | None, dict | None]:
+    """``outcome`` as the backend's comma-separated filter, or an error.
+
+    Returns ``(value, error)`` like :func:`_adr_standing_filter`: ``value``
+    is ``None`` when nothing is filtered; ``error`` names the unknown values
+    and lists the allowed ones, as the backend's 400 ``unknown_outcome``
+    would.
+    """
+    wanted = [part.strip() for part in outcome.split(",") if part.strip()]
+    unknown = [part for part in wanted if part not in _ADR_OUTCOMES]
+    if unknown:
+        return None, {
+            "error": "unknown_outcome",
+            "values": unknown,
+            "allowed": list(_ADR_OUTCOMES),
+            "message": (
+                "outcome takes one value or a comma-separated list of: "
+                + ", ".join(_ADR_OUTCOMES)
+                + "."
+            ),
+        }
+    return (",".join(wanted) or None), None
+
+
 def _bool_param(value: bool) -> str:
     """A boolean query parameter as the backend reads it, always sent."""
     return "true" if value else "false"
@@ -945,6 +977,8 @@ async def list_adrs(
     search: str = "",
     standing: str = "",
     include_earlier: bool = False,
+    outcome: str = "",
+    include_closed: bool = True,
 ) -> str:
     """List Architecture Decision Records (ADRs).
 
@@ -956,6 +990,14 @@ async def list_adrs(
     decision not consolidated yet), ``superseded`` (by a later revision or a
     replacing decision), ``revoked``, ``expired`` (past ``valid_until``).
     "Which decisions are in force?" is ``standing="in_force,amended"``.
+
+    ``outcome`` is how a review ended short of a signature, ``null`` when it
+    did not: ``{kind, at, by: {id, display_name}, note}`` with ``kind``
+    ``changes_requested`` (sent back by a signatory: an editable draft),
+    ``rejected`` (rejected by a signatory) or ``withdrawn`` (withdrawn by its
+    author side). A decision with an outcome always has ``status="draft"``;
+    a rejected or withdrawn one is *closed*: locked until it is reopened in
+    the web UI. Rejecting, withdrawing and reopening are done in the web UI.
 
     A decision can have revisions: they share its reference (``ADR-012``)
     and carry ``revision_number`` 1, 2, … By default this tool lists only
@@ -982,6 +1024,10 @@ async def list_adrs(
         standing: One standing or a comma-separated list of: scheduled,
             in_force, amended, superseded, revoked, expired.
         include_earlier: Also list earlier revisions (default False).
+        outcome: One review outcome or a comma-separated list of:
+            changes_requested, rejected, withdrawn.
+        include_closed: Also list closed (rejected or withdrawn) decisions
+            (default True).
     """
     token = await _get_current_token()
     if not token:
@@ -989,6 +1035,9 @@ async def list_adrs(
     standing_value, standing_err = _adr_standing_filter(standing)
     if standing_err is not None:
         return _fmt(standing_err)
+    outcome_value, outcome_err = _adr_outcome_filter(outcome)
+    if outcome_err is not None:
+        return _fmt(outcome_err)
     client = TurboEAClient(token)
     data = await client.get(
         "/adr",
@@ -1000,6 +1049,9 @@ async def list_adrs(
                 "search": search,
                 "standing": standing_value,
                 "include_earlier": _bool_param(include_earlier),
+                "outcome": outcome_value,
+                # Sent only when it filters: the backend lists closed ones by default.
+                "include_closed": None if include_closed else "false",
             }
         ),
     )
@@ -1089,7 +1141,9 @@ def _without_diagram_thumbnails(data: object) -> object:
 
 
 @mcp.tool(annotations=_READ_ANNOT)
-async def list_soaws(initiative_id: str = "", include_earlier: bool = False) -> str:
+async def list_soaws(
+    initiative_id: str = "", include_earlier: bool = False, include_closed: bool = True
+) -> str:
     """List Statements of Architecture Work (SoAW).
 
     A signed SoAW is revised in the web UI: the revision is a new draft with
@@ -1099,9 +1153,13 @@ async def list_soaws(initiative_id: str = "", include_earlier: bool = False) -> 
     ``superseded_by`` (on an earlier revision: the current one) and
     ``open_revision`` (on the current revision: the draft in progress).
     A SoAW sent for signature (``in_review``) is locked until the signature
-    requests are recalled, and only drafts can be deleted. A rejection sends
-    the document back without changing its revision number; the reason is a
-    thread of its discussion.
+    requests are recalled, and only drafts can be deleted. A review that
+    ends without a signature leaves ``outcome`` on the draft
+    (``{kind, at, by, note}``, else ``null``): ``changes_requested`` (sent
+    back to be worked on), ``rejected`` or ``withdrawn`` (closed: locked, and
+    not deletable, until it is reopened in the web UI). None of these
+    changes the revision number; a rejection's or a change request's reason
+    is a thread of its discussion.
 
     Each SoAW has a discussion (``get_document_discussion`` and
     ``add_document_comment`` with ``document_type="soaw"``) and a timeline
@@ -1113,6 +1171,8 @@ async def list_soaws(initiative_id: str = "", include_earlier: bool = False) -> 
     Args:
         initiative_id: Filter to SoAWs linked to a specific Initiative UUID.
         include_earlier: Also list earlier revisions (default False).
+        include_closed: Also list closed (rejected or withdrawn) SoAWs
+            (default True).
     """
     token = await _get_current_token()
     if not token:
@@ -1121,7 +1181,12 @@ async def list_soaws(initiative_id: str = "", include_earlier: bool = False) -> 
     data = await client.get(
         "/soaw",
         params=_compact(
-            {"initiative_id": initiative_id, "include_earlier": _bool_param(include_earlier)}
+            {
+                "initiative_id": initiative_id,
+                "include_earlier": _bool_param(include_earlier),
+                # Sent only when it filters: the backend lists closed ones by default.
+                "include_closed": None if include_closed else "false",
+            }
         ),
     )
     return _fmt(data)
@@ -1220,7 +1285,8 @@ async def get_document_discussion(
     """Read the discussion of a decision or a SoAW: its threads and replies.
 
     A thread carries ``kind`` (``comment``; ``rejection``: a signatory's
-    rejection reason, open until resolved; ``sign_note``: the note a
+    rejection reason, open until resolved; ``change_request``: a
+    signatory's request for changes, likewise; ``sign_note``: the note a
     signatory left when signing), ``section`` (the part of the document it
     is about, or null), ``revision_id`` / ``revision_number`` (the revision
     it was started on), ``author``, ``created_at``, ``edited_at``,
@@ -1272,10 +1338,15 @@ async def get_document_history(
     the list backwards to tell the story in order. ``kind`` says what happened: ``created``,
     ``revised`` (started as the next revision), ``save`` (a draft saved with
     changes; ``baseline`` is the state before the first recorded save),
-    ``sent_for_review``, ``signature``, ``signed``, ``rejected`` (``note`` is
-    the reason), ``recalled``, ``recorded`` (recorded as decided without
-    signatures), ``restored`` (an earlier version restored; ``note`` names
-    it). ``total`` is the number of entries across all pages.
+    ``sent_for_review``, ``signature``, ``signed``, ``changes_requested``
+    (a signatory sent it back to be worked on; ``note`` is the reason),
+    ``rejected`` (``note`` is the reason; from 2.221.0 a rejection closes the
+    document, before it meant what ``changes_requested`` means now),
+    ``withdrawn`` (closed by its author side; ``note`` is the reason),
+    ``reopened`` (a closed document made a draft again), ``recalled``,
+    ``recorded`` (recorded as decided without signatures), ``restored`` (an
+    earlier version restored; ``note`` names it). ``total`` is the number of
+    entries across all pages.
 
     This is the timeline only. Opening, comparing and restoring the saved
     versions (``has_content``) is done in the web UI, for people who can
@@ -1496,9 +1567,9 @@ async def add_document_comment(
 
     Who may post: the ``adr.comment`` / ``soaw.comment`` permission, or
     being a signatory of the revision. The discussion stays open in review
-    and after signing. A signatory's rejection reason and signing note also
-    appear in the discussion (``get_document_discussion``), as threads of
-    kind ``rejection`` and ``sign_note``.
+    and after signing. A signatory's rejection reason, change request and
+    signing note also appear in the discussion (``get_document_discussion``),
+    as threads of kind ``rejection``, ``change_request`` and ``sign_note``.
 
     A posted comment cannot be undone with ``rollback_batch`` (the backend
     declines it: a posted comment may already have been read); it is
@@ -4754,7 +4825,9 @@ def _adr_status_error(status: str, *, create: bool) -> dict | None:
 
     A decision has three statuses (draft, in_review, signed). What a signed
     decision means today (in force, superseded, revoked, …) is its
-    ``standing``, derived by the backend and never a status."""
+    ``standing``, derived by the backend and never a status; how a review
+    ended short of a signature (changes requested, rejected, withdrawn) is
+    its ``outcome``, set in the web UI and never a status either."""
     if not status or status == "draft":
         return None
     if status == "signed":
@@ -4780,7 +4853,8 @@ def _adr_status_error(status: str, *, create: bool) -> dict | None:
             'ADR statuses are "draft", "in_review", and "signed". '
             + ('New ADRs always land in "draft".' if create else 'Only "draft" can be set here.')
             + " Standing (in force, superseded, revoked, …) is derived from signed "
-            "decisions and their links, never set."
+            "decisions and their links, never set. A rejected or withdrawn decision "
+            "is a draft with an outcome, set in the web UI."
         ),
     }
 
@@ -4986,8 +5060,9 @@ def _adr_edit_refusal(exc: httpx.HTTPStatusError) -> dict | None:
     """The answer to a 403 from ``PATCH /adr/{id}``, else None.
 
     The backend refuses any edit of a signed decision and any edit but the
-    linked cards and diagrams of a decision in review; any other 403 is the caller's
-    missing ``adr.manage`` permission."""
+    linked cards and diagrams of a decision in review or closed (rejected or
+    withdrawn); any other 403 is the caller's missing ``adr.manage``
+    permission."""
     if exc.response.status_code != 403:
         return None
     detail = _detail(exc)
@@ -4999,6 +5074,16 @@ def _adr_edit_refusal(exc: httpx.HTTPStatusError) -> dict | None:
             "message": (
                 "A signed decision cannot be edited. Start its next revision "
                 "with revise_adr and edit that draft."
+            ),
+        }
+    if "Reopen it to edit it" in text:
+        return {
+            "error": "decision_closed",
+            "detail": text,
+            "message": (
+                "This decision was rejected or withdrawn and is closed: only "
+                "linked_card_ids and linked_diagram_ids can change. Reopen it in the "
+                "web UI to edit it."
             ),
         }
     if "in review" in text:

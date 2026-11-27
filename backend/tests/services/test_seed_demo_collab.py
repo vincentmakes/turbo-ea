@@ -251,6 +251,14 @@ async def test_the_rejection_thread_and_its_timeline_row(db):
     ]
     assert (rejected.actor_id, rejected.actor_name) == (None, "Enterprise Architect")
     assert (rejected.note, rejected.created_at) == (REJECTION_REASON, _ago(8))
+    # A rejection meant "sent back" when this story was written: the demo
+    # decision carries the outcome migration 182 backfills for such a draft.
+    assert (doc.outcome, doc.outcome_at, doc.outcome_note) == (
+        "changes_requested",
+        _ago(8),
+        REJECTION_REASON,
+    )
+    assert (doc.outcome_by, doc.outcome_by_name) == (None, "Enterprise Architect")
     assert baseline.content["decision"] == _seeded("ADR-007")["decision"]
     assert save.content["decision"] == doc.decision
     assert (baseline.created_at, save.created_at) == (_ago(6), _ago(6))

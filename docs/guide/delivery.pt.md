@@ -92,11 +92,20 @@ As tabelas aparecem na pré-visualização, na cópia PDF / impressa (ajustadas 
 
 A partir de um SoAW em rascunho ou aprovado, você pode solicitar assinaturas das partes interessadas. Clique em **Solicitar Assinaturas** e use o campo de pesquisa para encontrar e adicionar signatários por nome ou e-mail. O sistema rastreia quem assinou e envia notificações para os signatários pendentes.
 
-Um SoAW em revisão fica **bloqueado**, para que os signatários assinem exatamente o que lhes foi enviado: apenas a sua iniciativa ainda pode mudar. Para editar o conteúdo, clique em **Recolher assinaturas**, o que o devolve a rascunho. Um signatário que clique em **Rejeitar** também o devolve a rascunho, com o mesmo número de revisão. Só um SoAW em rascunho pode ser eliminado.
+Um SoAW em revisão fica **bloqueado**, para que os signatários assinem exatamente o que lhes foi enviado: apenas a sua iniciativa ainda pode mudar. Para editar o conteúdo, clique em **Recolher assinaturas**, o que o devolve a rascunho.
+
+Os resultados da revisão são os mesmos de uma decisão (consulte o [Fluxo de assinatura](grc.md#sign-off-workflow) no guia GRC), cada um com um motivo:
+
+- **Solicitar alterações** (um signatário) devolve o SoAW a um rascunho editável com o mesmo número de revisão, marcado como **Alterações solicitadas** até que as assinaturas sejam solicitadas novamente. Até à versão 2.221.0 era isto que **Rejeitar** fazia.
+- **Rejeitar** (um signatário) encerra o SoAW, marcado como **Rejeitado**.
+- **Retirar** (quem tem `soaw.manage`, num rascunho guardado ou num SoAW em revisão) cancela os pedidos de assinatura pendentes e encerra o SoAW, marcado como **Retirado**.
+- **Reabrir** (quem tem `soaw.manage`) transforma um SoAW encerrado de novo num rascunho normal.
+
+Um SoAW **encerrado** fica registado, mas bloqueado como um em revisão: apenas a sua iniciativa ainda pode mudar, e não pode ser enviado para revisão, restaurado nem eliminado até ser reaberto. O chip de estado mostra o resultado em vez de *Rascunho*, e um banner indica quem, quando e porquê. Só um SoAW em rascunho que não esteja encerrado pode ser eliminado. O ciclo de vida é fixo e não é configurável.
 
 ### Revisões
 
-Um SoAW assinado é somente leitura. Clique em **Nova revisão** para iniciar um novo rascunho a partir dele, com o mesmo nome e o número de revisão seguinte. Existe uma única revisão aberta de cada vez: enquanto uma revisão está a ser redigida, o SoAW assinado indica-o e oferece **Abrir a revisão** em vez de iniciar outra. Só a revisão mais recente pode ser revisada, e uma rejeição não altera o número de revisão.
+Um SoAW assinado é somente leitura. Clique em **Nova revisão** para iniciar um novo rascunho a partir dele, com o mesmo nome e o número de revisão seguinte. Existe uma única revisão aberta de cada vez: enquanto uma revisão está a ser redigida, o SoAW assinado indica-o e oferece **Abrir a revisão** em vez de iniciar outra. Só a revisão mais recente pode ser revisada, e uma rejeição não altera o número de revisão. Uma revisão rejeitada ou retirada continua a ser a revisão aberta: abra-a e clique em **Reabrir** para tentar novamente.
 
 Uma revisão anterior mostra um banner com uma ligação para a revisão atual, e a faixa **Revisões** em cada revisão lista-as todas. As listas de SoAW — os entregáveis da iniciativa, a aba SoAW, o relatório de Entregas de EA — mostram a revisão atual de cada documento e qualquer revisão em redação.
 
@@ -106,7 +115,7 @@ Um SoAW tem a mesma discussão, as mesmas menções e o mesmo histórico que uma
 
 - **Quem pode publicar.** Publicar, responder, resolver e reabrir exigem a permissão `soaw.comment`, que os membros e administradores têm por predefinição e os visualizadores não; a leitura da discussão segue `soaw.view`. Os signatários do SoAW podem sempre comentá-lo. Quem pode editar SoAW (`soaw.manage`) pode eliminar qualquer comentário.
 - **Seções.** Um tópico é associado a uma das seções próprias do SoAW com uma etiqueta de seção, ou a nenhuma (um tópico geral). Um SoAW tem muitas seções, por isso a caixa de redação mostra uma etiqueta para cada seção já discutida e para a escolhida; **Mais…** abre uma lista pesquisável das restantes. As etiquetas no topo da discussão filtram-na por seção, tal como numa decisão. Um tópico associado a uma seção personalizada entretanto removida mostra *Seção removida*. Cada seção apresenta ao lado do seu título o mesmo ícone de chat que a de uma decisão, no editor e na pré-visualização, com o número de tópicos abertos quando há discussão; clique nele para abrir a discussão sobre essa seção com a seção já selecionada para um novo comentário.
-- **Rejeição.** Qualquer signatário que tenha a permissão de assinar (`soaw.sign`) — ou a permissão de edição — pode rejeitar um SoAW, tal como nas decisões; até agora, rejeitar exigia a permissão de edição. O motivo abre um tópico **Motivo da rejeição** na discussão.
+- **Rejeição e pedido de alterações.** Qualquer signatário que tenha a permissão de assinar (`soaw.sign`) — ou a permissão de edição — pode solicitar alterações a um SoAW ou rejeitá-lo, tal como nas decisões. O motivo abre um tópico **Alterações solicitadas** ou **Motivo da rejeição** na discussão.
 - **Menções.** Um SoAW não tem cards ligados, por isso, sem nada escrito depois de **@**, os cards são listados por ordem alfabética; num comentário, os signatários do SoAW aparecem primeiro entre as pessoas. **Procurar…** funciona como numa decisão.
 - **Nota de assinatura.** **Assinar** abre agora uma caixa de diálogo onde o signatário pode acrescentar uma nota opcional; esta aparece na discussão como **Nota de assinatura** e no Histórico.
 - **Histórico.** Uma versão contém o nome do SoAW, as suas informações de documento, a sua tabela Histórico de versões do documento e todas as seções; a iniciativa não faz parte de uma versão. O Histórico regista o que acontece ao documento; a tabela Histórico de versões do documento, no documento, só regista o que os seus autores nela escrevem. Um SoAW com o status **Aprovado** ainda pode ser editado, por isso, tal como num rascunho, as suas gravações são guardadas como versões e uma versão anterior pode ser restaurada nele.

@@ -359,7 +359,15 @@ async def require_card_permission(
 #   nothing on upgrade. ``get_relation_types()`` rows carry
 #   ``lifecycle_enabled`` (whether the UI offers the date editor on that type).
 
-SDK_VERSION = "1.20"
+# 1.21: review outcomes. ``ExtDecision.outcome`` is a TRAILING field with a
+#   default: how a decision's review ended short of a signature —
+#   ``"changes_requested"`` (an editable draft again), ``"rejected"`` or
+#   ``"withdrawn"`` (closed: locked until reopened in the app) — or ``None``.
+#   ``status`` keeps its three values (a decision with an outcome is always a
+#   ``"draft"``). The bridge still creates drafts only, so an extension never
+#   sets an outcome; no new grant.
+
+SDK_VERSION = "1.21"
 
 
 @dataclass(frozen=True)
@@ -632,6 +640,12 @@ class ExtDecision:
     ``standing`` is ``None`` for a decision that is not signed; ``is_current``
     is True for exactly one revision of each decision; ``recorded`` marks a
     decision recorded as already decided instead of signed in the app.
+
+    ``outcome`` (SDK 1.21) is how a review ended short of a signature:
+    ``"changes_requested"`` (an editable draft), ``"rejected"`` or
+    ``"withdrawn"`` (closed until reopened in the app), else ``None``. A
+    decision with an outcome is always ``status="draft"``: ``status`` keeps
+    its three values.
     """
 
     id: str
@@ -648,6 +662,7 @@ class ExtDecision:
     effective_from: str | None = None
     valid_until: str | None = None
     recorded: bool = False
+    outcome: str | None = None
 
 
 class DecisionsBridge(Protocol):

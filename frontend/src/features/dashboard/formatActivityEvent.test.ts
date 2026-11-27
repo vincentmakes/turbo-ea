@@ -351,15 +351,47 @@ describe("formatActivityEvent — decision and SoAW rows", () => {
       "adr.signed",
       "adr.signatures_recalled",
       "adr.rejected",
+      "adr.changes_requested",
+      "adr.withdrawn",
+      "adr.reopened",
       "adr.recorded",
       "adr.comment_added",
       "soaw.signatures_requested",
       "soaw.signed",
       "soaw.signatures_recalled",
       "soaw.rejected",
+      "soaw.changes_requested",
+      "soaw.withdrawn",
+      "soaw.reopened",
       "soaw.comment_added",
     ].map((type) => formatActivityEvent(doc(type, { id: "x" }), tReal).actionText);
     expect(labels.some((l) => l.startsWith("performed "))).toBe(false);
+  });
+
+  it("reads the review outcome events and links them to the document", async () => {
+    const tReal = await realT();
+    const requested = formatActivityEvent(
+      doc("adr.changes_requested", { id: "adr-7", title: "Use Kafka", outcome: "changes_requested" }),
+      tReal,
+    );
+    expect([requested.actionText, requested.cardName, requested.cardLink]).toEqual([
+      "requested changes on an ADR",
+      "Use Kafka",
+      "/ea-delivery/adr/adr-7/preview",
+    ]);
+    expect(formatActivityEvent(doc("adr.withdrawn", { id: "x" }), tReal).actionText).toBe("withdrew an ADR");
+    expect(formatActivityEvent(doc("adr.reopened", { id: "x" }), tReal).actionText).toBe("reopened an ADR");
+    const soaw = formatActivityEvent(doc("soaw.withdrawn", { id: "s1", name: "Billing SoAW", outcome: "withdrawn" }), tReal);
+    expect([soaw.actionText, soaw.cardName, soaw.cardLink, soaw.category]).toEqual([
+      "withdrew a SoAW",
+      "Billing SoAW",
+      "/ea-delivery/soaw/s1/preview",
+      "soaw",
+    ]);
+    expect(formatActivityEvent(doc("soaw.changes_requested", { id: "x" }), tReal).actionText).toBe(
+      "requested changes on a SoAW",
+    );
+    expect(formatActivityEvent(doc("soaw.reopened", { id: "x" }), tReal).actionText).toBe("reopened a SoAW");
   });
 
   it("documentTarget: none for a row about another family, or with no id to link", async () => {

@@ -53,7 +53,10 @@ describe("timeline labels and icons", () => {
     ["sent_for_review", "collab.history.kind.sentForReview", "send"],
     ["signature", "collab.history.kind.signature", "draw"],
     ["signed", "collab.history.kind.signed", "verified"],
+    ["changes_requested", "collab.history.kind.changesRequested", "rate_review"],
     ["rejected", "collab.history.kind.rejected", "block"],
+    ["withdrawn", "collab.history.kind.withdrawn", "cancel"],
+    ["reopened", "collab.history.kind.reopened", "replay"],
     ["recalled", "collab.history.kind.recalled", "undo"],
     ["recorded", "collab.history.kind.recorded", "history_edu"],
   ])("%s reads %s with %s", (kind, key, icon) => {
@@ -115,6 +118,15 @@ describe("restoredSource and entryNote", () => {
     );
     expect(entryNote(entry({ kind: "rejected", note: null }), [], t, fmt)).toBe("T(collab.history.noReason)");
     expect(entryNote(entry({ kind: "rejected", note: "" }), [], t, fmt)).toBe("T(collab.history.noReason)");
+  });
+  it("shows the reason for a request for changes and a withdrawal; nothing on a reopen", () => {
+    expect(entryNote(entry({ kind: "changes_requested", note: "Add costs" }), [], t, fmt)).toBe(
+      'collab.history.reason:{"note":"Add costs"}',
+    );
+    expect(entryNote(entry({ kind: "withdrawn", note: null }), [], t, fmt)).toBe(
+      "T(collab.history.noReason)",
+    );
+    expect(entryNote(entry({ kind: "reopened", note: "x" }), [], t, fmt)).toBeNull();
   });
   it("shows a signing note, and nothing for a signature without one or any other step", () => {
     expect(entryNote(entry({ kind: "signature", note: "Fine" }), [], t, fmt)).toBe(
@@ -178,6 +190,10 @@ describe("canRestore", () => {
     expect(canRestore(false, "draft", { has_content: true })).toBe(false);
     expect(canRestore(true, "in_review", { has_content: true })).toBe(false);
     expect(canRestore(true, "draft", { has_content: false })).toBe(false);
+  });
+  it("offers none on a closed draft", () => {
+    expect(canRestore(true, "draft", { has_content: true }, true)).toBe(false);
+    expect(canRestore(true, "draft", { has_content: true }, false)).toBe(true);
   });
 });
 

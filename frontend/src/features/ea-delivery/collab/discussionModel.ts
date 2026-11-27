@@ -394,11 +394,12 @@ export function isBlankHtml(html: string): boolean {
 }
 
 /**
- * The HTML a comment shows: a rejection with no reason reads "No reason
- * given", escaped into a paragraph.
+ * The HTML a comment shows: a rejection or a request for changes with no
+ * reason reads "No reason given", escaped into a paragraph.
  */
 export function rejectionBodyOrFallback(comment: Pick<DocumentComment, "kind" | "body">, fallback: string): string {
-  if (comment.kind === "rejection" && isBlankHtml(comment.body)) return `<p>${escapeHtml(fallback)}</p>`;
+  const isReason = comment.kind === "rejection" || comment.kind === "change_request";
+  if (isReason && isBlankHtml(comment.body)) return `<p>${escapeHtml(fallback)}</p>`;
   return comment.body;
 }
 

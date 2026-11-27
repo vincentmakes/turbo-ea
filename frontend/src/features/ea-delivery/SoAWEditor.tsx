@@ -61,7 +61,12 @@ import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
 import SectionDiscussionMarker from "./collab/SectionDiscussionMarker";
 import { documentPeopleIds } from "./mentions/mentionModel";
-import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
+import {
+  RejectDocumentDialog,
+  SignDocumentDialog,
+  type ReasonDialogMode,
+} from "./collab/ReviewDialogs";
+import { isClosed, outcomeChipProps, reviewActions } from "./reviewOutcome";
 import { deepLinkDialog } from "./collab/reviewDeepLink";
 import { sectionOptions, signBody, soawSectionOptions } from "./collab/discussionModel";
 import type { MentionKind } from "@/lib/mentionHtml";
@@ -70,10 +75,23 @@ import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { hasPermission } from "@/components/RequirePermission";
 import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
 import { DELIVERABLE_COLORS, RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
 // ─── constants ──────────────────────────────────────────────────────────────
+
+/** Each reason dialog mode's route, confirmation and failure message. */
+const REASON_STEPS: Record<ReasonDialogMode, { path: string; done: string; failed: string }> = {
+  requestChanges: {
+    path: "request-changes",
+    done: "editor.changesRequested",
+    failed: "editor.error.requestChangesFailed",
+  },
+  reject: { path: "reject", done: "editor.documentRejected", failed: "editor.error.rejectFailed" },
+  withdraw: { path: "withdraw", done: "editor.withdrawn", failed: "editor.error.withdrawFailed" },
+};
 
 // ─── component ──────────────────────────────────────────────────────────────
 
@@ -143,9 +161,12 @@ export default function SoAWEditor() {
   // the web UI and for documents made before it was tracked.
   const [createdVia, setCreatedVia] = useState<string | null>(null);
   const [signDialogOpen, setSignDialogOpen] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  // Sign, with an optional note. A refused sign or reject is shown in its
-  // dialog, which stays open.
+  // The reason dialog (Request changes, Reject or Withdraw); the last mode is
+  // kept while it closes so its texts do not flip.
+  const [reasonMode, setReasonMode] = useState<ReasonDialogMode | null>(null);
+  const [shownReasonMode, setShownReasonMode] = useState<ReasonDialogMode>("reject");
+  // Sign, with an optional note. A refused sign or reason step is shown in
+  // its dialog, which stays open.
   const [signOpen, setSignOpen] = useState(false);
   const [signError, setSignError] = useState("");
   const [rejectError, setRejectError] = useState("");
@@ -153,9 +174,10 @@ export default function SoAWEditor() {
     setSignError("");
     setSignOpen(true);
   };
-  const openReject = () => {
+  const openReason = (mode: ReasonDialogMode) => {
     setRejectError("");
-    setRejectDialogOpen(true);
+    setShownReasonMode(mode);
+    setReasonMode(mode);
   };
   // Open discussion threads on this revision: the detail's count, then the
   // side panel's live one. Shown as a warning by the review dialogs.
@@ -164,7 +186,7 @@ export default function SoAWEditor() {
   // The answer (or failure) of `/auth/me` is in.
   const [meLoaded, setMeLoaded] = useState(false);
 
-  // Deep-link from the MCP `pending` workflow: /ea-delivery/soaw/:id?action=sign|reject
+  // Deep-link from the MCP `pending` workflow: /ea-delivery/soaw/:id?action=sign|reject|request-changes
   // opens the matching dialog so the human can finish in one click, once the
   // document and the reader are known (`deepLinkDialog`).
   const [deepLink, setDeepLink] = useState<string | null>(null);
@@ -176,8 +198,13 @@ export default function SoAWEditor() {
     setSearchParams({}, { replace: true });
   }, [id, searchParams, setSearchParams]);
   const isSigned = status === "signed";
-  // Sent for review or signed: the content is locked (recall to edit).
-  const locked = isLocked(status);
+  // Rejected or withdrawn: a closed draft, locked until it is reopened.
+  const closed = isClosed(detail);
+  // Sent for review, signed or closed: the content is locked (recall or
+  // reopen to edit).
+  const locked = isLocked(status, closed);
+  const authUser = useOptionalAuthUser();
+  const canManage = hasPermission(authUser?.permissions, "soaw.manage");
 
   // ── load data ──────────────────────────────────────────────────────────
 
@@ -330,7 +357,7 @@ export default function SoAWEditor() {
   // In review only the initiative link can change, and Save is offered only
   // when it did.
   const initiativeChanged = (initiativeId || null) !== (detail?.initiative_id ?? null);
-  const showSave = canSaveSoaw(status, initiativeChanged);
+  const showSave = canSaveSoaw(status, initiativeChanged, closed);
 
   // Saves the editor; true when it saved. Errors are shown here.
   const saveEdits = async (): Promise<boolean> => {
@@ -343,7 +370,7 @@ export default function SoAWEditor() {
       setError("");
       try {
         // In review only the initiative link is sent: the content is locked.
-        const payload = soawSavePayload(status, editorFields());
+        const payload = soawSavePayload(status, editorFields(), closed);
         if (soawIdRef.current) {
           applyReply(await api.patch<SoAW>(`/soaw/${soawIdRef.current}`, payload));
         } else {
@@ -367,12 +394,10 @@ export default function SoAWEditor() {
   };
 
   const handleSave = async () => {
-    const savedStatus = status;
+    const linkOnly = status === "in_review" || closed;
     if (!(await saveEdits())) return;
-    // In review the save sent the initiative link alone: say so.
-    setSnack(
-      savedStatus === "in_review" ? t("editor.initiativeLinkSaved") : t("editor.savedSuccessfully"),
-    );
+    // In review (or closed) the save sent the initiative link alone: say so.
+    setSnack(linkOnly ? t("editor.initiativeLinkSaved") : t("editor.savedSuccessfully"));
   };
 
   // Requesting signatures locks the document and the server sends what it
@@ -439,20 +464,37 @@ export default function SoAWEditor() {
     }
   };
 
-  const handleReject = async (reason: string) => {
-    if (!soawIdRef.current || !reason) return;
+  // Request changes (back to draft), Reject (closed) or Withdraw (closed),
+  // each with the reason the dialog collected.
+  const handleReason = async (reason: string) => {
+    if (!soawIdRef.current || !reason || !reasonMode) return;
+    const step = REASON_STEPS[reasonMode];
     setSaving(true);
     setError("");
     try {
-      const data = await api.post<SoAW>(
-        `/soaw/${soawIdRef.current}/reject`,
-        { comment: reason },
-      );
+      const data = await api.post<SoAW>(`/soaw/${soawIdRef.current}/${step.path}`, {
+        comment: reason,
+      });
       applyReply(data);
-      setRejectDialogOpen(false);
-      setSnack(t("editor.documentRejected"));
+      setReasonMode(null);
+      setSnack(t(step.done));
     } catch (e) {
-      setRejectError(e instanceof Error && e.message ? e.message : t("editor.error.rejectFailed"));
+      setRejectError(e instanceof Error && e.message ? e.message : t(step.failed));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Reopen a closed document: a plain draft again.
+  const handleReopen = async () => {
+    if (!soawIdRef.current) return;
+    setSaving(true);
+    setError("");
+    try {
+      applyReply(await api.post<SoAW>(`/soaw/${soawIdRef.current}/reopen`, {}));
+      setSnack(t("editor.reopened"));
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : t("editor.error.reopenFailed"));
     } finally {
       setSaving(false);
     }
@@ -485,6 +527,14 @@ export default function SoAWEditor() {
   const currentUserIsSignatory = signatories.some(
     (s) => s.user_id === currentUserId && s.status === "pending"
   );
+  // The review actions follow the decision editor's rules (`reviewActions`).
+  const review = reviewActions({
+    status,
+    isNew,
+    closed,
+    isPendingSignatory: currentUserIsSignatory,
+    canManage,
+  });
 
   // A deep link's dialog, once this document and the reader are known.
   const deepLinkReady = deepLink !== null && meLoaded && detail !== null && detail.id === id;
@@ -496,9 +546,11 @@ export default function SoAWEditor() {
       setSignError("");
       setSignOpen(true);
     } else if (dialog === "request-signatures") setSignDialogOpen(true);
-    else if (dialog === "reject") {
+    else if (dialog === "reject" || dialog === "request-changes") {
+      const mode: ReasonDialogMode = dialog === "reject" ? "reject" : "requestChanges";
       setRejectError("");
-      setRejectDialogOpen(true);
+      setShownReasonMode(mode);
+      setReasonMode(mode);
     }
   }, [deepLinkReady, deepLink, currentUserIsSignatory]);
 
@@ -585,6 +637,11 @@ export default function SoAWEditor() {
     );
   }
 
+  // The status chip: the review outcome first ("Rejected" in place of "Draft").
+  const statusChipProps = outcomeChipProps({ status, outcome: detail?.outcome }, t) ?? {
+    ...(STATUS_CHIP[status] ?? STATUS_CHIP.draft),
+    variant: "filled" as const,
+  };
   const stripItems = detail ? soawRevisionItems(detail.revisions ?? [], t) : [];
   const stripShown = showsRevisionStrip(stripItems);
   const historyButton = (placeCompact: boolean) =>
@@ -593,6 +650,7 @@ export default function SoAWEditor() {
         owner={{ kind: "soaw", id }}
         label={name || t("editor.untitled")}
         status={status}
+        closed={closed}
         refreshKey={detail?.updated_at}
         isDirty={hasEdits}
         onRestored={(data) => applyReply(data)}
@@ -700,7 +758,7 @@ export default function SoAWEditor() {
           </Button>
         )}
         {/* Signing actions: a draft or an approved document only. */}
-        {!isNew && canRequestSoawSignatures(status) && soawIdRef.current && (
+        {!isNew && canRequestSoawSignatures(status, closed) && soawIdRef.current && (
           <Button
             size="small"
             variant="outlined"
@@ -712,7 +770,7 @@ export default function SoAWEditor() {
             {t("editor.requestSignatures")}
           </Button>
         )}
-        {currentUserIsSignatory && (
+        {review.signatory && (
           <>
             <Button
               size="small"
@@ -728,15 +786,55 @@ export default function SoAWEditor() {
             <Button
               size="small"
               variant="outlined"
+              color="warning"
+              startIcon={<MaterialSymbol icon="rate_review" size={18} />}
+              sx={{ textTransform: "none" }}
+              disabled={saving}
+              onClick={() => openReason("requestChanges")}
+            >
+              {t("editor.requestChanges")}
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
               color="error"
               startIcon={<MaterialSymbol icon="block" size={18} />}
               sx={{ textTransform: "none" }}
               disabled={saving}
-              onClick={openReject}
+              onClick={() => openReason("reject")}
             >
               {t("editor.reject")}
             </Button>
           </>
+        )}
+        {review.withdraw && (
+          <Tooltip title={t("editor.withdrawTooltip")} describeChild>
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              startIcon={<MaterialSymbol icon="cancel" size={18} />}
+              sx={{ textTransform: "none" }}
+              disabled={saving}
+              onClick={() => openReason("withdraw")}
+            >
+              {t("editor.withdraw")}
+            </Button>
+          </Tooltip>
+        )}
+        {review.reopen && (
+          <Tooltip title={t("editor.reopenTooltip")} describeChild>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<MaterialSymbol icon="replay" size={18} />}
+              sx={{ textTransform: "none" }}
+              disabled={saving}
+              onClick={handleReopen}
+            >
+              {t("editor.reopen")}
+            </Button>
+          </Tooltip>
         )}
         {canRevise && (
           <Button
@@ -882,8 +980,9 @@ export default function SoAWEditor() {
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Chip
-            label={(STATUS_CHIP[status] ?? STATUS_CHIP.draft).label}
-            color={(STATUS_CHIP[status] ?? STATUS_CHIP.draft).color}
+            label={statusChipProps.label}
+            color={statusChipProps.color}
+            variant={statusChipProps.variant}
             size="small"
           />
           {status === "in_review" && (
@@ -1391,7 +1490,7 @@ export default function SoAWEditor() {
         openThreadCount={openThreads}
       />
 
-      {/* Sign and reject dialogs */}
+      {/* Sign and reason (Request changes / Reject / Withdraw) dialogs */}
       <SignDocumentDialog
         open={signOpen}
         onClose={() => setSignOpen(false)}
@@ -1404,13 +1503,11 @@ export default function SoAWEditor() {
         onDismissError={() => setSignError("")}
       />
       <RejectDocumentDialog
-        open={rejectDialogOpen}
-        onClose={() => setRejectDialogOpen(false)}
-        onReject={handleReject}
-        title={t("editor.rejectDialog.title")}
-        description={t("editor.rejectDialog.description")}
-        label={t("editor.rejectDialog.commentLabel")}
-        submitLabel={t("editor.reject")}
+        open={reasonMode !== null}
+        mode={reasonMode ?? shownReasonMode}
+        document="soaw"
+        onClose={() => setReasonMode(null)}
+        onReject={handleReason}
         openThreadCount={openThreads}
         busy={saving}
         error={rejectError}

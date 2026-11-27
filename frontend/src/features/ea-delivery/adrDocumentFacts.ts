@@ -1,7 +1,7 @@
 /**
  * What a decision's Word export (`adrExport.ts`) and print view (`adrPrint.ts`)
  * say about it, as plain strings: the heading ("ADR-012 · Rev 2 — title"),
- * the facts table, the typed links in both directions, the file names and the
+ * the facts table (the review outcome included), the typed links in both directions, the file names and the
  * "recorded" line. One builder, two renderers, so the two documents cannot
  * drift apart. Pure; `t` is the `delivery` namespace's.
  */
@@ -15,6 +15,7 @@ import {
   statusLabelKey,
   type Translate,
 } from "./decisionStanding";
+import { outcomeSentence } from "./reviewOutcome";
 
 /** A decision as the exports read it (`files`, `links`, `participants`
  *  arrive on the detail only). */
@@ -53,6 +54,7 @@ export function adrFactRows(
 ): [string, string][] {
   return [
     [t("adr.grid.status"), t(statusLabelKey(adr))],
+    [t("adr.grid.outcome"), adrOutcomeFact(adr, t, date)],
     [t("adr.grid.standing"), adr.standing ? t(standingLabelKey(adr.standing)) : ""],
     [t(DATE_LABEL_KEYS.decided_on), date(adr.decided_on)],
     [t(DATE_LABEL_KEYS.effective_from), date(adr.effective_from)],
@@ -65,6 +67,21 @@ export function adrFactRows(
     [t("adr.grid.signed"), date(adr.signed_at)],
     [t("adr.grid.signedBy"), signedNames(adr)],
   ];
+}
+
+/**
+ * The review outcome as one line: "Rejected by Ada on 27 Nov 2026: Not
+ * costed". Empty without an outcome (the row is then left out).
+ */
+export function adrOutcomeFact(
+  adr: ArchitectureDecision,
+  t: Translate,
+  date: (iso: string | null | undefined) => string,
+): string {
+  const sentence = outcomeSentence(adr, t, date);
+  if (sentence === null) return "";
+  const note = adr.outcome?.note?.trim();
+  return note ? `${sentence} ${note}` : sentence;
 }
 
 function linkRow(entry: DecisionLinkEntry, direction: "outgoing" | "incoming", t: Translate) {

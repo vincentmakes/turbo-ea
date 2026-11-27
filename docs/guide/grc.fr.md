@@ -29,7 +29,7 @@ Les ADR documentent les décisions d'architecture importantes ainsi que leur con
 
 Le registre répond d'abord à une question : **quelles décisions sont en vigueur aujourd'hui ?** Chaque décision signée porte une [validité](#standing) que Turbo EA déduit de ses dates, de ses révisions et des autres décisions qui agissent sur elle, et la grille ne liste que la révision actuelle de chaque décision, sauf si vous demandez les révisions antérieures.
 
-La grille peut aussi être **regroupée par statut** ou **par validité** via le bouton *Grouper par* à côté du champ de recherche : chaque statut ou validité se replie sous son propre en-tête, et la case de l'en-tête sélectionne tout le groupe pour un export groupé.
+La grille peut aussi être **regroupée par statut** ou **par validité** via le bouton *Grouper par* à côté du champ de recherche : chaque statut ou validité se replie sous son propre en-tête (regroupé par statut, chaque résultat de revue a son propre groupe), et la case de l'en-tête sélectionne tout le groupe pour un export groupé.
 
 #### Statut et validité {: #standing }
 
@@ -37,6 +37,18 @@ Une décision a deux états distincts :
 
 - Le **statut** est le workflow de signature, et c'est sur lui que vous agissez : **Brouillon** → **En revue** (signatures demandées) → **Signé**. Une décision prise en dehors de Turbo EA et [enregistrée comme décidée](#recording-a-past-decision) affiche **Enregistré** au lieu de Signé.
 - La **validité** indique où en est aujourd'hui une décision signée ou enregistrée. Elle est déduite — jamais définie à la main — et un brouillon ou une décision en revue n'en a pas (*Pas encore signée*).
+
+Un brouillon peut aussi porter un **résultat de revue**, qui indique comment sa dernière revue s'est terminée sans signature. Il s'affiche à la place de *Brouillon* sur la puce de statut, et un bandeau sur la décision indique qui, quand et pourquoi (*Rejetée par Ada Lovelace le 27 nov. 2026 : …*) :
+
+| Résultat | Signification |
+|----------|---------------|
+| **Modifications demandées** | Un signataire a renvoyé la décision pour reprise. C'est un brouillon modifiable ; la mention disparaît lorsque des signatures sont de nouveau demandées |
+| **Rejetée** | Un signataire a rejeté la décision. Elle est **close** |
+| **Retirée** | Le côté auteur a retiré la décision. Elle est **close** |
+
+Une décision **close** est conservée mais verrouillée comme une décision en revue : seuls ses fiches liées et ses [diagrammes](#decision-diagrams) peuvent encore changer, et son auteur ne peut ni l'envoyer en revue, ni l'enregistrer, ni la restaurer, ni la supprimer (la supprimer exige la permission `adr.delete`). Pour retravailler dessus, cliquez sur **Rouvrir**, ce qui en fait un simple brouillon. Le registre masque les décisions closes tant que **Afficher les décisions closes** n'est pas activé. Un brouillon dont la dernière revue a été rejetée avant la version 2.221.0 — quand un rejet remettait encore une décision en brouillon — affiche **Modifications demandées**.
+
+Le cycle de vie est fixe : les trois statuts, les six validités et les trois résultats sont les mêmes dans tous les espaces de travail et ne peuvent être configurés ni par un administrateur ni par une extension.
 
 | Validité | Signification |
 |----------|---------------|
@@ -56,7 +68,7 @@ La grille ADR reprend la disposition de la grille Inventaire :
 | Colonne | Description |
 |---------|-------------|
 | **N° de réf.** | Numéro de référence généré automatiquement (ADR-001, ADR-002, …) avec un point de statut ; une révision après la première ajoute son numéro (ADR-012 · Rév. 2) |
-| **Statut** | Puce colorée — Brouillon, En revue, Signé ou Enregistré |
+| **Statut** | Puce colorée — Brouillon, En revue, Signé ou Enregistré, ou le résultat de revue (Modifications demandées, Rejetée, Retirée) d'un brouillon qui en a un |
 | **Validité** | Où en est aujourd'hui une décision signée — voir [Statut et validité](#standing) ; vide tant qu'elle n'est pas signée |
 | **Titre** | Titre de l'ADR |
 | **Décision** | Extrait en texte brut de la décision |
@@ -78,15 +90,17 @@ La barre latérale persistante à gauche comporte deux onglets :
 - **Filtres** — filtres à facettes sur la liste des ADR :
     - **En vigueur** — un clic n'affiche que les décisions en vigueur aujourd'hui (En vigueur et En vigueur (modifiée)) ; cliquez à nouveau pour l'effacer
     - **Afficher les révisions antérieures** — désactivé par défaut, de sorte que chaque décision apparaît une seule fois, sous sa révision actuelle (plus une révision en cours de rédaction). Activez-le pour lister aussi les révisions antérieures ; le bouton **Exporter** suit le même réglage
+    - **Afficher les décisions closes** — désactivé par défaut, de sorte que les décisions rejetées et retirées restent à l'écart. Activez-le pour les lister aussi
     - **Types de fiche** — cases à cocher avec des points colorés filtrant par types de fiches liées
     - **Fiches liées** — filtrer par fiches liées spécifiques
     - **Statut** — Brouillon / En revue / Signé (une décision enregistrée compte comme signée)
     - **Validité** — Programmée / En vigueur / En vigueur (modifiée) / Remplacée / Révoquée / Expirée / Pas encore signée
+    - **Résultat** — Modifications demandées / Rejetée / Retirée / Aucun résultat. Choisir **Rejetée** ou **Retirée** liste ces décisions même lorsque **Afficher les décisions closes** est désactivé
     - **Signé par** — filtrer par signataire
     - **Date de création** / **Date de modification** / **Date de signature** / **Date de décision** — plages de dates de/à (**Date de décision** porte sur la date *Décidée le* d'une décision signée ou enregistrée)
 - **Colonnes** — choisir les colonnes visibles de la grille. **N° de réf.** et **Titre** sont toujours affichés ; **Réinitialiser** restaure la sélection par défaut. Votre choix est mémorisé par navigateur.
 
-Utilisez la barre de **filtre rapide** pour une recherche en texte intégral. Faites un clic droit sur n'importe quelle ligne pour un menu contextuel (**Modifier**, **Aperçu**, **Dupliquer**, **Supprimer**).
+Utilisez la barre de **filtre rapide** pour une recherche en texte intégral. Faites un clic droit sur n'importe quelle ligne pour un menu contextuel (**Modifier**, **Aperçu**, **Dupliquer**, **Supprimer**, et **Rouvrir** sur une décision close pour les titulaires de `adr.manage`). **Supprimer** est proposé sur un brouillon ; sur une décision close, uniquement aux titulaires de `adr.delete`.
 
 #### Exporter et importer des décisions {: #decisions-import }
 
@@ -256,17 +270,24 @@ La section **Diagrammes**, après **Fichiers**, joint à une décision des diagr
 - **Qui les voit.** Voir la section requiert la permission de voir les diagrammes (`diagrams.view`) ; joindre et détacher requièrent en plus `adr.manage`. Un lecteur sans `diagrams.view` ne voit aucune section Diagrammes. Une décision non modifiable et sans diagramme n'affiche pas non plus la section.
 - **Où ils apparaissent.** L'[aperçu](#preview) affiche les diagrammes en lecture seule ; la copie PDF / imprimée et l'export Word listent leurs noms. Une révision et un duplicata reprennent les diagrammes. Les diagrammes ne font pas partie d'une version de l'[Historique](#decision-history).
 
-#### Workflow de signature
+#### Workflow de signature {: #sign-off-workflow }
 
 Les ADR prennent en charge un processus formel de signature :
 
 1. Créez l'ADR avec le statut **Brouillon**.
 2. Cliquez sur **Demander des signatures** et recherchez des signataires par nom ou e-mail (ou cliquez sur **Ajouter des décideurs**). Les signatures ne peuvent être demandées qu'à partir d'un brouillon.
 3. L'ADR passe à **En revue** — chaque signataire reçoit une notification et une tâche.
-4. Les signataires examinent et cliquent sur **Signer**.
+4. Les signataires examinent et cliquent sur **Signer**, **Demander des modifications** ou **Rejeter**.
 5. Une fois que tous les signataires ont signé, l'ADR passe automatiquement au statut **Signé**.
 
-**Une décision en revue est verrouillée**, afin que les signataires signent exactement ce qui leur a été envoyé : le texte, les dates, les personnes, les liens vers d'autres décisions, les fichiers et les panneaux d'extension sont en lecture seule, et seuls les fiches liées et les [diagrammes](#decision-diagrams) joints peuvent encore changer. Pour la modifier, cliquez sur **Rappeler les signatures**, ce qui la remet en brouillon. Un signataire qui clique sur **Rejeter** la remet également en brouillon, sous le même numéro de révision.
+**Une décision en revue est verrouillée**, afin que les signataires signent exactement ce qui leur a été envoyé : le texte, les dates, les personnes, les liens vers d'autres décisions, les fichiers et les panneaux d'extension sont en lecture seule, et seuls les fiches liées et les [diagrammes](#decision-diagrams) joints peuvent encore changer. Pour la modifier, cliquez sur **Rappeler les signatures**, ce qui la remet en brouillon.
+
+Un signataire en attente qui ne signe pas a deux options, chacune avec un motif (jusqu'à 4 000 caractères) dont tous les autres signataires et l'auteur sont notifiés :
+
+- **Demander des modifications** renvoie la décision pour reprise : elle redevient un brouillon modifiable, sous le même numéro de révision, marqué **Modifications demandées**. Modifiez-la et demandez de nouveau des signatures ; la mention disparaît alors. Jusqu'à la version 2.221.0, c'était le rôle de **Rejeter**.
+- **Rejeter** clôt la décision : elle reste un brouillon, marqué **Rejetée**, et est verrouillée jusqu'à ce que quelqu'un la rouvre. Un seul signataire suffit pour rejeter.
+
+Côté auteur, un titulaire de `adr.manage` peut **Retirer** un brouillon enregistré ou une décision en revue, avec un motif : les demandes de signature en attente sont annulées, leurs signataires notifiés, et la décision est close, marquée **Retirée**. **Rouvrir** remet une décision rejetée ou retirée à l'état de simple brouillon, qui peut être modifié et envoyé de nouveau en revue. Chaque étape apparaît dans la chronologie de l'[Historique](#decision-history).
 
 Les ADR signés sont verrouillés et ne peuvent pas être modifiés — pour apporter des changements, créez une nouvelle révision.
 
@@ -284,6 +305,7 @@ Ouvrez un ADR signé et choisissez **Réviser → Réviser cette décision** pou
 - **La révision actuelle est celle en vigueur.** Une fois qu'une révision est signée et applicable, les précédentes sont **Remplacées** et affichent un bandeau avec un lien vers la révision actuelle. La barre **Révisions** de chaque révision liste toute la chaîne et signale la révision actuelle.
 - **Seule la révision actuelle peut être révisée**, et plus du tout une fois la décision révoquée ou remplacée. Une décision expirée ou modifiée peut toujours être révisée.
 - **Un rejet ne compte pas comme une révision** : le numéro de révision ne change que lorsqu'une nouvelle révision est créée.
+- **Une révision rejetée ou retirée reste la révision ouverte.** Elle continue de bloquer une nouvelle révision de sa décision, et le menu **Réviser** la nomme (*Ouvrir la révision en cours de rédaction (ADR-012 · Rév. 3, Rejetée)*). Pour réessayer, ouvrez-la et cliquez sur **Rouvrir** ; ou supprimez-la pour démarrer une nouvelle révision.
 - Les décisions révisées avant la version 2.199.0 conservent les numéros de référence sous lesquels elles ont été émises, et se lisent toujours comme une seule décision avec une seule barre de révisions.
 
 #### Aperçu {: #preview }
@@ -303,10 +325,10 @@ Chaque décision a sa propre **Discussion**, de sorte qu'une décision peut êtr
 - **Mise en forme.** Un commentaire accepte le gras, l'italique, le barré, le **Code en ligne**, les listes à puces et numérotées, les citations et les [liens](#decision-text-links) (le bouton **Lien** ou Ctrl/Cmd+K). Les titres, les blocs de code, les images et les tableaux ont leur place dans les sections, pas dans les commentaires.
 - **Qui peut publier.** La lecture de la discussion suit le droit d'ouvrir la décision (`adr.view`). Publier, répondre, résoudre et rouvrir requièrent la permission `adr.comment`, que les membres et les administrateurs détiennent par défaut et les lecteurs non ; un administrateur peut la modifier pour chaque rôle. Les signataires de la décision peuvent toujours la commenter, y compris les personnes invitées à la signer lors d'un cycle de revue antérieur qui a été rappelé ou rejeté.
 - **Pendant la revue et après la signature.** Le [verrouillage de revue](#workflow-de-signature) porte sur le contenu, pas sur la conversation : la discussion reste ouverte pendant que la décision est en revue et après sa signature.
-- **Notes de revue.** Lorsqu'un signataire rejette une décision, le motif ouvre un fil marqué **Motif du rejet** (*Aucun motif indiqué* si le signataire l'a laissé vide), auquel on répond et que l'on résout comme n'importe quel autre. Un signataire peut ajouter une note facultative en signant ; elle apparaît dans la discussion comme **Note de signature**. Ni l'un ni l'autre ne sont plus perdus lorsque les signatures sont rappelées, et tous deux figurent aussi dans l'[Historique](#decision-history).
-- **Fils ouverts avant la revue.** **Demander des signatures**, **Signer** et **Rejeter** avertissent lorsque la décision a encore des fils ouverts (*2 fils de discussion ouverts sur ce document.*). Ce n'est qu'un avertissement : rien n'est bloqué.
+- **Notes de revue.** Lorsqu'un signataire rejette une décision, le motif ouvre un fil marqué **Motif du rejet** (*Aucun motif indiqué* si le signataire l'a laissé vide), auquel on répond et que l'on résout comme n'importe quel autre ; une demande de modifications ouvre un fil marqué **Modifications demandées**. Le motif d'un retrait est conservé sur la décision et dans l'Historique, pas dans la discussion. Un signataire peut ajouter une note facultative en signant ; elle apparaît dans la discussion comme **Note de signature**. Ni l'un ni l'autre ne sont plus perdus lorsque les signatures sont rappelées, et tous deux figurent aussi dans l'[Historique](#decision-history).
+- **Fils ouverts avant la revue.** **Demander des signatures**, **Signer**, **Demander des modifications**, **Rejeter** et **Retirer** avertissent lorsque la décision a encore des fils ouverts (*2 fils de discussion ouverts sur ce document.*). Ce n'est qu'un avertissement : rien n'est bloqué.
 - **Notifications.** Un nouveau commentaire notifie l'auteur de la décision, ses signataires, ses décideurs et participants qui sont utilisateurs de Turbo EA, et les personnes qui ont déjà commenté — jamais la personne qui l'a publié. Tapez **@** dans un commentaire pour mentionner un collègue : il reçoit alors une notification de mention à la place. Une personne que vous mentionnez et qui ne peut pas ouvrir la décision n'est pas notifiée, et le panneau vous le signale (*… n'a pas été notifié : cette personne ne peut pas ouvrir ce document.*). Les notifications ne contiennent aucun texte de commentaire, et un clic sur l'une d'elles ouvre l'aperçu de la décision avec le panneau sur ce fil. Voir [Notifications](notifications.md#types-de-notifications).
-- **Modifier et supprimer.** Vous pouvez modifier vos propres commentaires ; un commentaire modifié est marqué *(modifié)*. Vous pouvez supprimer vos propres commentaires, et toute personne pouvant modifier la décision (`adr.manage`) peut supprimer n'importe quel commentaire ; un commentaire supprimé se réduit à sa place à une petite ligne, avec son auteur, sa date et *Commentaire supprimé*. Supprimer le premier commentaire d'un fil ferme le fil : les réponses déjà présentes restent, mais personne ne peut plus y répondre, le résoudre ni le rouvrir. Un motif de rejet et une note de signature ne peuvent être ni modifiés ni supprimés : un rejet se résout à la place.
+- **Modifier et supprimer.** Vous pouvez modifier vos propres commentaires ; un commentaire modifié est marqué *(modifié)*. Vous pouvez supprimer vos propres commentaires, et toute personne pouvant modifier la décision (`adr.manage`) peut supprimer n'importe quel commentaire ; un commentaire supprimé se réduit à sa place à une petite ligne, avec son auteur, sa date et *Commentaire supprimé*. Supprimer le premier commentaire d'un fil ferme le fil : les réponses déjà présentes restent, mais personne ne peut plus y répondre, le résoudre ni le rouvrir. Un motif de rejet, une demande de modifications et une note de signature ne peuvent être ni modifiés ni supprimés : les deux premiers se résolvent à la place.
 - **Révisions antérieures.** Un fil appartient à la révision sur laquelle il a été lancé. Activez **Afficher la discussion des révisions antérieures** pour lire les fils des révisions antérieures de la décision, regroupés par révision.
 
 #### Mentions {: #decision-mentions }
@@ -322,13 +344,13 @@ Pendant la rédaction d'une décision, tapez **@** dans l'une de ses quatre sect
 
 #### Historique {: #decision-history }
 
-Le bouton **Historique** en haut de l'éditeur ou de l'aperçu de la décision, à côté de la bande des révisions lorsque la décision en a plusieurs, ouvre une vue large : la chronologie à gauche, la version sélectionnée à droite. La chronologie consigne ce qui est arrivé à la décision, du plus récent au plus ancien : création, enregistrement, envoi pour revue, chaque signature (avec sa note), rejet (avec le motif), rappel des signatures, signature complète, enregistrement comme décidée, début d'une révision, restauration d'une version antérieure. Toute personne pouvant ouvrir la décision voit cette chronologie. Les événements de revue — envoi pour revue, signature, rappel, rejet — sont conservés à partir de la version 2.200.0 ; auparavant, ils étaient affichés en direct mais jamais stockés. Les décisions qui existaient avant cette version commencent par une chronologie reconstituée à partir de ce qui était stocké : création, révision, envoi pour revue (pour une décision en revue au moment de la mise à niveau, avec les signataires auxquels elle a été envoyée), chaque signature, signature complète et enregistrement.
+Le bouton **Historique** en haut de l'éditeur ou de l'aperçu de la décision, à côté de la bande des révisions lorsque la décision en a plusieurs, ouvre une vue large : la chronologie à gauche, la version sélectionnée à droite. La chronologie consigne ce qui est arrivé à la décision, du plus récent au plus ancien : création, enregistrement, envoi pour revue, chaque signature (avec sa note), modifications demandées, rejet et retrait (chacun avec le motif), réouverture, rappel des signatures, signature complète, enregistrement comme décidée, début d'une révision, restauration d'une version antérieure. Toute personne pouvant ouvrir la décision voit cette chronologie. Les événements de revue — envoi pour revue, signature, rappel, rejet — sont conservés à partir de la version 2.200.0 ; auparavant, ils étaient affichés en direct mais jamais stockés. Les décisions qui existaient avant cette version commencent par une chronologie reconstituée à partir de ce qui était stocké : création, révision, envoi pour revue (pour une décision en revue au moment de la mise à niveau, avec les signataires auxquels elle a été envoyée), chaque signature, signature complète et enregistrement.
 
 L'Historique n'est pas le tableau **Historique des versions du document**, tenu à la main, d'un [Statement of Architecture Work](delivery.md#lediteur-soaw), qui consigne ce que les auteurs choisissent d'y écrire.
 
 - **Versions.** Une version est conservée chaque fois qu'un brouillon est enregistré avec des modifications. Elle contient le titre, les quatre sections, les dates, le résumé des modifications et les personnes ; les liens vers d'autres décisions, les fiches liées, les fichiers et les diagrammes ne font pas partie d'une version. Les étapes qui contiennent une version sont signalées dans la chronologie ; les personnes qui peuvent modifier la décision et ses signataires en sélectionnent une pour l'afficher à droite, et la version la plus récente est sélectionnée à l'ouverture de la vue. Les autres lecteurs voient la chronologie sans les versions (*Les versions enregistrées ne sont visibles que par les éditeurs et les signataires.*). Sur un écran étroit, la vue affiche d'abord la chronologie, puis la version sélectionnée avec un bouton **Retour**.
 - **Modifications.** Au-dessus de la version sélectionnée, **Version** l'affiche telle qu'elle a été enregistrée et **Modifications** montre ce qui a changé entre elle et la version précédente, mot par mot et section par section, ainsi que les dates et les personnes modifiées ; choisissez n'importe quelle autre version sous **Comparer avec**. Seules les versions déjà chargées dans la chronologie peuvent être comparées : lorsque la version précédant la version sélectionnée n'est pas encore chargée, **Modifications** l'indique, et **Charger plus** la charge. Un simple changement de mise en forme est signalé par *Mise en forme uniquement : les mots sont identiques.* ; un lien dont l'adresse a changé compte comme une modification, et une ligne de tableau se lit comme une seule ligne, ses cellules séparées par ` | `.
-- **Restaurer.** Sur un brouillon, une personne pouvant modifier la décision peut restaurer la version sélectionnée avec **Restaurer cette version**. La restauration va uniquement de l'avant : le texte, les dates et les personnes de la version remplacent ceux du brouillon et sont conservés comme nouvelle version, et l'état du brouillon avant la restauration reste dans l'historique. Les liens vers d'autres décisions, les fiches liées, les fichiers et les diagrammes ne sont pas restaurés. Lorsque l'éditeur contient des modifications non enregistrées, la confirmation indique qu'elles seront perdues. Une fois la restauration effectuée, la page affiche la décision restaurée et la vue se ferme. Une décision en revue ou signée ne peut pas être restaurée.
+- **Restaurer.** Sur un brouillon, une personne pouvant modifier la décision peut restaurer la version sélectionnée avec **Restaurer cette version**. La restauration va uniquement de l'avant : le texte, les dates et les personnes de la version remplacent ceux du brouillon et sont conservés comme nouvelle version, et l'état du brouillon avant la restauration reste dans l'historique. Les liens vers d'autres décisions, les fiches liées, les fichiers et les diagrammes ne sont pas restaurés. Lorsque l'éditeur contient des modifications non enregistrées, la confirmation indique qu'elles seront perdues. Une fois la restauration effectuée, la page affiche la décision restaurée et la vue se ferme. Une décision en revue, signée ou close (rejetée ou retirée) ne peut pas être restaurée ; rouvrez d'abord une décision close.
 
 #### Limites connues {: #collaboration-limits }
 

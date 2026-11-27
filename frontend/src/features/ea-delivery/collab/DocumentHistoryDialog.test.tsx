@@ -213,6 +213,13 @@ describe("DocumentHistoryDialog", () => {
     expect(screen.queryByRole("button", { name: /Restore this version$/ })).toBeNull();
   });
 
+  it("offers no Restore on a closed draft", async () => {
+    mockApi.on("get", FIRST, page());
+    renderDialog({ closed: true });
+    await screen.findByTestId("version-pane");
+    expect(screen.queryByRole("button", { name: /Restore this version$/ })).toBeNull();
+  });
+
   it("restores the selected version after a confirmation that warns about unsaved edits, then closes", async () => {
     mockApi.on("get", FIRST, page());
     const detail = { id: "a1", title: "Restored" };

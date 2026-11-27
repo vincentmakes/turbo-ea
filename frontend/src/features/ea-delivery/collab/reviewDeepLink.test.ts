@@ -13,4 +13,10 @@ describe("deepLinkDialog", () => {
     expect(deepLinkDialog("bogus", true)).toBeNull();
     expect(deepLinkDialog("", false)).toBeNull();
   });
+
+  it("opens the request-changes dialog", () => {
+    expect(deepLinkDialog("request-changes", true)).toBe("request-changes");
+    expect(deepLinkDialog("request-changes", false)).toBe("request-changes");
+    expect(deepLinkDialog("request_changes", true)).toBeNull();
+  });
 });

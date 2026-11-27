@@ -442,6 +442,14 @@ class TestGetDocumentHistory:
         assert "NEWEST FIRST" in doc
         assert "in the order they happened" not in doc
 
+    def test_the_docstring_names_the_review_outcome_steps(self):
+        doc = server.get_document_history.__doc__
+        for kind in ("changes_requested", "rejected", "withdrawn", "reopened"):
+            assert f"``{kind}``" in doc
+
+    def test_the_discussion_docstring_names_the_change_request_thread(self):
+        assert "``change_request``" in server.get_document_discussion.__doc__
+
 
 # ── add_document_comment: the body ──────────────────────────────────────────
 

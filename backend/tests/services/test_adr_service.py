@@ -193,7 +193,17 @@ TODAY = date(2026, 11, 10)
 T0 = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
 
 
-def _row(n, ref, *, rev=1, status="signed", parent=None, effective_from=None, valid_until=None):
+def _row(
+    n,
+    ref,
+    *,
+    rev=1,
+    status="signed",
+    parent=None,
+    effective_from=None,
+    valid_until=None,
+    outcome=None,
+):
     return ds.DecisionRow(
         id=uuid.UUID(int=n),
         reference_number=ref,
@@ -204,6 +214,7 @@ def _row(n, ref, *, rev=1, status="signed", parent=None, effective_from=None, va
         title=f"Title {n}",
         effective_from=effective_from,
         valid_until=valid_until,
+        outcome=outcome,
     )
 
 
@@ -300,8 +311,24 @@ class TestStandingFields:
             today=TODAY,
         )
         assert adr_service.revisions_payload(register, uuid.UUID(int=2)) == [
-            {**_ref(1, "ADR-001"), "status": "signed", "standing": "in_force"},
-            {**_ref(2, "ADR-002", 2), "status": "draft", "standing": None},
+            {**_ref(1, "ADR-001"), "status": "signed", "standing": "in_force", "outcome": None},
+            {**_ref(2, "ADR-002", 2), "status": "draft", "standing": None, "outcome": None},
+        ]
+
+    def test_revisions_payload_names_a_revision_s_outcome(self):
+        register = ds.build_register(
+            [
+                _row(1, "ADR-001"),
+                _row(2, "ADR-001", rev=2, parent=1, status="draft", outcome="rejected"),
+            ],
+            [],
+            today=TODAY,
+        )
+        assert [
+            r["outcome"] for r in adr_service.revisions_payload(register, uuid.UUID(int=1))
+        ] == [
+            None,
+            "rejected",
         ]
 
     def test_date_fields(self):
@@ -384,6 +411,47 @@ class TestListFilters:
         assert keep(uuid.UUID(int=9)) is True
         assert keep(uuid.UUID(int=9), include_earlier=False) is False
         assert keep(uuid.UUID(int=9), standings=frozenset({"in_force"})) is False
+
+    def test_keep_in_list_by_outcome(self):
+        register = ds.build_register(
+            [
+                _row(1, "ADR-001", status="draft", outcome="rejected"),
+                _row(2, "ADR-002", status="draft", outcome="withdrawn"),
+                _row(3, "ADR-003", status="draft", outcome="changes_requested"),
+                _row(4, "ADR-004", status="draft"),
+            ],
+            [],
+            today=TODAY,
+        )
+        rejected, withdrawn, changes, plain = (uuid.UUID(int=n) for n in (1, 2, 3, 4))
+
+        def keep(did, include_closed=True, outcomes=None):
+            return adr_service.keep_in_list(
+                register,
+                did,
+                include_earlier=True,
+                standings=None,
+                include_closed=include_closed,
+                outcomes=outcomes,
+            )
+
+        assert [keep(d) for d in (rejected, withdrawn, changes, plain)] == [True] * 4
+        assert [keep(d, include_closed=False) for d in (rejected, withdrawn, changes, plain)] == [
+            False,
+            False,
+            True,
+            True,
+        ]
+        wanted = frozenset({"rejected", "changes_requested"})
+        assert [keep(d, outcomes=wanted) for d in (rejected, withdrawn, changes, plain)] == [
+            True,
+            False,
+            True,
+            False,
+        ]
+        # Not in the register: kept only when nothing filters it out.
+        assert keep(uuid.UUID(int=9)) is True
+        assert keep(uuid.UUID(int=9), outcomes=wanted) is False
 
 
 class TestDatesAndLocking:
@@ -532,9 +600,9 @@ class TestCopyDecisionExtras:
 
 
 class TestCheckEditable:
-    def _code(self, current, new=None, fields=()):
+    def _code(self, current, new=None, fields=(), outcome=None):
         try:
-            adr_service.check_editable(current, new, fields)
+            adr_service.check_editable(current, new, fields, outcome=outcome)
         except HTTPException as exc:
             return exc.status_code, exc.detail
         return None
@@ -571,6 +639,27 @@ class TestCheckEditable:
         assert self._code("in_review", None, {"linked_card_ids", "title"}) == locked
         assert self._code("in_review", "archived", {"status"}) == locked
         assert self._code("in_review", None, {"attributes"}) == locked
+
+    def test_a_closed_draft_takes_the_filing_fields_only(self):
+        rejected = (403, "This decision was rejected and is closed. Reopen it to edit it.")
+        withdrawn = (403, "This decision was withdrawn and is closed. Reopen it to edit it.")
+        for fields in ({"title"}, {"linked_card_ids", "context"}, {"files"}, {"status"}):
+            assert self._code("draft", None, fields, "rejected") == rejected
+            assert self._code("draft", None, fields, "withdrawn") == withdrawn
+        assert (
+            self._code("draft", None, {"linked_card_ids", "linked_diagram_ids"}, "rejected") is None
+        )
+        assert self._code("draft", None, set(), "withdrawn") is None
+
+    def test_changes_requested_locks_nothing(self):
+        assert self._code("draft", None, {"title", "files"}, "changes_requested") is None
+
+    def test_an_unknown_status_is_400(self):
+        for value in ("bogus", "rejected", "archived", ""):
+            code, detail = self._code("draft", value, {"status"})
+            assert code == 400
+            assert detail["error"] == "unknown_status"
+        assert self._code("draft", None, {"title"}) is None
 
 
 class TestReviseRefusal:

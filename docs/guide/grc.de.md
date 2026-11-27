@@ -29,7 +29,7 @@ ADRs dokumentieren wichtige Architekturentscheidungen samt Kontext, Konsequenzen
 
 Das Register beantwortet zuerst eine Frage: **Welche Entscheidungen sind heute in Kraft?** Jede unterzeichnete Entscheidung hat eine [Geltung](#standing), die Turbo EA aus ihren Daten, ihren Revisionen und den anderen Entscheidungen ableitet, die auf sie einwirken, und das Raster listet nur die aktuelle Revision jeder Entscheidung auf, es sei denn, Sie fordern die früheren an.
 
-Das Raster lässt sich über die Schaltfläche *Gruppieren nach* neben dem Suchfeld auch **nach Status** oder **nach Geltung gruppieren**: Jeder Status bzw. jede Geltung klappt unter einer eigenen Überschrift zusammen, und das Kontrollkästchen in der Überschrift wählt die ganze Gruppe für einen Sammelexport aus.
+Das Raster lässt sich über die Schaltfläche *Gruppieren nach* neben dem Suchfeld auch **nach Status** oder **nach Geltung gruppieren**: Jeder Status bzw. jede Geltung klappt unter einer eigenen Überschrift zusammen (nach Status gruppiert, erhält jedes Prüfergebnis eine eigene Gruppe), und das Kontrollkästchen in der Überschrift wählt die ganze Gruppe für einen Sammelexport aus.
 
 #### Status und Geltung {: #standing }
 
@@ -37,6 +37,18 @@ Eine Entscheidung hat zwei getrennte Zustände:
 
 - **Status** ist der Abzeichnungsworkflow, und auf ihn reagieren Sie: **Entwurf** → **In Überprüfung** (Unterschriften angefordert) → **Unterschrieben**. Eine außerhalb von Turbo EA getroffene und [als entschieden erfasste](#recording-a-past-decision) Entscheidung zeigt statt Unterschrieben **Erfasst** an.
 - **Geltung** gibt an, wo eine unterzeichnete oder erfasste Entscheidung heute steht. Sie wird abgeleitet — nie von Hand gesetzt —, und ein Entwurf oder eine Entscheidung in Überprüfung hat keine (*Noch nicht unterzeichnet*).
+
+Ein Entwurf kann außerdem ein **Prüfergebnis** tragen, das angibt, wie seine letzte Prüfung ohne Unterschrift endete. Es erscheint anstelle von *Entwurf* im Status-Chip, und ein Banner an der Entscheidung nennt, wer es wann und warum getan hat (*Abgelehnt von Ada Lovelace am 27. Nov. 2026: …*):
+
+| Ergebnis | Bedeutung |
+|----------|-----------|
+| **Änderungen angefordert** | Ein Unterzeichner hat die Entscheidung zur Überarbeitung zurückgegeben. Sie ist ein bearbeitbarer Entwurf; die Markierung verschwindet, wenn erneut Unterschriften angefordert werden |
+| **Abgelehnt** | Ein Unterzeichner hat die Entscheidung abgelehnt. Sie ist **geschlossen** |
+| **Zurückgezogen** | Die Autorenseite hat die Entscheidung zurückgezogen. Sie ist **geschlossen** |
+
+Eine **geschlossene** Entscheidung bleibt gespeichert, ist aber wie eine in Überprüfung gesperrt: Nur ihre verknüpften Karten und [Diagramme](#decision-diagrams) lassen sich noch ändern, und sie kann von ihrem Autor weder zur Prüfung gesendet noch erfasst, wiederhergestellt oder gelöscht werden (zum Löschen ist die Berechtigung `adr.delete` nötig). Um wieder daran zu arbeiten, klicken Sie auf **Wieder öffnen**; sie wird dann zu einem normalen Entwurf. Das Register blendet geschlossene Entscheidungen aus, bis **Geschlossene anzeigen** aktiviert ist. Ein Entwurf, dessen letzte Prüfung vor Version 2.221.0 abgelehnt wurde — als eine Ablehnung eine Entscheidung noch auf Entwurf zurücksetzte —, zeigt **Änderungen angefordert**.
+
+Der Lebenszyklus ist fest vorgegeben: die drei Status, die sechs Geltungen und die drei Ergebnisse sind in jedem Arbeitsbereich gleich und lassen sich weder durch einen Administrator noch durch eine Erweiterung konfigurieren.
 
 | Geltung | Bedeutung |
 |---------|-----------|
@@ -56,7 +68,7 @@ Das ADR-Grid orientiert sich am Layout des Inventar-Grids:
 | Spalte | Beschreibung |
 |--------|-------------|
 | **Referenznr.** | Automatisch generierte Referenznummer (ADR-001, ADR-002, …) mit Statuspunkt; eine Revision nach der ersten fügt ihre Nummer hinzu (ADR-012 · Rev. 2) |
-| **Status** | Farbiger Chip — Entwurf, In Überprüfung, Unterschrieben oder Erfasst |
+| **Status** | Farbiger Chip — Entwurf, In Überprüfung, Unterschrieben oder Erfasst bzw. das Prüfergebnis (Änderungen angefordert, Abgelehnt, Zurückgezogen) eines Entwurfs, der eines hat |
 | **Geltung** | Wo eine unterzeichnete Entscheidung heute steht — siehe [Status und Geltung](#standing); leer, bis sie unterzeichnet ist |
 | **Titel** | ADR-Titel |
 | **Entscheidung** | Klartext-Auszug der Entscheidung |
@@ -78,15 +90,17 @@ Die dauerhafte Seitenleiste links hat zwei Registerkarten:
 - **Filter** — Facettenfilter über die ADR-Liste:
     - **In Kraft** — ein Klick zeigt nur die heute geltenden Entscheidungen (In Kraft und In Kraft (geändert)); ein erneuter Klick hebt den Filter auf
     - **Frühere Revisionen anzeigen** — standardmäßig aus, sodass jede Entscheidung einmal erscheint, als ihre aktuelle Revision (zuzüglich einer Revision, die gerade entworfen wird). Schalten Sie es ein, um auch die früheren Revisionen aufzulisten; die Schaltfläche **Exportieren** folgt demselben Schalter
+    - **Geschlossene anzeigen** — standardmäßig aus, sodass abgelehnte und zurückgezogene Entscheidungen nicht stören. Schalten Sie es ein, um sie ebenfalls aufzulisten
     - **Kartentypen** — Kontrollkästchen mit farbigen Punkten zum Filtern nach verknüpften Kartentypen
     - **Verknüpfte Karten** — nach bestimmten verknüpften Karten filtern
     - **Status** — Entwurf / In Überprüfung / Unterschrieben (eine erfasste Entscheidung zählt als unterschrieben)
     - **Geltung** — Geplant / In Kraft / In Kraft (geändert) / Ersetzt / Widerrufen / Abgelaufen / Noch nicht unterzeichnet
+    - **Ergebnis** — Änderungen angefordert / Abgelehnt / Zurückgezogen / Kein Ergebnis. Die Auswahl von **Abgelehnt** oder **Zurückgezogen** listet diese Entscheidungen auch dann, wenn **Geschlossene anzeigen** aus ist
     - **Unterschrieben von** — nach Unterzeichner filtern
     - **Erstellungs-/Änderungs-/Unterschriftsdatum** / **Entscheidungsdatum** — Von/Bis-Datumsbereiche (**Entscheidungsdatum** bezieht sich auf das Datum *Entschieden am* einer unterzeichneten oder erfassten Entscheidung)
 - **Spalten** — auswählen, welche Spalten des Grids sichtbar sind. **Referenznr.** und **Titel** werden immer angezeigt; **Zurücksetzen** stellt die Standardauswahl wieder her. Die Auswahl wird pro Browser gespeichert.
 
-Verwende die **Schnellfilter**-Suchleiste für die Volltextsuche über alle ADRs. Rechtsklick auf eine Zeile öffnet ein Kontextmenü (**Bearbeiten**, **Vorschau**, **Duplizieren**, **Löschen**).
+Verwende die **Schnellfilter**-Suchleiste für die Volltextsuche über alle ADRs. Rechtsklick auf eine Zeile öffnet ein Kontextmenü (**Bearbeiten**, **Vorschau**, **Duplizieren**, **Löschen** sowie **Wieder öffnen** bei einer geschlossenen Entscheidung für Inhaber von `adr.manage`). **Löschen** wird bei einem Entwurf angeboten, bei einer geschlossenen Entscheidung nur Inhabern von `adr.delete`.
 
 #### Entscheidungen exportieren und importieren {: #decisions-import }
 
@@ -256,17 +270,24 @@ Der Abschnitt **Diagramme** nach **Dateien** hängt Diagramme aus dem Modul [Dia
 - **Wer sie sieht.** Um den Abschnitt zu sehen, ist die Berechtigung zum Anzeigen von Diagrammen (`diagrams.view`) nötig; Anhängen und Lösen erfordern zusätzlich `adr.manage`. Ein Leser ohne `diagrams.view` sieht überhaupt keinen Abschnitt Diagramme. Auch eine Entscheidung, die nicht bearbeitet werden kann und kein Diagramm hat, zeigt keinen Abschnitt.
 - **Wo sie erscheinen.** Die [Vorschau](#preview) zeigt die Diagramme schreibgeschützt; die PDF-/Druckfassung und der Word-Export führen ihre Namen auf. Eine Revision und ein Duplikat übernehmen die Diagramme. Diagramme sind nicht Teil einer Version im [Verlauf](#decision-history).
 
-#### Abzeichnungsworkflow
+#### Abzeichnungsworkflow {: #sign-off-workflow }
 
 ADRs unterstützen einen formalen Abzeichnungsprozess:
 
 1. ADR im Status **Entwurf** erstellen.
 2. **Unterschriften anfordern** klicken und Unterzeichner nach Name oder E-Mail suchen (oder **Entscheidungsträger hinzufügen** klicken). Unterschriften können nur für einen Entwurf angefordert werden.
 3. Das ADR wechselt zu **In Überprüfung** — jeder Unterzeichner erhält eine Benachrichtigung und ein Todo.
-4. Unterzeichner prüfen und klicken auf **Unterschreiben**.
+4. Unterzeichner prüfen und klicken auf **Unterschreiben**, **Änderungen anfordern** oder **Ablehnen**.
 5. Sobald alle unterschrieben haben, wechselt das ADR automatisch auf **Unterschrieben**.
 
-**Eine Entscheidung in Überprüfung ist gesperrt**, sodass die Unterzeichner genau das unterschreiben, was ihnen gesendet wurde: Text, Daten, Personen, Verknüpfungen zu anderen Entscheidungen, Dateien und Erweiterungsbereiche sind schreibgeschützt, und nur die verknüpften Karten und die angehängten [Diagramme](#decision-diagrams) lassen sich noch ändern. Um sie zu bearbeiten, klicken Sie auf **Unterschriften zurückrufen**; sie kehrt dann in den Entwurf zurück. Ein Unterzeichner, der auf **Ablehnen** klickt, setzt sie ebenfalls auf Entwurf zurück, unter derselben Revisionsnummer.
+**Eine Entscheidung in Überprüfung ist gesperrt**, sodass die Unterzeichner genau das unterschreiben, was ihnen gesendet wurde: Text, Daten, Personen, Verknüpfungen zu anderen Entscheidungen, Dateien und Erweiterungsbereiche sind schreibgeschützt, und nur die verknüpften Karten und die angehängten [Diagramme](#decision-diagrams) lassen sich noch ändern. Um sie zu bearbeiten, klicken Sie auf **Unterschriften zurückrufen**; sie kehrt dann in den Entwurf zurück.
+
+Ein ausstehender Unterzeichner, der nicht unterzeichnet, hat zwei Möglichkeiten, jeweils mit einer Begründung (bis zu 4.000 Zeichen), über die alle anderen Unterzeichner und der Autor benachrichtigt werden:
+
+- **Änderungen anfordern** gibt die Entscheidung zur Überarbeitung zurück: Sie wird unter derselben Revisionsnummer wieder zu einem bearbeitbaren Entwurf, markiert als **Änderungen angefordert**. Bearbeiten Sie sie und fordern Sie erneut Unterschriften an; die Markierung verschwindet dann. Bis Version 2.221.0 tat dies **Ablehnen**.
+- **Ablehnen** schließt die Entscheidung: Sie bleibt ein Entwurf, markiert als **Abgelehnt**, und ist gesperrt, bis jemand sie wieder öffnet. Jeder einzelne Unterzeichner kann ablehnen.
+
+Auf der Autorenseite kann ein Inhaber von `adr.manage` einen gespeicherten Entwurf oder eine Entscheidung in Überprüfung mit einer Begründung **Zurückziehen**: Ausstehende Unterschriftsanfragen werden abgebrochen, ihre Unterzeichner benachrichtigt, und die Entscheidung wird geschlossen, markiert als **Zurückgezogen**. **Wieder öffnen** macht eine abgelehnte oder zurückgezogene Entscheidung wieder zu einem normalen Entwurf, der bearbeitet und erneut zur Prüfung gesendet werden kann. Jeder Schritt erscheint in der Zeitleiste des [Verlaufs](#decision-history).
 
 Unterschriebene ADRs sind gesperrt und können nicht bearbeitet werden — für Änderungen wird eine neue Revision angelegt.
 
@@ -284,6 +305,7 @@ Ein unterschriebenes ADR öffnen und **Überarbeiten → Diese Entscheidung übe
 - **Die aktuelle Revision ist die geltende.** Sobald eine Revision unterzeichnet und wirksam ist, sind die früheren **Ersetzt** und zeigen ein Banner mit einem Link zur aktuellen. Die Leiste **Revisionen** auf jeder Revision listet die gesamte Kette auf und markiert die aktuelle.
 - **Nur die aktuelle Revision kann überarbeitet werden**, und nicht mehr, sobald die Entscheidung widerrufen oder ersetzt wurde. Eine abgelaufene oder geänderte Entscheidung kann weiterhin überarbeitet werden.
 - **Eine Ablehnung zählt nicht als Revision**: Die Revisionsnummer ändert sich nur, wenn eine neue Revision erstellt wird.
+- **Eine abgelehnte oder zurückgezogene Revision bleibt die offene Revision.** Sie blockiert weiterhin eine neue Revision ihrer Entscheidung, und das Menü **Überarbeiten** nennt sie (*Die Revision im Entwurf öffnen (ADR-012 · Rev 3, Abgelehnt)*). Um es erneut zu versuchen, öffnen Sie sie und klicken auf **Wieder öffnen**, oder löschen Sie sie, um eine neue Revision zu beginnen.
 - Vor Version 2.199.0 überarbeitete Entscheidungen behalten die Referenznummern, unter denen sie ausgegeben wurden, und erscheinen weiterhin als eine Entscheidung mit einer Revisionsleiste.
 
 #### Vorschau {: #preview }
@@ -303,10 +325,10 @@ Jede Entscheidung hat ihre eigene **Diskussion**, sodass eine Entscheidung in Tu
 - **Formatierung.** Ein Kommentar kann Fett, Kursiv, Durchgestrichen, **Inline-Code**, Aufzählungen und nummerierte Listen, Zitate und [Links](#decision-text-links) enthalten (die Schaltfläche **Link** oder Strg/Cmd+K). Überschriften, Codeblöcke, Bilder und Tabellen gehören in die Abschnitte, nicht in Kommentare.
 - **Wer posten darf.** Das Lesen der Diskussion folgt dem Recht, die Entscheidung zu öffnen (`adr.view`). Posten, Antworten, Erledigen und Wieder öffnen erfordern die Berechtigung `adr.comment`, die Mitglieder und Administratoren standardmäßig besitzen und Betrachter nicht; ein Administrator kann sie pro Rolle ändern. Die Unterzeichner der Entscheidung können sie immer kommentieren, einschließlich der Personen, die in einer früheren, zurückgerufenen oder abgelehnten Prüfungsrunde um ihre Unterschrift gebeten wurden.
 - **Während der Prüfung und nach der Unterzeichnung.** Die [Sperre während der Prüfung](#abzeichnungsworkflow) betrifft den Inhalt, nicht das Gespräch: Die Diskussion bleibt offen, solange die Entscheidung in Prüfung ist, und auch nachdem sie unterzeichnet wurde.
-- **Prüfungsnotizen.** Lehnt ein Unterzeichner eine Entscheidung ab, eröffnet der Grund einen Diskussionsstrang mit der Markierung **Ablehnungsgrund** (*Kein Grund angegeben*, wenn der Unterzeichner ihn leer gelassen hat), der wie jeder andere beantwortet und erledigt wird. Ein Unterzeichner kann beim Unterzeichnen eine optionale Notiz hinzufügen; sie erscheint in der Diskussion als **Unterzeichnungsnotiz**. Beide gehen nicht mehr verloren, wenn Unterschriften zurückgerufen werden, und beide werden auch im [Verlauf](#decision-history) angezeigt.
-- **Offene Diskussionsstränge vor der Prüfung.** **Unterschriften anfordern**, **Unterzeichnen** und **Ablehnen** warnen, wenn die Entscheidung noch offene Diskussionsstränge hat (*2 offene Diskussionsstränge zu diesem Dokument.*). Es ist nur eine Warnung: Nichts wird blockiert.
+- **Prüfungsnotizen.** Lehnt ein Unterzeichner eine Entscheidung ab, eröffnet der Grund einen Diskussionsstrang mit der Markierung **Ablehnungsgrund** (*Kein Grund angegeben*, wenn der Unterzeichner ihn leer gelassen hat), der wie jeder andere beantwortet und erledigt wird; eine Änderungsanforderung eröffnet einen mit **Änderungen angefordert** markierten. Der Grund eines Zurückziehens wird an der Entscheidung und im Verlauf aufbewahrt, nicht in der Diskussion. Ein Unterzeichner kann beim Unterzeichnen eine optionale Notiz hinzufügen; sie erscheint in der Diskussion als **Unterzeichnungsnotiz**. Beide gehen nicht mehr verloren, wenn Unterschriften zurückgerufen werden, und beide werden auch im [Verlauf](#decision-history) angezeigt.
+- **Offene Diskussionsstränge vor der Prüfung.** **Unterschriften anfordern**, **Unterzeichnen**, **Änderungen anfordern**, **Ablehnen** und **Zurückziehen** warnen, wenn die Entscheidung noch offene Diskussionsstränge hat (*2 offene Diskussionsstränge zu diesem Dokument.*). Es ist nur eine Warnung: Nichts wird blockiert.
 - **Benachrichtigungen.** Ein neuer Kommentar benachrichtigt den Autor der Entscheidung, ihre Unterzeichner, ihre Entscheidungsträger und Beteiligten, die Turbo-EA-Benutzer sind, sowie die Personen, die bereits kommentiert haben — nie die Person, die ihn gepostet hat. Geben Sie **@** in einen Kommentar ein, um eine Kollegin oder einen Kollegen zu erwähnen: Sie erhalten stattdessen eine Erwähnungsbenachrichtigung. Wer erwähnt wird, die Entscheidung aber nicht öffnen kann, wird nicht benachrichtigt, und der Bereich weist Sie darauf hin (*… wurden nicht benachrichtigt: Diese Personen können das Dokument nicht öffnen.*). Benachrichtigungen enthalten keinen Kommentartext, und ein Klick darauf öffnet die Vorschau der Entscheidung mit dem Bereich bei diesem Diskussionsstrang. Siehe [Benachrichtigungen](notifications.md#benachrichtigungstypen).
-- **Bearbeiten und Löschen.** Sie können Ihre eigenen Kommentare bearbeiten; ein bearbeiteter Kommentar wird mit *(bearbeitet)* markiert. Sie können Ihre eigenen Kommentare löschen, und wer die Entscheidung bearbeiten darf (`adr.manage`), kann jeden Kommentar löschen; ein gelöschter Kommentar schrumpft an seiner Stelle auf eine kleine Zeile mit seinem Autor, seinem Datum und *Kommentar gelöscht*. Wird der erste Kommentar eines Diskussionsstrangs gelöscht, wird der Diskussionsstrang geschlossen: Die vorhandenen Antworten bleiben erhalten, aber niemand kann mehr darauf antworten, ihn erledigen oder wieder öffnen. Ein Ablehnungsgrund und eine Unterzeichnungsnotiz können weder bearbeitet noch gelöscht werden: Eine Ablehnung wird stattdessen erledigt.
+- **Bearbeiten und Löschen.** Sie können Ihre eigenen Kommentare bearbeiten; ein bearbeiteter Kommentar wird mit *(bearbeitet)* markiert. Sie können Ihre eigenen Kommentare löschen, und wer die Entscheidung bearbeiten darf (`adr.manage`), kann jeden Kommentar löschen; ein gelöschter Kommentar schrumpft an seiner Stelle auf eine kleine Zeile mit seinem Autor, seinem Datum und *Kommentar gelöscht*. Wird der erste Kommentar eines Diskussionsstrangs gelöscht, wird der Diskussionsstrang geschlossen: Die vorhandenen Antworten bleiben erhalten, aber niemand kann mehr darauf antworten, ihn erledigen oder wieder öffnen. Ein Ablehnungsgrund, eine Änderungsanforderung und eine Unterzeichnungsnotiz können weder bearbeitet noch gelöscht werden: Die ersten beiden werden stattdessen erledigt.
 - **Frühere Revisionen.** Ein Diskussionsstrang gehört zu der Revision, auf der er begonnen wurde. Aktivieren Sie **Diskussion zu früheren Revisionen anzeigen**, um die Diskussionsstränge der früheren Revisionen der Entscheidung zu lesen, gruppiert nach Revision.
 
 #### Erwähnungen {: #decision-mentions }
@@ -322,13 +344,13 @@ Geben Sie beim Schreiben einer Entscheidung in einem ihrer vier Abschnitte **@**
 
 #### Verlauf {: #decision-history }
 
-Die Schaltfläche **Verlauf** oben im Editor oder in der Vorschau der Entscheidung, neben der Revisionsleiste, wenn die Entscheidung mehrere Revisionen hat, öffnet eine breite Ansicht: links die Zeitleiste, rechts die ausgewählte Version. Die Zeitleiste hält fest, was mit der Entscheidung geschehen ist, das Neueste zuerst: erstellt, gespeichert, zur Prüfung gesendet, jede Unterschrift (mit ihrer Notiz), abgelehnt (mit dem Grund), Unterschriften zurückgerufen, vollständig unterzeichnet, als entschieden erfasst, eine Revision begonnen, eine frühere Version wiederhergestellt. Jeder, der die Entscheidung öffnen kann, sieht diese Zeitleiste. Prüfungsereignisse — zur Prüfung gesendet, unterzeichnet, zurückgerufen, abgelehnt — werden ab Version 2.200.0 aufbewahrt; zuvor wurden sie live angezeigt, aber nie gespeichert. Entscheidungen, die vor dieser Version bestanden, beginnen mit einer Zeitleiste, die aus den gespeicherten Daten rekonstruiert wurde: erstellt, überarbeitet, zur Prüfung gesendet (bei einer Entscheidung, die zum Zeitpunkt der Aktualisierung in Prüfung war, mit den Unterzeichnern, an die sie gesendet wurde), jede Unterschrift, unterzeichnet und erfasst.
+Die Schaltfläche **Verlauf** oben im Editor oder in der Vorschau der Entscheidung, neben der Revisionsleiste, wenn die Entscheidung mehrere Revisionen hat, öffnet eine breite Ansicht: links die Zeitleiste, rechts die ausgewählte Version. Die Zeitleiste hält fest, was mit der Entscheidung geschehen ist, das Neueste zuerst: erstellt, gespeichert, zur Prüfung gesendet, jede Unterschrift (mit ihrer Notiz), Änderungen angefordert, abgelehnt und zurückgezogen (jeweils mit dem Grund), wieder geöffnet, Unterschriften zurückgerufen, vollständig unterzeichnet, als entschieden erfasst, eine Revision begonnen, eine frühere Version wiederhergestellt. Jeder, der die Entscheidung öffnen kann, sieht diese Zeitleiste. Prüfungsereignisse — zur Prüfung gesendet, unterzeichnet, zurückgerufen, abgelehnt — werden ab Version 2.200.0 aufbewahrt; zuvor wurden sie live angezeigt, aber nie gespeichert. Entscheidungen, die vor dieser Version bestanden, beginnen mit einer Zeitleiste, die aus den gespeicherten Daten rekonstruiert wurde: erstellt, überarbeitet, zur Prüfung gesendet (bei einer Entscheidung, die zum Zeitpunkt der Aktualisierung in Prüfung war, mit den Unterzeichnern, an die sie gesendet wurde), jede Unterschrift, unterzeichnet und erfasst.
 
 Der Verlauf ist nicht die von Hand gepflegte Tabelle **Dokumentversionshistorie** eines [Statement of Architecture Work](delivery.md#der-soaw-editor), die festhält, was die Autoren dort einzutragen beschließen.
 
 - **Versionen.** Jedes Mal, wenn ein Entwurf mit Änderungen gespeichert wird, wird eine Version aufbewahrt. Sie enthält den Titel, die vier Abschnitte, die Daten, die Änderungszusammenfassung und die Personen; Verknüpfungen zu anderen Entscheidungen, verknüpfte Karten, Dateien und Diagramme sind nicht Teil einer Version. Die Schritte, die eine Version enthalten, sind in der Zeitleiste markiert; die Personen, die die Entscheidung bearbeiten dürfen, und ihre Unterzeichner wählen einen davon aus, um ihn rechts anzuzeigen, und beim Öffnen der Ansicht ist die neueste Version ausgewählt. Andere Leser sehen die Zeitleiste ohne die Versionen (*Gespeicherte Versionen sind nur für Bearbeiter und Unterzeichner sichtbar.*). Auf einem schmalen Bildschirm zeigt die Ansicht zuerst die Zeitleiste, dann die ausgewählte Version mit einer Schaltfläche **Zurück**.
 - **Änderungen.** Über der ausgewählten Version zeigt **Version** sie so, wie sie gespeichert wurde, und **Änderungen** zeigt, was sich zwischen ihr und der vorherigen Version geändert hat, Wort für Wort pro Abschnitt, zusammen mit den geänderten Daten und Personen; wählen Sie unter **Vergleichen mit** eine beliebige andere Version. Nur die bereits in der Zeitleiste geladenen Versionen können verglichen werden: Ist die Version vor der ausgewählten noch nicht geladen, weist **Änderungen** darauf hin, und **Mehr laden** holt sie hinzu. Eine reine Formatierungsänderung wird als *Nur Formatierung: Der Wortlaut ist gleich.* gemeldet; ein Link, dessen Adresse sich geändert hat, zählt als Änderung, und eine Tabellenzeile wird als eine Zeile gelesen, die Zellen durch ` | ` getrennt.
-- **Wiederherstellen.** Bei einem Entwurf kann jemand, der die Entscheidung bearbeiten darf, die ausgewählte Version mit **Diese Version wiederherstellen** zurückholen. Das Wiederherstellen wirkt nur vorwärts: Text, Daten und Personen der Version ersetzen die des Entwurfs und werden als neue Version aufbewahrt, und der Stand des Entwurfs vor der Wiederherstellung bleibt im Verlauf erhalten. Verknüpfungen zu anderen Entscheidungen, verknüpfte Karten, Dateien und Diagramme werden nicht wiederhergestellt. Enthält der Editor nicht gespeicherte Änderungen, weist die Bestätigung darauf hin, dass sie verworfen werden. Nach der Wiederherstellung zeigt die Seite die wiederhergestellte Entscheidung, und die Ansicht schließt sich. Eine Entscheidung in Prüfung oder eine unterzeichnete Entscheidung kann nicht wiederhergestellt werden.
+- **Wiederherstellen.** Bei einem Entwurf kann jemand, der die Entscheidung bearbeiten darf, die ausgewählte Version mit **Diese Version wiederherstellen** zurückholen. Das Wiederherstellen wirkt nur vorwärts: Text, Daten und Personen der Version ersetzen die des Entwurfs und werden als neue Version aufbewahrt, und der Stand des Entwurfs vor der Wiederherstellung bleibt im Verlauf erhalten. Verknüpfungen zu anderen Entscheidungen, verknüpfte Karten, Dateien und Diagramme werden nicht wiederhergestellt. Enthält der Editor nicht gespeicherte Änderungen, weist die Bestätigung darauf hin, dass sie verworfen werden. Nach der Wiederherstellung zeigt die Seite die wiederhergestellte Entscheidung, und die Ansicht schließt sich. Eine Entscheidung in Prüfung, unterzeichnet oder geschlossen (abgelehnt oder zurückgezogen) kann nicht wiederhergestellt werden; öffnen Sie eine geschlossene zuerst wieder.
 
 #### Bekannte Einschränkungen {: #collaboration-limits }
 

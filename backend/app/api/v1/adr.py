@@ -41,6 +41,7 @@ from app.services import (
     document_collab,
     mention_service,
     notification_service,
+    review_outcome,
 )
 from app.services import decision_standing as ds
 from app.services import document_discussion_service as discussion
@@ -97,6 +98,24 @@ async def _get_adr(db: AsyncSession, adr_id: str) -> ArchitectureDecision:
     if not adr:
         raise HTTPException(404, "Architecture decision not found")
     return adr
+
+
+def _refuse(refusal: tuple[int, object] | None) -> None:
+    if refusal is not None:
+        raise HTTPException(refusal[0], refusal[1])
+
+
+async def _close_sign_todos(db: AsyncSession, adr: ArchitectureDecision) -> None:
+    """Mark every open sign to-do of ``adr`` done (they are matched by its link)."""
+    sign_todos = await db.execute(
+        select(Todo).where(
+            Todo.is_system == True,  # noqa: E712
+            Todo.status == "open",
+            Todo.link == adr_service.decision_link(adr.id),
+        )
+    )
+    for t in sign_todos.scalars().all():
+        t.status = "done"
 
 
 async def _adr_to_dict(
@@ -176,6 +195,7 @@ async def _adr_to_dict(
         "revisions": adr_service.revisions_payload(register, adr.id),
         "change_summary": adr.change_summary,
         "recorded_by": recorded_by,
+        "outcome": review_outcome.outcome_payload(adr),
         "files": await adr_file_service.list_files(db, adr.id),
         "open_thread_count": await discussion.open_thread_count(db, document_collab.ADR, adr.id),
     }
@@ -234,6 +254,7 @@ def _adr_to_summary(
         **adr_service.standing_fields(register, adr.id),
         **adr_service.date_fields(adr),
         "decision_makers": people.get(adr.id, {}).get("decision_makers", []),
+        "outcome": review_outcome.outcome_payload(adr),
     }
     if with_participants:
         row["participants"] = people.get(adr.id, {}).get("participants", [])
@@ -345,11 +366,20 @@ async def list_adrs(
     standing: str | None = Query(
         None, description="Only decisions with this standing (comma-separated allowed)"
     ),
+    outcome: str | None = Query(
+        None,
+        description="Only decisions with this review outcome (comma-separated allowed): "
+        "changes_requested, rejected, withdrawn",
+    ),
+    include_closed: bool = Query(
+        True, description="Also list closed decisions (rejected or withdrawn)"
+    ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adr.view")
     standings = adr_service.parse_standing_filter(standing)
+    outcomes = review_outcome.parse_outcome_filter(outcome)
     stmt = select(ArchitectureDecision).order_by(ArchitectureDecision.updated_at.desc())
 
     # Track whether we already joined the junction table
@@ -447,7 +477,12 @@ async def list_adrs(
         adr
         for adr in result.scalars().all()
         if adr_service.keep_in_list(
-            register, adr.id, include_earlier=include_earlier, standings=standings
+            register,
+            adr.id,
+            include_earlier=include_earlier,
+            standings=standings,
+            include_closed=include_closed,
+            outcomes=outcomes,
         )
     ]
 
@@ -573,11 +608,12 @@ async def update_adr(
 ):
     await PermissionService.require_permission(db, user, "adr.manage")
     adr = await _get_adr(db, adr_id)
-    adr_service.check_editable(adr.status, body.status, body.model_fields_set)
+    adr_service.check_editable(adr.status, body.status, body.model_fields_set, outcome=adr.outcome)
     # Replace-set; a caller without ``diagrams.view`` may only send [] (no-op).
     diagram_ids = await adr_diagram_service.resolve_diagram_ids(db, user, body.linked_diagram_ids)
     read_scope = await CardReadScope.load(db, user)
-    was_draft = adr.status == "draft"
+    # A closed draft changes filing only: no version is recorded.
+    was_draft = adr.status == "draft" and not review_outcome.is_closed(adr)
     # The content before this save touches the row: a draft's first recorded
     # save keeps it as the baseline version.
     before = await history.current_snapshot(db, document_collab.ADR, adr) if was_draft else None
@@ -687,9 +723,13 @@ async def delete_adr(
     if adr.status != "draft":
         raise HTTPException(400, "Only draft decisions can be deleted")
 
-    # Admin (adr.delete) can delete any draft; author needs adr.manage
+    # Admin (adr.delete) can delete any draft; author needs adr.manage. A
+    # closed decision (rejected or withdrawn) is a record of a review: only
+    # adr.delete removes it.
     has_delete = await PermissionService.check_permission(db, user, "adr.delete")
     if not has_delete:
+        if review_outcome.is_closed(adr):
+            raise HTTPException(403, "Only an admin can delete a rejected or withdrawn decision")
         if adr.created_by != user.id:
             raise HTTPException(403, "Only the author or an admin can delete a draft decision")
         await PermissionService.require_permission(db, user, "adr.manage")
@@ -740,6 +780,7 @@ async def request_signatures(
         # A second request during review would reset the signatures already
         # given and send everyone a second to-do.
         raise HTTPException(409, {"error": "not_draft"})
+    _refuse(review_outcome.closed_refusal(adr))
 
     refusal = adr_service.lock_refusal(await ds.load_register(db), adr)
     if refusal is not None:
@@ -765,6 +806,8 @@ async def request_signatures(
     adr.signatories = signatories
     flag_modified(adr, "signatories")
     adr.status = "in_review"
+    # Sent again: the changes asked for are taken as made.
+    review_outcome.clear_outcome(adr)
     await document_collab.on_workflow(
         db, document_collab.ADR, adr, "sent_for_review", user=user, signatories=signatories
     )
@@ -937,15 +980,7 @@ async def recall_adr_signatures(
         raise HTTPException(400, "Only decisions in review can have signatures recalled")
 
     # Close pending sign-request todos
-    sign_todos = await db.execute(
-        select(Todo).where(
-            Todo.is_system == True,  # noqa: E712
-            Todo.status == "open",
-            Todo.link == adr_service.decision_link(adr.id),
-        )
-    )
-    for t in sign_todos.scalars().all():
-        t.status = "done"
+    await _close_sign_todos(db, adr)
 
     # Notify pending signatories
     for sig in adr.signatories or []:
@@ -986,6 +1021,112 @@ async def recall_adr_signatures(
     return await _detail(db, adr, user)
 
 
+#: A signatory's verdict short of a signature: the outcome it records, the
+#: timeline step it writes (the event is ``adr.<step>``), and how the
+#: notification names it.
+_VERDICTS: dict[str, tuple[str, str, str]] = {
+    review_outcome.CHANGES_REQUESTED: (
+        "changes_requested",
+        "ADR Changes Requested",
+        "requested changes to",
+    ),
+    review_outcome.REJECTED: ("rejected", "ADR Rejected", "rejected"),
+}
+
+
+async def _review_verdict(
+    db: AsyncSession,
+    adr_id: str,
+    body: ADRRejectRequest,
+    user: User,
+    outcome: str,
+) -> ArchitectureDecision:
+    """End a review on a signatory's verdict: request changes or reject.
+
+    The shared body of both routes: a signatory holding ``adr.sign`` of a
+    decision in review. Signatories cleared, back to ``draft`` (the revision
+    number stays: revisions count signed versions), every open sign to-do
+    closed, the creator and the other signatories notified (``adr_rejected``,
+    ``data.outcome`` naming the verdict), ``outcome`` recorded, the timeline
+    step written (which opens a thread carrying the reason) and the event
+    published; the route commits.
+    """
+    step, title, verb = _VERDICTS[outcome]
+    await PermissionService.require_permission(db, user, "adr.sign")
+    adr = await _get_adr(db, adr_id)
+
+    if adr.status != "in_review":
+        raise HTTPException(400, "Only decisions in review can be rejected or sent back")
+
+    signatories = list(adr.signatories or [])
+    if not any(sig["user_id"] == str(user.id) for sig in signatories):
+        raise HTTPException(403, "You are not a signatory of this decision")
+
+    await _close_sign_todos(db, adr)
+
+    label = adr_service.decision_label(adr)
+    recipients = ([adr.created_by] if adr.created_by else []) + [
+        uuid.UUID(sig["user_id"]) for sig in signatories if sig["user_id"] != str(user.id)
+    ]
+    for recipient in recipients:
+        await notification_service.create_notification(
+            db,
+            user_id=recipient,
+            actor_id=user.id,
+            notif_type="adr_rejected",
+            title=title,
+            message=f'{user.display_name} {verb} "{label}": {body.comment}',
+            link=f"/ea-delivery/adr/{adr_id}",
+            data={
+                "adr_id": adr_id,
+                "adr_title": adr.title,
+                "comment": body.comment,
+                "outcome": outcome,
+            },
+        )
+
+    adr.signatories = []
+    flag_modified(adr, "signatories")
+    adr.status = "draft"
+    review_outcome.set_outcome(adr, outcome, user=user, note=body.comment)
+    await document_collab.on_workflow(
+        db, document_collab.ADR, adr, step, user=user, note=body.comment
+    )
+
+    payload: dict = {**_event_payload(adr, user), "outcome": outcome}
+    if outcome == review_outcome.REJECTED:
+        payload["rejector"] = user.display_name
+    await event_bus.publish(f"adr.{step}", payload, db=db, user_id=user.id)
+    return adr
+
+
+def _event_payload(adr: ArchitectureDecision, user: User) -> dict:
+    """The keys every review-outcome event carries."""
+    return {
+        "id": str(adr.id),
+        "reference_number": adr.reference_number,
+        "revision_number": adr.revision_number,
+        "title": adr.title,
+        "actor": user.display_name,
+    }
+
+
+@router.post("/{adr_id}/request-changes")
+async def request_adr_changes(
+    adr_id: str,
+    body: ADRRejectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Send the decision back for changes, as a signatory: an editable draft
+    again with outcome ``changes_requested`` (cleared when signatures are
+    requested again) and a ``change_request`` thread carrying the reason."""
+    adr = await _review_verdict(db, adr_id, body, user, review_outcome.CHANGES_REQUESTED)
+    await db.commit()
+    await db.refresh(adr)
+    return await _detail(db, adr, user)
+
+
 @router.post("/{adr_id}/reject")
 async def reject_adr(
     adr_id: str,
@@ -993,92 +1134,89 @@ async def reject_adr(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Reject the ADR as a signatory. Resets to draft (the revision number
-    stays: revisions count signed versions), clears all signatories, and
-    notifies the creator."""
-    await PermissionService.require_permission(db, user, "adr.sign")
+    """Reject the decision, as a signatory: it closes (outcome ``rejected``),
+    stays a draft that is locked until it is reopened, and a ``rejection``
+    thread carries the reason. Sending it back to be worked on is
+    ``request-changes``."""
+    adr = await _review_verdict(db, adr_id, body, user, review_outcome.REJECTED)
+    await db.commit()
+    await db.refresh(adr)
+    return await _detail(db, adr, user)
+
+
+@router.post("/{adr_id}/withdraw")
+async def withdraw_adr(
+    adr_id: str,
+    body: ADRRejectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Withdraw a draft or a decision in review (``adr.manage``): it closes
+    (outcome ``withdrawn``, the reason as its note) until it is reopened. In
+    review, the sign to-dos close and the pending signatories are told, as on
+    a recall. 400 when signed, 409 ``closed`` when already closed."""
+    await PermissionService.require_permission(db, user, "adr.manage")
     adr = await _get_adr(db, adr_id)
+    _refuse(review_outcome.withdraw_refusal(adr))
 
-    if adr.status != "in_review":
-        raise HTTPException(400, "Only decisions in review can be rejected")
-
-    signatories = list(adr.signatories or [])
-    if not any(sig["user_id"] == str(user.id) for sig in signatories):
-        raise HTTPException(403, "You are not a signatory of this decision")
-
-    # Close all pending sign-request todos
-    sign_todos = await db.execute(
-        select(Todo).where(
-            Todo.is_system == True,  # noqa: E712
-            Todo.status == "open",
-            Todo.link == adr_service.decision_link(adr.id),
-        )
-    )
-    for t in sign_todos.scalars().all():
-        t.status = "done"
-
-    # Notify the creator
-    if adr.created_by:
-        await notification_service.create_notification(
-            db,
-            user_id=adr.created_by,
-            actor_id=user.id,
-            notif_type="adr_rejected",
-            title="ADR Rejected",
-            message=(
-                f'{user.display_name} rejected "{adr_service.decision_label(adr)}": {body.comment}'
-            ),
-            link=f"/ea-delivery/adr/{adr_id}",
-            data={
-                "adr_id": adr_id,
-                "adr_title": adr.title,
-                "comment": body.comment,
-            },
-        )
-
-    # Notify other signatories
-    for sig in signatories:
-        if sig["user_id"] != str(user.id):
-            await notification_service.create_notification(
-                db,
-                user_id=uuid.UUID(sig["user_id"]),
-                actor_id=user.id,
-                notif_type="adr_rejected",
-                title="ADR Rejected",
-                message=(
-                    f"{user.display_name} rejected "
-                    f'"{adr_service.decision_label(adr)}": {body.comment}'
-                ),
-                link=f"/ea-delivery/adr/{adr_id}",
-                data={
-                    "adr_id": adr_id,
-                    "adr_title": adr.title,
-                    "comment": body.comment,
-                },
-            )
+    if adr.status == "in_review":
+        await _close_sign_todos(db, adr)
+        for sig in adr.signatories or []:
+            if sig["status"] == "pending":
+                await notification_service.create_notification(
+                    db,
+                    user_id=uuid.UUID(sig["user_id"]),
+                    actor_id=user.id,
+                    notif_type="adr_sign_recalled",
+                    title="ADR Withdrawn",
+                    message=(
+                        f"{user.display_name} withdrew "
+                        f'"{adr_service.decision_label(adr)}": {body.comment}'
+                    ),
+                    link=f"/ea-delivery/adr/{adr_id}",
+                    data={"adr_id": adr_id, "adr_title": adr.title, "outcome": "withdrawn"},
+                )
 
     adr.signatories = []
     flag_modified(adr, "signatories")
     adr.status = "draft"
+    review_outcome.set_outcome(adr, review_outcome.WITHDRAWN, user=user, note=body.comment)
     await document_collab.on_workflow(
-        db, document_collab.ADR, adr, "rejected", user=user, note=body.comment
+        db, document_collab.ADR, adr, "withdrawn", user=user, note=body.comment
     )
-
     await event_bus.publish(
-        "adr.rejected",
-        {
-            "id": adr_id,
-            "reference_number": adr.reference_number,
-            "revision_number": adr.revision_number,
-            "title": adr.title,
-            "rejector": user.display_name,
-        },
+        "adr.withdrawn",
+        {**_event_payload(adr, user), "outcome": review_outcome.WITHDRAWN},
         db=db,
         user_id=user.id,
     )
     await db.commit()
     await db.refresh(adr)
+    return await _detail(db, adr, user)
 
+
+@router.post("/{adr_id}/reopen")
+async def reopen_adr(
+    adr_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Reopen a rejected or withdrawn decision (``adr.manage``): a plain,
+    editable draft again. 409 ``not_closed`` otherwise."""
+    await PermissionService.require_permission(db, user, "adr.manage")
+    adr = await _get_adr(db, adr_id)
+    _refuse(review_outcome.reopen_refusal(adr))
+
+    review_outcome.clear_outcome(adr)
+    await document_collab.on_workflow(db, document_collab.ADR, adr, "reopened", user=user)
+    await event_bus.publish(
+        "adr.reopened",
+        {**_event_payload(adr, user), "outcome": None},
+        db=db,
+        user_id=user.id,
+    )
+    await db.commit()
+    await db.refresh(adr)
     return await _detail(db, adr, user)
 
 
@@ -1125,6 +1263,7 @@ async def record_adr(
     adr = await _get_adr(db, adr_id)
     if adr.status != "draft":
         raise HTTPException(409, {"error": "not_draft"})
+    _refuse(review_outcome.closed_refusal(adr))
 
     register = await ds.load_register(db)
     makers = (await decision_people_service.people_payload(db, [adr.id]))[adr.id]["decision_makers"]
@@ -1152,6 +1291,8 @@ async def record_adr(
         recorded_by=user.id,
         now=datetime.now(timezone.utc),
     )
+    # A recorded decision is locked: changes asked for earlier are settled.
+    review_outcome.clear_outcome(adr)
     await document_collab.on_workflow(db, document_collab.ADR, adr, "recorded", user=user)
 
     await adr_service.notify_standing_changed(db, adr, register, actor_id=user.id)
@@ -1250,7 +1391,7 @@ async def _get_adr_for_files(db: AsyncSession, adr_id: str) -> ArchitectureDecis
     """The decision whose files are changed: 404 when missing, 403 unless it is
     a draft (a decision in review or signed is locked, its files with it)."""
     adr = await _get_adr(db, adr_id)
-    adr_service.check_editable(adr.status, None, {"files"})
+    adr_service.check_editable(adr.status, None, {"files"}, outcome=adr.outcome)
     return adr
 
 
@@ -1412,7 +1553,7 @@ async def _get_adr_for_diagrams(db: AsyncSession, adr_id: str) -> ArchitectureDe
     """The decision whose diagram links change: 404 when missing, 403 once signed
     (draft and in review may change them, like ``linked_diagram_ids`` on PATCH)."""
     adr = await _get_adr(db, adr_id)
-    adr_service.check_editable(adr.status, None, {"linked_diagram_ids"})
+    adr_service.check_editable(adr.status, None, {"linked_diagram_ids"}, outcome=adr.outcome)
     return adr
 
 
@@ -1468,12 +1609,21 @@ async def list_adrs_for_card(
     standing: str | None = Query(
         None, description="Only decisions with this standing (comma-separated allowed)"
     ),
+    outcome: str | None = Query(
+        None,
+        description="Only decisions with this review outcome (comma-separated allowed): "
+        "changes_requested, rejected, withdrawn",
+    ),
+    include_closed: bool = Query(
+        True, description="Also list closed decisions (rejected or withdrawn)"
+    ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Get all ADRs linked to a specific card."""
     await PermissionService.require_permission(db, user, "adr.view")
     standings = adr_service.parse_standing_filter(standing)
+    outcomes = review_outcome.parse_outcome_filter(outcome)
     try:
         cid = uuid.UUID(card_id)
     except ValueError as exc:
@@ -1494,7 +1644,12 @@ async def list_adrs_for_card(
         adr
         for adr in result.scalars().all()
         if adr_service.keep_in_list(
-            register, adr.id, include_earlier=include_earlier, standings=standings
+            register,
+            adr.id,
+            include_earlier=include_earlier,
+            standings=standings,
+            include_closed=include_closed,
+            outcomes=outcomes,
         )
     ]
     return await _summaries(db, rows, register, user, with_creators=False)

@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.soaw import SoAW
-from app.services import document_collab
+from app.services import document_collab, review_outcome
 from app.services import revision_chain as rc
 
 #: The one field a PATCH may still change while a SoAW is in review: the
@@ -45,6 +45,8 @@ class SoAWRow:
     created_at: datetime
     name: str
     signed_at: datetime | None = None
+    # The review outcome (``services/review_outcome.py``); chains ignore it.
+    outcome: str | None = None
 
 
 @dataclass(frozen=True)
@@ -90,6 +92,7 @@ async def load_chains(db: AsyncSession) -> SoAWChains:
             SoAW.created_at,
             SoAW.name,
             SoAW.signed_at,
+            SoAW.outcome,
         )
     )
     return build(
@@ -101,6 +104,7 @@ async def load_chains(db: AsyncSession) -> SoAWChains:
             created_at=r.created_at,
             name=r.name,
             signed_at=r.signed_at,
+            outcome=r.outcome,
         )
         for r in result.all()
     )
@@ -145,7 +149,8 @@ def chain_fields(chains: SoAWChains, soaw_id: Any) -> dict[str, Any]:
 
 
 def revisions_payload(chains: SoAWChains, soaw_id: Any) -> list[dict[str, Any]]:
-    """The SoAW's chain in order: ``[{id, name, revision_number, status, signed_at}]``."""
+    """The SoAW's chain in order: ``[{id, name, revision_number, status,
+    signed_at, outcome}]`` (``outcome`` is the kind only)."""
     chain = chains.chain(soaw_id)
     if chain is None:
         return []
@@ -157,6 +162,7 @@ def revisions_payload(chains: SoAWChains, soaw_id: Any) -> list[dict[str, Any]]:
                 **_ref(row),
                 "status": row.status,
                 "signed_at": row.signed_at.isoformat() if row.signed_at else None,
+                "outcome": row.outcome,
             }
         )
     return out
@@ -170,8 +176,15 @@ def chain_ids(chains: SoAWChains, soaw_id: Any) -> list[Any]:
     return [n.id for n in chain.nodes]
 
 
-def keep_in_list(fields: dict[str, Any], *, include_earlier: bool) -> bool:
-    """Whether a list row survives ``include_earlier``: only earlier revisions drop."""
+def keep_in_list(
+    fields: dict[str, Any], *, include_earlier: bool, include_closed: bool = True
+) -> bool:
+    """Whether a list row survives ``include_earlier`` (an earlier revision
+    drops) and ``include_closed`` (a rejected or withdrawn SoAW drops)."""
+    outcome = fields.get("outcome")
+    kind = outcome.get("kind") if isinstance(outcome, dict) else None
+    if not review_outcome.keep_in_list(kind, include_closed=include_closed, outcomes=None):
+        return False
     return include_earlier or not fields["is_earlier_revision"]
 
 
@@ -195,21 +208,27 @@ def revise_refusal(chains: SoAWChains, soaw_id: Any) -> tuple[int, Any] | None:
     return None
 
 
-def content_editable(status: str) -> bool:
+def content_editable(status: str, outcome: str | None = None) -> bool:
     """Whether a SoAW in ``status`` may have its content edited: every status
-    but in review and signed (a draft, and the legacy ``approved``). The one
+    but in review and signed (a draft, and the legacy ``approved``), unless
+    its review ``outcome`` closed it (rejected or withdrawn). The one
     predicate behind the PATCH lock (:func:`update_refusal`), whether a save
     is recorded as a version and whether a version may be restored."""
-    return status not in (IN_REVIEW, SIGNED)
+    return status not in (IN_REVIEW, SIGNED) and not review_outcome.is_closed_kind(outcome)
 
 
 def update_refusal(
-    current_status: str, new_status: str | None, fields_set: Iterable[str]
+    current_status: str,
+    new_status: str | None,
+    fields_set: Iterable[str],
+    *,
+    outcome: str | None = None,
 ) -> tuple[int, str] | None:
     """``(status_code, message)`` when a PATCH must be refused, else ``None``.
 
     A signed SoAW refuses every edit. The status moves that have their own
-    endpoint keep their 400s. In review, only the filing fields may change.
+    endpoint keep their 400s. In review, or closed by its review ``outcome``,
+    only the filing fields may change.
     """
     if current_status == SIGNED:
         return 403, "Cannot edit a signed document. Create a new revision instead."
@@ -220,24 +239,33 @@ def update_refusal(
             return 400, "Use the request-signatures endpoint to send for review"
         if new_status == DRAFT and current_status == IN_REVIEW:
             return 400, "Use the recall-signatures endpoint to reset to draft"
-    if not content_editable(current_status) and set(fields_set) - REVIEW_EDITABLE_FIELDS:
-        return 403, ("A document in review is locked. Recall the signature requests to edit it.")
+    if set(fields_set) - REVIEW_EDITABLE_FIELDS:
+        if review_outcome.is_closed_kind(outcome):
+            return 403, review_outcome.closed_message("document", outcome)
+        if not content_editable(current_status):
+            return 403, "A document in review is locked. Recall the signature requests to edit it."
     return None
 
 
-def request_refusal(status: str) -> tuple[int, Any] | None:
-    """``(status_code, detail)`` when signatures may not be requested, else ``None``."""
+def request_refusal(status: str, outcome: str | None = None) -> tuple[int, Any] | None:
+    """``(status_code, detail)`` when signatures may not be requested, else
+    ``None``: a closed SoAW is 409 ``closed`` until it is reopened."""
     if status == SIGNED:
         return 400, "Document is already signed"
     if status == IN_REVIEW:
         return 409, {"error": "not_requestable"}
+    if review_outcome.is_closed_kind(outcome):
+        return 409, {"error": "closed", "outcome": outcome}
     return None
 
 
-def delete_refusal(status: str) -> tuple[int, str] | None:
-    """Only a draft SoAW can be deleted."""
+def delete_refusal(status: str, outcome: str | None = None) -> tuple[int, str] | None:
+    """Only a draft SoAW can be deleted, and not a closed one: SoAW has no
+    delete permission, so a rejected or withdrawn SoAW is reopened first."""
     if status != DRAFT:
         return 400, "Only draft documents can be deleted"
+    if review_outcome.is_closed_kind(outcome):
+        return 400, "A closed document cannot be deleted. Reopen it first."
     return None
 
 

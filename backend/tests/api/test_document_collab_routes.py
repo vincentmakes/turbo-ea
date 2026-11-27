@@ -290,15 +290,32 @@ class TestDecisionTimeline:
         adr = await _adr(client, env)
         base = f"{ADR}/{adr['id']}"
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
-        await _post(client, env, f"{base}/reject", who="one", json={"comment": "Needs numbers"})
+        await _post(
+            client, env, f"{base}/request-changes", who="one", json={"comment": "Needs numbers"}
+        )
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "two")})
         await _post(client, env, f"{base}/recall-signatures")
         assert await _timeline(client, env, ADR, adr["id"]) == [
             ("created", "Ada", None),
             ("sent_for_review", "Ada", None),
-            ("rejected", "One", "Needs numbers"),
+            ("changes_requested", "One", "Needs numbers"),
             ("sent_for_review", "Ada", None),
             ("recalled", "Ada", None),
+        ]
+
+    async def test_reject_reopen_and_withdraw(self, client, env):
+        adr = await _adr(client, env)
+        base = f"{ADR}/{adr['id']}"
+        await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
+        await _post(client, env, f"{base}/reject", who="one", json={"comment": "Too costly"})
+        await _post(client, env, f"{base}/reopen")
+        await _post(client, env, f"{base}/withdraw", json={"comment": "Superseded by talks"})
+        assert await _timeline(client, env, ADR, adr["id"]) == [
+            ("created", "Ada", None),
+            ("sent_for_review", "Ada", None),
+            ("rejected", "One", "Too costly"),
+            ("reopened", "Ada", None),
+            ("withdrawn", "Ada", "Superseded by talks"),
         ]
 
     async def test_a_reject_reason_is_capped(self, client, env):
@@ -383,15 +400,30 @@ class TestSoawTimeline:
         soaw = await _soaw(client, env)
         base = f"{SOAW}/{soaw['id']}"
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
-        await _post(client, env, f"{base}/reject", who="one", json={"comment": "Scope?"})
+        await _post(client, env, f"{base}/request-changes", who="one", json={"comment": "Scope?"})
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "two")})
         await _post(client, env, f"{base}/recall-signatures")
         assert await _timeline(client, env, SOAW, soaw["id"]) == [
             ("created", "Ada", None),
             ("sent_for_review", "Ada", None),
-            ("rejected", "One", "Scope?"),
+            ("changes_requested", "One", "Scope?"),
             ("sent_for_review", "Ada", None),
             ("recalled", "Ada", None),
+        ]
+
+    async def test_reject_reopen_and_withdraw(self, client, env):
+        soaw = await _soaw(client, env)
+        base = f"{SOAW}/{soaw['id']}"
+        await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
+        await _post(client, env, f"{base}/reject", who="one", json={"comment": "Scope?"})
+        await _post(client, env, f"{base}/reopen")
+        await _post(client, env, f"{base}/withdraw", json={"comment": "Not needed"})
+        assert await _timeline(client, env, SOAW, soaw["id"]) == [
+            ("created", "Ada", None),
+            ("sent_for_review", "Ada", None),
+            ("rejected", "One", "Scope?"),
+            ("reopened", "Ada", None),
+            ("withdrawn", "Ada", "Not needed"),
         ]
 
     async def test_a_reject_reason_is_capped(self, client, env):
@@ -549,7 +581,7 @@ class TestDecisionHooks:
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
         await _post(client, env, f"{base}/recall-signatures")
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
-        await _post(client, env, f"{base}/reject", who="one", json={"comment": "no"})
+        await _post(client, env, f"{base}/request-changes", who="one", json={"comment": "no"})
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
         await _post(client, env, f"{base}/sign", who="one")
         revision = await _post(client, env, f"{base}/revise")
@@ -558,7 +590,7 @@ class TestDecisionHooks:
             (uuid.UUID(adr["id"]), "sent_for_review"),
             (uuid.UUID(adr["id"]), "recalled"),
             (uuid.UUID(adr["id"]), "sent_for_review"),
-            (uuid.UUID(adr["id"]), "rejected"),
+            (uuid.UUID(adr["id"]), "changes_requested"),
             (uuid.UUID(adr["id"]), "sent_for_review"),
             (uuid.UUID(adr["id"]), "signature"),
             (uuid.UUID(adr["id"]), "signed"),
@@ -679,7 +711,7 @@ class TestSoawHooks:
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
         await _post(client, env, f"{base}/recall-signatures")
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
-        await _post(client, env, f"{base}/reject", who="one", json={"comment": "no"})
+        await _post(client, env, f"{base}/request-changes", who="one", json={"comment": "no"})
         await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
         await _post(client, env, f"{base}/sign", who="one")
         revision = await _post(client, env, f"{base}/revise")
@@ -688,7 +720,7 @@ class TestSoawHooks:
             (sid, "sent_for_review"),
             (sid, "recalled"),
             (sid, "sent_for_review"),
-            (sid, "rejected"),
+            (sid, "changes_requested"),
             (sid, "sent_for_review"),
             (sid, "signature"),
             (sid, "signed"),

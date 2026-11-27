@@ -68,7 +68,7 @@ class TestTimeline:
         await _call(
             client, env, "POST", f"{base}/request-signatures", json={"user_ids": _ids(env, "one")}
         )
-        await _call(client, env, "POST", f"{base}/reject", "one", json={"comment": "No"})
+        await _call(client, env, "POST", f"{base}/request-changes", "one", json={"comment": "No"})
         await _save(client, env, adr["id"], context="<p>v4</p>")
         await _call(
             client, env, "POST", f"{base}/request-signatures", json={"user_ids": _ids(env, "one")}
@@ -83,7 +83,7 @@ class TestTimeline:
             ("signature", "One", None, False),
             ("sent_for_review", "Ada", None, False),
             ("save", "Ada", None, True),
-            ("rejected", "One", "No", False),
+            ("changes_requested", "One", "No", False),
             ("sent_for_review", "Ada", None, False),
             ("save", "Ada", None, True),
             ("save", "Ada", None, True),

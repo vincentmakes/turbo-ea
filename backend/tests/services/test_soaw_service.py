@@ -30,6 +30,7 @@ def row(
     name: str = "Doc",
     minutes: int = 0,
     signed_at: datetime | None = None,
+    outcome: str | None = None,
 ) -> SoAWRow:
     return SoAWRow(
         id=rid,
@@ -39,6 +40,7 @@ def row(
         created_at=T0 + timedelta(minutes=minutes),
         name=name,
         signed_at=signed_at,
+        outcome=outcome,
     )
 
 
@@ -132,7 +134,7 @@ class TestRevisionsPayload:
     def test_the_chain_in_order_with_status_and_signed_at(self):
         chains = svc.build(
             [
-                row("b", 2, "draft", "a", name="New"),
+                row("b", 2, "draft", "a", name="New", outcome="withdrawn"),
                 row("a", 1, signed_at=SIGNED_AT),
             ]
         )
@@ -143,6 +145,7 @@ class TestRevisionsPayload:
                 "revision_number": 1,
                 "status": "signed",
                 "signed_at": "2026-02-03T04:05:00+00:00",
+                "outcome": None,
             },
             {
                 "id": "b",
@@ -150,6 +153,7 @@ class TestRevisionsPayload:
                 "revision_number": 2,
                 "status": "draft",
                 "signed_at": None,
+                "outcome": "withdrawn",
             },
         ]
         assert svc.revisions_payload(chains, "a") == expected
@@ -168,6 +172,21 @@ class TestKeepInList:
         assert svc.keep_in_list(earlier, include_earlier=False) is False
         assert svc.keep_in_list(other, include_earlier=False) is True
         assert svc.keep_in_list(other, include_earlier=True) is True
+
+    def test_closed_documents_drop_without_include_closed(self):
+        def fields(kind):
+            outcome = {"kind": kind, "at": None, "by": None, "note": None} if kind else None
+            return {"is_earlier_revision": False, "outcome": outcome}
+
+        for kind in ("rejected", "withdrawn"):
+            assert svc.keep_in_list(fields(kind), include_earlier=True) is True
+            assert (
+                svc.keep_in_list(fields(kind), include_earlier=True, include_closed=False) is False
+            )
+        for kind in ("changes_requested", None):
+            assert svc.keep_in_list(fields(kind), include_earlier=True, include_closed=False)
+        earlier = {"is_earlier_revision": True, "outcome": None}
+        assert svc.keep_in_list(earlier, include_earlier=False, include_closed=True) is False
 
 
 class TestReviseRefusal:
@@ -212,6 +231,13 @@ def test_content_is_editable_in_every_status_but_in_review_and_signed():
         assert svc.content_editable(status) is False
 
 
+def test_a_closed_draft_is_not_editable():
+    for outcome in ("rejected", "withdrawn"):
+        assert svc.content_editable("draft", outcome) is False
+    assert svc.content_editable("draft", "changes_requested") is True
+    assert svc.content_editable("draft", None) is True
+
+
 class TestUpdateRefusal:
     LOCKED = (403, "A document in review is locked. Recall the signature requests to edit it.")
 
@@ -248,6 +274,14 @@ class TestUpdateRefusal:
         assert svc.update_refusal("in_review", None, ["sections"]) == self.LOCKED
         assert svc.update_refusal("in_review", "approved", {"status"}) == self.LOCKED
 
+    def test_a_closed_draft_allows_the_initiative_only(self):
+        rejected = (403, "This document was rejected and is closed. Reopen it to edit it.")
+        withdrawn = (403, "This document was withdrawn and is closed. Reopen it to edit it.")
+        assert svc.update_refusal("draft", None, {"initiative_id"}, outcome="rejected") is None
+        assert svc.update_refusal("draft", None, {"sections"}, outcome="rejected") == rejected
+        assert svc.update_refusal("draft", None, {"name"}, outcome="withdrawn") == withdrawn
+        assert svc.update_refusal("draft", None, {"sections"}, outcome="changes_requested") is None
+
 
 class TestRequestAndDeleteRefusals:
     def test_request_signatures(self):
@@ -255,11 +289,25 @@ class TestRequestAndDeleteRefusals:
         assert svc.request_refusal("approved") is None
         assert svc.request_refusal("in_review") == (409, {"error": "not_requestable"})
         assert svc.request_refusal("signed") == (400, "Document is already signed")
+        for outcome in ("rejected", "withdrawn"):
+            assert svc.request_refusal("draft", outcome) == (
+                409,
+                {"error": "closed", "outcome": outcome},
+            )
+        assert svc.request_refusal("draft", "changes_requested") is None
 
     def test_delete_drafts_only(self):
         assert svc.delete_refusal("draft") is None
         for status in ("in_review", "approved", "signed"):
             assert svc.delete_refusal(status) == (400, "Only draft documents can be deleted")
+
+    def test_a_closed_draft_is_reopened_before_it_is_deleted(self):
+        for outcome in ("rejected", "withdrawn"):
+            assert svc.delete_refusal("draft", outcome) == (
+                400,
+                "A closed document cannot be deleted. Reopen it first.",
+            )
+        assert svc.delete_refusal("draft", "changes_requested") is None
 
 
 class TestLabels:
