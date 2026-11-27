@@ -3,7 +3,7 @@
  * the Relations-section tests can't reach: relation attributes set once and
  * applied to every card added afterwards.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -600,5 +600,173 @@ describe("AddRelationsDialog side (self-referencing relation types)", () => {
     await waitFor(() =>
       expect(within(dialog).getAllByText(/already linked/i).length).toBeGreaterThan(0),
     );
+  });
+});
+
+describe("AddRelationsDialog relation dates", () => {
+  /** A tracked type without attributes, so the dates are the only extra. */
+  const tracked = {
+    ...(rtWithAttrs as unknown as Record<string, unknown>),
+    attributes_schema: [],
+    lifecycle_enabled: true,
+  } as unknown as RelationType;
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.post).mockReset();
+    vi.mocked(api.patch).mockReset();
+    vi.mocked(api.get).mockResolvedValue({
+      items: [
+        { id: "org-a", name: "Finance", type: "Organization" },
+        { id: "org-b", name: "Legal", type: "Organization" },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 50,
+    } as never);
+    vi.mocked(api.post).mockImplementation(
+      async (_url: string, body: unknown) =>
+        ({ id: `rel-${(body as { target_id: string }).target_id}`, ...(body as object) }) as never,
+    );
+    vi.mocked(api.patch).mockImplementation(
+      async (url: string, body: unknown) => ({ id: url.split("/").pop(), ...(body as object) }) as never,
+    );
+  });
+
+  const datesToggle = (dialog: HTMLElement) =>
+    within(dialog).getByRole("button", { name: /Relation dates/ });
+
+  /** Type a date into a phase field and leave it, which is when it commits. */
+  async function setPhase(dialog: HTMLElement, label: string, value: string) {
+    const input = within(dialog).getByLabelText(label);
+    fireEvent.change(input, { target: { value } });
+    fireEvent.blur(input);
+  }
+
+  it("offers the dates only on a type that tracks lifecycle", async () => {
+    mountDialog();
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("Finance");
+    expect(within(dialog).queryByRole("button", { name: /Relation dates/ })).toBeNull();
+  });
+
+  it("is folded until opened, then shows one field per phase", async () => {
+    mountDialog({ relationType: tracked });
+    const dialog = await screen.findByRole("dialog");
+    const toggle = datesToggle(dialog);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(dialog).queryByLabelText("Active")).toBeNull();
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    for (const label of ["Plan", "Phase In", "Active", "Phase Out", "End of Life"]) {
+      expect(within(dialog).getByLabelText(label)).toBeInTheDocument();
+    }
+    expect(
+      within(dialog).getByText(/Applied to every card you add from here/),
+    ).toBeInTheDocument();
+  });
+
+  it("sends the dates with every relation added", async () => {
+    const { onAdded } = mountDialog({ relationType: tracked });
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(datesToggle(dialog));
+    const unset = getComputedStyle(datesToggle(dialog)).color;
+    await setPhase(dialog, "Active", "2027-03-01");
+    await setPhase(dialog, "End of Life", "2030-12-31");
+    // The folded block still shows that dates are set.
+    expect(getComputedStyle(datesToggle(dialog)).color).not.toBe(unset);
+    // Nothing added yet, so nothing to update.
+    expect(api.patch).not.toHaveBeenCalled();
+
+    await userEvent.click(await within(dialog).findByText("Finance"));
+    await waitFor(() => expect(within(dialog).getByText(/1 added/i)).toBeInTheDocument());
+    await userEvent.click(await within(dialog).findByText("Legal"));
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+    for (const call of vi.mocked(api.post).mock.calls) {
+      expect(call[1]).toMatchObject({ lifecycle: { active: "2027-03-01", endOfLife: "2030-12-31" } });
+    }
+    expect(onAdded.mock.calls[0][0].lifecycle).toEqual({
+      active: "2027-03-01",
+      endOfLife: "2030-12-31",
+    });
+  });
+
+  it("sends no dates when none were set", async () => {
+    mountDialog({ relationType: tracked });
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(await within(dialog).findByText("Finance"));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty("lifecycle");
+  });
+
+  it("applies dates set after the fact to the relations already added", async () => {
+    const onUpdated = vi.fn();
+    mountDialog({ relationType: tracked, onUpdated });
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(await within(dialog).findByText("Finance"));
+    await waitFor(() => expect(within(dialog).getByText(/1 added/i)).toBeInTheDocument());
+    await userEvent.click(await within(dialog).findByText("Legal"));
+    await waitFor(() => expect(within(dialog).getByText(/2 added/i)).toBeInTheDocument());
+
+    await userEvent.click(datesToggle(dialog));
+    await setPhase(dialog, "Plan", "2026-09-01");
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.patch).mock.calls.map((c) => c[0]).sort()).toEqual([
+      "/relations/rel-org-a",
+      "/relations/rel-org-b",
+    ]);
+    for (const call of vi.mocked(api.patch).mock.calls) {
+      expect(call[1]).toEqual({ lifecycle: { plan: "2026-09-01" } });
+    }
+    expect(onUpdated).toHaveBeenCalledTimes(2);
+
+    // Blanking the field clears the batch's dates again.
+    vi.mocked(api.patch).mockClear();
+    await setPhase(dialog, "Plan", "");
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(2));
+    for (const call of vi.mocked(api.patch).mock.calls) {
+      expect(call[1]).toEqual({ lifecycle: {} });
+    }
+  });
+
+  it("says why when applying the dates fails", async () => {
+    vi.mocked(api.patch).mockRejectedValue(new Error("Unknown lifecycle phase"));
+    mountDialog({ relationType: tracked });
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(await within(dialog).findByText("Finance"));
+    await waitFor(() => expect(within(dialog).getByText(/1 added/i)).toBeInTheDocument());
+    await userEvent.click(datesToggle(dialog));
+    await setPhase(dialog, "Active", "2027-03-01");
+    expect(await within(dialog).findByText("Unknown lifecycle phase")).toBeInTheDocument();
+  });
+
+  it("ignores dates for a type that does not track lifecycle", async () => {
+    // The type switching off under an open batch: dates already entered stay
+    // behind, since the type no longer offers them.
+    const props = {
+      open: true,
+      onClose: vi.fn(),
+      fsId: FS,
+      cardTypeKey: "Application",
+      isSource: true,
+      relations: [],
+      onAdded: vi.fn(),
+      onRemoved: vi.fn(),
+      onUpdated: vi.fn(),
+    };
+    const { rerender } = render(<AddRelationsDialog {...props} relationType={tracked} />);
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(datesToggle(dialog));
+    await setPhase(dialog, "Active", "2027-03-01");
+    rerender(
+      <AddRelationsDialog
+        {...props}
+        relationType={{ ...(tracked as object), lifecycle_enabled: false } as never}
+      />,
+    );
+    expect(within(dialog).queryByRole("button", { name: /Relation dates/ })).toBeNull();
+    await userEvent.click(await within(dialog).findByText("Finance"));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty("lifecycle");
   });
 });

@@ -198,6 +198,8 @@
   "relations.lifecycle.title": "Relation lifecycle",
   "relations.lifecycle.help": "When this relation is planned, in effect and ended. Leave every date empty for a relation that is always in effect.",
   "relations.lifecycle.clear": "Clear dates",
+  "relations.lifecycle.addDates": "Relation dates",
+  "relations.lifecycle.addDatesHelp": "Applied to every card you add from here, and to those already added. Leave every date empty for relations that are always in effect.",
   "relations.createAndAdd": "Create & Add",
   "relations.alreadyLinkedHint_one": "{{count}} already linked — hidden from this list",
   "relations.alreadyLinkedHint_other": "{{count}} already linked — hidden from this list",
