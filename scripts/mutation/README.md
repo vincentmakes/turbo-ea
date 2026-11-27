@@ -335,10 +335,26 @@ Each of these was found the hard way while wiring it up; keep them.
   `onError` called before the `finally` that re-enables a button; run 60's
   callback asserted unwaited after the commit whose effect calls it, which
   fails under the probe 3 runs of 5), and timing that goes through
-  `requestAnimationFrame` (run 61, TipTap's late focus, above). For a test
-  the nightly names that the probe does not fail, try
-  `RACE_PROBE_DELAY_MS=60 npm run test:race -- <file>` (above the 50 ms poll
-  of `waitFor`; it fails such a test often, not every run).
+  `requestAnimationFrame` (run 61, TipTap's late focus, above).
+- **The sweep is the nightly's view of the suite, in about half an hour.**
+  `cd frontend && npm run test:race:sweep` (`vitest.race-sweep.config.ts`)
+  holds React's work back 60 ms — above `waitFor`'s 50 ms poll, which a wait
+  that turns true later needs — with what Stryker's dry run loads: the
+  sandbox's 5 s wait and `MUTATION_SANDBOX=1`. A wait that only ran out of
+  the suite's 1 s budget passes there, so what fails is a wrong order, as in
+  the nightly. It is a diagnosis tool, run by hand, not a CI gate. A
+  whole-suite run at 60 ms (the earlier probe, the 1 s wait) failed 83 tests
+  in 35 files, 71 in 29 when re-run in sweep mode; the next night, run 69
+  went red on one of them (`MentionPopup`'s scroll on a key, a race in the
+  product). That list was re-swept file by file until it passed 3 runs of 3;
+  the whole suite has not been swept clean in one run. Each failure is one of three things: an early read, fixed
+  in the test; a race in the product, fixed with a regression test that
+  fails on the old code at any speed when it is small and clear, reported
+  otherwise; or an artifact of the delay, left alone with the reason
+  written down. The probe itself was one: it delayed every `setImmediate`
+  user, so fake timers' async ticks ran out of their 15 s; it now holds back
+  only React's scheduler. For a test the nightly names, run the sweep on
+  its file (`npm run test:race:sweep -- <file>`) before touching it.
 - **A re-run re-tests the same commit.** A scheduled run takes its snapshot
   when it starts, and "Re-run failed jobs" tests that snapshot again: run 68
   failed on a test fixed on `main` an hour after the snapshot, and its re-run

@@ -14,14 +14,16 @@
 // Stryker's instrumented runs (several times slower) it lost often enough to
 // turn the mutation nightly red on run 68 (RelationsSection.lifecycle).
 //
-// The probe. It replaces `setImmediate` before React is loaded, so React's
-// scheduler captures this wrapper, which runs every callback RACE_PROBE_DELAY_MS
-// later on the REAL `setTimeout` captured here at load — so a test's
-// `vi.useFakeTimers()` cannot freeze React's work (React's scheduler never saw
-// the fake clock without the probe either). React's work moves from Node's
-// check phase into the timer queue, behind Testing Library's zero-delay timer:
-// a correct test, which waits for the DOM it reads, passes as before; one that
-// reads before React committed fails every time (RelationsSection.lifecycle
+// The probe. It replaces `setImmediate`, loads React (react-dom and the
+// scheduler it requires), so the scheduler captures the wrapper, and puts the
+// real functions back for everyone else (`probeReactScheduler`). Only React's
+// work is held back: each of its callbacks runs RACE_PROBE_DELAY_MS later on
+// the REAL `setTimeout` captured here at load, so a test's
+// `vi.useFakeTimers()` cannot freeze it (React's scheduler never saw the fake
+// clock without the probe either). React's work moves from Node's check phase
+// into the timer queue, behind Testing Library's zero-delay timer: a correct
+// test, which waits for the DOM it reads, passes as before; one that reads
+// before React committed fails every time (RelationsSection.lifecycle
 // .test.tsx at 5ad9c27: its five early reads fail 5 runs of 5, at 0, 1 and
 // 2 ms alike). `clearImmediate` is wrapped to match.
 //
@@ -29,15 +31,18 @@
 // timer; 2 also orders a commit posted just before Testing Library's timer
 // behind it. The whole suite costs about what `vitest run` does.
 //
-// What it does not force. A `waitFor` that turns true LATER (a callback called
-// mid-way through a save, a `finally` that re-enables a button) is judged by
-// whichever check — its 50 ms poll, or a DOM mutation — comes first after the
-// call. Only a delay above that poll interval makes React lose that race too,
-// and even then not every run (60 ms: the failing set varied run to run, the
-// suite took twice as long). For a sweep, raise it from the environment:
-// `RACE_PROBE_DELAY_MS=60 npm run test:race -- <file>`. Run 60's test (a
-// callback asserted, unwaited, after the commit whose passive effect calls it:
-// DocumentSidePanel.test.tsx before f67254f) fails 3 runs of 5 here, not 5.
+// What 2 ms does not force. A `waitFor` that turns true LATER (a callback
+// called mid-way through a save, a `finally` that re-enables a button) is
+// judged by whichever check — its 50 ms poll, or a DOM mutation — comes first
+// after the call. Only a delay above that poll makes React lose that race
+// too, mostly but not every run. That is the sweep mode
+// (vitest.race-sweep.config.ts, `npm run test:race:sweep`): 60 ms, with the
+// nightly's 5 s wait. A whole-suite run at 60 ms (the earlier probe, the
+// 1 s wait) failed 83 tests in 35 files, 71 in 29 once re-run in sweep mode;
+// one of them turned nightly run 69 red the next night (MentionPopup's scroll
+// on a key, a product race). It is run by hand, on files; not a CI gate. Run 60's test (a callback asserted,
+// unwaited, after the commit whose passive effect calls it:
+// DocumentSidePanel.test.tsx before f67254f) fails 3 runs of 5 at 2 ms.
 // Timing that goes through `requestAnimationFrame` (run 61: TipTap focuses a
 // frame late) is not touched at all.
 //

@@ -8,6 +8,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import raceConfig, { RACE_PROBE_SETUP } from "../../vitest.race.config";
+import sweepConfig, { SWEEP_DELAY_MS } from "../../vitest.race-sweep.config";
 import { RACE_PROBE_DELAY_MS, installRaceProbe, probeDelay, probeReactScheduler } from "./raceProbe";
 
 // Node's own functions: tests below swap the globals on purpose, and
@@ -165,5 +166,23 @@ describe("vitest.race.config.ts", () => {
   it("measures no coverage and keeps the suite's include", () => {
     expect(raceConfig.test?.coverage?.enabled).toBe(false);
     expect(raceConfig.test?.include).toEqual(["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"]);
+  });
+});
+
+describe("vitest.race-sweep.config.ts", () => {
+  it("is the race config held back past waitFor's poll, with what Stryker's dry run loads", () => {
+    expect(SWEEP_DELAY_MS).toBe("60");
+    // probe first, then the base setup, then the sandbox's 5 s wait, as in
+    // vitest.stryker.config.ts
+    expect(sweepConfig.test?.setupFiles).toEqual([
+      RACE_PROBE_SETUP,
+      "./src/test/setup.ts",
+      "./src/test/mutationSandbox.ts",
+    ]);
+    expect(sweepConfig.test?.env).toEqual({ RACE_PROBE_DELAY_MS: "60", MUTATION_SANDBOX: "1" });
+    expect(sweepConfig.test?.coverage?.enabled).toBe(false);
+    // Nothing is left out: the same files as the suite.
+    expect(sweepConfig.test?.include).toEqual(raceConfig.test?.include);
+    expect(sweepConfig.test?.exclude).toEqual(raceConfig.test?.exclude);
   });
 });
