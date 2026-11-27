@@ -161,6 +161,9 @@ services:
       MCP_ALLOW_EXTENSION_DESTRUCTIVE: ${MCP_ALLOW_EXTENSION_DESTRUCTIVE:-false}
       # Strings submit_translations may send to a custom language in one call.
       MCP_MAX_TRANSLATIONS_PER_CALL: ${MCP_MAX_TRANSLATIONS_PER_CALL:-2000}
+      # Rows one PPM write tool (work packages, tasks, status reports, project
+      # risks, dependency links) may write in one call.
+      MCP_MAX_PPM_ROWS_PER_CALL: ${MCP_MAX_PPM_ROWS_PER_CALL:-200}
       # Extra Host names / browser origins the MCP endpoint accepts beyond the
       # two public URLs, and static OAuth redirect URIs. Empty = none.
       MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-}
