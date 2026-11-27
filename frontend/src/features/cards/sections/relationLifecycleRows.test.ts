@@ -63,6 +63,18 @@ describe("outlastsCard", () => {
     expect(outlastsCard({ endOfLife: "2027-06-29" }, card)).toBe(false);
   });
 
+  it("reads a relation end that is not a date as no end, even one starting with a digit", () => {
+    // "1bad" would sort before the card's date as text; it must not be read as an end.
+    expect(outlastsCard({ endOfLife: "1bad" }, { endOfLife: "2027-06-30" })).toBe(true);
+    expect(outlastsCard({ endOfLife: "" }, { endOfLife: "2027-06-30" })).toBe(true);
+  });
+
+  it("compares the card's End of Life by its day as well", () => {
+    const card = { endOfLife: "2027-06-30T09:00:00Z" };
+    expect(outlastsCard({ endOfLife: "2027-06-30" }, card)).toBe(false);
+    expect(outlastsCard({ endOfLife: "2027-07-01" }, card)).toBe(true);
+  });
+
   it("compares the day only", () => {
     expect(outlastsCard({ endOfLife: "2027-06-30T23:00:00Z" }, { endOfLife: "2027-06-30" })).toBe(false);
   });
@@ -130,6 +142,12 @@ describe("groupRelationLifecycles", () => {
     const [g] = groupRelationLifecycles({ ...base, relations: [named, bare], relationTypes: [USES] });
     expect(g.rows.map((r) => r.relation.id)).toEqual([bare.id, named.id]);
     expect(g.rows[0].other).toBeUndefined();
+    // Whichever side of the comparison the missing end lands on.
+    const alpha = rel("uses", ME, ["w", "alpha", "ITComponent"], CURRENT);
+    for (const order of [[named, alpha, bare], [bare, named, alpha], [alpha, bare, named]]) {
+      const [h] = groupRelationLifecycles({ ...base, relations: order, relationTypes: [USES] });
+      expect(h.rows.map((r) => r.relation.id)).toEqual([bare.id, alpha.id, named.id]);
+    }
   });
 });
 

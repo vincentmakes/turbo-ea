@@ -34,6 +34,7 @@ import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType, makeField, makeRelationType, makeSection } from "@/test/fixtures/metamodel";
 import { wrapWithProviders } from "@/test/render";
+import { LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
 import LifecycleReport from "./LifecycleReport";
 import { extractSheetsFromDOM } from "./reportExport";
 
@@ -50,7 +51,11 @@ function axis(...dates: string[]) {
 }
 
 const APP = makeCardType({ key: "Application", label: "Application" });
-const ITC = makeCardType({ key: "ITComponent", label: "IT Component" });
+const ITC = makeCardType({
+  key: "ITComponent",
+  label: "IT Component",
+  color: LIFECYCLE_PHASE_COLORS.phaseOut,
+});
 const CONTRACT = makeCardType({
   key: "Contract",
   label: "Contract",
@@ -495,5 +500,53 @@ describe("LifecycleReport relation rows", () => {
       if (desc) Object.defineProperty(HTMLElement.prototype, "scrollWidth", desc);
       else delete (HTMLElement.prototype as { scrollWidth?: number }).scrollWidth;
     }
+  });
+
+  it("draws a relation row's dot in the other card type's colour", async () => {
+    renderReport();
+    await screen.findByText("Hub", undefined, LONG);
+    fireEvent.click(chevron("Hub")!);
+    const dot = chart().names[1].firstElementChild!;
+    const n = parseInt(LIFECYCLE_PHASE_COLORS.phaseOut.slice(1), 16);
+    expect(getComputedStyle(dot).backgroundColor).toBe(
+      `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`,
+    );
+  });
+
+  it("does not widen the axis with relation dates in the date-range view", async () => {
+    mockApi.on("get", "/reports/roadmap?type=Contract", {
+      items: [
+        {
+          id: "k1",
+          name: "Kilo",
+          type: "Contract",
+          lifecycle: {},
+          attributes: { startDate: "2024-01-15", endDate: "2027-01-15" },
+          relation_lifecycles: [
+            { ...HUB.relation_lifecycles[0], related_name: "Far Server", lifecycle: { active: "2045-06-15" } },
+          ],
+        },
+      ],
+    });
+    storeConfig({ cardTypeKey: "Contract" });
+    renderReport();
+    await screen.findByText("Kilo", undefined, LONG);
+    // Phase view: the relation's 2045 date stretches the axis.
+    const wide = axis("2045-06-15");
+    expect(widthOf(chart().content)).toBeCloseTo((wide.range / (2 * FIVE_YEARS)) * 100, 6);
+    fireEvent.click(screen.getByRole("checkbox", { name: /date range view/i }));
+    // Date-range view: relation rows are off, so their dates do not count.
+    await waitFor(() => expect(widthOf(chart().content)).toBeCloseTo(100, 6));
+  });
+
+  it("mutes an ended relation's table row and leaves the others as they are", async () => {
+    storeConfig({ view: "table", relToggledIds: ["hub"] });
+    renderReport();
+    await screen.findByRole("table", undefined, LONG);
+    const rows = screen.getAllByRole("row").slice(1);
+    // Hub, then Alpha (ended), Peer (in effect), Zeta (planned).
+    expect(getComputedStyle(rows[1]).opacity).toBe("0.6");
+    expect(getComputedStyle(rows[2]).opacity).toBe("1");
+    expect(getComputedStyle(rows[3]).opacity).toBe("1");
   });
 });

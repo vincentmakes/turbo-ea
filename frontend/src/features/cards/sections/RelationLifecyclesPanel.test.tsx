@@ -19,12 +19,23 @@ import { api } from "@/api/client";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType, makeRelationType } from "@/test/fixtures/metamodel";
 import type { Relation } from "@/types";
+import { LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
 import RelationLifecyclesPanel from "./RelationLifecyclesPanel";
+
+/** `#rrggbb` as the `rgb(r, g, b)` a computed style reports. */
+function hexToRgb(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+}
 
 const NOW = Date.parse("2026-07-01T12:00:00.000Z");
 
 const APP = makeCardType({ key: "Application", label: "Application" });
-const ITC = makeCardType({ key: "ITComponent", label: "IT Component" });
+const ITC = makeCardType({
+  key: "ITComponent",
+  label: "IT Component",
+  color: LIFECYCLE_PHASE_COLORS.phaseOut,
+});
 const ORG = makeCardType({ key: "Organization", label: "Organization" });
 const RUNS_ON = makeRelationType({
   key: "runsOn",
@@ -380,5 +391,130 @@ describe("RelationLifecyclesPanel", () => {
     await act(async () => resolveFirst([BOX]));
     expect(names()).toEqual(["Next Server"]);
     expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("hides the panel when a reload fails after a successful load", async () => {
+    vi.mocked(api.get)
+      .mockResolvedValueOnce([BOX] as never)
+      .mockRejectedValueOnce(new Error("gone") as never);
+    const { rerender } = renderPanel({ refreshKey: 0 });
+    await panel();
+    rerender(
+      <MemoryRouter>
+        <RelationLifecyclesPanel
+          cardId="me"
+          cardTypeKey="Application"
+          cardLifecycle={CARD_LC}
+          canManageRelations
+          refreshKey={1}
+        />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("relation-lifecycles")).toBeNull());
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps what it shows when a reload is aborted", async () => {
+    const abort = Object.assign(new Error("aborted"), { name: "AbortError" });
+    vi.mocked(api.get)
+      .mockResolvedValueOnce([BOX] as never)
+      .mockRejectedValueOnce(abort as never);
+    const { rerender } = renderPanel({ refreshKey: 0 });
+    await panel();
+    rerender(
+      <MemoryRouter>
+        <RelationLifecyclesPanel
+          cardId="me"
+          cardTypeKey="Application"
+          cardLifecycle={CARD_LC}
+          canManageRelations
+          refreshKey={1}
+        />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+    expect(names()).toEqual(["Box Server"]);
+  });
+
+  it("ignores a failure that lands after a newer load", async () => {
+    let rejectFirst: (e: unknown) => void = () => {};
+    vi.mocked(api.get)
+      .mockImplementationOnce(() => new Promise((_, rej) => (rejectFirst = rej)) as never)
+      .mockResolvedValueOnce([NEXT] as never);
+    const { rerender } = renderPanel({ refreshKey: 0 });
+    rerender(
+      <MemoryRouter>
+        <RelationLifecyclesPanel
+          cardId="me"
+          cardTypeKey="Application"
+          cardLifecycle={CARD_LC}
+          canManageRelations
+          refreshKey={1}
+        />
+      </MemoryRouter>,
+    );
+    await panel();
+    await act(async () => rejectFirst(new Error("late")));
+    expect(names()).toEqual(["Next Server"]);
+  });
+
+  it("draws each row's dot in its card type's colour", async () => {
+    vi.mocked(api.get).mockResolvedValue([BOX] as never);
+    renderPanel();
+    await panel();
+    const row = screen.getByText("Box Server").closest("[data-relation-lifecycle-row]")!;
+    const link = within(row as HTMLElement).getByRole("link", { name: /Box Server/ });
+    expect(getComputedStyle(link.firstElementChild!).backgroundColor).toBe(
+      hexToRgb(LIFECYCLE_PHASE_COLORS.phaseOut),
+    );
+  });
+
+  it("names a row whose far card is not embedded as unknown", async () => {
+    const bare: Relation = { ...BOX, id: "bare", target: undefined };
+    vi.mocked(api.get).mockResolvedValue([bare] as never);
+    renderPanel();
+    await panel();
+    expect(names()).toEqual(["Unknown"]);
+    expect(screen.queryByRole("link", { name: /Unknown/ })).toBeNull();
+    expect(screen.getByLabelText("Unknown \u00B7 Active: 2025-01-01")).toBeInTheDocument();
+  });
+
+  it("never flags an ended relation, even one that ended after the card's End of Life", async () => {
+    // The card retired in 2015; the ended relation ran to 2024, the current one runs on.
+    vi.mocked(api.get).mockResolvedValue([OLD, BOX] as never);
+    renderPanel({ cardLifecycle: { active: "2010-01-01", endOfLife: "2015-01-01" } });
+    await panel();
+    fireEvent.click(screen.getByRole("button", { name: /Show ended \(1\)/ }));
+    const flags = screen.getAllByRole("img", { name: /Still in effect after this card's End of Life/ });
+    expect(flags).toHaveLength(1);
+    const boxRow = screen.getByText("Box Server").closest("[data-relation-lifecycle-row]")!;
+    expect(boxRow).toContainElement(flags[0]);
+  });
+
+  it("mutes an ended relation's bar row and leaves an in-effect one as is", async () => {
+    vi.mocked(api.get).mockResolvedValue([BOX, OLD] as never);
+    renderPanel();
+    await panel();
+    fireEvent.click(screen.getByRole("button", { name: /Show ended \(1\)/ }));
+    // Timeline children: axis, This card, the group heading, one row per
+    // relation (Box, then Old), the Today label, the Today line.
+    const timeline = screen.getByTestId("relation-lifecycles-timeline");
+    const [, , , boxRow, oldRow] = Array.from(timeline.children) as HTMLElement[];
+    expect(within(boxRow).getByLabelText("Box Server \u00B7 Active: 2025-01-01")).toBeInTheDocument();
+    expect(within(oldRow).getByLabelText("Old Server \u00B7 Active: 2019-01-01")).toBeInTheDocument();
+    expect(getComputedStyle(boxRow).opacity).toBe("1");
+    expect(getComputedStyle(oldRow).opacity).toBe("0.5");
+  });
+
+  it("offers Show all without Show ended when nothing has ended", async () => {
+    const many = Array.from({ length: 9 }, (_, i) =>
+      rel("runsOn", ME, itc(`m${i}`, `Machine ${i}`), CURRENT),
+    );
+    vi.mocked(api.get).mockResolvedValue(many as never);
+    renderPanel();
+    await panel();
+    expect(screen.getByRole("button", { name: "Show all 9" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Show ended|Hide ended/ })).toBeNull();
   });
 });

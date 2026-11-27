@@ -1362,6 +1362,92 @@ class TestRoadmapRelationLifecycles:
         )
         assert resp.status_code == 403
 
+    async def test_an_archived_source_drops_the_relation_from_both_ends(
+        self, client, db, dated_env
+    ):
+        """The archived card is the SOURCE here: the existing fixture only
+        archives a target, so this is the source end's ACTIVE condition."""
+        from tests.relation_windows import WINDOWS
+
+        retired = await create_card(
+            db,
+            card_type="Application",
+            name="Retired Sender",
+            status="ARCHIVED",
+            lifecycle={"active": "2015-01-01"},
+        )
+        box = await create_card(db, card_type="ITComponent", name="Orphan Box")
+        await create_relation(
+            db,
+            type_key="app_to_itc",
+            source_id=retired.id,
+            target_id=box.id,
+            lifecycle=WINDOWS["current"],
+        )
+        for params in ({}, {"type": "ITComponent"}, {"type": "Application"}):
+            data = (await _roadmap(client, dated_env["admin"], **params)).json()
+            # Neither card is listed (the target has no other dates), and no
+            # card's dated relations name either of them.
+            assert {"Retired Sender", "Orphan Box"}.isdisjoint(_by_name(data))
+            rows = json.dumps([i.get("relation_lifecycles") for i in data["items"]])
+            assert "Retired Sender" not in rows
+            assert "Orphan Box" not in rows
+
+    async def test_a_source_of_a_hidden_card_type_drops_the_relation(self, client, db, dated_env):
+        """The hidden card type is the SOURCE type here (the fixture hides a
+        target type only)."""
+        from tests.relation_windows import WINDOWS
+
+        await create_card_type(db, key="Ghost", label="Ghost", is_hidden=True)
+        await create_relation_type(
+            db,
+            key="ghost_to_itc",
+            label="haunts",
+            source_type_key="Ghost",
+            target_type_key="ITComponent",
+        )
+        ghost = await create_card(db, card_type="Ghost", name="Ghost Sender")
+        box = await create_card(db, card_type="ITComponent", name="Haunted Box")
+        await create_relation(
+            db,
+            type_key="ghost_to_itc",
+            source_id=ghost.id,
+            target_id=box.id,
+            lifecycle=WINDOWS["current"],
+        )
+        for params in ({}, {"type": "ITComponent"}):
+            data = (await _roadmap(client, dated_env["admin"], **params)).json()
+            assert {"Ghost Sender", "Haunted Box"}.isdisjoint(_by_name(data))
+            rows = json.dumps([i.get("relation_lifecycles") for i in data["items"]])
+            assert "Ghost Sender" not in rows
+            assert "Haunted Box" not in rows
+
+    async def test_a_reports_only_role_reads_both_ends_in_module_mode(self, client, db, dated_env):
+        """No ``inventory.view`` and no View cell: module mode reads the whole
+        landscape, inventory mode would read nothing — so each end of the
+        relation must be scoped in module mode for the rows to appear."""
+        from tests.relation_windows import WINDOWS
+
+        await create_role(
+            db,
+            key="reports_only",
+            label="Reports only",
+            permissions={"reports.ea_dashboard": True},
+        )
+        reader = await create_user(db, email="reportsonly@reports-ext.com", role="reports_only")
+        itcs = dated_env["itcs"]
+        for params in ({}, {"type": "Application"}):
+            items = _by_name((await _roadmap(client, reader, **params)).json())
+            # Hub is the SOURCE of its dated relations: they need the target
+            # (the IT Components) read in module mode.
+            assert items["Hub"]["relation_lifecycles"] == _hub_entries(dated_env)
+        items = _by_name((await _roadmap(client, reader, type="ITComponent")).json())
+        # Each IT Component is the TARGET: its row needs the source (Hub) read
+        # in module mode.
+        assert set(items) == {card.name for card in itcs.values()}
+        assert items["beta Current"]["relation_lifecycles"][0]["related_name"] == "Hub"
+        assert items["beta Current"]["relation_lifecycles"][0]["lifecycle"] == WINDOWS["current"]
+
     async def test_a_peer_the_reader_may_not_see_never_leaks(self, client, db, dated_env):
         from app.services.permission_service import PermissionService
 

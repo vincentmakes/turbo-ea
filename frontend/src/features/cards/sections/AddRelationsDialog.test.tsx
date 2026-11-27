@@ -56,7 +56,14 @@ vi.mock("@/hooks/useMetamodel", () => ({
 
 import { api } from "@/api/client";
 import type { Relation, RelationType } from "@/types";
+import { createTheme } from "@mui/material/styles";
 import AddRelationsDialog from "./AddRelationsDialog";
+
+/** `#rrggbb` as the `rgb(r, g, b)` a computed style reports. */
+function hexToRgb(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+}
 
 const FS = "app-1";
 
@@ -768,6 +775,57 @@ describe("AddRelationsDialog relation dates", () => {
       { lifecycle: { active: "2027-03-01", endOfLife: "2030-12-31" } },
       { lifecycle: { active: "2027-03-01", endOfLife: "2030-12-31" } },
     ]);
+  });
+
+  it("starts every opening with empty, folded dates", async () => {
+    const props = {
+      onClose: vi.fn(),
+      fsId: FS,
+      cardTypeKey: "Application",
+      isSource: true,
+      relations: [],
+      onAdded: vi.fn(),
+      onRemoved: vi.fn(),
+      onUpdated: vi.fn(),
+      relationType: tracked,
+    };
+    const { rerender } = render(<AddRelationsDialog open {...props} />);
+    let dialog = await screen.findByRole("dialog");
+    await userEvent.click(datesToggle(dialog));
+    await setPhase(dialog, "Active", "2027-03-01");
+    expect(within(dialog).getByLabelText("Active")).toHaveValue("2027-03-01");
+    rerender(<AddRelationsDialog open={false} {...props} />);
+    rerender(<AddRelationsDialog open {...props} />);
+    dialog = await screen.findByRole("dialog");
+    expect(datesToggle(dialog)).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(datesToggle(dialog));
+    expect(within(dialog).getByLabelText("Active")).toHaveValue("");
+    await userEvent.click(await within(dialog).findByText("Finance"));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty("lifecycle");
+  });
+
+  it("shows the generic message when applying the dates fails without one", async () => {
+    vi.mocked(api.patch).mockRejectedValue("boom");
+    mountDialog({ relationType: tracked });
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(await within(dialog).findByText("Finance"));
+    await waitFor(() => expect(within(dialog).getByText(/1 added/i)).toBeInTheDocument());
+    await userEvent.click(datesToggle(dialog));
+    await setPhase(dialog, "Active", "2027-03-01");
+    expect(await within(dialog).findByText("Failed to create relation")).toBeInTheDocument();
+  });
+
+  it("colours the dates toggle as the primary colour once dates are set, secondary while empty", async () => {
+    const theme = createTheme();
+    mountDialog({ relationType: tracked });
+    const dialog = await screen.findByRole("dialog");
+    expect(getComputedStyle(datesToggle(dialog)).color).toBe(theme.palette.text.secondary);
+    await userEvent.click(datesToggle(dialog));
+    await setPhase(dialog, "Active", "2027-03-01");
+    expect(getComputedStyle(datesToggle(dialog)).color).toBe(hexToRgb(theme.palette.primary.main));
+    await setPhase(dialog, "Active", "");
+    expect(getComputedStyle(datesToggle(dialog)).color).toBe(theme.palette.text.secondary);
   });
 
   it("says why when applying the dates fails", async () => {

@@ -42,7 +42,10 @@ vi.mock("@/features/cards/sections/SoAWTab", () => ({ default: () => null }));
 vi.mock("@/features/cards/sections", async () => {
   const stub = () => null;
   return {
-    AttributeSection: stub,
+    // A custom section that changes a relation (a relation-typed field).
+    AttributeSection: ({ onRelationChange }: { onRelationChange?: () => void }) => (
+      <button onClick={onRelationChange}>attribute relation changed</button>
+    ),
     DescriptionSection: stub,
     // The footer is what the Lifecycle section is handed; render it as given.
     LifecycleSection: ({ footer }: { footer?: React.ReactNode }) => (
@@ -111,7 +114,7 @@ const APP_TYPE = {
   color: "#0f7eb5",
   has_hierarchy: false,
   subtypes: [],
-  fields_schema: [],
+  fields_schema: [{ section: "Ownership", fields: [{ key: "owner", label: "Owner", type: "text" }] }],
   section_config: {},
 };
 
@@ -137,11 +140,17 @@ const perms = {
 
 const refreshed = { ...card, data_quality: 80 } as unknown as Card;
 
-function renderContent() {
+function renderContent(onSaveOrigin?: (anchor: string) => void) {
   const onCardUpdate = vi.fn();
   render(
     <MemoryRouter>
-      <CardDetailContent card={card} perms={perms} onCardUpdate={onCardUpdate} showLdvSection={false} />
+      <CardDetailContent
+        card={card}
+        perms={perms}
+        onCardUpdate={onCardUpdate}
+        onSaveOrigin={onSaveOrigin}
+        showLdvSection={false}
+      />
     </MemoryRouter>,
   );
   return onCardUpdate;
@@ -201,5 +210,26 @@ describe("CardDetailContent — relation lifecycles", () => {
     expect(cardFetches()).toBe(1);
     fireEvent.click(screen.getByRole("button", { name: "panel changed" }));
     await waitFor(() => expect(refreshOf("relations-section")).toBe("2"));
+  });
+
+  it("names the Lifecycle section as where a panel save came from", async () => {
+    const onSaveOrigin = vi.fn();
+    const onCardUpdate = renderContent(onSaveOrigin);
+    await screen.findByTestId("relation-lifecycles-panel");
+    fireEvent.click(screen.getByRole("button", { name: "panel changed" }));
+    await waitFor(() => expect(onCardUpdate).toHaveBeenCalledWith(refreshed));
+    expect(onSaveOrigin).toHaveBeenCalledWith("card-section-lifecycle");
+    expect(onSaveOrigin).toHaveBeenCalledTimes(1);
+  });
+
+  it("reloads both the Relations section and the panel when a section's relation field changes", async () => {
+    renderContent();
+    await screen.findByTestId("relation-lifecycles-panel");
+    fireEvent.click(screen.getByRole("button", { name: "attribute relation changed" }));
+    await waitFor(() => expect(refreshOf("relations-section")).toBe("1"));
+    expect(refreshOf("relation-lifecycles-panel")).toBe("1");
+    fireEvent.click(screen.getByRole("button", { name: "attribute relation changed" }));
+    await waitFor(() => expect(refreshOf("relations-section")).toBe("2"));
+    expect(refreshOf("relation-lifecycles-panel")).toBe("2");
   });
 });
