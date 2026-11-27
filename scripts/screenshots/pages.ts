@@ -480,6 +480,13 @@ export const DOC_PAGES: PageDef[] = [
     ],
     filenames: {
       en: "106_card_relation_lifecycles",
+      de: "106_karte_beziehungslebenszyklen",
+      fr: "106_fiche_cycles_vie_relations",
+      es: "106_ficha_ciclos_vida_relaciones",
+      it: "106_scheda_cicli_vita_relazioni",
+      pt: "106_ficha_ciclos_vida_relacoes",
+      zh: "106_card_relation_lifecycles",
+      ru: "106_kartochka_zhiznennye_tsikly_svyazey",
     },
   },
   {
@@ -679,6 +686,13 @@ export const DOC_PAGES: PageDef[] = [
     ],
     filenames: {
       en: "105_lifecycle_relations",
+      de: "105_lebenszyklus_beziehungen",
+      fr: "105_cycle_de_vie_relations",
+      es: "105_ciclo_vida_relaciones",
+      it: "105_ciclo_vita_relazioni",
+      pt: "105_ciclo_vida_relacoes",
+      zh: "105_lifecycle_relations",
+      ru: "105_zhiznennyy_tsikl_svyazi",
     },
   },
   {
@@ -961,6 +975,13 @@ export const DOC_PAGES: PageDef[] = [
     ],
     filenames: {
       en: "104_admin_relation_track_lifecycle",
+      de: "104_admin_beziehung_lebenszyklus_verfolgen",
+      fr: "104_admin_relation_suivre_cycle_vie",
+      es: "104_admin_relacion_seguir_ciclo_vida",
+      it: "104_admin_relazione_traccia_ciclo_vita",
+      pt: "104_admin_relacao_acompanhar_ciclo_vida",
+      zh: "104_admin_relation_track_lifecycle",
+      ru: "104_admin_svyaz_otslezhivat_tsikl",
     },
   },
   {

@@ -148,6 +148,16 @@
   "lifecycle.eolAlert_many": "{{count}} عنصرًا في نهاية العمر الافتراضي",
   "lifecycle.eolAlert_other": "{{count}} عنصر في نهاية العمر الافتراضي",
   "lifecycle.noData": "لم يتم العثور على بيانات دورة حياة.",
+  "lifecycle.expandRelations": "عرض العلاقات المؤرَّخة لـ {{name}}",
+  "lifecycle.collapseRelations": "إخفاء العلاقات المؤرَّخة لـ {{name}}",
+  "lifecycle.expandAllRelations": "عرض العلاقات المؤرَّخة لجميع البطاقات",
+  "lifecycle.collapseAllRelations": "إخفاء العلاقات المؤرَّخة لجميع البطاقات",
+  "lifecycle.relationCount_one": "{{count}} علاقة",
+  "lifecycle.relationCount_other": "{{count}} علاقات",
+  "lifecycle.relationState.inEffect": "سارية",
+  "lifecycle.relationState.planned": "مخطَّط لها",
+  "lifecycle.relationState.ended": "منتهية",
+  "lifecycle.relationSentence": "{{card}} {{verb}} {{other}}",
   "lifecycle.currentPhase": "المرحلة الحالية",
   "lifecycle.notSet": "غير مُعيَّن",
   "lifecycle.start": "البداية",
@@ -640,5 +650,9 @@
   "dataQuality.eolCoverage": "تغطية نهاية العمر",
   "dataQuality.eolCoverageHint": "التطبيقات والمكوّنات التقنية، بحسب ما إذا كانت نهاية عمرها مسجَّلة. انقر على أي جزء لسرد البطاقات التي يمثّلها.",
   "dataQuality.eolLinked": "مرتبط بمنتج EOL",
-  "dataQuality.eolManual": "تاريخ مُدخل يدويًا"
+  "dataQuality.eolManual": "تاريخ مُدخل يدويًا",
+  "lifecycle.relationCount_many": "{{count}} علاقة",
+  "lifecycle.relationCount_few": "{{count}} علاقات",
+  "lifecycle.relationCount_two": "علاقتان ({{count}})",
+  "lifecycle.relationCount_zero": "{{count}} علاقة"
 }

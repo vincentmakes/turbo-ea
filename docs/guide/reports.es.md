@@ -110,7 +110,7 @@ El **Mapa de Capacidades** muestra un **mapa de calor** jerárquico de las capac
 
 **Plegar los filtros** — La fila **Filtros de aplicaciones** se puede plegar; haga clic en su cabecera para recuperar el espacio. El estado se guarda con el informe, el recuento de filtros activos permanece visible en la cabecera plegada y **Limpiar todo** sigue accesible sin necesidad de desplegar primero.
 
-## Informe de Ciclo de Vida
+## Informe de Ciclo de Vida {: #lifecycle-report }
 
 ![Informe de Ciclo de Vida](../assets/img/es/12_ciclo_vida.png)
 
@@ -121,6 +121,10 @@ El **Informe de Ciclo de Vida** muestra una **visualización de línea temporal*
 - **Coordinación de migración** — Visualice períodos superpuestos de entrada y salida de fase
 
 Los componentes se muestran como barras horizontales que abarcan sus fases de ciclo de vida: Plan, Fase de Entrada, Activo, Fase de Salida y Fin de Vida.
+
+**Ciclos de vida de las relaciones** — Cuando una ficha tiene relaciones con fechas propias (véase [Cuándo se aplica una relación](card-details.md#when-a-relation-applies)), junto a su nombre aparecen una flecha y un número. Haga clic en la flecha para listar esas relaciones bajo la ficha: cada fila empieza por el nombre de la otra ficha, con el verbo de la relación debajo, y dibuja las fases propias de la relación como una barra más fina en el mismo eje temporal: las relaciones planificadas, por delante de hoy; las finalizadas, en gris. Hacer clic en una fila de relación abre la otra ficha. El botón de la cabecera de la columna de nombres abre o pliega todas las fichas a la vez; las fichas están plegadas por defecto y las que abrió se guardan con el informe. Funciona con *Todos los tipos* y con un tipo de ficha elegido, y una ficha sin fechas propias se lista cuando tiene relaciones con fechas, de modo que puede ver, por ejemplo, desde cuándo usa cada organización una aplicación. En la vista de tabla, cada ficha con relaciones con fechas tiene la misma flecha, y las relaciones abiertas aparecen como filas propias, con el tipo de la otra ficha, si la relación está hoy *En vigor*, *Planificada* o *Finalizada*, y sus cinco fechas. Las impresiones y las exportaciones a diapositivas muestran las filas abiertas; la exportación a Excel de la vista de tabla lista cada una como *otra ficha · verbo* bajo su ficha. El número junto al nombre de una ficha cuenta sus relaciones con fechas; al pasar el cursor se ve la frase completa. Las filas de relación no se muestran en la vista de intervalo de fechas. Solo se listan las relaciones cuya otra ficha puede ver.
+
+![Informe de ciclo de vida con las relaciones con fechas listadas bajo sus fichas](../assets/img/es/105_ciclo_vida_relaciones.png)
 
 **Limitar a tarjetas concretas** — Una vez elegido un tipo de tarjeta, el chip contiguo abre un selector: elija una o varias tarjetas y la línea de tiempo mostrará solo esas y todo lo que hay debajo. Las tarjetas hijas se incluyen automáticamente. El chip permanece desactivado mientras el selector esté en *Todos los tipos*, porque un alcance necesita una única jerarquía.
 
