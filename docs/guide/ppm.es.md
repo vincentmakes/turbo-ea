@@ -18,7 +18,7 @@ El **Panel de Portafolio** es el punto de entrada principal para PPM. Proporcion
 
 Use la barra de herramientas para:
 
-- **Agrupar por** cualquier tipo de tarjeta relacionada (p. ej., Organización, Plataforma)
+- **Agrupar por** cualquier tipo de tarjeta relacionada (p. ej., Organización, Plataforma). Una iniciativa relacionada con varias tarjetas de ese tipo —por ejemplo, dos Aplicaciones— aparece en cada uno de sus grupos y cuenta en los totales de cada grupo; la barra de KPI sigue contándola una sola vez
 - **Agrupar por** un subtipo de iniciativa (p. ej., Programa), que aparece en una segunda sección del mismo menú, para ver cada programa con todas las iniciativas que tiene por debajo (ver más abajo)
 - **Filtrar por subtipo** (Idea, Programa, Proyecto, Épica)
 - **Buscar** por nombre de iniciativa

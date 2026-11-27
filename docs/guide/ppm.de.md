@@ -18,7 +18,7 @@ Das **Portfolio-Dashboard** ist der Haupteinstiegspunkt für PPM. Es bietet:
 
 Verwenden Sie die Symbolleiste, um:
 
-- **Gruppieren nach** jedem verknüpften Kartentyp (z. B. Organisation, Plattform)
+- **Gruppieren nach** jedem verknüpften Kartentyp (z. B. Organisation, Plattform). Eine Initiative, die mit mehreren Karten dieses Typs verknüpft ist – etwa zwei Anwendungen –, wird in jeder ihrer Gruppen aufgeführt und zählt in den Summen jeder Gruppe mit; die KPI-Leiste zählt sie weiterhin nur einmal
 - **Gruppieren nach** einem Untertyp der Initiative (z. B. Programm), aufgeführt in einem zweiten Abschnitt desselben Menüs, um jedes Programm mit allen Initiativen darunter zu sehen (siehe unten)
 - **Filtern nach Subtyp** (Idee, Programm, Projekt, Epic)
 - **Suchen** nach Initiativname

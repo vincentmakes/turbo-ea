@@ -392,6 +392,13 @@ class PpmRollupOut(BaseModel):
     by_year: list[PpmRollupYear] = []
 
 
+class PpmGroupRef(BaseModel):
+    """A group a board row belongs to: the related card that names it."""
+
+    id: str
+    name: str
+
+
 class PpmGanttItem(BaseModel):
     id: str
     name: str
@@ -406,6 +413,11 @@ class PpmGanttItem(BaseModel):
     capex_actual: float = 0
     opex_planned: float = 0
     opex_actual: float = 0
+    # Every group the row belongs to, in board order: under a related-card-type
+    # grouping one per visible card of that type it is related to now, so an
+    # initiative related to two Applications is listed under both. ``group_id`` /
+    # ``group_name`` repeat the first entry for clients that read one group.
+    groups: list[PpmGroupRef] = []
     group_id: str | None = None
     group_name: str | None = None
     # Under a ``subtype:<key>`` grouping, True on the initiative that names its

@@ -18,7 +18,7 @@ Le **Tableau de Bord du Portefeuille** est le point d'entrée principal pour PPM
 
 Utilisez la barre d'outils pour :
 
-- **Regrouper par** tout type de fiche lié (p. ex., Organisation, Plateforme)
+- **Regrouper par** tout type de fiche lié (p. ex., Organisation, Plateforme). Une initiative liée à plusieurs fiches de ce type — par exemple deux Applications — est listée dans chacun de leurs groupes et compte dans les totaux de chaque groupe ; la barre KPI ne la compte toujours qu'une seule fois
 - **Regrouper par** un sous-type d'initiative (p. ex., Programme), proposé dans une seconde section du même menu, pour voir chaque programme avec toutes les initiatives situées en dessous (voir ci-dessous)
 - **Filtrer par sous-type** (Idée, Programme, Projet, Épique)
 - **Rechercher** par nom d'initiative

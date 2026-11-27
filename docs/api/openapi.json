@@ -11124,6 +11124,14 @@
             ],
             "title": "Group Name"
           },
+          "groups": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmGroupRef"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -11351,6 +11359,25 @@
         "title": "PpmGroupOption",
         "type": "object"
       },
+      "PpmGroupRef": {
+        "description": "A group a board row belongs to: the related card that names it.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PpmGroupRef",
+        "type": "object"
+      },
       "PpmPublicDashboard": {
         "description": "The three KPI values the board actually renders.\n\nThe internal dashboard also carries ``by_subtype``, ``by_status``,\n``health_cost``, ``health_scope`` and ``total_actual``; none of them is drawn\non the board, so none of them is published.",
         "properties": {
@@ -11382,6 +11409,25 @@
           "total_initiatives"
         ],
         "title": "PpmPublicDashboard",
+        "type": "object"
+      },
+      "PpmPublicGroup": {
+        "description": "A group a board row belongs to. ``id`` is the opaque per-response token\nthe row's ``group_id`` uses, never the group card's id.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PpmPublicGroup",
         "type": "object"
       },
       "PpmPublicGroupOption": {
@@ -11432,7 +11478,7 @@
         "type": "object"
       },
       "PpmPublicItem": {
-        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design.\n``parent_id`` is set only when the parent is itself a row of the same\nresponse, so it repeats an ``id`` already published and lets the board nest\nits rows; a parent the portal does not publish reads ``None``. Every other\nidentifier is withheld: ``group_id`` is an opaque per-response token, and the\nreport, reporter and stakeholder ids are not emitted at all. ``group_anchor``\nmarks the row that names its group under a subtype grouping.",
+        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design.\n``parent_id`` is set only when the parent is itself a row of the same\nresponse, so it repeats an ``id`` already published and lets the board nest\nits rows; a parent the portal does not publish reads ``None``. Every other\nidentifier is withheld: ``group_id`` and the ids in ``groups`` are opaque\nper-response tokens (``group_id`` repeats the first of ``groups``), and the\nreport, reporter and stakeholder ids are not emitted at all. ``group_anchor``\nmarks the row that names its group under a subtype grouping.",
         "properties": {
           "capex_actual": {
             "anyOf": [
@@ -11493,6 +11539,14 @@
               }
             ],
             "title": "Group Name"
+          },
+          "groups": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmPublicGroup"
+            },
+            "title": "Groups",
+            "type": "array"
           },
           "id": {
             "title": "Id",

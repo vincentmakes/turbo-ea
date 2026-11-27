@@ -2658,6 +2658,12 @@ export interface PpmGanttStakeholder {
   role_key: string;
 }
 
+/** A group a PPM board row belongs to: the related card naming it (an opaque token on a portal). */
+export interface PpmGroupRef {
+  id: string;
+  name: string;
+}
+
 export interface PpmGanttItem {
   id: string;
   name: string;
@@ -2672,6 +2678,12 @@ export interface PpmGanttItem {
   capex_actual: number;
   opex_planned: number;
   opex_actual: number;
+  /**
+   * Every group the row belongs to, in board order: one per card of the
+   * grouping type it is related to now (#1452). `group_id` / `group_name`
+   * repeat the first.
+   */
+  groups?: PpmGroupRef[];
   group_id: string | null;
   group_name: string | null;
   /** Under a `subtype:<key>` grouping, the initiative that names its group (header only). */
@@ -2849,7 +2861,13 @@ export interface PpmPortfolioItem {
   parent_id?: string | null;
   start_date: string | null;
   end_date: string | null;
-  /** Opaque on the public board; a card UUID on the authenticated one. */
+  /**
+   * Every group the row belongs to, in board order — an initiative related to
+   * two cards of the grouping type is in both groups. Ids are opaque on the
+   * public board, card UUIDs on the authenticated one.
+   */
+  groups?: PpmGroupRef[];
+  /** The first of `groups`. Opaque on the public board; a card UUID on the authenticated one. */
   group_id: string | null;
   group_name: string | null;
   /**

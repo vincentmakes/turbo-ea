@@ -77,6 +77,7 @@ import {
   barModel,
   buildPortfolioExport,
   buildPrintParams,
+  collapsedRowsIn,
   costBarModel,
   derivedCostTipKey,
   filterItems,
@@ -97,6 +98,7 @@ import {
   portfolioWindow,
   projectManager,
   ragColor,
+  rowCollapseId,
   rowFigures,
   shownDashboard,
   subtypeGroupBy,
@@ -697,10 +699,13 @@ export default function PpmPortfolioView({
 
   // ── Desktop: grid row ──
   // ── Tree rows: the chevron before a parent's name, or the slot it would take ──
-  const renderChildToggle = (item: PpmPortfolioItem, hasChildren: boolean) => {
+  // `childToggle` is the collapse id of a row with children, within its group
+  // (`rowCollapseId`): an initiative in two groups folds its subtree in each on
+  // its own. `null` is a row with nothing beneath it.
+  const renderChildToggle = (item: PpmPortfolioItem, childToggle: string | null) => {
     if (!treeOn) return null;
-    if (!hasChildren) return <Box data-tree-spacer sx={TREE_TOGGLE_SLOT_SX} />;
-    const isCollapsed = collapsed.has(item.id);
+    if (childToggle === null) return <Box data-tree-spacer sx={TREE_TOGGLE_SLOT_SX} />;
+    const isCollapsed = collapsed.has(childToggle);
     return (
       <IconButton
         size="small"
@@ -709,7 +714,7 @@ export default function PpmPortfolioView({
         onClick={(e) => {
           // The row opens the initiative; the chevron must not.
           e.stopPropagation();
-          toggle(item.id);
+          toggle(childToggle);
         }}
         sx={{ ...TREE_TOGGLE_SLOT_SX, p: 0 }}
       >
@@ -718,7 +723,7 @@ export default function PpmPortfolioView({
     );
   };
 
-  const renderRow = (item: PpmPortfolioItem, depth = 0, hasChildren = false) => {
+  const renderRow = (item: PpmPortfolioItem, depth = 0, childToggle: string | null = null) => {
     const rep = item.latest_report;
     const pm = projectManager(item.stakeholders);
     const f = rowFigures(item);
@@ -749,7 +754,7 @@ export default function PpmPortfolioView({
             pr: 1.5,
           }}
         >
-          {renderChildToggle(item, hasChildren)}
+          {renderChildToggle(item, childToggle)}
           <Box
             sx={{
               minWidth: 0,
@@ -850,7 +855,11 @@ export default function PpmPortfolioView({
   };
 
   // ── Mobile: card row ──
-  const renderMobileCard = (item: PpmPortfolioItem, depth = 0, hasChildren = false) => {
+  const renderMobileCard = (
+    item: PpmPortfolioItem,
+    depth = 0,
+    childToggle: string | null = null,
+  ) => {
     const rep = item.latest_report;
     const pm = projectManager(item.stakeholders);
     const f = rowFigures(item);
@@ -870,7 +879,7 @@ export default function PpmPortfolioView({
       >
         {/* Row 1: Name + Subtype */}
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          {renderChildToggle(item, hasChildren)}
+          {renderChildToggle(item, childToggle)}
           <Typography
             variant="body2"
             fontWeight={600}
@@ -1145,7 +1154,7 @@ export default function PpmPortfolioView({
   const renderGroupBody = (
     groupId: string,
     members: PpmPortfolioItem[],
-    row: (item: PpmPortfolioItem, depth?: number, hasChildren?: boolean) => ReactNode,
+    row: (item: PpmPortfolioItem, depth?: number, childToggle?: string | null) => ReactNode,
     withTotals: boolean,
   ) => {
     if (layout.kind === "subtype") {
@@ -1169,8 +1178,11 @@ export default function PpmPortfolioView({
       );
     }
     if (layout.kind === "hierarchy") {
-      return treeRows(members, { collapsed, maxDepth: layout.maxDepth }).map((r) =>
-        row(r.item, r.depth, r.hasChildren),
+      return treeRows(members, {
+        collapsed: collapsedRowsIn(collapsed, groupId),
+        maxDepth: layout.maxDepth,
+      }).map((r) =>
+        row(r.item, r.depth, r.hasChildren ? rowCollapseId(groupId, r.item.id) : null),
       );
     }
     return members.map((item) => row(item));
