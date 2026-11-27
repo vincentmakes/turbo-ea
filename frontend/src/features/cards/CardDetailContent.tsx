@@ -39,6 +39,7 @@ import {
   ComplianceTab,
   TagsSection,
 } from "@/features/cards/sections";
+import RelationLifecyclesPanel from "@/features/cards/sections/RelationLifecyclesPanel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { hasPermission } from "@/components/RequirePermission";
@@ -226,6 +227,9 @@ export default function CardDetailContent({
   // The tab the user asked for: a key, or an index from an older deep link.
   const [requestedTab, setRequestedTab] = useState<number | string>(initialTab);
   const [relRefresh, setRelRefresh] = useState(0);
+  // The Lifecycle section's relation lifecycles reload on this one; a relation
+  // added, removed or re-dated in the Relations section moves it.
+  const [relLifecycleRefresh, setRelLifecycleRefresh] = useState(0);
 
   // Reset tab when card changes
   useEffect(() => {
@@ -396,6 +400,21 @@ export default function CardDetailContent({
     };
   }, [patchCard, refreshCard]);
 
+  // Relation dates saved in one place show in the other: the Relations section
+  // reloads the relation lifecycles panel, and the panel reloads the Relations
+  // section. Both also refetch the card, whose data quality score counts only
+  // relations in effect today.
+  const refreshRelationsCard = refreshFrom(sectionAnchor("relations"));
+  const refreshLifecycleCard = refreshFrom(sectionAnchor("lifecycle"));
+  const onRelationsSectionChange = useCallback(() => {
+    setRelLifecycleRefresh((n) => n + 1);
+    return refreshRelationsCard();
+  }, [refreshRelationsCard]);
+  const onRelationLifecyclesChange = useCallback(() => {
+    setRelRefresh((n) => n + 1);
+    void refreshLifecycleCard();
+  }, [refreshLifecycleCard]);
+
   // Track which sections have unsaved edits so the page can warn on navigation
   // (#843). Each editable section reports its dirty state under a stable key;
   // we bubble a single boolean up whenever the "any dirty" state flips.
@@ -481,6 +500,16 @@ export default function CardDetailContent({
             onDirtyChange={dirtyCb("lifecycle")}
             expandOn={expandOn(sectionAnchor("lifecycle"))}
             editOn={editOn(sectionAnchor("lifecycle"))}
+            footer={
+              <RelationLifecyclesPanel
+                cardId={card.id}
+                cardTypeKey={card.type}
+                cardLifecycle={card.lifecycle}
+                canManageRelations={perms.can_manage_relations}
+                refreshKey={relLifecycleRefresh}
+                onChanged={onRelationLifecyclesChange}
+              />
+            }
           />
         </ErrorBoundary>
       );
@@ -532,7 +561,7 @@ export default function CardDetailContent({
             refreshKey={relRefresh}
             canManageRelations={perms.can_manage_relations}
             initialExpanded={exp}
-            onCardUpdate={refreshFrom(sectionAnchor("relations"))}
+            onCardUpdate={onRelationsSectionChange}
             expandOn={expandOn(sectionAnchor("relations"))}
             editOn={editOn(sectionAnchor("relations"))}
           />
@@ -551,7 +580,10 @@ export default function CardDetailContent({
             section={section}
             card={card}
             onSave={saveFrom(customSectionAnchor(section.section))}
-            onRelationChange={() => setRelRefresh((n) => n + 1)}
+            onRelationChange={() => {
+              setRelRefresh((n) => n + 1);
+              setRelLifecycleRefresh((n) => n + 1);
+            }}
             canEdit={perms.can_edit}
             calculatedFieldKeys={calcFieldKeys}
             initialExpanded={exp}

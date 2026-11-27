@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -38,6 +38,7 @@ function LifecycleSection({
   phaseAnnotation,
   expandOn,
   editOn,
+  footer,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
@@ -55,6 +56,13 @@ function LifecycleSection({
   expandOn?: number;
   /** A data-quality jump: open in edit mode, on the first undated phase. */
   editOn?: SectionEditRequest;
+  /**
+   * Rendered at the end of the section, and only while it is expanded — so a
+   * footer that loads its own data loads it only once the section is open.
+   * Card detail puts the card's relation lifecycles here; the section itself
+   * stays props-driven and fetches nothing.
+   */
+  footer?: ReactNode;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
@@ -342,6 +350,7 @@ function LifecycleSection({
             </Box>
           </Box>
         )}
+        {expanded && footer}
       </AccordionDetails>
     </Accordion>
   );

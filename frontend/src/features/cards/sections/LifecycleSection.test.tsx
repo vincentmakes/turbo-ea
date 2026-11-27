@@ -212,3 +212,47 @@ describe("LifecycleSection — phase help", () => {
     expect(icons[0]).toHaveAccessibleName("An idea not yet approved.");
   });
 });
+
+describe("LifecycleSection — footer", () => {
+  const card = cardWith({ active: "2025-01-01" });
+
+  it("renders the footer at the end of the open section", () => {
+    const { container } = render(
+      <LifecycleSection
+        card={card}
+        onSave={async () => {}}
+        footer={<div data-testid="footer">relations</div>}
+      />,
+    );
+    const footer = screen.getByTestId("footer");
+    const details = container.querySelector(".MuiAccordionDetails-root")!;
+    expect(details.lastElementChild).toBe(footer);
+  });
+
+  it("does not mount the footer while the section is collapsed, and mounts it on open", () => {
+    render(
+      <LifecycleSection
+        card={card}
+        onSave={async () => {}}
+        initialExpanded={false}
+        footer={<div data-testid="footer">relations</div>}
+      />,
+    );
+    expect(screen.queryByTestId("footer")).toBeNull();
+    fireEvent.click(screen.getByText("Lifecycle"));
+    expect(screen.getByTestId("footer")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Lifecycle"));
+    expect(screen.queryByTestId("footer")).toBeNull();
+  });
+
+  it("renders the same section without a footer", () => {
+    const { container: withNone } = render(
+      <LifecycleSection card={card} onSave={async () => {}} />,
+    );
+    const { container: withNull } = render(
+      <LifecycleSection card={card} onSave={async () => {}} footer={null} />,
+    );
+    expect(withNone.innerHTML).toBe(withNull.innerHTML);
+    expect(withNone.querySelector(".MuiAccordionDetails-root")!.children).toHaveLength(1);
+  });
+});

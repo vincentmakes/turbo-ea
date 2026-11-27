@@ -164,12 +164,15 @@ import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSide
 // of the section is only safe because of that lift. `buildGanttArrowPath` is
 // pure geometry, so a finish-to-start arrow drawn by an extension is the same
 // shape as one drawn by the PPM gantt instead of a second convention.
+// SDK 1.39 — `LifecycleSection` takes an optional `footer` node, mounted at
+// the end of the section only while it is expanded; the section itself still
+// makes no API call (card detail passes its relation lifecycles panel there).
 import LifecycleSection from "@/features/cards/sections/LifecycleSection";
 import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card, CardPanelFocus, DecisionStanding } from "@/types";
 
-export const UI_SDK_VERSION = "1.38";
+export const UI_SDK_VERSION = "1.39";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
