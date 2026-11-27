@@ -18,7 +18,7 @@
 
 Brug værktøjslinjen til at:
 
-- **Gruppere efter** en hvilken som helst relateret korttype (f.eks. Organization, Platform) for at se initiativer grupperet efter forretningsenhed eller teknologiplatform
+- **Gruppere efter** en hvilken som helst relateret korttype (f.eks. Organization, Platform) for at se initiativer grupperet efter forretningsenhed eller teknologiplatform. Et initiativ, der er relateret til flere kort af den type — f.eks. to Applications — vises i hver af deres grupper og tæller med i hver gruppes totaler; KPI-linjen tæller det stadig kun én gang
 - **Gruppere efter** en undertype af Initiativ (f.eks. Program), vist i en anden sektion af samme menu, for at se hvert program med alle initiativer under det (se nedenfor)
 - **Filtrere efter undertype** (Idea, Program, Project, Epic)
 - **Søge** efter initiativnavn
