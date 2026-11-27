@@ -55,3 +55,37 @@ async def test_demo_seed_stores_related_decisions_as_relates_links(db):
         demo_relates_links(DEMO_ADRS + DEMO_ADRS_EXTRA)
         + [(_id(s), _id(t)) for s, t, kind, _ in DEMO_ADR_REGISTER_LINKS if kind == "relates"]
     )
+
+
+async def test_demo_seed_switches_on_track_lifecycle_for_its_dated_relation_types(db):
+    from app.models.relation import Relation
+    from app.models.relation_type import RelationType
+    from app.services.seed_demo import DEMO_TRACKED_RELATION_TYPES
+
+    await seed_metamodel(db)
+    await seed_demo_data(db)
+
+    rts = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
+    tracked = {key for key, rt in rts.items() if rt.lifecycle_enabled}
+    assert tracked == set(DEMO_TRACKED_RELATION_TYPES)
+    dated = (await db.execute(select(Relation).where(Relation.lifecycle != {}))).scalars().all()
+    assert len(dated) >= 6
+    assert {r.type for r in dated} == set(DEMO_TRACKED_RELATION_TYPES)
+
+
+async def test_a_second_demo_seed_leaves_track_lifecycle_alone(db):
+    """The switch is part of the one-shot demo seed: an admin who turns it off
+    afterwards keeps it off across restarts."""
+    from app.models.relation_type import RelationType
+
+    await seed_metamodel(db)
+    await seed_demo_data(db)
+    rt = (
+        await db.execute(select(RelationType).where(RelationType.key == "relOrgToApp"))
+    ).scalar_one()
+    rt.lifecycle_enabled = False
+    await db.flush()
+    again = await seed_demo_data(db)
+    assert again["skipped"] is True
+    await db.refresh(rt)
+    assert rt.lifecycle_enabled is False
