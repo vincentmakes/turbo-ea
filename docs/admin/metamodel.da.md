@@ -69,7 +69,7 @@ Felter definerer de brugerdefinerede egenskaber, der er tilgængelige på kort a
 | **Datakvalitet** | Hvert felts bidrag til scoren håndteres i panelet **Datakvalitet** (se nedenfor) |
 | **Skrivebeskyttet** | Forhindrer manuel redigering (nyttigt for beregnede felter) |
 
-**Sådan håndhæves påkrævede felter.** Oprettelse af et kort kræver aldrig disse felter — kort kan oprettes hurtigt og udfyldes senere. Så længe et påkrævet felt er tomt, forbliver kortets datakvalitetsscore på **0**, og kortets detaljeside viser et advarselsbanner med de felter, der skal udfyldes. Når en kortsektion redigeres, kan den ikke gemmes, før dens påkrævede felter er udfyldt, og API'et afviser at tømme et påkrævet felt, der allerede har en værdi. Boolske og skrivebeskyttede (beregnede) felter er undtaget.
+**Sådan håndhæves påkrævede felter.** Oprettelse af et kort kræver aldrig disse felter — kort kan oprettes hurtigt og udfyldes senere. Så længe et påkrævet felt er tomt, forbliver kortets datakvalitetsscore på **0**, og kortets detaljeside viser et advarselsbanner med de felter, der skal udfyldes. Når en kortsektion redigeres, markeres et påkrævet felt, der stadig er tomt, med en note, men det forhindrer ikke, at sektionen gemmes, så et kort kan udfyldes ét felt ad gangen; at tømme et påkrævet felt, der allerede har en værdi, afvises, både i editoren og af API'et. Boolske og skrivebeskyttede (beregnede) felter er undtaget.
 
 Klik på **+ Tilføj felt** for at oprette et nyt felt, eller klik på et eksisterende felt for at redigere det i **Feltredigeringsdialogen**.
 

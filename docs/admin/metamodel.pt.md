@@ -70,7 +70,7 @@ Campos definem os atributos personalizados disponíveis nos cards deste tipo. Ca
 | **Qualidade dos dados** | A contribuição de cada campo para a pontuação é gerida no painel **Qualidade dos dados** (ver abaixo) |
 | **Somente leitura** | Impede edição manual (útil para campos calculados) |
 
-**Como os campos obrigatórios são aplicados.** Criar um cartão nunca exige esses campos — os cartões podem ser criados rapidamente e completados depois. Enquanto algum campo obrigatório estiver vazio, a pontuação de qualidade dos dados do cartão permanece em **0** e a página de detalhes mostra um aviso listando o que deve ser preenchido. Ao editar uma seção do cartão, ela não pode ser salva até que seus campos obrigatórios estejam preenchidos, e a API rejeita esvaziar um campo obrigatório que já tem valor. Campos booleanos e somente leitura (calculados) estão isentos.
+**Como os campos obrigatórios são aplicados.** Criar um cartão nunca exige esses campos — os cartões podem ser criados rapidamente e completados depois. Enquanto algum campo obrigatório estiver vazio, a pontuação de qualidade dos dados do cartão permanece em **0** e a página de detalhes mostra um aviso listando o que deve ser preenchido. Ao editar uma seção do cartão, um campo obrigatório que ainda esteja vazio é marcado com uma nota, mas não impede o salvamento da seção, de modo que um cartão pode ser completado um campo de cada vez; esvaziar um campo obrigatório que já tem valor é recusado, tanto no editor quanto pela API. Campos booleanos e somente leitura (calculados) estão isentos.
 
 Clique em **+ Adicionar Campo** para criar um novo campo, ou clique em um campo existente para editá-lo no **Diálogo de Editor de Campo**.
 

@@ -1,6 +1,7 @@
 {
   "required": "Dette felt er påkrævet",
-  "requiredEmpty": "Dette felt er påkrævet – udfyld det for at gemme.",
+  "requiredCleared": "Dette felt er påkrævet – det kan ikke tømmes.",
+  "requiredStillEmpty": "Påkrævet – du kan gemme nu og udfylde det senere.",
 
   "key.mustStartWithLetter": "Skal starte med et bogstav",
   "key.noUnderscores": "Understreger er ikke tilladt — brug camelCase",

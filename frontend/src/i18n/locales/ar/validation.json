@@ -1,6 +1,7 @@
 {
   "required": "هذا الحقل مطلوب",
-  "requiredEmpty": "هذا الحقل مطلوب — املأه للحفظ.",
+  "requiredCleared": "هذا الحقل مطلوب — لا يمكن إفراغه.",
+  "requiredStillEmpty": "مطلوب — يمكنك الحفظ الآن وملء الحقل لاحقًا.",
 
   "key.mustStartWithLetter": "يجب أن يبدأ بحرف",
   "key.noUnderscores": "الشرطات السفلية غير مسموح بها — استخدم نمط camelCase",

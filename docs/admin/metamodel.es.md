@@ -70,7 +70,7 @@ Los campos definen los atributos personalizados disponibles en fichas de este ti
 | **Calidad de datos** | La contribución de cada campo a la puntuación se gestiona en el panel **Calidad de datos** (ver más abajo) |
 | **Solo lectura** | Impide la edición manual (útil para campos calculados) |
 
-**Cómo se aplican los campos obligatorios.** Crear una tarjeta nunca exige estos campos: las tarjetas pueden crearse rápidamente y completarse después. Mientras algún campo obligatorio siga vacío, la puntuación de calidad de datos de la tarjeta permanece en **0** y la página de detalle muestra un aviso con los campos que deben completarse. Al editar una sección de la tarjeta, no se puede guardar hasta que sus campos obligatorios estén completos, y la API rechaza vaciar un campo obligatorio que ya tiene valor. Los campos booleanos y de solo lectura (calculados) están exentos.
+**Cómo se aplican los campos obligatorios.** Crear una tarjeta nunca exige estos campos: las tarjetas pueden crearse rápidamente y completarse después. Mientras algún campo obligatorio siga vacío, la puntuación de calidad de datos de la tarjeta permanece en **0** y la página de detalle muestra un aviso con los campos que deben completarse. Al editar una sección de la tarjeta, un campo obligatorio que sigue vacío se marca con una nota, pero no impide guardar la sección, de modo que una tarjeta puede completarse campo a campo; vaciar un campo obligatorio que ya tiene valor se rechaza, tanto en el editor como en la API. Los campos booleanos y de solo lectura (calculados) están exentos.
 
 Haga clic en **+ Agregar Campo** para crear un nuevo campo, o haga clic en un campo existente para editarlo en el **Diálogo Editor de Campos**.
 

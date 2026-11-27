@@ -1,6 +1,7 @@
 {
   "required": "Ce champ est obligatoire",
-  "requiredEmpty": "Ce champ est obligatoire — remplissez-le pour enregistrer.",
+  "requiredCleared": "Ce champ est obligatoire — il ne peut pas être vidé.",
+  "requiredStillEmpty": "Obligatoire — vous pouvez enregistrer maintenant et le remplir plus tard.",
 
   "key.mustStartWithLetter": "Doit commencer par une lettre",
   "key.noUnderscores": "Les underscores ne sont pas autoris\u00e9s \u2014 utilisez le camelCase",

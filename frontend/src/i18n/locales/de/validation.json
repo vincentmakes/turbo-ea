@@ -1,6 +1,7 @@
 {
   "required": "Dieses Feld ist erforderlich",
-  "requiredEmpty": "Dieses Feld ist ein Pflichtfeld – zum Speichern ausfüllen.",
+  "requiredCleared": "Dieses Feld ist ein Pflichtfeld – es kann nicht geleert werden.",
+  "requiredStillEmpty": "Pflichtfeld – Sie können jetzt speichern und es später ausfüllen.",
   "key.mustStartWithLetter": "Muss mit einem Buchstaben beginnen",
   "key.noUnderscores": "Unterstriche sind nicht erlaubt — verwenden Sie camelCase",
   "key.noSpaces": "Leerzeichen sind nicht erlaubt — verwenden Sie camelCase",

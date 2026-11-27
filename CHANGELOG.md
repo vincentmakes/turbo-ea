@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.219.1] - 2026-11-27
+
+### Fixed
+- A card section with several empty required fields can be saved after filling only some of them: a required field that is still empty now carries a note instead of blocking Save, and only emptying a required field that already has a value is refused ([#1451](https://github.com/vincentmakes/turbo-ea/issues/1451)).
+
 ## [2.219.0] - 2026-11-27
 
 ### Added
