@@ -1,6 +1,7 @@
 /**
  * One discussion thread: its opening comment, its replies, and the actions
- * the server allows on each (`can.*`). A rejection reason is marked as one
+ * the server allows on each (`can.*`). A rejection reason or a request for
+ * changes is marked as one
  * (an empty reason reads "No reason given"); a signing note is marked as one
  * and has nothing to resolve; neither is ever offered for edit or delete
  * here. Its section chip, when it has one, can be clicked (the discussion
@@ -101,6 +102,7 @@ export default function CommentThread({
   const [error, setError] = useState("");
 
   const isRejection = thread.kind === "rejection";
+  const isChangeRequest = thread.kind === "change_request";
   const isSignNote = thread.kind === "sign_note";
   const resolved = thread.resolved_at !== null;
   const canResolve = thread.can.resolve && !isSignNote && !closed;
@@ -269,7 +271,7 @@ export default function CommentThread({
         gap: 1,
       }}
     >
-      {(isRejection || isSignNote || sectionLabel || resolved) && (
+      {(isRejection || isChangeRequest || isSignNote || sectionLabel || resolved) && (
         <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
           {isRejection && (
             <Chip
@@ -278,6 +280,15 @@ export default function CommentThread({
               variant="outlined"
               icon={<MaterialSymbol icon="block" size={14} />}
               label={t("collab.discussion.rejectionReason")}
+            />
+          )}
+          {isChangeRequest && (
+            <Chip
+              size="small"
+              color="warning"
+              variant="outlined"
+              icon={<MaterialSymbol icon="rate_review" size={14} />}
+              label={t("collab.discussion.changeRequest")}
             />
           )}
           {isSignNote && (

@@ -92,11 +92,20 @@ Tables appear in the preview, the PDF / printed copy (fitted to the page) and th
 
 From a draft or an approved SoAW, you can request sign-offs from stakeholders. Click **Request Signatures**, then use the search field to find and add signatories by name or email. The system tracks who has signed and sends notifications to pending signers.
 
-A SoAW in review is **locked**, so signatories sign exactly what they were sent: only its initiative can still change. To edit the content, click **Recall Signatures**, which returns it to draft. A signatory who clicks **Reject** also returns it to draft, under the same revision number. Only a draft SoAW can be deleted.
+A SoAW in review is **locked**, so signatories sign exactly what they were sent: only its initiative can still change. To edit the content, click **Recall Signatures**, which returns it to draft.
+
+The review outcomes are the same as a decision's (see [Sign-off workflow](grc.md#sign-off-workflow) in the GRC guide), each with a reason:
+
+- **Request changes** (a signatory) returns the SoAW to an editable draft under the same revision number, marked **Changes requested** until signatures are requested again. Until version 2.221.0 this is what **Reject** did.
+- **Reject** (a signatory) closes the SoAW, marked **Rejected**.
+- **Withdraw** (a holder of `soaw.manage`, on a saved draft or a SoAW in review) cancels the pending signature requests and closes the SoAW, marked **Withdrawn**.
+- **Reopen** (a holder of `soaw.manage`) turns a closed SoAW back into a plain draft.
+
+A **closed** SoAW is kept on record but locked like one in review: only its initiative can still change, and it cannot be sent for review, restored or deleted until it is reopened. The status chip shows the outcome in place of *Draft*, and a banner says who, when and why. Only a draft SoAW that is not closed can be deleted. The lifecycle is fixed and cannot be configured.
 
 ### Revisions
 
-A signed SoAW is read-only. Click **New Revision** to start a new draft from it, under the same name with the next revision number. There is one open revision at a time: while a revision is being drafted, the signed SoAW says so and offers **Open the revision** instead of starting another. Only the latest revision can be revised, and a rejection does not change the revision number.
+A signed SoAW is read-only. Click **New Revision** to start a new draft from it, under the same name with the next revision number. There is one open revision at a time: while a revision is being drafted, the signed SoAW says so and offers **Open the revision** instead of starting another. Only the latest revision can be revised, and a rejection does not change the revision number. A rejected or withdrawn revision stays the open revision: open it and click **Reopen** to try again.
 
 An earlier revision shows a banner linking to the current one, and the **Revisions** strip on every revision lists them all. Lists of SoAWs — the initiative's deliverables, the SoAW tab, the EA Delivery report — show the current revision of each document and any revision being drafted.
 
@@ -106,7 +115,7 @@ A SoAW has the same discussion, mentions and history as a decision: the discussi
 
 - **Who can post.** Posting, replying, resolving and reopening need the `soaw.comment` permission, which members and admins hold by default and viewers do not; reading the discussion follows `soaw.view`. The SoAW's signatories can always comment on it. Anyone who can edit SoAWs (`soaw.manage`) can delete any comment.
 - **Sections.** A thread is tagged to one of the SoAW's own sections with a section chip, or to none (a general thread). A SoAW has many sections, so the composer shows a chip for each section already discussed and for the chosen one; **More…** opens a searchable list of the others. The chips at the top of the discussion filter it by section, as for a decision. A thread tagged to a custom section that has since been removed shows *Removed section*. Each section carries the same chat icon beside its heading as a decision's, on the editor and the preview, with the open-thread count when there is discussion; click it to open the discussion on that section with the section already selected for a new comment.
-- **Rejecting.** Any signatory who holds the sign permission (`soaw.sign`) — or the edit permission — may reject a SoAW, as for decisions; until now rejecting needed the edit permission. The reason opens a **Rejection reason** thread in the discussion.
+- **Rejecting and requesting changes.** Any signatory who holds the sign permission (`soaw.sign`) — or the edit permission — may request changes to or reject a SoAW, as for decisions. The reason opens a **Changes requested** or a **Rejection reason** thread in the discussion.
 - **Mentions.** A SoAW has no linked cards, so with nothing typed after **@** the cards are listed alphabetically; in a comment, the SoAW's signatories come first among the people. **Browse…** works as for a decision.
 - **Signing note.** **Sign** now opens a dialog where the signatory can add an optional note; it appears in the discussion as a **Signing note** and in the History.
 - **History.** A version holds the SoAW's name, its document information, its Document Version History table and every section; the initiative is not part of a version. The History records what happens to the document; the Document Version History table in the document records only what its authors write in it. A SoAW in the **Approved** status can still be edited, so, as for a draft, its saves are kept as versions and an earlier version can be restored into it.

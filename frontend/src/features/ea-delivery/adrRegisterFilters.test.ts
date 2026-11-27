@@ -6,8 +6,10 @@ import {
   adrExportPath,
   countActiveAdrFilters,
   filterAdrs,
+  NO_OUTCOME,
   inDayRange,
   isInForcePreset,
+  matchesOutcome,
   toggleInForcePreset,
   visibleSelection,
   type AdrFilters,
@@ -43,6 +45,11 @@ describe("EMPTY_ADR_FILTERS", () => {
     expect(EMPTY_ADR_FILTERS.standings).toEqual([]);
     expect(EMPTY_ADR_FILTERS.showEarlierRevisions).toBe(false);
   });
+
+  it("starts with closed decisions hidden and no outcome selected", () => {
+    expect(EMPTY_ADR_FILTERS.showClosed).toBe(false);
+    expect(EMPTY_ADR_FILTERS.outcomes).toEqual([]);
+  });
 });
 
 describe("the In force preset", () => {
@@ -70,6 +77,12 @@ describe("countActiveAdrFilters", () => {
   it("counts each standing and the revisions switch", () => {
     expect(countActiveAdrFilters(f({ standings: ["in_force", "amended"] }))).toBe(2);
     expect(countActiveAdrFilters(f({ showEarlierRevisions: true }))).toBe(1);
+  });
+
+  it("counts each outcome and the closed switch", () => {
+    expect(countActiveAdrFilters(f({ outcomes: ["rejected", "none"] }))).toBe(2);
+    expect(countActiveAdrFilters(f({ showClosed: true }))).toBe(1);
+    expect(countActiveAdrFilters(f({ showClosed: true, showEarlierRevisions: true }))).toBe(2);
   });
 
   it("counts every other filter one per value or bound", () => {
@@ -208,6 +221,53 @@ describe("filterAdrs", () => {
       }),
     ];
     expect(ids(filterAdrs(signed, f({ signedBy: ["u1"] })))).toEqual(["a"]);
+  });
+});
+
+describe("closed decisions and the outcome filter", () => {
+  const outcome = (kind: "changes_requested" | "rejected" | "withdrawn") => ({
+    kind,
+    at: "2026-11-27T10:00:00Z",
+    by: null,
+    note: null,
+  });
+  const rows = [
+    adr("plain"),
+    adr("returned", { outcome: outcome("changes_requested") }),
+    adr("rejected", { outcome: outcome("rejected") }),
+    adr("withdrawn", { outcome: outcome("withdrawn") }),
+  ];
+
+  it("hides closed decisions until Show closed is on", () => {
+    expect(ids(filterAdrs(rows, EMPTY_ADR_FILTERS))).toEqual(["plain", "returned"]);
+    expect(ids(filterAdrs(rows, f({ showClosed: true })))).toEqual([
+      "plain",
+      "returned",
+      "rejected",
+      "withdrawn",
+    ]);
+  });
+
+  it("filters on the outcome, none included", () => {
+    expect(ids(filterAdrs(rows, f({ outcomes: ["changes_requested"] })))).toEqual(["returned"]);
+    expect(ids(filterAdrs(rows, f({ outcomes: [NO_OUTCOME] })))).toEqual(["plain"]);
+    expect(ids(filterAdrs(rows, f({ outcomes: ["withdrawn"], showClosed: true })))).toEqual([
+      "withdrawn",
+    ]);
+  });
+
+  it("shows a closed outcome picked by name even with Show closed off", () => {
+    expect(ids(filterAdrs(rows, f({ outcomes: ["rejected"] })))).toEqual(["rejected"]);
+    expect(ids(filterAdrs(rows, f({ outcomes: ["rejected", NO_OUTCOME] })))).toEqual([
+      "plain",
+      "rejected",
+    ]);
+  });
+
+  it("matchesOutcome keeps everything on an empty selection", () => {
+    expect(matchesOutcome(rows[2], [])).toBe(true);
+    expect(matchesOutcome(rows[0], ["rejected"])).toBe(false);
+    expect(matchesOutcome(rows[0], [NO_OUTCOME])).toBe(true);
   });
 });
 

@@ -4,6 +4,7 @@ import type { ArchitectureDecision } from "@/types";
 import {
   adrDiagramNames,
   adrFactRows,
+  adrOutcomeFact,
   adrFileNames,
   adrHeading,
   adrLinkHeaders,
@@ -85,6 +86,7 @@ describe("adrFactRows", () => {
     );
     expect(rows).toEqual([
       ["adr.grid.status", "status.signed"],
+      ["adr.grid.outcome", ""],
       ["adr.grid.standing", "adr.standing.amended"],
       ["adr.dates.decidedOn", "D(2026-01-02)"],
       ["adr.dates.effectiveFrom", "D(2026-01-03)"],
@@ -102,8 +104,28 @@ describe("adrFactRows", () => {
   it("reads Recorded and leaves the absent facts empty", () => {
     const rows = adrFactRows(adr({ recorded_at: "2026-01-05T00:00:00Z" }), t, date);
     expect(rows[0]).toEqual(["adr.grid.status", "status.recorded"]);
-    expect(rows[1]).toEqual(["adr.grid.standing", ""]);
-    expect(rows.slice(2).every(([, v]) => v === "")).toBe(true);
+    expect(rows[1]).toEqual(["adr.grid.outcome", ""]);
+    expect(rows[2]).toEqual(["adr.grid.standing", ""]);
+    expect(rows.slice(3).every(([, v]) => v === "")).toBe(true);
+  });
+
+  it("names a draft's review outcome in the status row and says who, when and why", () => {
+    const outcome = {
+      kind: "rejected" as const,
+      at: "2026-11-27T10:00:00Z",
+      by: { id: "u1", display_name: "Ada" },
+      note: "Not costed",
+    };
+    const rows = adrFactRows(adr({ status: "draft", outcome }), t, date);
+    expect(rows[0]).toEqual(["adr.grid.status", "outcome.rejected"]);
+    expect(rows[1]).toEqual([
+      "adr.grid.outcome",
+      'adr.banner.rejected{"name":"Ada","date":"D(2026-11-27T10:00:00Z)"} Not costed',
+    ]);
+    expect(adrOutcomeFact(adr({ status: "draft", outcome: { ...outcome, by: null, note: null } }), t, date)).toBe(
+      'adr.banner.rejectedNoName{"date":"D(2026-11-27T10:00:00Z)"}',
+    );
+    expect(adrOutcomeFact(adr({ status: "signed", outcome }), t, date)).toBe("");
   });
 });
 

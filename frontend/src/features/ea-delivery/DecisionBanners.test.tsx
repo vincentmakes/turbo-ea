@@ -313,3 +313,87 @@ describe("SoawBanners", () => {
     expect(soawHref("y")).toBe("/ea-delivery/soaw/y");
   });
 });
+
+describe("review outcome banners", () => {
+  const by = { id: "u1", display_name: "Ada" };
+  const outcome = (kind: "changes_requested" | "rejected" | "withdrawn", over = {}) => ({
+    kind,
+    at: "2026-11-27",
+    by,
+    note: "Costs missing",
+    ...over,
+  });
+
+  it("names who, when and why for each outcome, with its severity", () => {
+    const pick = (o: ReturnType<typeof outcome>) =>
+      build(adr({ status: "draft", standing: null, outcome: o })).map((b) => [
+        b.id,
+        b.severity,
+        b.message,
+        b.reason,
+      ]);
+    expect(pick(outcome("changes_requested"))).toEqual([
+      ["changes-requested", "warning", "Changes requested by Ada on D(2026-11-27):", "Costs missing"],
+    ]);
+    expect(pick(outcome("rejected"))[0]).toEqual([
+      "rejected",
+      "error",
+      "Rejected by Ada on D(2026-11-27):",
+      "Costs missing",
+    ]);
+    expect(pick(outcome("withdrawn"))[0].slice(0, 3)).toEqual([
+      "withdrawn",
+      "info",
+      "Withdrawn by Ada on D(2026-11-27):",
+    ]);
+  });
+
+  it("adds the closed lock in the editor only, never for changes requested", () => {
+    const closed = adr({ status: "draft", standing: null, outcome: outcome("rejected") });
+    expect(build(closed, "editor").map((b) => b.id)).toEqual(["rejected", "closed-lock"]);
+    expect(build(closed, "preview").map((b) => b.id)).toEqual(["rejected"]);
+    const returned = adr({ status: "draft", standing: null, outcome: outcome("changes_requested") });
+    expect(build(returned, "editor").map((b) => b.id)).toEqual(["changes-requested"]);
+  });
+
+  it("drops the name when none was kept and says when no reason was given", () => {
+    const [b] = build(
+      adr({ status: "draft", standing: null, outcome: outcome("withdrawn", { by: null, note: null }) }),
+    );
+    expect(b.message).toBe("Withdrawn on D(2026-11-27):");
+    expect(b.reason).toBe("No reason given");
+  });
+
+  it("ignores an outcome on a document that is not a draft", () => {
+    expect(build(adr({ status: "in_review", standing: null, outcome: outcome("rejected") }), "preview")).toEqual(
+      [],
+    );
+  });
+
+  it("shows the SoAW outcome and its closed lock", () => {
+    const soaw = { status: "draft" as const, outcome: outcome("withdrawn") };
+    expect(buildSoawBanners(soaw, { mode: "editor", t, formatDate }).map((b) => [b.id, b.message])).toEqual([
+      ["withdrawn", "Withdrawn by Ada on D(2026-11-27):"],
+      ["closed-lock", "Closed: the content is locked. Reopen it to edit it."],
+    ]);
+  });
+
+  it("renders the reason as linkified free text", () => {
+    render(
+      <MemoryRouter>
+        <SoawBanners
+          soaw={{ status: "draft", outcome: outcome("rejected", { note: "See https://example.com/x" }) }}
+          mode="preview"
+        />
+      </MemoryRouter>,
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveAttribute("data-banner", "rejected");
+    expect(alert.className).toContain("MuiAlert-colorError");
+    expect(alert).toHaveTextContent("Rejected by Ada on");
+    expect(screen.getByRole("link", { name: "https://example.com/x" })).toHaveAttribute(
+      "target",
+      "_blank",
+    );
+  });
+});

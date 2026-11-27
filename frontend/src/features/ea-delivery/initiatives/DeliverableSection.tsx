@@ -10,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { DELIVERABLE_COLORS } from "@/theme/tokens";
 import { SOAW_STATUS_COLORS } from "./constants";
+import { outcomeChipProps } from "../reviewOutcome";
 import { DecisionStateChip } from "../DecisionStandingChip";
 import { decisionRefLabel } from "../decisionStanding";
 import type {
@@ -200,6 +201,8 @@ export default function DeliverableSection(props: Props) {
       approved: t("status.approved"),
       signed: t("status.signed"),
     };
+    // A review outcome ("Rejected", …) stands in for "Draft".
+    const outcome = outcomeChipProps(soaw, t);
     return (
       <CompactRow
         icon={<MaterialSymbol icon="description" size={18} color={color} />}
@@ -217,9 +220,10 @@ export default function DeliverableSection(props: Props) {
           )}
         </Typography>
         <Chip
-          label={statusLabels[soaw.status] ?? soaw.status}
+          label={outcome?.label ?? statusLabels[soaw.status] ?? soaw.status}
           size="small"
-          color={SOAW_STATUS_COLORS[soaw.status] ?? "default"}
+          color={outcome?.color ?? SOAW_STATUS_COLORS[soaw.status] ?? "default"}
+          variant={outcome?.variant ?? "filled"}
           sx={{ height: 22 }}
         />
         <Tooltip title={t("soaw.previewTooltip")}>

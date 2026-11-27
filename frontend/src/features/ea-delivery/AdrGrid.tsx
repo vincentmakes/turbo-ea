@@ -53,6 +53,7 @@ import {
   statusGroupKey,
   statusGroupVocab,
 } from "./adrGridModel";
+import { isClosed } from "./reviewOutcome";
 
 /**
  * Extract plain text from HTML using the browser's DOM parser. A restricted
@@ -102,6 +103,17 @@ interface Props {
   onPreview: (adr: ArchitectureDecision) => void;
   onDuplicate: (adr: ArchitectureDecision) => void;
   onDelete: (adr: ArchitectureDecision) => void;
+  /**
+   * Reopen a closed (rejected or withdrawn) decision; when given, the row
+   * menu offers it on a closed row. Pass it to holders of `adr.manage` only.
+   */
+  onReopen?: (adr: ArchitectureDecision) => void;
+  /**
+   * Whether the reader holds `adr.delete`: a closed decision can only be
+   * deleted with it (the author alone no longer suffices), so without it the
+   * row menu offers no Delete on a closed row.
+   */
+  canDeleteClosed?: boolean;
   onExport: (adrs: ArchitectureDecision[]) => void;
   quickFilterText: string;
   onQuickFilterChange: (text: string) => void;
@@ -138,6 +150,8 @@ export default function AdrGrid({
   onPreview,
   onDuplicate,
   onDelete,
+  onReopen,
+  canDeleteClosed = false,
   onExport,
   quickFilterText,
   onQuickFilterChange,
@@ -729,7 +743,18 @@ export default function AdrGrid({
           </ListItemIcon>
           <ListItemText>{t("adr.duplicate")}</ListItemText>
         </MenuItem>,
-        ...(adr.status === "draft"
+        ...(onReopen && isClosed(adr)
+          ? [
+              <MenuItem key="reopen" onClick={act(onReopen)}>
+                <ListItemIcon>
+                  <MaterialSymbol icon="replay" size={20} />
+                </ListItemIcon>
+                <ListItemText>{t("adr.grid.reopen")}</ListItemText>
+              </MenuItem>,
+            ]
+          : []),
+        // A draft can be deleted; a closed one only with `adr.delete`.
+        ...(adr.status === "draft" && (!isClosed(adr) || canDeleteClosed)
           ? [
               <MenuItem key="delete" onClick={act(onDelete)}>
                 <ListItemIcon>

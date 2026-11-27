@@ -69,6 +69,18 @@ describe("RevisionStrip", () => {
       "Signed · In force · Signed on 2026-03-04",
     );
   });
+
+  it("names a closed draft revision by its outcome", async () => {
+    render(
+      <RevisionStrip
+        items={[ITEMS[1], { id: "r3", label: "Rev 3", status: "draft", outcome: "rejected" }]}
+        activeId="r2"
+        onOpen={() => {}}
+      />,
+    );
+    await userEvent.hover(screen.getByTestId("revision-r3"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(/^Rejected$/);
+  });
 });
 
 describe("showsRevisionStrip", () => {
@@ -96,7 +108,7 @@ describe("revision item builders", () => {
         ],
         t,
       ),
-    ).toEqual([{ id: "a", label: "Rev 2", status: "signed", standing: "revoked" }]);
+    ).toEqual([{ id: "a", label: "Rev 2", status: "signed", standing: "revoked", outcome: null }]);
   });
 
   it("maps a SoAW chain", () => {
@@ -109,8 +121,31 @@ describe("revision item builders", () => {
         t,
       ),
     ).toEqual([
-      { id: "s1", label: "Rev 1", status: "approved", signedAt: null },
-      { id: "s2", label: "Rev 2", status: "signed", signedAt: "2026-01-01" },
+      { id: "s1", label: "Rev 1", status: "approved", signedAt: null, outcome: null },
+      { id: "s2", label: "Rev 2", status: "signed", signedAt: "2026-01-01", outcome: null },
     ]);
+  });
+
+  it("carries a revision's review outcome", () => {
+    expect(
+      decisionRevisionItems(
+        [
+          {
+            id: "a",
+            reference_number: "ADR-001",
+            revision_number: 2,
+            title: "T",
+            status: "draft",
+            standing: null,
+            outcome: "rejected",
+          },
+        ],
+        t,
+      )[0].outcome,
+    ).toBe("rejected");
+    expect(
+      soawRevisionItems([{ id: "s", name: "S", revision_number: 2, status: "draft", outcome: "withdrawn" }], t)[0]
+        .outcome,
+    ).toBe("withdrawn");
   });
 });

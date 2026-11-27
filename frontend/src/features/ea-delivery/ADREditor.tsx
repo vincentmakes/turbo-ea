@@ -49,11 +49,16 @@ import {
   storedPayload,
   type SavePayload,
 } from "./adrEditorModel";
+import { isClosed, reviewActions } from "./reviewOutcome";
 import { hasUnsavedEdits } from "./editorDirty";
 import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
 import SectionDiscussionMarker from "./collab/SectionDiscussionMarker";
-import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
+import {
+  RejectDocumentDialog,
+  SignDocumentDialog,
+  type ReasonDialogMode,
+} from "./collab/ReviewDialogs";
 import { deepLinkDialog } from "./collab/reviewDeepLink";
 import { sectionOptions, signBody } from "./collab/discussionModel";
 import {
@@ -81,6 +86,25 @@ import type {
 import { STATUS_COLORS as STATUS_HUES } from "@/theme/tokens";
 
 const CHANGE_SUMMARY_MAX = 2000;
+
+/** Each reason dialog mode's route, confirmation and failure message. */
+const REASON_STEPS: Record<ReasonDialogMode, { path: string; done: string; failed: string }> = {
+  requestChanges: {
+    path: "request-changes",
+    done: "adr.editor.changesRequested",
+    failed: "adr.editor.error.requestChangesFailed",
+  },
+  reject: {
+    path: "reject",
+    done: "adr.editor.documentRejected",
+    failed: "adr.editor.error.rejectFailed",
+  },
+  withdraw: {
+    path: "withdraw",
+    done: "adr.editor.withdrawn",
+    failed: "adr.editor.error.withdrawFailed",
+  },
+};
 /** What "@" offers in a decision's text. */
 const DOCUMENT_MENTIONS: MentionKind[] = ["card", "decision"];
 
@@ -165,19 +189,23 @@ export default function ADREditor() {
   // Record-as-decided dialog
   const [recordOpen, setRecordOpen] = useState(false);
 
-  // Sign (with an optional note) and reject dialogs, and why the last
-  // attempt from each was refused (shown inside the dialog).
+  // Sign (with an optional note) and the reason dialog (Request changes,
+  // Reject or Withdraw), and why the last attempt from each was refused
+  // (shown inside the dialog).
   const [signOpen, setSignOpen] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [reasonMode, setReasonMode] = useState<ReasonDialogMode | null>(null);
+  // The last mode, kept while the dialog closes so its texts do not flip.
+  const [shownReasonMode, setShownReasonMode] = useState<ReasonDialogMode>("reject");
   const [signError, setSignError] = useState("");
   const [rejectError, setRejectError] = useState("");
   const openSign = () => {
     setSignError("");
     setSignOpen(true);
   };
-  const openReject = () => {
+  const openReason = (mode: ReasonDialogMode) => {
     setRejectError("");
-    setRejectDialogOpen(true);
+    setShownReasonMode(mode);
+    setReasonMode(mode);
   };
   // Open discussion threads on this revision: the detail's count, then the
   // side panel's live one. Shown as a warning by the review dialogs.
@@ -206,7 +234,9 @@ export default function ADREditor() {
   const [cardLinkOpen, setCardLinkOpen] = useState(false);
 
   const isSigned = status === "signed";
-  const access = editorAccess(status, isNew);
+  // Rejected or withdrawn: locked like a document in review until reopened.
+  const closed = isClosed(detail);
+  const access = editorAccess(status, isNew, closed);
   const locked = access.locked;
   const canManage = hasPermission(user?.permissions, "adr.manage");
   const isRevision = Boolean(detail?.parent_id);
@@ -493,24 +523,37 @@ export default function ADREditor() {
     }
   };
 
-  // Reject
-  const handleReject = async (reason: string) => {
-    if (!id || !reason) return;
+  // Request changes (back to draft), Reject (closed) or Withdraw (closed),
+  // each with the reason the dialog collected.
+  const handleReason = async (reason: string) => {
+    if (!id || !reason || !reasonMode) return;
+    const step = REASON_STEPS[reasonMode];
     setSaving(true);
     try {
-      const updated = await api.post<ArchitectureDecision>(
-        `/adr/${id}/reject`,
-        { comment: reason },
-      );
+      const updated = await api.post<ArchitectureDecision>(`/adr/${id}/${step.path}`, {
+        comment: reason,
+      });
       applyReply(updated);
-      setRejectDialogOpen(false);
-      setSnackbar(t("adr.editor.documentRejected"));
+      setReasonMode(null);
+      setSnackbar(t(step.done));
     } catch (err) {
-      setRejectError(problemMessage(err, t) ?? t("adr.editor.error.rejectFailed"));
+      setRejectError(problemMessage(err, t) ?? t(step.failed));
     } finally {
       setSaving(false);
     }
   };
+
+  // Reopen a closed decision: a plain draft again.
+  const handleReopen = () =>
+    action.run(async () => {
+      if (!id) return;
+      try {
+        applyReply(await api.post<ArchitectureDecision>(`/adr/${id}/reopen`, {}));
+        setSnackbar(t("adr.editor.reopened"));
+      } catch (err) {
+        setError(problemMessage(err, t) ?? t("adr.editor.error.reopenFailed"));
+      }
+    });
 
   // Card linking
   const openCardLink = () => setCardLinkOpen(true);
@@ -570,6 +613,13 @@ export default function ADREditor() {
     (s) => s.user_id === currentUserId && s.status === "pending",
   );
   const signedCount = signatories.filter((s) => s.status === "signed").length;
+  const review = reviewActions({
+    status,
+    isNew,
+    closed,
+    isPendingSignatory: currentUserIsSignatory,
+    canManage,
+  });
 
   // A deep link's dialog, once this decision and the reader are known.
   const deepLinkReady = deepLink !== null && meLoaded && detail !== null && detail.id === id;
@@ -581,9 +631,11 @@ export default function ADREditor() {
       setSignError("");
       setSignOpen(true);
     } else if (dialog === "request-signatures") setSignDialogOpen(true);
-    else if (dialog === "reject") {
+    else if (dialog === "reject" || dialog === "request-changes") {
+      const mode: ReasonDialogMode = dialog === "reject" ? "reject" : "requestChanges";
       setRejectError("");
-      setRejectDialogOpen(true);
+      setShownReasonMode(mode);
+      setReasonMode(mode);
     }
   }, [deepLinkReady, deepLink, status, currentUserIsSignatory]);
 
@@ -635,6 +687,7 @@ export default function ADREditor() {
           .filter(Boolean)
           .join(" · ")}
         status={status}
+        closed={closed}
         refreshKey={detail?.updated_at ?? undefined}
         isDirty={hasEdits}
         onRestored={(adr) => applyReply(adr)}
@@ -685,7 +738,13 @@ export default function ADREditor() {
           {isNew ? t("adr.editor.newTitle") : title || t("adr.editor.untitled")}
         </Typography>
 
-        <DecisionStatusChip adr={{ status: status as ArchitectureDecision["status"], recorded_at: detail?.recorded_at }} />
+        <DecisionStatusChip
+          adr={{
+            status: status as ArchitectureDecision["status"],
+            recorded_at: detail?.recorded_at,
+            outcome: detail?.outcome,
+          }}
+        />
         <DecisionStandingChip standing={detail?.standing} />
 
         {/* History sits beside the revision strip when one is shown. */}
@@ -795,7 +854,7 @@ export default function ADREditor() {
             {saving ? t("adr.editor.saving") : t("adr.editor.save")}
           </Button>
         )}
-        {!isNew && !isSigned && status === "draft" && (
+        {access.canRequestSignatures && (
           <Button
             variant="outlined"
             startIcon={<MaterialSymbol icon="send" size={18} />}
@@ -806,7 +865,7 @@ export default function ADREditor() {
             {t("adr.editor.requestSignatures")}
           </Button>
         )}
-        {canRecord(user?.permissions, status, isNew) && (
+        {canRecord(user?.permissions, status, isNew, closed) && (
           <Button
             variant="outlined"
             startIcon={<MaterialSymbol icon="history_edu" size={18} />}
@@ -830,7 +889,7 @@ export default function ADREditor() {
             </Button>
           </Tooltip>
         )}
-        {!isNew && status === "in_review" && currentUserIsSignatory && (
+        {review.signatory && (
           <>
             <Button
               variant="contained"
@@ -844,15 +903,52 @@ export default function ADREditor() {
             </Button>
             <Button
               variant="outlined"
+              color="warning"
+              startIcon={<MaterialSymbol icon="rate_review" size={18} />}
+              onClick={() => openReason("requestChanges")}
+              disabled={saving}
+              sx={{ textTransform: "none" }}
+            >
+              {t("adr.editor.requestChanges")}
+            </Button>
+            <Button
+              variant="outlined"
               color="error"
               startIcon={<MaterialSymbol icon="block" size={18} />}
-              onClick={openReject}
+              onClick={() => openReason("reject")}
               disabled={saving}
               sx={{ textTransform: "none" }}
             >
               {t("adr.editor.reject")}
             </Button>
           </>
+        )}
+        {review.withdraw && (
+          <Tooltip title={t("adr.editor.withdrawTooltip")} describeChild>
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<MaterialSymbol icon="cancel" size={18} />}
+              onClick={() => openReason("withdraw")}
+              disabled={saving}
+              sx={{ textTransform: "none" }}
+            >
+              {t("adr.editor.withdraw")}
+            </Button>
+          </Tooltip>
+        )}
+        {review.reopen && (
+          <Tooltip title={t("adr.editor.reopenTooltip")} describeChild>
+            <Button
+              variant="contained"
+              startIcon={<MaterialSymbol icon="replay" size={18} />}
+              onClick={handleReopen}
+              disabled={action.busy}
+              sx={{ textTransform: "none" }}
+            >
+              {t("adr.editor.reopen")}
+            </Button>
+          </Tooltip>
         )}
         {isSigned && detail && (
           <ReviseMenu
@@ -1232,6 +1328,7 @@ export default function ADREditor() {
                   readOnly={access.panelReadOnly}
                   standing={detail?.standing ?? null}
                   isCurrent={detail?.is_current}
+                  outcome={detail?.outcome?.kind ?? null}
                 />
               </Paper>
             </ExtensionBoundary>
@@ -1359,7 +1456,7 @@ export default function ADREditor() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Sign and Reject Dialogs ── */}
+      {/* ── Sign and reason (Request changes / Reject / Withdraw) Dialogs ── */}
       <SignDocumentDialog
         open={signOpen}
         onClose={() => setSignOpen(false)}
@@ -1372,13 +1469,11 @@ export default function ADREditor() {
         onDismissError={() => setSignError("")}
       />
       <RejectDocumentDialog
-        open={rejectDialogOpen}
-        onClose={() => setRejectDialogOpen(false)}
-        onReject={handleReject}
-        title={t("adr.editor.rejectDialog.title")}
-        description={t("adr.editor.rejectDialog.description")}
-        label={t("adr.editor.rejectDialog.commentLabel")}
-        submitLabel={t("adr.editor.reject")}
+        open={reasonMode !== null}
+        mode={reasonMode ?? shownReasonMode}
+        document="adr"
+        onClose={() => setReasonMode(null)}
+        onReject={handleReason}
         openThreadCount={openThreads}
         busy={saving}
         error={rejectError}

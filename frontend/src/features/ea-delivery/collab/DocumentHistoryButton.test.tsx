@@ -50,6 +50,7 @@ describe("DocumentHistoryButton", () => {
       owner: { kind: "adr", id: "a1" },
       label: "ADR-012 · Adopt Kafka",
       status: "draft",
+      closed: false,
       refreshKey: "k1",
       isDirty,
     });
@@ -78,5 +79,13 @@ describe("DocumentHistoryButton", () => {
     await user.click(button);
     await waitFor(() => expect(screen.getByRole("dialog", { name: "history-dialog" })).toBeInTheDocument());
     expect(dialogs.props.at(-1)).toMatchObject({ status: "signed", label: "L" });
+  });
+
+  it("passes a closed document on to the History view", async () => {
+    const { user } = renderWithProviders(
+      <DocumentHistoryButton owner={{ kind: "soaw", id: "s1" }} label="S" status="draft" closed />,
+    );
+    await user.click(screen.getByRole("button", { name: /History$/ }));
+    expect(dialogs.props.at(-1)).toMatchObject({ status: "draft", closed: true });
   });
 });

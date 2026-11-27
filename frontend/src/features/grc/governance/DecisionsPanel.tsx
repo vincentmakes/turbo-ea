@@ -47,6 +47,8 @@ export default function DecisionsPanel() {
   const unknownTypeColor = useTheme().palette.text.secondary;
 
   const canManage = !!user?.permissions?.["*"] || !!user?.permissions?.["adr.manage"];
+  // A closed (rejected or withdrawn) decision can only be deleted with adr.delete.
+  const canDelete = !!user?.permissions?.["*"] || !!user?.permissions?.["adr.delete"];
 
   const [adrs, setAdrs] = useState<ArchitectureDecision[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,6 +158,20 @@ export default function DecisionsPanel() {
       }
     },
     [navigate, t],
+  );
+
+  // Reopen a closed decision from the row menu: the row is replaced by the
+  // reply (a plain draft again).
+  const handleReopen = useCallback(
+    async (adr: ArchitectureDecision) => {
+      try {
+        const reopened = await api.post<ArchitectureDecision>(`/adr/${adr.id}/reopen`, {});
+        setAdrs((prev) => prev.map((a) => (a.id === adr.id ? { ...a, ...reopened } : a)));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("delivery:adr.grid.reopenFailed"));
+      }
+    },
+    [t],
   );
 
   // ── ADR filter helpers ───────────────────────────────────────────
@@ -365,6 +381,8 @@ export default function DecisionsPanel() {
               onPreview={(adr) => navigate(`/ea-delivery/adr/${adr.id}/preview`)}
               onDuplicate={handleDuplicate}
               onDelete={handleDelete}
+              onReopen={canManage ? handleReopen : undefined}
+              canDeleteClosed={canDelete}
               onExport={handleExport}
               autoHeight
             />

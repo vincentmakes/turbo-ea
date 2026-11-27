@@ -534,6 +534,42 @@ describe("ADRPreview — decision register", () => {
     expect(screen.getByTestId("hdr")).toHaveTextContent("true|in_force|true");
     expect(screen.getByTestId("ftr")).toHaveTextContent("in_force|true");
   });
+
+  it("shows a rejected draft's outcome chip and banner, and hands panels the outcome", async () => {
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      adrPanels: [
+        {
+          id: "p",
+          component: (p: { readOnly: boolean; outcome?: unknown }) => (
+            <div data-testid="panel">{`${p.readOnly}|${String(p.outcome)}`}</div>
+          ),
+        },
+      ],
+    });
+    serve({
+      ...FULL,
+      status: "draft",
+      standing: null,
+      signatories: [],
+      revisions: [],
+      open_revision: null,
+      outcome: {
+        kind: "rejected",
+        at: "2026-06-05T00:00:00Z",
+        by: { id: "u2", display_name: "Grace" },
+        note: "Not costed",
+      },
+    });
+    renderPreview();
+    expect(await screen.findByTestId("panel")).toHaveTextContent("true|rejected");
+    expect(screen.getByText("Rejected")).toBeInTheDocument();
+    expect(screen.getByText(/Rejected by Grace on/)).toBeInTheDocument();
+    expect(screen.getByText("Not costed")).toBeInTheDocument();
+    // The lock line belongs to the editor.
+    expect(screen.queryByText(/Closed: the content is locked/)).toBeNull();
+  });
 });
 
 describe("ADRPreview — revision navigation race", () => {

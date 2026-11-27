@@ -151,6 +151,7 @@ describe("editorAccess", () => {
       filesEditable: true,
       diagramsEditable: true,
       panelReadOnly: false,
+      canRequestSignatures: true,
     });
   });
 
@@ -166,6 +167,7 @@ describe("editorAccess", () => {
       filesEditable: false,
       diagramsEditable: true,
       panelReadOnly: true,
+      canRequestSignatures: false,
     });
   });
 
@@ -176,7 +178,23 @@ describe("editorAccess", () => {
       filesEditable: false,
       diagramsEditable: false,
       panelReadOnly: true,
+      canRequestSignatures: false,
     });
+  });
+
+  it("a closed draft locks like one in review: cards and diagrams only, no signatures, panels read-only", () => {
+    expect(editorAccess("draft", false, true)).toEqual({
+      locked: true,
+      cardsEditable: true,
+      filesEditable: false,
+      diagramsEditable: true,
+      panelReadOnly: true,
+      canRequestSignatures: false,
+    });
+  });
+
+  it("a new decision cannot request signatures yet", () => {
+    expect(editorAccess("draft", true).canRequestSignatures).toBe(false);
   });
 });
 
@@ -189,6 +207,7 @@ describe("canRecord", () => {
     expect(canRecord({ "adr.record": true }, "in_review", false)).toBe(false);
     expect(canRecord({ "adr.record": true }, "signed", false)).toBe(false);
     expect(canRecord(undefined, "draft", false)).toBe(false);
+    expect(canRecord({ "adr.record": true }, "draft", false, true)).toBe(false);
   });
 });
 

@@ -5,13 +5,14 @@
  * sheet reads well in Excel, plus the read-only facts a register needs
  * (status, revision, author, signatories, dates) and the register's own
  * facts after them (standing, the decision's dates, its people and its typed
- * links as references). The importer
+ * links as references), and the review outcome (`changes_requested`,
+ * `rejected`, `withdrawn`) with its reason last. The importer
  * (`POST /adr/bulk-import`) is create-only: it reads `reference_number`,
  * `title`, the four sections (turned back into HTML), `cards` and
  * `related_decisions`; a row whose reference already exists is skipped, so
  * re-importing an export changes nothing. Every other column is ignored, the
  * register columns included: an import creates drafts, never standings,
- * dates, people or typed links.
+ * dates, people, typed links or outcomes.
  */
 import type { AdrImportItem, ArchitectureDecision, DecisionPerson } from "@/types";
 import { toIsoDate, toLocalDate } from "@/lib/dates";
@@ -47,6 +48,8 @@ export const ADR_COLUMNS = [
   "amends",
   "revokes",
   "consolidates",
+  "outcome",
+  "outcome_note",
 ] as const;
 
 /** The typed link kinds written as their own columns (`relates` stays in
@@ -96,6 +99,9 @@ export function adrRow(adr: ArchitectureDecision): (string | number)[] {
     // Participants come with `include_content=true`, the export's fetch.
     names(adr.participants),
     ...LINK_COLUMNS.map((kind) => (adr.link_references?.[kind] ?? []).join("; ")),
+    // Raw kind, like `status` and `standing`: the sheet is machine-readable.
+    adr.outcome?.kind ?? "",
+    adr.outcome?.note ?? "",
   ];
 }
 

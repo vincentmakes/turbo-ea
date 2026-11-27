@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.221.0] - 2026-11-27
+
+### Added
+- Decisions and Statements of Architecture Work record how a review ended without a signature — **Changes requested**, **Rejected** or **Withdrawn** — with who, when and why, shown on the status chip, in a banner on the document, on its History timeline, in the exports and as an **Outcome** filter and group in the decisions register.
+- A pending signatory can **Request changes**, which sends the document back to an editable draft, besides **Sign** and **Reject**.
+- **Withdraw** closes a saved draft or a document in review with a reason, cancelling its pending signature requests, and **Reopen** turns a rejected or withdrawn document back into a plain draft.
+- The decisions register hides rejected and withdrawn decisions until **Show closed** is switched on.
+- Extension SDK 1.21: decisions read through the decisions bridge carry their review outcome; UI SDK 1.40: decision panels receive the outcome and are read-only on a rejected or withdrawn decision.
+
+### Changed
+- **Reject** now closes the decision or SoAW (locked and kept on record until reopened) instead of returning it to draft; returning it to draft is the new **Request changes**, and `POST /adr/{id}/reject` and `POST /soaw/{id}/reject` changed meaning accordingly (the former behaviour is `POST /{id}/request-changes`). Drafts whose last review was rejected before this version read **Changes requested**.
+
 ## [2.220.0] - 2026-11-27
 
 ### Added

@@ -36,8 +36,10 @@ import {
   STATUS_CHIP,
   type ChipStyle,
 } from "./decisionStanding";
+import { OUTCOME_CHIP, REVIEW_OUTCOMES } from "./reviewOutcome";
 import {
   EMPTY_ADR_FILTERS,
+  NO_OUTCOME,
   countActiveAdrFilters,
   isInForcePreset,
   toggleInForcePreset,
@@ -81,6 +83,15 @@ const STANDING_OPTIONS: { key: string; style: ChipStyle }[] = [
   {
     key: NO_STANDING,
     style: { ...STATUS_CHIP.draft, labelKey: NO_STANDING_LABEL_KEY, variant: "outlined" },
+  },
+];
+
+/** Review outcomes in reading order, then "No outcome". */
+const OUTCOME_OPTIONS: { key: string; style: ChipStyle }[] = [
+  ...REVIEW_OUTCOMES.map((key) => ({ key, style: OUTCOME_CHIP[key] })),
+  {
+    key: NO_OUTCOME,
+    style: { ...STATUS_CHIP.draft, labelKey: "outcome.none", variant: "outlined" },
   },
 ];
 
@@ -285,6 +296,7 @@ export default function AdrFilterSidebar({
     linkedCards: false,
     status: true,
     standing: true,
+    outcome: true,
     signedBy: false,
     dateCreated: false,
     dateModified: false,
@@ -325,6 +337,16 @@ export default function AdrFilterSidebar({
         ? filters.standings.filter((k) => k !== key)
         : [...filters.standings, key];
       onFiltersChange({ ...filters, standings: next });
+    },
+    [filters, onFiltersChange],
+  );
+
+  const toggleOutcome = useCallback(
+    (key: string) => {
+      const next = filters.outcomes.includes(key)
+        ? filters.outcomes.filter((k) => k !== key)
+        : [...filters.outcomes, key];
+      onFiltersChange({ ...filters, outcomes: next });
     },
     [filters, onFiltersChange],
   );
@@ -576,6 +598,26 @@ export default function AdrFilterSidebar({
               // Cancels FormControlLabel's default -11px (Inventory sidebar).
               sx={{ ml: 0 }}
             />
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={filters.showClosed}
+                  onChange={(e) => onFiltersChange({ ...filters, showClosed: e.target.checked })}
+                />
+              }
+              label={
+                <Tooltip title={t("adr.filter.showClosedHint")}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                    <MaterialSymbol icon="inventory_2" size={16} />
+                    <Typography variant="body2" fontSize={13}>
+                      {t("adr.filter.showClosed")}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+              }
+              sx={{ ml: 0 }}
+            />
           </Box>
 
           <Divider sx={{ my: 1 }} />
@@ -781,6 +823,41 @@ export default function AdrFilterSidebar({
                     variant={selected ? "filled" : "outlined"}
                     aria-pressed={selected}
                     onClick={() => toggleStanding(opt.key)}
+                    sx={{ fontSize: 12 }}
+                  />
+                );
+              })}
+            </Box>
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* ---- Outcome ---- */}
+          {/* How a review ended without a signature: a mutually-exclusive
+              state, so filled-vs-outlined coloured chips like Standing.
+              Picking a closed outcome shows those decisions even with
+              "Show closed" off. */}
+          <FilterSectionHeader
+            label={t("adr.filter.outcome")}
+            icon="rate_review"
+            count={filters.outcomes.length}
+            expanded={expandedSections.outcome}
+            onToggle={() => toggleSection("outcome")}
+            onClear={() => clearKeys("outcomes")}
+          />
+          <Collapse in={expandedSections.outcome}>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1, mt: 0.5, px: 0.5 }}>
+              {OUTCOME_OPTIONS.map((opt) => {
+                const selected = filters.outcomes.includes(opt.key);
+                return (
+                  <Chip
+                    key={opt.key}
+                    label={t(opt.style.labelKey)}
+                    size="small"
+                    color={opt.style.color}
+                    variant={selected ? "filled" : "outlined"}
+                    aria-pressed={selected}
+                    onClick={() => toggleOutcome(opt.key)}
                     sx={{ fontSize: 12 }}
                   />
                 );

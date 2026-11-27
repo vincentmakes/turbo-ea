@@ -4,8 +4,11 @@
  * never blocks: a signer may sign over an open thread.
  *
  * - Sign: an optional note, kept as a signing note in the discussion.
- * - Reject: a reason is required (at most `REJECT_REASON_MAX` characters);
- *   it opens a thread to resolve.
+ * - The reason dialog, in one of three modes (texts only, same rules): a
+ *   signatory's **Request changes** (back to an editable draft) or **Reject**
+ *   (closes the document), and the author side's **Withdraw** (closes it).
+ *   A reason is required (at most `REJECT_REASON_MAX` characters); Request
+ *   changes and Reject open a thread to resolve.
  *
  * A refusal (`error`) is shown inside the dialog, which stays open with what
  * was typed, so the signer can read why and try again or cancel.
@@ -111,15 +114,53 @@ export function SignDocumentDialog({
   );
 }
 
+/** What the reason dialog is for: its texts and its confirm button's colour. */
+export type ReasonDialogMode = "requestChanges" | "reject" | "withdraw";
+
+/** Which document's wording the reason dialog uses. */
+export type ReasonDialogDocument = "adr" | "soaw";
+
+const MODE_KEYS: Record<ReasonDialogMode, { dialog: string; submit: string }> = {
+  requestChanges: { dialog: "requestChangesDialog", submit: "requestChanges" },
+  reject: { dialog: "rejectDialog", submit: "reject" },
+  withdraw: { dialog: "withdrawDialog", submit: "withdraw" },
+};
+
+const MODE_COLOR: Record<ReasonDialogMode, "error" | "warning" | "primary"> = {
+  requestChanges: "warning",
+  reject: "error",
+  withdraw: "primary",
+};
+
+/**
+ * The `delivery` keys of a mode's texts: the decision's under `adr.editor.*`,
+ * the SoAW's under `editor.*`.
+ */
+export function reasonDialogKeys(mode: ReasonDialogMode, document: ReasonDialogDocument) {
+  const prefix = document === "adr" ? "adr.editor." : "editor.";
+  const { dialog, submit } = MODE_KEYS[mode];
+  return {
+    title: `${prefix}${dialog}.title`,
+    description: `${prefix}${dialog}.description`,
+    label: `${prefix}${dialog}.commentLabel`,
+    submit: `${prefix}${submit}`,
+  };
+}
+
 interface RejectProps {
   open: boolean;
   onClose: () => void;
   /** Called with the trimmed reason (never empty). */
   onReject: (reason: string) => Promise<void> | void;
-  title: string;
-  description: string;
-  label: string;
-  submitLabel: string;
+  /** Request changes, Reject (the default) or Withdraw. */
+  mode?: ReasonDialogMode;
+  /** Whose wording: a decision's (the default) or a SoAW's. */
+  document?: ReasonDialogDocument;
+  /** Overrides of the mode's texts. */
+  title?: string;
+  description?: string;
+  label?: string;
+  submitLabel?: string;
   openThreadCount?: number;
   busy?: boolean;
   /** Why the last attempt was refused; shown in the dialog. */
@@ -127,10 +168,13 @@ interface RejectProps {
   onDismissError?: () => void;
 }
 
+/** The reason dialog: Request changes, Reject or Withdraw, by `mode`. */
 export function RejectDocumentDialog({
   open,
   onClose,
   onReject,
+  mode = "reject",
+  document = "adr",
   title,
   description,
   label,
@@ -143,24 +187,26 @@ export function RejectDocumentDialog({
   const { t } = useTranslation(["delivery", "common"]);
   const [reason, setReason] = useState("");
   const tooLong = reason.length > REJECT_REASON_MAX;
+  const keys = reasonDialogKeys(mode, document);
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      data-mode={mode}
       TransitionProps={{ onExited: () => setReason("") }}
     >
-      <DialogTitle>{title}</DialogTitle>
+      <DialogTitle>{title ?? t(keys.title)}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 2 }}>
-          {description}
+          {description ?? t(keys.description)}
         </Typography>
         <OpenThreadsWarning count={openThreadCount} />
         <DialogError error={error} onDismiss={onDismissError} />
         <TextField
           autoFocus
-          label={label}
+          label={label ?? t(keys.label)}
           fullWidth
           multiline
           minRows={3}
@@ -175,11 +221,11 @@ export function RejectDocumentDialog({
         <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
-          color="error"
+          color={MODE_COLOR[mode]}
           disabled={!reason.trim() || tooLong || busy}
           onClick={() => void onReject(reason.trim())}
         >
-          {submitLabel}
+          {submitLabel ?? t(keys.submit)}
         </Button>
       </DialogActions>
     </Dialog>

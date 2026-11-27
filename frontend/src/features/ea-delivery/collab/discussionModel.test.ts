@@ -359,6 +359,14 @@ describe("rejectionBodyOrFallback", () => {
     expect(rejectionBodyOrFallback({ kind: "comment", body: "" }, "None")).toBe("");
     expect(rejectionBodyOrFallback({ kind: "sign_note", body: "" }, "None")).toBe("");
   });
+  it("treats a request for changes like a rejection", () => {
+    expect(rejectionBodyOrFallback({ kind: "change_request", body: "<p></p>" }, "None")).toBe(
+      "<p>None</p>",
+    );
+    expect(rejectionBodyOrFallback({ kind: "change_request", body: "<p>Add costs</p>" }, "None")).toBe(
+      "<p>Add costs</p>",
+    );
+  });
 });
 
 describe("authorName", () => {

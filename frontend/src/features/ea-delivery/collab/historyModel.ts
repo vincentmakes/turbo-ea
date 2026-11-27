@@ -26,7 +26,10 @@ const KINDS: Record<DocumentHistoryKind, { key: string; icon: string }> = {
   sent_for_review: { key: "collab.history.kind.sentForReview", icon: "send" },
   signature: { key: "collab.history.kind.signature", icon: "draw" },
   signed: { key: "collab.history.kind.signed", icon: "verified" },
+  changes_requested: { key: "collab.history.kind.changesRequested", icon: "rate_review" },
   rejected: { key: "collab.history.kind.rejected", icon: "block" },
+  withdrawn: { key: "collab.history.kind.withdrawn", icon: "cancel" },
+  reopened: { key: "collab.history.kind.reopened", icon: "replay" },
   recalled: { key: "collab.history.kind.recalled", icon: "undo" },
   recorded: { key: "collab.history.kind.recorded", icon: "history_edu" },
 };
@@ -83,9 +86,13 @@ export function restoredSource(
   return entries.find((e) => e.id === entry.note) ?? null;
 }
 
+/** The steps whose note is the reason a person gave (a review outcome). */
+const REASON_KINDS: ReadonlySet<string> = new Set(["changes_requested", "rejected", "withdrawn"]);
+
 /**
- * What a row's note line says: a rejection's reason, a signing note, the
- * version a restore brought back. Null when there is nothing to add.
+ * What a row's note line says: the reason for a request for changes, a
+ * rejection or a withdrawal, a signing note, the version a restore brought
+ * back. Null when there is nothing to add.
  */
 export function entryNote(
   entry: DocumentHistoryEntry,
@@ -99,7 +106,7 @@ export function entryNote(
       ? t("collab.history.restoredFrom", { date: formatDateTime(source.created_at) })
       : t("collab.history.restoredFromEarlier");
   }
-  if (entry.kind === "rejected") {
+  if (REASON_KINDS.has(entry.kind)) {
     return entry.note ? t("collab.history.reason", { note: entry.note }) : t("collab.history.noReason");
   }
   if (entry.kind === "signature" && entry.note) return t("collab.history.signNote", { note: entry.note });
@@ -246,8 +253,13 @@ export function restorePath(owner: DocumentOwner, entryId: string): string {
 }
 
 /** Restore is offered on a saved version of a draft, to a reader the server allows. */
-export function canRestore(canRestoreFlag: boolean, status: string, entry: Pick<DocumentHistoryEntry, "has_content">): boolean {
-  return canRestoreFlag && status === "draft" && entry.has_content;
+export function canRestore(
+  canRestoreFlag: boolean,
+  status: string,
+  entry: Pick<DocumentHistoryEntry, "has_content">,
+  closed = false,
+): boolean {
+  return canRestoreFlag && status === "draft" && !closed && entry.has_content;
 }
 
 /** Rows of a later page, after the ones held, without repeating any (a row written meanwhile shifts pages). */

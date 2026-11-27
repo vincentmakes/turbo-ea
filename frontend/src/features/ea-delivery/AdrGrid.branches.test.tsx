@@ -448,6 +448,36 @@ describe("AdrGrid cell context menu", () => {
     expect(stage.getByText("Entire cell")).toBeInTheDocument();
   });
 
+  const CLOSED: ArchitectureDecision = {
+    ...DRAFT,
+    id: "adr-closed",
+    outcome: { kind: "rejected", at: "2026-11-27T10:00:00Z", by: null, note: null },
+  };
+
+  it("offers Reopen on a closed decision when the page passes onReopen", async () => {
+    const onReopen = vi.fn();
+    const { user } = renderGrid({ onReopen, adrs: [DRAFT, CLOSED] });
+    let menu = await rightClick("title", CLOSED);
+    await user.click(menu.getByText("Reopen"));
+    expect(onReopen).toHaveBeenCalledWith(CLOSED);
+    // Not on a draft that is not closed.
+    menu = await rightClick("title", DRAFT);
+    expect(menu.queryByText("Reopen")).toBeNull();
+  });
+
+  it("offers no Reopen without onReopen, and Delete on a closed row only with adr.delete", async () => {
+    const { unmount } = renderGrid({ adrs: [CLOSED] });
+    let menu = await rightClick("title", CLOSED);
+    expect(menu.queryByText("Reopen")).toBeNull();
+    expect(menu.queryByText("Delete")).toBeNull();
+    unmount();
+
+    const { user, onDelete } = renderGrid({ adrs: [CLOSED], canDeleteClosed: true });
+    menu = await rightClick("title", CLOSED);
+    await user.click(menu.getByText("Delete"));
+    expect(onDelete).toHaveBeenCalledWith(CLOSED);
+  });
+
   it("treats a single-valued cell as a direct filter", async () => {
     const { user } = renderGrid();
     const menu = await rightClick("title", SIGNED);

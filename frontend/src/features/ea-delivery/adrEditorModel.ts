@@ -118,31 +118,41 @@ export interface EditorAccess {
   locked: boolean;
   /** Linked cards are filing, not content: editable until signed. */
   cardsEditable: boolean;
-  /** Files can be uploaded and deleted: a saved draft only. */
+  /** Files can be uploaded and deleted: a saved draft that is not closed. */
   filesEditable: boolean;
-  /** Diagrams are filing like linked cards: a saved decision, until signed. */
+  /** Diagrams are filing like linked cards: a saved decision, until signed
+   *  (in review and on a closed draft too). */
   diagramsEditable: boolean;
   /** Extension panels must not offer edits (the SDK `readOnly` contract). */
   panelReadOnly: boolean;
+  /** Signatures can be requested: a saved draft that is not closed. */
+  canRequestSignatures: boolean;
 }
 
-export function editorAccess(status: string, isNew: boolean): EditorAccess {
+/**
+ * What the editor allows for a status. `closed` is the review outcome's
+ * closed flag (rejected or withdrawn, `reviewOutcome.ts`): a closed draft is
+ * locked like one in review until it is reopened.
+ */
+export function editorAccess(status: string, isNew: boolean, closed = false): EditorAccess {
   return {
-    locked: isLocked(status),
+    locked: isLocked(status, closed),
     cardsEditable: status !== "signed",
-    filesEditable: !isNew && status === "draft",
+    filesEditable: !isNew && status === "draft" && !closed,
     diagramsEditable: !isNew && status !== "signed",
-    panelReadOnly: status !== "draft",
+    panelReadOnly: status !== "draft" || closed,
+    canRequestSignatures: !isNew && status === "draft" && !closed,
   };
 }
 
-/** "Record as decided" is offered on a saved draft to holders of `adr.record`. */
+/** "Record as decided" is offered on a saved draft that is not closed, to holders of `adr.record`. */
 export function canRecord(
   permissions: Record<string, boolean> | undefined,
   status: string,
   isNew: boolean,
+  closed = false,
 ): boolean {
-  return !isNew && status === "draft" && hasPermission(permissions, "adr.record");
+  return !isNew && !closed && status === "draft" && hasPermission(permissions, "adr.record");
 }
 
 /** The ids of the decision's own chain (itself included): never a link target. */
