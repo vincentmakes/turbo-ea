@@ -65,6 +65,7 @@ REASON_REPLAYED = "replayed"
 REASON_BY_USER = "revoked_by_user"
 REASON_BY_ADMIN = "revoked_by_admin"
 REASON_TOO_MANY = "too_many_connections"
+REASON_ACCOUNT_BLOCKED = "account_blocked"
 
 OK = "ok"
 INVALID = "invalid"

@@ -14,6 +14,7 @@ from app.core import security
 from app.core.security import decode_access_token
 from app.models.audit_log import AuditLogEntry
 from app.models.mcp_session import McpSession
+from app.models.user import User
 from app.services import mcp_session_service as sessions
 from tests.conftest import auth_headers, create_role, create_user
 
@@ -270,8 +271,9 @@ async def test_a_repeat_within_the_grace_is_a_retry(client, db, member_user):
 
 
 @pytest.mark.asyncio
-async def test_a_disabled_account_cannot_renew_and_keeps_its_token(client, db, member_user):
-    first = (await _connect(client, member_user)).json()
+async def test_a_disabled_account_cannot_renew_and_its_connection_ends(client, db, member_user):
+    email, user_id = member_user.email, member_user.id
+    first = (await _connect(client, member_user, client_name="Claude")).json()
     member_user.is_active = False
     await db.flush()
 
@@ -279,6 +281,29 @@ async def test_a_disabled_account_cannot_renew_and_keeps_its_token(client, db, m
 
     assert resp.status_code == 403
     assert resp.json()["detail"] == "Account disabled"
+    stored = (await db.execute(select(McpSession))).scalar_one()
+    session_id = stored.id
+    assert stored.revoked_reason == "account_blocked"
+    assert stored.revoked_at is not None
+    rows = await _audit(db)
+    assert [row.action for row in rows] == ["auth.mcp.connected", "auth.mcp.revoked"]
+    revoked = rows[-1]
+    assert revoked.outcome == "success"
+    assert revoked.category == "auth"
+    assert revoked.actor_email is None
+    assert revoked.subject_email == email
+    assert revoked.details == {"reason": "inactive"}
+    assert (revoked.target_type, revoked.target_id, revoked.target_label) == (
+        "mcp_session",
+        str(session_id),
+        "Claude",
+    )
+
+    # Enabling the account again does not bring the connection back.
+    user = await db.get(User, user_id)
+    user.is_active = True
+    await db.flush()
+    assert (await _renew(client, first["refresh_token"])).status_code == 400
 
 
 @pytest.mark.asyncio
@@ -291,6 +316,8 @@ async def test_an_account_past_its_access_end_cannot_renew(client, db, member_us
 
     assert resp.status_code == 403
     assert resp.json()["detail"] == "Account access has expired"
+    assert (await db.execute(select(McpSession))).scalar_one().revoked_reason == ("account_blocked")
+    assert (await _audit(db))[-1].details == {"reason": "expired"}
 
 
 @pytest.mark.asyncio
@@ -475,3 +502,25 @@ async def test_deleting_the_person_deletes_their_connections(client, db):
     await db.delete(user)
     await db.flush()
     assert (await db.execute(select(McpSession))).scalars().all() == []
+
+
+# ── The event stream ────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_the_event_stream_refuses_a_token_of_an_ended_connection(
+    client, db, member_user, monkeypatch
+):
+    from tests.seams import session_factory_for
+
+    # The stream opens a short session of its own, bound at import time.
+    monkeypatch.setattr("app.api.v1.events.async_session", session_factory_for(db))
+    body = (await _connect(client, member_user)).json()
+    stored = (await db.execute(select(McpSession))).scalar_one()
+    sessions.revoke(stored, sessions.REASON_BY_USER)
+    await db.flush()
+
+    resp = await client.get(f"/api/v1/events/stream?token={body['access_token']}")
+
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "MCP connection ended"

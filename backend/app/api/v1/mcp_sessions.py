@@ -109,7 +109,8 @@ async def refresh_mcp_session(
 
     400 ``invalid_grant`` for a token that is unknown, ended or expired, and for
     a replaced token that comes back, which also ends the connection and is
-    recorded. 403 when the account may no longer hold a session."""
+    recorded. 403 when the account may no longer hold a session, which also
+    ends the connection and is recorded."""
     _require_mcp_server(request)
     result = await sessions.rotate(db, body.refresh_token)
     session = result.session
@@ -128,12 +129,22 @@ async def refresh_mcp_session(
         raise HTTPException(status_code=400, detail="invalid_grant")
 
     user = await db.get(User, session.user_id)
-    # Not committed on refusal, so the rotation above is undone with it and the
-    # token stays presentable should the account be enabled again.
     if user is None:
         raise HTTPException(status_code=400, detail="invalid_grant")
     blocked = _session_block(user)
     if blocked is not None:
+        # The connection ends with the account's right to a session, so enabling
+        # the account again never brings back a connection made before.
+        sessions.revoke(session, sessions.REASON_ACCOUNT_BLOCKED)
+        await audit_log.record(
+            db,
+            action="auth.mcp.revoked",
+            category="auth",
+            subject_email=user.email,
+            target=(_TARGET_TYPE, str(session.id), session.client_name),
+            reason=blocked[0],
+        )
+        await db.commit()
         raise HTTPException(status_code=403, detail=blocked[1])
     await db.commit()
     return _tokens(user, session, result.refresh_token)

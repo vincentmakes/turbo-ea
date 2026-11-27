@@ -70,6 +70,11 @@ def _parse_role_map(raw: str) -> list[tuple[str, str]]:
     return pairs
 
 
+def env_days(name: str, default: int, *, minimum: int) -> int:
+    """A whole number of days from the environment, never below ``minimum``."""
+    return max(minimum, int(os.getenv(name, str(default))))
+
+
 class Settings:
     PROJECT_NAME: str = "Turbo EA"
     API_V1_PREFIX: str = "/api/v1"
@@ -130,8 +135,10 @@ class Settings:
     # MCP_SESSION_MAX_DAYS after the sign-in that created it, whatever the use
     # (0 = no such end). The second is what makes a person removed at the
     # identity provider, but still active here, sign in again eventually.
-    MCP_SESSION_IDLE_DAYS: int = int(os.getenv("MCP_SESSION_IDLE_DAYS", "30"))
-    MCP_SESSION_MAX_DAYS: int = int(os.getenv("MCP_SESSION_MAX_DAYS", "180"))
+    # At least a day of idleness (0 would end every connection at once); a
+    # negative maximum reads as 0, no end.
+    MCP_SESSION_IDLE_DAYS: int = env_days("MCP_SESSION_IDLE_DAYS", 30, minimum=1)
+    MCP_SESSION_MAX_DAYS: int = env_days("MCP_SESSION_MAX_DAYS", 180, minimum=0)
 
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
