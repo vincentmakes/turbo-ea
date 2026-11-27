@@ -1983,6 +1983,42 @@ class TestHarness:
         ) in text
         assert "Fix the race the same day" in text
 
+    def test_render_says_a_rerun_retests_the_same_commit(self):
+        """Nightly run 68 failed on a test fixed on main an hour later, and its
+        re-run failed the same way: a re-run re-tests the run's own commit."""
+        entries = [harness.entry("frontend", "3/8", 7, "test", "Page renders", "boom")]
+        sha = "5ad9c27f00ba4e4c1d0b9d0e2f1a3b4c5d6e7f80"
+        text = "\n".join(harness.render(entries, sha=sha, repo_url="https://github.com/o/r/"))
+        note = (
+            "This run tested commit `5ad9c27` ([what `main` has gained since]"
+            "(https://github.com/o/r/compare/5ad9c27f00ba4e4c1d0b9d0e2f1a3b4c5d6e7f80...main))."
+            " A re-run re-tests that same "
+            "commit, so when the fix is already on `main`, start a new run of this workflow "
+            "on `main` instead."
+        )
+        assert note in text
+        # under the table, after its last row
+        assert text.index("| frontend | 3/8 | 7 |") < text.index(note)
+        # without the commit, or without the address, nothing is guessed
+        for kwargs in ({}, {"sha": sha}, {"repo_url": "https://github.com/o/r"}):
+            assert "re-run" not in "\n".join(harness.render(entries, **kwargs))
+        # nothing failed: no section, so no note either
+        assert harness.render([], sha=sha, repo_url="https://github.com/o/r") == []
+
+    def test_report_passes_the_commit_to_the_section(self, tmp_path, capsys):
+        d = tmp_path / "harness"
+        d.mkdir()
+        harness.append(
+            d / "mutation-harness-frontend-1.json",
+            [harness.entry("frontend", "1/8", 0, "test", "Page renders", "boom")],
+        )
+        out = tmp_path / "harness.md"
+        args = ["report", "--dir", str(d), "--output", str(out), "--sha", "abcdef0123456789"]
+        assert harness.main([*args, "--repo-url", "https://github.com/o/r"]) == 0
+        assert "/compare/abcdef0123456789...main" in out.read_text()
+        assert "/compare/abcdef0...main" not in out.read_text()
+        assert "commit `abcdef0`" in capsys.readouterr().out
+
     def test_report_writes_the_output_only_when_something_failed(self, tmp_path, capsys):
         d = tmp_path / "harness"
         summary, out = tmp_path / "summary.md", tmp_path / "harness.md"

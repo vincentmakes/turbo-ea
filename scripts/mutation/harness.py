@@ -198,8 +198,29 @@ def _cell(text: str) -> str:
     return first.replace("|", "\\|")
 
 
-def render(entries: list[dict]) -> list[str]:
-    """The Markdown section; empty when nothing failed."""
+def rerun_note(sha: str, repo_url: str) -> str:
+    """What a re-run of this run would test: the same commit, never a later fix.
+
+    A scheduled run takes its snapshot when it starts; "Re-run failed jobs"
+    re-tests that snapshot. Nightly run 68 (2026-11-26) failed on a test fixed
+    on ``main`` an hour later, and its re-run failed the same way.
+    """
+    short = sha[:7]
+    # The full commit in the link, so it cannot become ambiguous; the short one in the text.
+    compare = f"{repo_url.rstrip('/')}/compare/{sha}...main"
+    return (
+        f"This run tested commit `{short}` ([what `main` has gained since]({compare})). "
+        "A re-run re-tests that same commit, so when the fix is already on `main`, "
+        "start a new run of this workflow on `main` instead."
+    )
+
+
+def render(entries: list[dict], sha: str | None = None, repo_url: str | None = None) -> list[str]:
+    """The Markdown section; empty when nothing failed.
+
+    With the run's commit (``sha``) and the repository's web address, the
+    section also says what a re-run would test (``rerun_note``).
+    """
     if not entries:
         return []
     seen = Counter(
@@ -229,6 +250,7 @@ def render(entries: list[dict]) -> list[str]:
         "|---|---|---|---|---|---|",
         *rows,
         "",
+        *([rerun_note(sha, repo_url), ""] if sha and repo_url else []),
     ]
 
 
@@ -241,13 +263,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     r.add_argument("--summary", type=Path, help="append the section here (the step summary)")
     r.add_argument("--output", type=Path, help="written only when at least one test failed")
+    r.add_argument("--sha", help="the commit this run tested (the runner's GITHUB_SHA)")
+    r.add_argument(
+        "--repo-url", help="the repository's web address, for the compare link with main"
+    )
     args = parser.parse_args(argv)
     try:
         entries = load(args.dir.glob("mutation-harness-*.json")) if args.dir.is_dir() else []
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"::error::cannot read the harness failures: {exc}")
         return 2
-    section = render(entries)
+    section = render(entries, sha=args.sha, repo_url=args.repo_url)
     if not section:
         print("No test failed on unmutated code under the harness.")
         return 0

@@ -155,6 +155,7 @@ Author **English only**: `frontend/src/i18n/locales/en/*.json`, the English `lab
 - **Frontend tests** live next to source files (e.g., `client.ts` → `client.test.ts`).
 - Use the factory helpers in `backend/tests/conftest.py` (`create_user`, `create_card`, `create_card_type`, etc.) rather than inserting raw models. Note: `create_card_type` defaults to `built_in=False`; pass `built_in=True` explicitly when testing built-in type behavior.
 - Frontend tests use Vitest + Testing Library. Mock the API client with `vi.mock("@/api/client")`, not the global fetch.
+- **A wait on a mock call proves the request was sent, not that its answer rendered**: read what the answer renders with `findBy*` or inside `waitFor`, never with a `getBy*` straight after; `npm run test:race -- <file>` checks a test. → `.claude/rules/testing-ci.md`
 - Pure logic (calculation engine, BPMN parser, encryption, JWT) should have unit tests that need no database.
 - **Seed demo data must stay compatible with the metamodel** (`test_seed_demo.py`, `test_seed_demo_security.py`). → `.claude/rules/testing-ci.md`
 

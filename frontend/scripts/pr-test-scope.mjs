@@ -28,6 +28,15 @@
  * Any other doubt — a status it does not know, a file under frontend/ outside
  * src/ and scripts/, a non-TypeScript file under src/, nothing under src/ or
  * scripts/ changed at all — also returns `full`.
+ *
+ * `--changed-tests <file>` also writes the test files the diff adds, modifies
+ * or renames into place under frontend/src (`changedTests`): what the race
+ * probe (`Frontend Race Probe`, vitest.race.config.ts) runs when the scope is
+ * `full`. The file is written only when the diff could be read AND lists at
+ * least one change: the job runs only on a pull request that changes
+ * frontend/, so an empty change list means the workflow's fallbacks (no merge
+ * commit, a failed `git diff`) could not tell. A missing file means "could
+ * not tell" — the probe then runs every test file — never "none".
  */
 import { readFile, readdir, writeFile, appendFile } from "node:fs/promises";
 import path from "node:path";
@@ -139,6 +148,24 @@ export function decideScope({ event, changes, always }) {
   return { mode: "related", reason: "", paths: [...selected].sort() };
 }
 
+/**
+ * The test files under frontend/src (frontend-relative, sorted) that a diff
+ * adds or modifies (status exactly `A` or `M`), or renames or copies into
+ * place (a status starting `R` or `C`: the new path). A deletion leaves
+ * nothing to run; a path git quoted cannot be placed and is left out.
+ * @param {{status: string, paths: string[]}[]} changes
+ */
+export function changedTests(changes) {
+  const tests = new Set();
+  for (const { status, paths } of changes) {
+    let file;
+    if (status === "A" || status === "M") file = paths[0];
+    else if (status.startsWith("R") || status.startsWith("C")) file = paths[1];
+    if (file?.startsWith("frontend/src/") && TEST_FILE.test(file)) tests.add(file.slice("frontend/".length));
+  }
+  return [...tests].sort();
+}
+
 /** Every Vitest file under `root` (the frontend directory), with its source. */
 export async function readTests(root, dirs = ["src", "scripts"]) {
   const tests = [];
@@ -157,7 +184,7 @@ export function parseArgs(argv) {
   const opts = { event: "", diff: "", out: "pr-test-scope.txt" };
   for (let i = 0; i < argv.length; i += 2) {
     const key = argv[i];
-    if (!["--event", "--diff", "--out"].includes(key)) {
+    if (!["--event", "--diff", "--out", "--changed-tests"].includes(key)) {
       throw new Error(`pr-test-scope: unknown option ${key}`);
     }
     if (argv[i + 1] === undefined) throw new Error(`pr-test-scope: ${key} needs a value`);
@@ -177,18 +204,24 @@ export async function main(argv, { root, env = process.env, log = console.log } 
   let decision;
   let total = 0;
   let out = path.resolve(frontendRoot, "pr-test-scope.txt");
+  let changedOut = null;
+  let changed = null;
   try {
     const opts = parseArgs(argv);
     out = path.resolve(frontendRoot, opts.out);
+    if (opts["changed-tests"]) changedOut = path.resolve(frontendRoot, opts["changed-tests"]);
     const tests = await readTests(frontendRoot);
     total = tests.length;
     const changes = parseNameStatus(await readFile(path.resolve(frontendRoot, opts.diff), "utf8"));
+    // An empty list is "could not tell" (see the header): no file is written.
+    changed = changes.length > 0 ? changedTests(changes) : null;
     decision = decideScope({ event: opts.event, changes, always: alwaysRun(tests) });
   } catch (e) {
     decision = full(`scope error: ${e.message}`);
     log(`::warning title=Frontend test scope::${decision.reason} — running every test file.`);
   }
   await writeFile(out, decision.paths.map((p) => `${p}\n`).join(""));
+  if (changedOut && changed) await writeFile(changedOut, changed.map((p) => `${p}\n`).join(""));
   const lines = [
     `mode=${decision.mode}`,
     `reason=${decision.reason.replace(/[\r\n]+/g, " ")}`,

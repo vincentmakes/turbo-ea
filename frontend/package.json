@@ -15,6 +15,7 @@
     "knip": "knip --no-gitignore",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:race": "vitest run --config vitest.race.config.ts",
     "test:coverage": "vitest run --coverage",
     "mutation": "stryker run",
     "test:e2e": "playwright test",

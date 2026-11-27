@@ -633,13 +633,12 @@ describe("RichTextEditor '@' popup lifetime", () => {
     await screen.findByText("see");
     const editor = editorOf(container);
     type(editor, " @zz");
-    // The search for "zz" has answered (with nothing).
+    // The search for "zz" was sent ("No matches" can show before it is) and
+    // has answered, with nothing: read what the answer renders, not the call.
     await waitFor(() =>
       expect(vi.mocked(api.get).mock.calls.some(([p]) => String(p).includes("search=zz"))).toBe(true),
     );
-    await act(async () => {});
-    await act(async () => {});
-    expect(screen.getByText("No matches")).toBeInTheDocument();
+    expect(await screen.findByText("No matches")).toBeInTheDocument();
     // Still open while nothing more is typed.
     expect(screen.getByRole("listbox")).toBeInTheDocument();
     await waitFor(() => expect(endsOnTyping(editor, " top")).toBe(true));
