@@ -82,7 +82,7 @@ def create_access_token(
     return _sign(payload)
 
 
-def verify_mcp_service_token(token: str) -> bool:
+def verify_mcp_service_token(token: str | None) -> bool:
     """Whether ``token`` was signed by this instance's MCP server just now.
 
     The MCP server signs a token that lives a minute; an expired one (beyond

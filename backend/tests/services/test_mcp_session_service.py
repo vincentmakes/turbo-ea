@@ -453,3 +453,51 @@ async def test_a_token_of_a_live_connection_passes_and_of_an_ended_one_does_not(
 @pytest.mark.parametrize("claimed", ["4aeca651-a8fd-4f2a-b3f6-29f0a0cb2f52", "not-a-uuid", 42, ""])
 async def test_a_token_of_an_unknown_connection_does_not_pass(db, claimed):
     assert await sessions.token_session_is_live(db, {"msid": claimed}) is False
+
+
+# ── What making room leaves alone ───────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_keeps_another_persons_row_that_went_idle_long_ago(db):
+    user = await create_user(db)
+    other = await create_user(db, email="other@example.com")
+    theirs, _ = await _open(db, other, now=NOW - timedelta(days=90))
+    await db.flush()
+
+    await _open(db, user)
+
+    left = set((await db.execute(select(McpSession.id))).scalars().all())
+    assert theirs.id in left
+
+
+@pytest.mark.asyncio
+async def test_the_cap_counts_what_is_live_at_the_given_moment(db, monkeypatch):
+    """Built on the real clock, so the rows are live today whenever this runs
+    and no longer are at the moment handed in."""
+    monkeypatch.setattr(sessions, "MAX_LIVE_SESSIONS_PER_USER", 2)
+    user = await create_user(db)
+    today = datetime.now(timezone.utc)
+    first, _ = await _open(db, user, now=today)
+    second, _ = await _open(db, user, now=today + timedelta(minutes=1))
+    assert sessions.is_live(first) and sessions.is_live(second)
+
+    await _open(db, user, now=today + timedelta(days=31))
+
+    assert first.revoked_at is None
+    assert second.revoked_at is None
+
+
+@pytest.mark.asyncio
+async def test_a_new_connection_gets_an_id_and_starts_at_generation_zero(db):
+    user = await create_user(db)
+    session, token = await _open(db, user)
+    assert isinstance(session.id, uuid.UUID)
+    assert session.generation == 0
+    assert token == sessions.mint_refresh_token(session.id, 0)
+
+
+def test_a_many_digit_generation_is_read_whole():
+    session_id = uuid.uuid4()
+    token = sessions.mint_refresh_token(session_id, 1234567)
+    assert sessions.parse_refresh_token(token) == (session_id, 1234567)

@@ -23,6 +23,9 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     payload = decode_access_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+    # Kept for a route that has to read its own token's claims (``/auth/refresh``,
+    # the impersonation routes), so none of them decodes the token a second time.
+    request.state.token_claims = payload
     user_id = payload.get("sub")
     result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
     user = result.scalar_one_or_none()

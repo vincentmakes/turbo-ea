@@ -57,7 +57,7 @@ class McpSessionTokens(BaseModel):
 
 def _require_mcp_server(request: Request) -> None:
     """Refuse a caller that is not this instance's MCP server."""
-    if not verify_mcp_service_token(request.headers.get(SERVICE_HEADER, "")):
+    if not verify_mcp_service_token(request.headers.get(SERVICE_HEADER)):
         raise HTTPException(status_code=401, detail="MCP service authentication required")
 
 

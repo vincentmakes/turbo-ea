@@ -13,12 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_optional_user
 from app.config import settings
 from app.core.rate_limit import limiter
-from app.core.security import (
-    create_access_token,
-    decode_access_token,
-    hash_password,
-    verify_password,
-)
+from app.core.security import create_access_token, hash_password, verify_password
 from app.database import get_db
 from app.models.sso_invitation import SsoInvitation
 from app.models.user import User
@@ -167,23 +162,14 @@ def _session_block(user: User) -> tuple[str, str] | None:
 MCP_TOKEN_NOT_EXCHANGEABLE = "A token of an MCP connection cannot be exchanged for a new session"
 
 
-def _presented_claims(request: Request) -> dict | None:
-    """The claims of the user token this request carries (header first, then
-    the cookie), or ``None`` when it carries no valid one."""
-    raw_auth = request.headers.get("Authorization", "")
-    raw_token = (
-        raw_auth[7:] if raw_auth.startswith("Bearer ") else request.cookies.get("access_token", "")
-    )
-    return decode_access_token(raw_token) if raw_token else None
-
-
-def _refuse_mcp_connection_token(claims: dict | None) -> None:
+def _refuse_mcp_connection_token(request: Request) -> None:
     """403 for a token minted for an MCP connection (``msid``).
 
     Such a token lives an hour and dies with its connection. Exchanged here for
     an ordinary session it would outlive both, so a revoked connection would
-    keep a way in. The MCP server renews through ``/auth/mcp/sessions/refresh``."""
-    if claims is not None and "msid" in claims:
+    keep a way in. The MCP server renews through ``/auth/mcp/sessions/refresh``.
+    Reads the claims ``get_current_user`` kept on the request."""
+    if "msid" in request.state.token_claims:
         raise HTTPException(403, MCP_TOKEN_NOT_EXCHANGEABLE)
 
 
@@ -765,7 +751,7 @@ async def impersonate_role(
     from app.services.permission_service import PermissionService
 
     await PermissionService.require_permission(db, user, "admin.impersonate")
-    _refuse_mcp_connection_token(_presented_claims(request))
+    _refuse_mcp_connection_token(request)
 
     target = body.role.strip()
     if not target:
@@ -813,8 +799,8 @@ async def stop_impersonating(
     JWT without the claim so all subsequent checks revert to the user's
     real role.
     """
-    payload = _presented_claims(request)
-    _refuse_mcp_connection_token(payload)
+    _refuse_mcp_connection_token(request)
+    payload = request.state.token_claims
     if not payload or not payload.get("impersonated_role"):
         raise HTTPException(400, "No active impersonation session")
 
@@ -849,7 +835,7 @@ async def refresh_token(
     """Issue a new short-lived access token. Re-reads role and active status from DB.
 
     A token of an MCP connection is refused (``_refuse_mcp_connection_token``)."""
-    _refuse_mcp_connection_token(_presented_claims(request))
+    _refuse_mcp_connection_token(request)
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
     token = create_access_token(user.id, user.role)

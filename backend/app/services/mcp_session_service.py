@@ -47,6 +47,8 @@ REFRESH_KEY_CONTEXT = b"turbo-ea/mcp-refresh-token/v1"
 # Longest refresh token this module mints, with room to spare: prefix, 32 hex
 # characters, a generation, a 43-character signature and two dots.
 MAX_REFRESH_TOKEN_LENGTH = 200
+# A session id written as hex, the first part of a refresh token's body.
+_SESSION_HEX_LENGTH = 32
 
 # How long a Turbo EA token minted for a connection lives. The AI tool's access
 # token is this token sealed by the MCP server, so it is also how long the tool
@@ -91,7 +93,10 @@ def _now() -> datetime:
 
 def _signature(body: str) -> str:
     digest = hmac.new(derive_key(REFRESH_KEY_CONTEXT), body.encode(), hashlib.sha256).digest()
-    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+    encoded = base64.urlsafe_b64encode(digest)
+    # A SHA-256 digest's last base64url character is never an X (its low two
+    # bits are always zero), so a strip set that gained an X strips the same.
+    return encoded.rstrip(b"=").decode()  # pragma: no mutate, never ends in X
 
 
 def mint_refresh_token(session_id: uuid.UUID, generation: int) -> str:
@@ -110,8 +115,10 @@ def parse_refresh_token(token: object) -> tuple[uuid.UUID, int] | None:
     body, _, signature = token[len(REFRESH_PREFIX) :].rpartition(".")
     if not hmac.compare_digest(_signature(body).encode(), signature.encode()):
         return None
-    # Signed here, so the shape below is the one ``mint_refresh_token`` wrote.
-    session_hex, _, generation = body.partition(".")
+    # Signed here, so the shape below is the one ``mint_refresh_token`` wrote:
+    # the id's hex, a dot, the generation.
+    session_hex = body[:_SESSION_HEX_LENGTH]
+    generation = body[_SESSION_HEX_LENGTH + 1 :]
     return uuid.UUID(hex=session_hex), int(generation)
 
 
@@ -162,8 +169,8 @@ async def _make_room(db: AsyncSession, user_id: uuid.UUID, now: datetime) -> Non
         (
             await db.execute(
                 select(McpSession)
-                .where(McpSession.user_id == user_id, McpSession.revoked_at.is_(None))
-                .order_by(McpSession.last_used_at.desc(), McpSession.id)
+                .where(McpSession.user_id == user_id)
+                .order_by(McpSession.last_used_at.desc())
             )
         )
         .scalars()
@@ -186,12 +193,11 @@ async def create(
     moment = now or _now()
     await _make_room(db, user_id, moment)
     max_days = settings.MCP_SESSION_MAX_DAYS
+    # The id and the generation (0) are the model's own defaults, set at the flush.
     session = McpSession(
-        id=uuid.uuid4(),
         user_id=user_id,
         client_name=client_name,
         scope=scope,
-        generation=0,
         created_at=moment,
         last_used_at=moment,
         idle_expires_at=_idle_end(moment),
