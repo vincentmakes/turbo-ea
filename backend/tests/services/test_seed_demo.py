@@ -26,7 +26,11 @@ from app.services.card_query import (
 )
 from app.services.card_query_matches import match_nodes
 from app.services.eol_service import manual_eol_status
-from app.services.lifecycle import current_lifecycle_phase
+from app.services.lifecycle import (
+    current_lifecycle_phase,
+    lifecycle_in_effect,
+    normalize_relation_lifecycle,
+)
 from app.services.seed import RELATIONS as META_RELATIONS
 from app.services.seed import TYPES as META_TYPES
 from app.services.seed_demo import (
@@ -39,6 +43,7 @@ from app.services.seed_demo import (
     DEMO_ADR_REGISTER_CARD_LINKS,
     DEMO_ADRS_EXTRA,
     DEMO_SOAWS,
+    DEMO_TRACKED_RELATION_TYPES,
     INITIATIVES,
     INTERFACES,
     IT_COMPONENTS,
@@ -1302,6 +1307,103 @@ class TestCapabilityHinge:
         supported = {r["source_id"] for r in DEMO_RELATIONS if r["target_id"] in cap_ids}
         orphans = [a["name"] for a in APPLICATIONS if a["id"] not in supported]
         assert not orphans, f"applications supporting no capability: {orphans}"
+
+
+def _demo_relations_as_of(today: date) -> list[dict]:
+    """The demo relations as `seed_demo` builds them when seeded on `today`
+    (the same fresh, date-pinned import `_demo_cards_as_of` uses)."""
+
+    class _PinnedDate(date):
+        @classmethod
+        def today(cls) -> Self:
+            return cls(today.year, today.month, today.day)
+
+    spec = importlib.util.spec_from_file_location(
+        f"_seed_demo_rels_as_of_{today:%Y%m%d}", seed_demo_module.__file__
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    real_date = datetime_module.date
+    datetime_module.date = _PinnedDate  # type: ignore[misc]
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        datetime_module.date = real_date  # type: ignore[misc]
+    return list(module.RELATIONS)
+
+
+def _state(lifecycle: dict, today: date) -> str:
+    """Where a relation stands today: the three states the UI draws."""
+    if lifecycle_in_effect(lifecycle, on=today):
+        return "inEffect"
+    end = lifecycle.get("endOfLife")
+    return "ended" if end and end <= today.isoformat() else "planned"
+
+
+def _dated_relations(relations: list[dict]) -> list[dict]:
+    return [r for r in relations if r.get("lifecycle")]
+
+
+class TestDemoRelationLifecycles:
+    """A few demo relations carry their own dates, so the relation lifecycle
+    surfaces (card detail, the Lifecycle report, time travel) have something
+    to show out of the box — in each of the three states they draw."""
+
+    def test_the_demo_has_a_planned_an_in_effect_and_an_ended_relation(self):
+        today = date.today()
+        states = {_state(r["lifecycle"], today) for r in _dated_relations(DEMO_RELATIONS)}
+        assert states == {"planned", "inEffect", "ended"}
+        # An in-effect relation with an end ahead ("Until …") is there too.
+        assert any(
+            lifecycle_in_effect(r["lifecycle"], on=today)
+            and r["lifecycle"].get("endOfLife", "") > today.isoformat()
+            for r in _dated_relations(DEMO_RELATIONS)
+        )
+
+    def test_one_application_has_several_dated_relations_in_mixed_states(self):
+        """The card the card-detail screenshot shows."""
+        today = date.today()
+        per_card: dict = {}
+        for r in _dated_relations(DEMO_RELATIONS):
+            per_card.setdefault(r["source_id"], []).append(r)
+        busiest = max(per_card.values(), key=len)
+        assert len(busiest) >= 3
+        assert {_state(r["lifecycle"], today) for r in busiest} == {"planned", "inEffect", "ended"}
+
+    def test_every_seeded_relation_lifecycle_is_already_normal(self):
+        for r in _dated_relations(DEMO_RELATIONS):
+            assert normalize_relation_lifecycle(r["lifecycle"]) == r["lifecycle"]
+
+    def test_undated_relations_carry_no_lifecycle_key(self):
+        assert all("lifecycle" not in r or r["lifecycle"] for r in DEMO_RELATIONS)
+
+    @pytest.mark.parametrize("month, day", [(1, 1), (12, 31)], ids=["jan-1", "dec-31"])
+    def test_relation_phases_run_forwards_whatever_the_seed_day(self, month, day):
+        seeded_on = date(date.today().year, month, day)
+        rels = _dated_relations(_demo_relations_as_of(seeded_on))
+        assert rels
+        broken = _phases_running_backwards(
+            [{"name": r["type"], "lifecycle": r["lifecycle"]} for r in rels]
+        )
+        assert not broken, f"seeded on {seeded_on}, relation lifecycles backwards: {broken}"
+
+    def test_the_dated_relation_types_are_tracked(self):
+        dated_types = {r["type"] for r in _dated_relations(DEMO_RELATIONS)}
+        assert dated_types == set(DEMO_TRACKED_RELATION_TYPES)
+        meta = {rt["key"] for rt in META_RELATIONS}
+        assert dated_types <= meta
+
+    def test_a_dated_relation_never_orphans_a_card(self):
+        """A planned or ended relation stops counting; each of its cards keeps
+        another relation, so no demo card turns orphaned because of the dates."""
+        undated_ends: dict = {}
+        for r in DEMO_RELATIONS:
+            if not r.get("lifecycle"):
+                for end in (r["source_id"], r["target_id"]):
+                    undated_ends[end] = undated_ends.get(end, 0) + 1
+        for r in _dated_relations(DEMO_RELATIONS):
+            for end in (r["source_id"], r["target_id"]):
+                assert undated_ends.get(end, 0) > 0
 
 
 class TestDemoLifecycles:

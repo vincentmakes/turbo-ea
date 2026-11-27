@@ -97,12 +97,15 @@ export function RelationLifecyclePopover({
   onClose,
   relation,
   onSaved,
+  disableRestoreFocus,
 }: {
   anchorEl: HTMLElement | null;
   open: boolean;
   onClose: () => void;
   relation: Relation;
   onSaved: (updated: Relation) => void;
+  /** Set when the popover opens from inside another dialog or popover. */
+  disableRestoreFocus?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const [draft, setDraft] = useState<Record<string, string>>(relation.lifecycle ?? {});
@@ -140,6 +143,7 @@ export function RelationLifecyclePopover({
       anchorEl={anchorEl}
       onClose={onClose}
       anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      disableRestoreFocus={disableRestoreFocus}
       slotProps={{ paper: { sx: { p: 2, maxWidth: 580 } } }}
     >
       <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.5 }}>

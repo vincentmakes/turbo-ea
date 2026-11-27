@@ -8,7 +8,7 @@
  * cell impossible to unlink from the grid. It now opens one section per relation
  * type.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -382,5 +382,75 @@ describe("RelationCellPopover — relation dates", () => {
     const row = await screen.findByTestId("relation-row-rel-ended");
     await userEvent.click(within(row).getByTestId("CancelIcon"));
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith("/relations/rel-ended"));
+  });
+});
+
+describe("RelationCellPopover — the relation dates clock", () => {
+  // The same clock card detail offers, on a type that tracks lifecycle.
+  const TRACKED = { ...(USES as object), lifecycle_enabled: true } as unknown as RelationType;
+  const ROWS = [
+    { ...RELATIONS[0], id: "rel-plain" },
+    {
+      ...RELATIONS[0],
+      id: "rel-dated",
+      target_id: "app-old",
+      target: { id: "app-old", name: "Old App", type: "Application" },
+      lifecycle: { active: "2001-01-01", endOfLife: "2002-03-04" },
+    },
+  ];
+
+  it("is offered on every row of a tracked type, named by whether dates are set", async () => {
+    vi.mocked(api.get).mockResolvedValue(ROWS);
+    mount([TRACKED]);
+    const plain = within(await screen.findByTestId("relation-row-rel-plain"));
+    const dated = within(screen.getByTestId("relation-row-rel-dated"));
+    const set = plain.getByRole("button", { name: "Set relation dates" });
+    const edit = dated.getByRole("button", { name: "Edit relation dates" });
+    expect(getComputedStyle(set).color).not.toBe(getComputedStyle(edit).color);
+    await userEvent.hover(set);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Set relation dates");
+  });
+
+  it("is not offered on a type that does not track lifecycle", async () => {
+    vi.mocked(api.get).mockResolvedValue(ROWS);
+    mount([USES]);
+    await screen.findByTestId("relation-row-rel-dated");
+    expect(screen.queryByRole("button", { name: /relation dates/ })).toBeNull();
+  });
+
+  it("saves the row's dates, then reloads it and the grid", async () => {
+    vi.mocked(api.get).mockResolvedValue(ROWS);
+    vi.mocked(api.patch).mockResolvedValue({ ...ROWS[0], lifecycle: { active: "2999-01-01" } });
+    const { onRelationsChanged } = mount([TRACKED]);
+    const plain = within(await screen.findByTestId("relation-row-rel-plain"));
+    await userEvent.click(plain.getByRole("button", { name: "Set relation dates" }));
+    const popover = (await screen.findByText("Relation lifecycle")).closest(
+      ".MuiPopover-paper",
+    ) as HTMLElement;
+    fireEvent.change(within(popover).getByLabelText("Active"), { target: { value: "2999-01-01" } });
+    await userEvent.click(within(popover).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith("/relations/rel-plain", {
+        lifecycle: { active: "2999-01-01" },
+      }),
+    );
+    await waitFor(() => expect(onRelationsChanged).toHaveBeenCalledTimes(1));
+    // One load on open, one after the save.
+    expect(api.get).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.queryByText("Relation lifecycle")).toBeNull());
+  });
+
+  it("closes without saving on cancel", async () => {
+    vi.mocked(api.get).mockResolvedValue(ROWS);
+    const { onRelationsChanged } = mount([TRACKED]);
+    const dated = within(await screen.findByTestId("relation-row-rel-dated"));
+    const clock = dated.getByRole("button", { name: "Edit relation dates" });
+    await userEvent.click(clock);
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText("Relation lifecycle")).toBeNull());
+    // Nested in the dialog, it does not hand focus back to the clock.
+    expect(document.activeElement).not.toBe(clock);
+    expect(api.patch).not.toHaveBeenCalled();
+    expect(onRelationsChanged).not.toHaveBeenCalled();
   });
 });

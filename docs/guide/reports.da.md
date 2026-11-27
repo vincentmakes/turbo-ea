@@ -110,9 +110,13 @@ Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens und
 
 **Sammenfoldning af filtrene** — Rækken **Applikationsfiltre** kan foldes sammen; klik på dens overskrift for at få pladsen tilbage. Tilstanden gemmes sammen med rapporten, antallet af aktive filtre er stadig synligt på den sammenfoldede overskrift, og **Ryd alle** er stadig inden for rækkevidde uden først at folde ud.
 
-## Livscyklusrapport
+## Livscyklusrapport {: #lifecycle-report }
 
 ![Livscyklusrapport](../assets/img/da/12_lifecycle.png)
+
+**Relationers livscyklusser** — Når et kort har relationer med egne datoer (se [Hvornår en relation gælder](card-details.md#when-a-relation-applies)), vises en pil og et tal ved siden af dets navn. Klik på pilen for at vise disse relationer under kortet: hver række begynder med det andet korts navn med relationens verbum under, og tegner relationens egne faser som en tyndere bjælke på den samme tidsakse — planlagte relationer foran i dag, afsluttede nedtonet. Et klik på en relationsrække åbner det andet kort. Knappen i overskriften på navnekolonnen åbner eller folder alle kort på én gang; kort er foldet som standard, og hvilke du har åbnet, gemmes med rapporten. Det virker både med *Alle typer* og med en valgt korttype, og et kort uden egne datoer vises, når det har daterede relationer, så du for eksempel kan se, fra hvornår hver organisation bruger en applikation. I tabelvisningen har hvert kort med daterede relationer den samme pil, og de åbnede relationer vises som egne rækker med det andet korts type, om relationen i dag er *Gældende*, *Planlagt* eller *Afsluttet*, og dens fem datoer. Udskrifter og slide-eksport viser de åbne rækker; Excel-eksporten af tabelvisningen viser hver som *andet kort · verbum* under dets kort. Tallet ved siden af et korts navn tæller dets daterede relationer — hold musen over det for at se hele sætningen. Relationsrækker vises ikke i datointervalvisningen. Kun relationer, hvis andet kort du må se, vises.
+
+![Livscyklusrapport med daterede relationer vist under deres kort](../assets/img/da/105_lifecycle_relations.png)
 
 **Livscyklusrapporten** viser en **tidslinje­visualisering** af, hvornår teknologikomponenter blev introduceret, og hvornår de er planlagt til at blive pensioneret. Kritisk for:
 

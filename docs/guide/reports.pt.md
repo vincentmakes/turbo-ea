@@ -110,7 +110,7 @@ O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidad
 
 **Recolher os filtros** — A linha **Filtros de aplicação** pode ser fechada; clique no seu cabeçalho para recuperar o espaço. O estado é guardado com o relatório, a contagem de filtros ativos continua visível no cabeçalho recolhido e **Limpar tudo** permanece acessível sem ter de a expandir primeiro.
 
-## Relatório de Ciclo de Vida
+## Relatório de Ciclo de Vida {: #lifecycle-report }
 
 ![Relatório de Ciclo de Vida](../assets/img/pt/12_ciclo_vida.png)
 
@@ -121,6 +121,10 @@ O **Relatório de Ciclo de Vida** mostra uma **visualização de linha do tempo*
 - **Coordenação de migração** — Visualize períodos sobrepostos de implantação e desativação
 
 Os componentes são exibidos como barras horizontais abrangendo suas fases do ciclo de vida: Planejamento, Implantação, Ativo, Desativação e Fim de Vida.
+
+**Ciclos de vida das relações** — Quando um card tem relações com datas próprias (ver [Quando uma relação se aplica](card-details.md#when-a-relation-applies)), aparecem junto ao seu nome uma seta e um número. Clique na seta para listar essas relações sob o card: cada linha começa pelo nome do outro card, com o verbo da relação por baixo, e desenha as fases próprias da relação como uma barra mais fina no mesmo eixo temporal — as relações planeadas à frente de hoje, as terminadas a cinzento. Clicar numa linha de relação abre o outro card. O botão no cabeçalho da coluna de nomes abre ou recolhe todos os cards de uma vez; os cards estão recolhidos por predefinição e os que abriu ficam guardados com o relatório. Funciona com *Todos os tipos* e com um tipo de card escolhido, e um card sem datas próprias é listado quando tem relações com datas, para que possa ver, por exemplo, desde quando cada organização usa uma aplicação. Na vista de tabela, cada card com relações com datas tem a mesma seta, e as relações abertas aparecem como linhas próprias, com o tipo do outro card, se a relação está hoje *Em vigor*, *Planeada* ou *Terminada*, e as suas cinco datas. As impressões e as exportações para diapositivos mostram as linhas abertas; a exportação para Excel da vista de tabela lista cada uma como *outro card · verbo* sob o seu card. O número junto ao nome de um card conta as suas relações com datas — passe o cursor para ver a frase completa. As linhas de relação não são mostradas na vista de intervalo de datas. Só são listadas as relações cujo outro card pode ver.
+
+![Relatório de ciclo de vida com as relações com datas listadas sob os seus cards](../assets/img/pt/105_ciclo_vida_relacoes.png)
 
 **Limitar a cartões específicos** — Depois de escolher um tipo de cartão, o chip ao lado abre um seletor: escolha um ou mais cartões e a linha temporal mostra apenas esses e tudo o que está abaixo deles. Os cartões filhos são incluídos automaticamente. O chip fica desativado enquanto o seletor estiver em *Todos os tipos*, porque um âmbito precisa de uma única hierarquia.
 

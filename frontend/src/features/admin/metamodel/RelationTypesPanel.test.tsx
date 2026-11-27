@@ -174,8 +174,13 @@ describe("RelationTypesPanel — scoping", () => {
   it("shows both endpoints and both sides' flags when unscoped", async () => {
     renderPanel();
     expect(await screen.findByText("uses")).toBeInTheDocument();
-    // Four switches on the cross-type row: visible + mandatory, per side.
-    expect(within(rowFor("uses")).getAllByRole("checkbox")).toHaveLength(4);
+    // Five switches on the cross-type row: visible + mandatory per side, then
+    // the one Track lifecycle switch for the whole type.
+    const switches = within(rowFor("uses")).getAllByRole("checkbox");
+    expect(switches).toHaveLength(5);
+    expect(within(rowFor("uses")).getAllByRole("checkbox", { name: "Track lifecycle" })).toEqual([
+      switches[4],
+    ]);
   });
 
   it("pre-fills the scoped type as the source of a new relation", async () => {
@@ -370,9 +375,9 @@ describe("RelationTypesPanel — Track lifecycle", () => {
   });
 });
 
-describe("RelationTypesPanel — Lifecycle chip", () => {
-  // The list says which relation types track lifecycle without opening the
-  // edit dialog: a chip on the tracked ones, nothing on the others.
+describe("RelationTypesPanel — Track lifecycle in the list", () => {
+  // The switch sits on every row, so an admin dates a relation type's
+  // relations without opening its edit dialog. It replaced a read-only chip.
   const HINT =
     "Gives each relation of this type its own lifecycle — the same phases as a card — so it can be planned, active or ended independently of the cards it connects.";
   const TRACKED = {
@@ -384,33 +389,107 @@ describe("RelationTypesPanel — Lifecycle chip", () => {
     lifecycle_enabled: false,
   } as never;
 
-  it("marks a tracked type in the Relations tab, and not one without the flag", async () => {
-    // ORG_TO_ORG carries no lifecycle_enabled at all: absent reads as off.
+  const lifecycleSwitch = (verb: string) =>
+    within(rowFor(verb)).getByRole("checkbox", { name: "Track lifecycle" });
+
+  it("reflects the stored flag in the Relations tab, absent reading as off", async () => {
     renderPanel({ relationTypes: [TRACKED, ORG_TO_ORG] });
-    const chips = await screen.findAllByText("Lifecycle");
-    expect(chips).toHaveLength(1);
-    expect(rowFor("uses")).toContainElement(chips[0]);
-    expect(within(rowFor("has site")).queryByText("Lifecycle")).not.toBeInTheDocument();
-  });
-
-  it("marks a tracked type in a card type's list, and not one switched off", async () => {
-    renderPanel({ scopeTypeKey: "Organization", relationTypes: [TRACKED, UNTRACKED] });
-    const chips = await screen.findAllByText("Lifecycle");
-    expect(chips).toHaveLength(1);
-    expect(rowFor("uses")).toContainElement(chips[0]);
-    expect(within(rowFor("has site")).queryByText("Lifecycle")).not.toBeInTheDocument();
-  });
-
-  it("shows no chip when no relation type tracks lifecycle", async () => {
-    renderPanel({ relationTypes: [ORG_TO_APP, UNTRACKED] });
     expect(await screen.findByText("uses")).toBeInTheDocument();
+    expect(lifecycleSwitch("uses")).toBeChecked();
+    expect(lifecycleSwitch("has site")).not.toBeChecked();
+    // The old read-only chip is gone.
     expect(screen.queryByText("Lifecycle")).not.toBeInTheDocument();
   });
 
-  it("explains itself with the switch's helper text", async () => {
+  it("reflects the stored flag in a card type's list", async () => {
+    renderPanel({ scopeTypeKey: "Application", relationTypes: [TRACKED] });
+    expect(await screen.findByText("is used by")).toBeInTheDocument();
+    expect(lifecycleSwitch("is used by")).toBeChecked();
+  });
+
+  it("switching on PATCHes exactly lifecycle_enabled: true and refreshes", async () => {
+    const user = userEvent.setup();
+    const onRefresh = renderPanel({ relationTypes: [ORG_TO_APP] });
+    await user.click(lifecycleSwitch("uses"));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    expect(api.patch).toHaveBeenCalledWith("/metamodel/relation-types/relOrgToApp", {
+      lifecycle_enabled: true,
+    });
+  });
+
+  it("switching off PATCHes exactly lifecycle_enabled: false and refreshes", async () => {
+    const user = userEvent.setup();
+    const onRefresh = renderPanel({ scopeTypeKey: "Organization", relationTypes: [TRACKED] });
+    await user.click(lifecycleSwitch("uses"));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(api.patch).toHaveBeenCalledWith("/metamodel/relation-types/relOrgToApp", {
+      lifecycle_enabled: false,
+    });
+  });
+
+  it("shows a rejected PATCH in the list's alert and does not refresh", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.patch).mockRejectedValueOnce(new Error("Not allowed"));
+    const onRefresh = renderPanel({ relationTypes: [ORG_TO_APP] });
+    await user.click(lifecycleSwitch("uses"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Not allowed");
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the generic error for a rejection without a message", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.patch).mockRejectedValueOnce("boom");
+    renderPanel({ relationTypes: [ORG_TO_APP] });
+    await user.click(lifecycleSwitch("uses"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
+  it("is described by the hint and explains itself on hover", async () => {
     const user = userEvent.setup();
     renderPanel({ relationTypes: [TRACKED] });
-    await user.hover(await screen.findByText("Lifecycle"));
+    expect(await screen.findByText("uses")).toBeInTheDocument();
+    expect(lifecycleSwitch("uses")).toHaveAccessibleDescription(HINT);
+    await user.hover(within(rowFor("uses")).getByText("Track lifecycle"));
     expect(await screen.findByRole("tooltip")).toHaveTextContent(HINT);
+  });
+
+  it("puts the switch after the side flags, so the first switch stays Visible", async () => {
+    renderPanel({ scopeTypeKey: "Organization", relationTypes: [UNTRACKED] });
+    expect(await screen.findByText("has site")).toBeInTheDocument();
+    const switches = within(rowFor("has site")).getAllByRole("checkbox");
+    expect(switches).toHaveLength(3);
+    expect(switches[2]).toBe(lifecycleSwitch("has site"));
+  });
+
+  it("shows the same type-wide value on both rows of a self-pair, each writing the type", async () => {
+    const user = userEvent.setup();
+    const TRACKED_SELF = {
+      ...(ORG_TO_ORG as unknown as Record<string, unknown>),
+      lifecycle_enabled: true,
+    } as never;
+    renderPanel({ scopeTypeKey: "Organization", relationTypes: [TRACKED_SELF] });
+    expect(await screen.findByText("is site of")).toBeInTheDocument();
+    expect(lifecycleSwitch("has site")).toBeChecked();
+    expect(lifecycleSwitch("is site of")).toBeChecked();
+    await user.click(lifecycleSwitch("is site of"));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith("/metamodel/relation-types/relOrgToOrg", {
+        lifecycle_enabled: false,
+      }),
+    );
+  });
+
+  it("is offered on a hidden relation type's row too", async () => {
+    const user = userEvent.setup();
+    renderPanel({ relationTypes: [HIDDEN] });
+    await user.click(screen.getByRole("checkbox", { name: /show hidden/i }));
+    expect(await screen.findByText("retired link")).toBeInTheDocument();
+    await user.click(lifecycleSwitch("retired link"));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith("/metamodel/relation-types/relHidden", {
+        lifecycle_enabled: true,
+      }),
+    );
   });
 });

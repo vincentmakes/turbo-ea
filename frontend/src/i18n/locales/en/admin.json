@@ -129,7 +129,6 @@
   "metamodel.relKeyExcelHint": "In Excel, this key heads the rel:{{key}} column on the source card type's sheet and is the relation_type value on the Relations sheet.",
   "metamodel.trackLifecycle": "Track lifecycle",
   "metamodel.trackLifecycleHint": "Gives each relation of this type its own lifecycle — the same phases as a card — so it can be planned, active or ended independently of the cards it connects.",
-  "metamodel.lifecycleChip": "Lifecycle",
   "metamodel.deleteRelationType": "Delete Relation Type?",
   "metamodel.deleteRelHasInstances": "This relation type has <strong>{{count}}</strong> relation instance(s) linking cards together. Deleting it will permanently remove all of them.",
   "metamodel.deleteRelBuiltInHidden": "This built-in relation type will be hidden and can be restored later.",

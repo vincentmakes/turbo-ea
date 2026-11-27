@@ -11,6 +11,7 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Alert from "@mui/material/Alert";
+import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
@@ -20,7 +21,11 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
-import { RelationPhaseChip } from "@/features/cards/sections/RelationLifecycleControls";
+import {
+  RelationLifecyclePopover,
+  RelationPhaseChip,
+} from "@/features/cards/sections/RelationLifecycleControls";
+import { hasLifecycleDates } from "@/lib/relationLifecycle";
 import type { Relation, RelationType } from "@/types";
 
 interface RelationCellPopoverProps {
@@ -109,6 +114,11 @@ function RelationTypeSection({
   const [createMode, setCreateMode] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+  // The clock's popover: which row's dates are being edited, and its anchor.
+  const [lifecycleEdit, setLifecycleEdit] = useState<{
+    relation: Relation;
+    anchor: HTMLElement;
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -254,10 +264,50 @@ function RelationTypeSection({
                   sx={{ maxWidth: "100%" }}
                 />
                 <RelationPhaseChip lifecycle={r.lifecycle} />
+                {/* The clock card detail offers, for a type that tracks
+                    lifecycle: whoever may edit relations here may date them. */}
+                {relationType.lifecycle_enabled && (
+                  <Tooltip
+                    title={
+                      hasLifecycleDates(r.lifecycle)
+                        ? t("cards:relations.lifecycle.editDates")
+                        : t("cards:relations.lifecycle.setDates")
+                    }
+                  >
+                    <IconButton
+                      size="small"
+                      aria-label={
+                        hasLifecycleDates(r.lifecycle)
+                          ? t("cards:relations.lifecycle.editDates")
+                          : t("cards:relations.lifecycle.setDates")
+                      }
+                      onClick={(e) => setLifecycleEdit({ relation: r, anchor: e.currentTarget })}
+                      sx={{
+                        p: 0.25,
+                        color: hasLifecycleDates(r.lifecycle) ? "primary.main" : "text.disabled",
+                      }}
+                    >
+                      <MaterialSymbol icon="schedule" size={18} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
             );
           })}
         </Box>
+      )}
+
+      {lifecycleEdit && (
+        <RelationLifecyclePopover
+          anchorEl={lifecycleEdit.anchor}
+          open
+          onClose={() => setLifecycleEdit(null)}
+          relation={lifecycleEdit.relation}
+          // Nested in the dialog: focus must not jump back through it on close.
+          disableRestoreFocus
+          // Reloads the rows (the chip follows the new dates) and the grid cell.
+          onSaved={() => void onChanged()}
+        />
       )}
 
       {/* Add section */}

@@ -110,7 +110,7 @@ Die **Fähigkeitskarte** zeigt eine hierarchische **Heatmap** der Geschäftsfäh
 
 **Filter einklappen** — Die Zeile **Anwendungsfilter** lässt sich einklappen; ein Klick auf ihre Kopfzeile gibt den Platz wieder frei. Der Zustand wird mit dem Bericht gespeichert, die Anzahl der aktiven Filter bleibt auf der eingeklappten Kopfzeile sichtbar, und **Alle löschen** bleibt erreichbar, ohne vorher aufklappen zu müssen.
 
-## Lebenszyklus-Bericht
+## Lebenszyklus-Bericht {: #lifecycle-report }
 
 ![Lebenszyklus-Bericht](../assets/img/de/12_lebenszyklus.png)
 
@@ -121,6 +121,10 @@ Der **Lebenszyklus-Bericht** zeigt eine **Zeitleisten-Visualisierung** darüber,
 - **Migrationskoordination** — Überlappende Einführungs- und Auslaufperioden visualisieren
 
 Komponenten werden als horizontale Balken dargestellt, die ihre Lebenszyklusphasen umspannen: Planung, Einführung, Aktiv, Auslauf und Lebensende.
+
+**Lebenszyklen der Beziehungen** — Hat eine Karte Beziehungen mit eigenen Daten (siehe [Wann eine Beziehung gilt](card-details.md#when-a-relation-applies)), erscheinen neben ihrem Namen ein Pfeil und eine Zahl. Ein Klick auf den Pfeil listet diese Beziehungen unter der Karte auf: Jede Zeile beginnt mit dem Namen der anderen Karte, darunter steht das Verb der Beziehung, und sie zeichnet die eigenen Phasen der Beziehung als schmaleren Balken auf derselben Zeitachse – geplante Beziehungen liegen nach heute, beendete sind ausgegraut. Ein Klick auf eine Beziehungszeile öffnet die andere Karte. Die Schaltfläche in der Kopfzeile der Namensspalte öffnet oder schließt alle Karten auf einmal; Karten sind standardmäßig eingeklappt, und welche Sie geöffnet haben, wird mit dem Bericht gespeichert. Das funktioniert bei *Alle Typen* ebenso wie bei einem gewählten Kartentyp, und eine Karte ohne eigene Daten wird aufgeführt, wenn sie datierte Beziehungen hat – so sehen Sie zum Beispiel, ab wann jede Organisation eine Anwendung nutzt. In der Tabellenansicht hat jede Karte mit datierten Beziehungen denselben Pfeil, und die geöffneten Beziehungen erscheinen als eigene Zeilen mit dem Typ der anderen Karte, dem Hinweis, ob die Beziehung heute *In Kraft*, *Geplant* oder *Beendet* ist, und ihren fünf Daten. Ausdrucke und Folienexporte zeigen die geöffneten Zeilen; der Excel-Export der Tabellenansicht listet jede als *andere Karte · Verb* unter ihrer Karte auf. Die Zahl neben dem Namen einer Karte zählt ihre datierten Beziehungen – beim Darüberfahren erscheint der vollständige Satz. In der Datumsbereichsansicht werden keine Beziehungszeilen angezeigt. Aufgeführt werden nur Beziehungen, deren andere Karte Sie sehen dürfen.
+
+![Lebenszyklus-Bericht mit datierten Beziehungen unter ihren Karten](../assets/img/de/105_lebenszyklus_beziehungen.png)
 
 **Auf bestimmte Karten eingrenzen** — Sobald ein Kartentyp gewählt ist, öffnet der Chip daneben eine Auswahl: Wählen Sie eine oder mehrere Karten, und die Zeitachse zeigt nur diese und alles darunter. Unterkarten werden automatisch einbezogen. Solange *Alle Typen* eingestellt ist, bleibt der Chip deaktiviert, da eine Eingrenzung eine einzelne Hierarchie benötigt.
 

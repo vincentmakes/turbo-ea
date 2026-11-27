@@ -128,6 +128,11 @@ ALL_TIME: dict[str, str] = {
         "filtered at the travelled date on the client; the PPM board's projection "
         "(`card_filter_payload`) keeps only what is in effect today"
     ),
+    "services/portfolio_payload.py::dated_relations_by_card": (
+        "the Lifecycle report's relation sub-rows draw planned and ended relations on "
+        "its time axis, each with its own `lifecycle`; the report's filters still read "
+        "only the relations in effect today (`relations_in_effect_now`)"
+    ),
 }
 
 #: Functions whose relation query is finished by a helper that applies the
