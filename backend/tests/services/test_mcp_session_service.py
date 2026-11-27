@@ -450,6 +450,6 @@ async def test_a_token_of_a_live_connection_passes_and_of_an_ended_one_does_not(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("claimed", [str(uuid.uuid4()), "not-a-uuid", 42, ""])
+@pytest.mark.parametrize("claimed", ["4aeca651-a8fd-4f2a-b3f6-29f0a0cb2f52", "not-a-uuid", 42, ""])
 async def test_a_token_of_an_unknown_connection_does_not_pass(db, claimed):
     assert await sessions.token_session_is_live(db, {"msid": claimed}) is False

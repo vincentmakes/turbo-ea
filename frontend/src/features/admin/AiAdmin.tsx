@@ -18,6 +18,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { AI_PROVIDER_TYPES, azureUsesV1, providerUi } from "./aiProviderUi";
+import McpConnections from "./McpConnections";
 import { useTheme } from "@mui/material/styles";
 
 /** `POST /settings/ai/test`. `adjusted` lists the optional request parameters
@@ -68,6 +69,9 @@ export default function AiAdmin() {
   const [mcpEnabled, setMcpEnabled] = useState(false);
   const [mcpSsoConfigured, setMcpSsoConfigured] = useState(false);
   const [savingMcp, setSavingMcp] = useState(false);
+  // `/settings/mcp` answers only a holder of admin.mcp, the same permission
+  // that lists everyone's connections, so a successful read gates the table.
+  const [mcpAccess, setMcpAccess] = useState(false);
 
   const { types } = useMetamodel();
   const availableTypes = types.filter((ct) => !ct.is_hidden);
@@ -77,7 +81,8 @@ export default function AiAdmin() {
       api.get<AiSettings>("/settings/ai"),
       api
         .get<{ enabled: boolean; sso_configured: boolean }>("/settings/mcp")
-        .catch(() => ({ enabled: false, sso_configured: false })),
+        .then((d) => ({ ...d, access: true }))
+        .catch(() => ({ enabled: false, sso_configured: false, access: false })),
     ])
       .then(([data, mcpData]) => {
         setAiEnabled(data.enabled);
@@ -90,6 +95,7 @@ export default function AiAdmin() {
         setPortfolioInsightsEnabled(data.portfolio_insights_enabled ?? false);
         setMcpEnabled(mcpData.enabled);
         setMcpSsoConfigured(mcpData.sso_configured);
+        setMcpAccess(mcpData.access);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
@@ -591,6 +597,8 @@ export default function AiAdmin() {
             {savingMcp ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
+
+        {mcpAccess && <McpConnections onNotice={setSnack} />}
       </Paper>
 
       <Snackbar

@@ -106,6 +106,9 @@ The drawer has no actions. Entries cannot be edited or deleted.
 | `auth.password.changed` | A signed-in user changes their own password |
 | `auth.impersonation.started` | An administrator starts **View as role…**. The target is the role chosen |
 | `auth.impersonation.stopped` | The administrator returns to their own role |
+| `auth.mcp.connected` | A person signs in to the MCP server from an AI tool, opening a connection. The target is the AI tool's name |
+| `auth.mcp.revoked` | A connection is ended from the [Active connections](mcp.md#active-connections) table, by its owner or an administrator. The subject is the person whose connection it was |
+| `auth.mcp.replay_detected` | A refresh token that was already replaced is presented again, so the connection is ended. Recorded as a failure: someone may hold a copy of the token |
 
 **Reason codes** on `auth.login.failed`:
 
@@ -172,7 +175,7 @@ Every time data leaves the instance in bulk, an `access` entry records who took 
 
 ## What is not recorded
 
-- **Token refresh.** The web app renews its session on a timer, so every open tab would add an entry and none of them would mean anything.
+- **Token refresh.** The web app renews its session on a timer, so every open tab would add an entry and none of them would mean anything. The same goes for an AI tool renewing its MCP connection every hour; only a reused refresh token is recorded (`auth.mcp.replay_detected`).
 - **Requests rejected for an expired or invalid session token.** These happen every time a session ends naturally.
 - **OData feed reads.** Excel and Power BI poll a saved view's OData feed on a schedule, so every refresh would add an entry.
 - **Spreadsheets and decks built in the browser.** The inventory's and the reports' Excel and PowerPoint downloads are made from data the page has already loaded, so they are reads, not exports from the server.

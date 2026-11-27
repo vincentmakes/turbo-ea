@@ -96,6 +96,7 @@ PUBLIC: dict[str, str] = {
     "extensions.py:get_extension_asset": "dynamic import() carries no header; code is not secret",
     # -- Authenticates by hand.
     "events.py:event_stream": "checks the token itself so no pooled session spans the stream",
+    "mcp_sessions.py:refresh_mcp_session": "MCP server proof + refresh token are the credential",
 }
 
 

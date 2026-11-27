@@ -9285,6 +9285,71 @@
         "title": "MassEolResult",
         "type": "object"
       },
+      "McpSessionCreate": {
+        "properties": {
+          "client_name": {
+            "default": "MCP Client",
+            "maxLength": 200,
+            "title": "Client Name",
+            "type": "string"
+          },
+          "scope": {
+            "default": "mcp:read",
+            "maxLength": 200,
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "title": "McpSessionCreate",
+        "type": "object"
+      },
+      "McpSessionRefresh": {
+        "properties": {
+          "refresh_token": {
+            "maxLength": 200,
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "McpSessionRefresh",
+        "type": "object"
+      },
+      "McpSessionTokens": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "refresh_token",
+          "scope"
+        ],
+        "title": "McpSessionTokens",
+        "type": "object"
+      },
       "McpSettingsPayload": {
         "properties": {
           "enabled": {
@@ -23937,6 +24002,167 @@
         ]
       }
     },
+    "/api/v1/auth/mcp/sessions": {
+      "get": {
+        "description": "Live connections: the caller's own, or with ``everyone=true`` and\n``admin.mcp`` every person's, each then naming its person.",
+        "operationId": "list_mcp_sessions_api_v1_auth_mcp_sessions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "everyone",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Everyone",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Mcp Sessions",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "Open a connection for the signed-in person. MCP server only.",
+        "operationId": "create_mcp_session_api_v1_auth_mcp_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpSessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpSessionTokens"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Mcp Session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/mcp/sessions/refresh": {
+      "post": {
+        "description": "Renew a connection: a new access token and the next refresh token. MCP server only.\n\n400 ``invalid_grant`` for a token that is unknown, ended or expired, and for\na replaced token that comes back, which also ends the connection and is\nrecorded. 403 when the account may no longer hold a session.",
+        "operationId": "refresh_mcp_session_api_v1_auth_mcp_sessions_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpSessionRefresh"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpSessionTokens"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Mcp Session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/mcp/sessions/{session_id}": {
+      "delete": {
+        "description": "End a connection: one's own, or anyone's with ``admin.mcp``.\n\nSomebody else's connection is 404 without that permission, the same answer\nas one that does not exist.",
+        "operationId": "revoke_mcp_session_api_v1_auth_mcp_sessions__session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Mcp Session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/me": {
       "get": {
         "operationId": "me_api_v1_auth_me_get",
@@ -23982,7 +24208,7 @@
     },
     "/api/v1/auth/refresh": {
       "post": {
-        "description": "Issue a new short-lived access token. Re-reads role and active status from DB.",
+        "description": "Issue a new short-lived access token. Re-reads role and active status from DB.\n\nA token of an MCP connection is refused (``_refuse_mcp_connection_token``).",
         "operationId": "refresh_token_api_v1_auth_refresh_post",
         "responses": {
           "200": {

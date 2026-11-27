@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.219.0] - 2026-11-27
+
+### Added
+- **Active connections** in Admin → Settings → AI → MCP Integration lists every AI tool signed in to the MCP server, with its person and when it connected, was last used and ends, and lets an administrator revoke any of them ([#1449](https://github.com/vincentmakes/turbo-ea/issues/1449)).
+- Two backend settings, `MCP_SESSION_IDLE_DAYS` (default 30) and `MCP_SESSION_MAX_DAYS` (default 180, `0` = no limit), set how long an AI tool's connection may stay unused and how long it may last at most (#1449).
+- The Security & admin log records an AI tool connecting, a connection being revoked, and a reused MCP refresh token (#1449).
+
+### Changed
+- AI tool connections to the MCP server, Copilot Studio and Claude included, now survive MCP container restarts and upgrades and renew themselves while they are used at least once every 30 days, instead of having to be recreated (#1449).
+- **After upgrading, reconnect each existing AI tool connection once** (in Copilot Studio, recreate the connection); connections made from this version on are kept (#1449).
+
+### Security
+- MCP refresh tokens are rotated on every use, and a replaced refresh token that is presented again ends the connection at once and is logged (#1449).
+- An AI tool's access stops at once when its connection is revoked or the person's account is disabled or expires (#1449).
+
 ## [2.218.0] - 2026-11-26
 
 ### Added
