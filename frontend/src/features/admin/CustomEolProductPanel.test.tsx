@@ -338,7 +338,7 @@ describe("CustomEolProductPanel — cycles", () => {
     renderPanel();
     await userEvent.click(screen.getByRole("button", { name: "Edit cycle 2" }));
     await userEvent.click(within(editor()).getByRole("button", { name: "Cancel" }));
-    // The editor closes once the save has answered, after the request.
+    // Cancel sends no request: it unsets `editing` at once, so the editor is gone after the click.
     await waitFor(() => expect(screen.queryByTestId("eol-cycle-editor")).toBeNull());
     expect(row("c2")).toBeInTheDocument();
     expect(mockApi.callsOf("patch")).toHaveLength(0);

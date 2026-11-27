@@ -231,14 +231,12 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   // ── Card linking for element editing (see CardPicker for browse + search) ──
 
-  // A save closes the cell it came from once it has answered, and only that
-  // cell: one opened since (the next step's, while this write was still out)
-  // stays open. `editingCell` here is the cell open in the render that started
-  // the save; a reopened cell is a new object, so it is not matched either.
-  const closeCellAfterSave = (saving: typeof editingCell, elementId: string) =>
-    setEditingCell((current) =>
-      current !== null && current === saving && saving.elementId === elementId ? null : current,
-    );
+  // A save closes the cell that was open when it started, once it has
+  // answered, and only if that same cell object is still the open one: a cell
+  // opened since (the next step's, while this write was still out) stays open,
+  // and a reopened cell is a new object, so it is not matched either.
+  const closeCellAfterSave = (saving: typeof editingCell) =>
+    setEditingCell((current) => (current === saving ? null : current));
 
   const handleElementUpdate = async (elementId: string, updates: Record<string, unknown>) => {
     const saving = editingCell;
@@ -254,7 +252,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     } catch {
       setSnack(t("flowTab.elementUpdateFailed"));
     }
-    closeCellAfterSave(saving, elementId);
+    closeCellAfterSave(saving);
   };
 
   // ── Actions ──────────────────────────────────────────────────────────
@@ -417,7 +415,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     } catch {
       setSnack(t("flowTab.draftElementLinkFailed"));
     }
-    closeCellAfterSave(saving, bpmnElementId);
+    closeCellAfterSave(saving);
   };
 
   const toggleDraftPreview = async (draftId: string) => {
