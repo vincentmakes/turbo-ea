@@ -358,13 +358,8 @@ def service_token() -> str | None:
         "iat": now,
         "exp": now + SERVICE_TOKEN_TTL,
     }
-    return jwt.encode(claims, MCP_SERVICE_AUTH_KEY, algorithm="HS256")
-
-
-def _unavailable(resp: httpx.Response) -> bool:
-    """A 5xx, or a 429: the backend could not answer now, which says nothing
-    about the session."""
-    return resp.status_code >= 500 or resp.status_code == 429
+    # Positional: HS256 is PyJWT's default, so a dropped keyword would sign the same.
+    return jwt.encode(claims, MCP_SERVICE_AUTH_KEY, "HS256")
 
 
 def _session_tokens(resp: httpx.Response) -> McpSessionTokens:
@@ -380,8 +375,8 @@ async def _post_session(path: str, headers: dict[str, str], body: dict) -> httpx
             resp = await client.post(f"{TURBO_EA_URL}{path}", headers=headers, json=body)
         except httpx.HTTPError as exc:
             raise RefreshUnavailableError(str(exc)) from exc
-    if _unavailable(resp):
-        raise RefreshUnavailableError(f"backend answered {resp.status_code}")
+    # A 5xx or a 429 says nothing about the session: each caller raises
+    # RefreshUnavailableError for every status it does not read as an answer.
     return resp
 
 

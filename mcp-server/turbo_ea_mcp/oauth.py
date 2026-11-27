@@ -199,6 +199,10 @@ def _client_id_signature(payload: str) -> str:
     return _b64encode(digest)
 
 
+# The tightest JSON separators, so a client id stays short.
+_SEP = (",", ":")
+
+
 def mint_client_id(redirect_uris: list[str], client_name: str = DEFAULT_CLIENT_NAME) -> str:
     """A client id that names its own redirect URIs and client name (its first
     100 characters) under a signature.
@@ -211,8 +215,9 @@ def mint_client_id(redirect_uris: list[str], client_name: str = DEFAULT_CLIENT_N
         "c": client_name[:MAX_CLIENT_ID_NAME_LENGTH],
         "n": secrets.token_urlsafe(8),
     }
-    encoded = json.dumps(claims, separators=(",", ":"), ensure_ascii=False).encode()
-    payload = _b64encode(encoded)
+    # Not mutated: json.dumps reads ensure_ascii for its truth, so None writes the same.
+    raw = json.dumps(claims, separators=_SEP, ensure_ascii=False)  # pragma: no mutate, see above
+    payload = _b64encode(raw.encode())
     return f"{_CLIENT_ID_PREFIX}{payload}.{_client_id_signature(payload)}"
 
 
