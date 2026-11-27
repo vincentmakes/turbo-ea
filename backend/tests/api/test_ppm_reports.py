@@ -320,6 +320,52 @@ class TestPpmGanttEveryGroup:
         assert [g["name"] for g in items["Init"]["groups"]] == ["ERP", "CRM"]
         assert items["Init"]["group_id"] == str(erp.id)
 
+    async def test_the_best_ranked_relation_decides_whatever_the_row_order(
+        self, client, db, ppm_env
+    ):
+        """The same as above with the rows the other way round: ERP's first-ranked
+        relation is read before its second-ranked one, which must not demote it."""
+        await self._rel_types(db)
+        crm = await create_card(db, card_type="Application", name="CRM")
+        erp = await create_card(db, card_type="Application", name="ERP")
+        init = await create_card(db, card_type="Initiative", name="Init")
+        await create_relation(db, type_key="relAppToInit", source_id=erp.id, target_id=init.id)
+        await create_relation(db, type_key="relInitToApp", source_id=init.id, target_id=erp.id)
+        await create_relation(db, type_key="relInitToApp", source_id=init.id, target_id=crm.id)
+
+        items = await self._by_name(client, ppm_env["admin"])
+        assert [g["name"] for g in items["Init"]["groups"]] == ["ERP", "CRM"]
+
+    async def test_two_groups_of_the_same_name_are_ordered_by_id(self, client, db, ppm_env):
+        await self._rel_types(db)
+        twins = sorted(
+            [
+                await create_card(db, card_type="Application", name="Twin"),
+                await create_card(db, card_type="Application", name="Twin"),
+            ],
+            key=lambda c: str(c.id),
+        )
+        init = await create_card(db, card_type="Initiative", name="Init")
+        # Related in descending id order, so row order alone would list them reversed.
+        for app in reversed(twins):
+            await create_relation(db, type_key="relInitToApp", source_id=init.id, target_id=app.id)
+
+        items = await self._by_name(client, ppm_env["admin"])
+        assert [g["id"] for g in items["Init"]["groups"]] == [str(c.id) for c in twins]
+
+    async def test_a_reader_without_inventory_view_still_sees_the_groups(self, client, db, ppm_env):
+        """The board reads group cards in module mode: a PPM-only role, with no
+        inventory grant and no type deny, still sees what an initiative relates to."""
+        await self._rel_types(db)
+        await create_role(db, key="ppm_only", label="PPM only", permissions={"ppm.view": True})
+        reader = await create_user(db, email="ppm@test.com", role="ppm_only")
+        crm = await create_card(db, card_type="Application", name="CRM")
+        init = await create_card(db, card_type="Initiative", name="Init")
+        await create_relation(db, type_key="relInitToApp", source_id=init.id, target_id=crm.id)
+
+        items = await self._by_name(client, reader)
+        assert items["Init"]["groups"] == [{"id": str(crm.id), "name": "CRM"}]
+
     async def test_a_group_card_hidden_from_the_reader_is_dropped_alone(self, client, db, ppm_env):
         from sqlalchemy import select
 

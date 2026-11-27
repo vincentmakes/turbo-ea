@@ -462,16 +462,14 @@ async def build_group_map(
     gc_result = await db.execute(select(Card.id, Card.name).where(Card.id.in_(group_card_ids)))
     group_names = {row[0]: row[1] for row in gc_result.all()}
 
+    # A relation's ends are foreign keys, so every group card is here unless it
+    # was deleted between the two reads; such a group is dropped, not invented.
     return {
         init_id: [
-            (gid, group_names.get(gid, "Unknown"))
+            (gid, group_names[gid])
             for gid in sorted(
-                per_init,
-                key=lambda gid: (
-                    per_init[gid],
-                    group_names.get(gid, "Unknown").casefold(),
-                    str(gid),
-                ),
+                (gid for gid in per_init if gid in group_names),
+                key=lambda gid: (per_init[gid], group_names[gid].casefold(), str(gid)),
             )
         ]
         for init_id, per_init in ranks.items()
