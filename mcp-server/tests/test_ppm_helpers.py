@@ -1348,3 +1348,132 @@ class TestDependencies:
     def test_only_the_missing_end_is_named(self):
         _, _, errors = ppm.dependency_plan([self._link()], [], {}, {}, {U1: {}})
         assert errors[0]["ends"] == ["succ"]
+
+
+class TestEveryRowIsChecked:
+    """A row a check skips never stops the rows after it from being checked,
+    and odd scores or answers read as nothing."""
+
+    def test_highest_score_first_reads_only_real_integers(self):
+        rows = [
+            {"n": "zero", "risk_score": 0},
+            {"n": "none", "risk_score": None},
+            {"n": "negative", "risk_score": -3},
+            {"n": "bool", "risk_score": True},
+            {"n": "text", "risk_score": "9"},
+            {"n": "one", "risk_score": 1},
+            {"n": "five", "risk_score": 5},
+        ]
+        assert [r["n"] for r in ppm.highest_score_first(rows)] == [
+            "five",
+            "one",
+            "zero",
+            "none",
+            "bool",
+            "text",
+            "negative",
+        ]
+
+    def test_a_create_missing_two_required_fields_names_both(self):
+        entity = ppm.Entity(
+            label="thing",
+            collection="things",
+            item="things",
+            tab="things",
+            fields={"a": ppm.TITLE, "b": ppm.TITLE, "c": ppm.TEXT},
+            required=("a", "b"),
+            keys=("id",),
+        )
+        assert ppm.validate_item({"c": "x"}, 2, entity)[1] == [
+            {
+                "error": "invalid_row",
+                "index": 2,
+                "missing": ["a", "b"],
+                "message": "A new thing needs a, b.",
+            }
+        ]
+
+    def test_a_stored_milestone_end_date_refused_only_without_is_milestone(self):
+        packages = {U1: {"is_milestone": True}}
+        rows = [
+            {"index": 0, "id": U1, "fields": {"end_date": "2026-01-01", "is_milestone": False}},
+            {"index": 1, "id": U1, "fields": {"end_date": "2026-01-01", "is_milestone": True}},
+            {"index": 2, "id": U1, "fields": {"end_date": "2026-01-01"}},
+            {"index": 3, "id": U1, "fields": {"start_date": "2026-01-01"}},
+        ]
+        assert ppm.work_package_errors(rows, packages) == [
+            {
+                "error": "invalid_row",
+                "index": 2,
+                "message": (
+                    "This work package is a milestone: set its start_date; its "
+                    "end_date is always its start_date."
+                ),
+            }
+        ]
+
+    def test_task_errors_go_on_after_a_skipped_row(self):
+        packages = {U1: {"is_milestone": False}, U2: {"is_milestone": True}}
+        stored = {U3: {"wbs_id": U2}}
+        rows = [
+            {"index": 0, "id": None, "fields": {}},
+            {"index": 1, "id": U3, "fields": {"wbs_id": U2}},
+            {"index": 2, "id": None, "fields": {"wbs_id": U2}},
+        ]
+        assert ppm.task_errors(rows, packages, stored) == [
+            {
+                "error": "invalid_value",
+                "index": 2,
+                "field": "wbs_id",
+                "value": U2,
+                "message": "wbs_id is a milestone; a task sits in a work package.",
+            }
+        ]
+
+    def test_task_errors_go_on_after_an_unchanged_package(self):
+        packages = {U2: {"is_milestone": True}}
+        stored = {U3: {"wbs_id": U2}}
+        rows = [
+            {"index": 0, "id": U3, "fields": {"wbs_id": U2}},
+            {"index": 1, "id": None, "fields": {"wbs_id": U1}},
+        ]
+        assert [e["index"] for e in ppm.task_errors(rows, packages, stored)] == [1]
+
+    def test_stored_date_errors_go_on_after_a_skipped_row(self):
+        stored = {U1: {"start_date": "2026-06-01", "due_date": "2026-07-01"}}
+        rows = [
+            {"index": 0, "id": None, "fields": {"due_date": "2000-01-01"}},
+            {"index": 1, "id": U1, "fields": {"title": "t"}},
+            {"index": 2, "id": U1, "fields": {"due_date": "2026-05-01"}},
+        ]
+        assert ppm.stored_date_errors(rows, stored, ppm.TASKS) == [
+            {"error": "invalid_row", "index": 2, "message": _TASK_DATES}
+        ]
+
+    def test_dependency_plan_goes_on_after_an_unknown_remove(self):
+        dep = {"id": U3, "pred_kind": "wbs", "pred_id": U1, "succ_kind": "task", "succ_id": U2}
+        _, remove_plan, errors = ppm.dependency_plan([], [U2, U3], {U3: dep}, {}, {})
+        assert [e["index"] for e in errors] == [0]
+        assert remove_plan == [
+            {
+                "index": 1,
+                "action": "remove",
+                "id": U3,
+                "pred_kind": "wbs",
+                "pred_id": U1,
+                "succ_kind": "task",
+                "succ_id": U2,
+                "kind": None,
+            }
+        ]
+
+    def test_dependency_plan_goes_on_after_an_unknown_add(self):
+        bad = {"pred_kind": "task", "pred_id": U3, "succ_kind": "task", "succ_id": U2}
+        good = {"pred_kind": "wbs", "pred_id": U1, "succ_kind": "task", "succ_id": U2}
+        add_plan, _, errors = ppm.dependency_plan([bad, good], [], {}, {U2: {}}, {U1: {}})
+        assert [e["index"] for e in errors] == [0]
+        assert add_plan == [{"index": 1, "action": "add", **good}]
+
+    @pytest.mark.parametrize("rows", [None, 5, {"id": U1}, "x"])
+    def test_index_rows_of_an_answer_that_is_not_a_list(self, rows):
+        assert ppm.index_rows(rows) == {}

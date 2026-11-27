@@ -683,7 +683,7 @@ def work_package_errors(rows: list[dict], packages: dict[str, dict]) -> list[dic
     }
     for row in rows:
         fields = row["fields"]
-        current = packages.get(row.get("id") or "", {})
+        current = packages.get(row.get("id"), {})
         parent = fields.get("parent_id")
         if parent is not None and parent == row.get("id"):
             errors.append(
@@ -752,8 +752,13 @@ def work_package_errors(rows: list[dict], packages: dict[str, dict]) -> list[dic
                     field="completion",
                 )
             )
-        milestone = fields.get("is_milestone", current.get("is_milestone") is True)
-        if milestone and "end_date" in fields and "is_milestone" not in fields:
+        # An item that names is_milestone is validate_item's to check
+        # (``is_milestone: true`` with an ``end_date`` is refused there).
+        if (
+            current.get("is_milestone") is True
+            and "end_date" in fields
+            and "is_milestone" not in fields
+        ):
             errors.append(
                 _row_error(
                     "invalid_row",
@@ -778,7 +783,7 @@ def task_errors(
         wbs_id = row["fields"].get("wbs_id")
         if wbs_id is None:
             continue
-        current = stored.get(row.get("id") or "")
+        current = stored.get(row.get("id"))
         if current is not None and _comparable(current.get("wbs_id")) == wbs_id:
             continue
         package = packages.get(wbs_id)
@@ -818,7 +823,7 @@ def stored_date_errors(
         return []
     errors: list[dict] = []
     for row in rows:
-        stored = current.get(row.get("id") or "")
+        stored = current.get(row.get("id"))
         if stored is None or not any(key in row["fields"] for key in entity.dates):
             continue
         fields = milestone_fields(row["fields"], stored) if milestones else row["fields"]
@@ -849,7 +854,7 @@ def plan_saves(
     plan: list[dict] = []
     for row in rows:
         rid = row.get("id")
-        stored = current.get(rid, {}) if rid is not None else {}
+        stored = current.get(rid) or {}
         fields = milestone_fields(row["fields"], stored) if milestones else row["fields"]
         local = {key: row[key] for key in ("ref", "parent_ref") if key in row}
         if rid is None:

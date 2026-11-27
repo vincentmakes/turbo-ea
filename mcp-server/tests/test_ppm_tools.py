@@ -137,6 +137,7 @@ class _Backend:
         self.reads = _reads() if reads is None else reads
         self.writes = writes or {}
         self.calls: list[tuple[str, str, object]] = []
+        self.tokens: list[object] = []
         self.created = 0
 
     async def get(self, path, params=None):
@@ -185,12 +186,30 @@ class _Backend:
     def batch_calls(self):
         return [(m, p, b) for m, p, b in self.calls if p.startswith("/mutation")]
 
+    def _as(self, answer):
+        """``answer`` called as a method: ``autospec`` hands in the client,
+        whose token is recorded beside the call."""
+
+        async def method(client, *args, **kwargs):
+            self.tokens.append(client._token)
+            return await answer(*args, **kwargs)
+
+        return method
+
     async def run(self, coro_fn):
         with (
-            patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=self.get)),
-            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=self.post)),
-            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=self.patch)),
-            patch.object(server.TurboEAClient, "delete", AsyncMock(side_effect=self.delete)),
+            patch.object(
+                server.TurboEAClient, "get", autospec=True, side_effect=self._as(self.get)
+            ),
+            patch.object(
+                server.TurboEAClient, "post", autospec=True, side_effect=self._as(self.post)
+            ),
+            patch.object(
+                server.TurboEAClient, "patch", autospec=True, side_effect=self._as(self.patch)
+            ),
+            patch.object(
+                server.TurboEAClient, "delete", autospec=True, side_effect=self._as(self.delete)
+            ),
         ):
             return json.loads(await coro_fn())
 
@@ -326,6 +345,26 @@ class TestShared:
         assert data["status_code"] == status
         assert data["detail"] == "Initiative not found"
         assert backend.batch_calls() == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool", list(_CALLS))
+    @pytest.mark.parametrize("status", [403, 404])
+    async def test_a_refused_read_names_what_was_asked_for(self, fake_token, tool, status):
+        """The whole refusal: the comment tools name the task, every other
+        tool the initiative."""
+        reads = {
+            path: (_http_error(status, "Initiative not found") if path != ENABLED else answer)
+            for path, answer in _reads().items()
+        }
+        backend = _Backend(reads=reads)
+        data = await backend.run(_CALLS[tool])
+        context = {"task_id": T1} if "comment" in tool else {"initiative_id": INI}
+        assert data == {
+            "error": "ppm_unavailable",
+            "status_code": status,
+            "detail": "Initiative not found",
+            **context,
+        }
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("tool", list(_CALLS))
@@ -670,6 +709,131 @@ class TestSaveRows:
                 }
             },
         )
+
+    @pytest.mark.asyncio
+    async def test_a_refused_pre_read_names_the_canonical_initiative(self, fake_token):
+        backend = _Backend(reads=_reads(**{f"{BASE}/risks": _http_error(404, "Not found")}))
+        data = await backend.run(
+            lambda: server.save_ppm_risks(initiative_id=INI.upper(), items=[{"title": "x"}])
+        )
+        assert data == {
+            "error": "ppm_unavailable",
+            "status_code": 404,
+            "detail": "Not found",
+            "initiative_id": INI,
+        }
+        assert backend.batch_calls() == []
+
+    @pytest.mark.asyncio
+    async def test_every_call_of_a_commit_carries_the_callers_token(self, fake_token):
+        """The pre-reads, the batch open and close and every write are made
+        as the caller."""
+        backend = _Backend()
+        await backend.run(_tasks([{"title": "a"}, {"id": T1, "title": "b"}], dry_run=False))
+        assert [p for _, p, _ in backend.calls] == [
+            ENABLED,
+            f"{BASE}/tasks",
+            f"{BASE}/wbs",
+            OPEN.format(2),
+            f"{BASE}/tasks",
+            f"/ppm/tasks/{T1}",
+            CLOSE,
+        ]
+        assert backend.tokens == ["test-token"] * 7
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_id_and_a_work_package_error_are_both_reported(self, fake_token):
+        backend = _Backend()
+        stranger = "00000000-0000-4000-8000-00000000a0aa"
+        items = [{"id": stranger, "title": "x"}, {"id": W2, "parent_id": MS}]
+        data = await backend.run(_wbs(items, dry_run=False))
+        assert data == {
+            "error": "unknown_id",
+            "errors": [
+                {
+                    "error": "unknown_id",
+                    "index": 0,
+                    "id": stranger,
+                    "message": (
+                        "This id is not a work package of this initiative; get_ppm_plan "
+                        "and the list tools give the ids."
+                    ),
+                },
+                {
+                    "error": "invalid_value",
+                    "index": 1,
+                    "field": "parent_id",
+                    "value": MS,
+                    "message": "parent_id is a milestone; a milestone holds no work packages.",
+                },
+            ],
+            "message": "Nothing was saved. Fix the items listed and call again.",
+        }
+        assert backend.batch_calls() == []
+
+    @pytest.mark.asyncio
+    async def test_moving_a_stored_milestone_later_is_accepted(self, fake_token):
+        """The stored-date check applies the milestone rule to work packages:
+        the moved milestone ends on its new start, so it is not inverted."""
+        milestone = {
+            "id": MS,
+            "title": "Go-live",
+            "is_milestone": True,
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-01",
+        }
+        backend = _Backend(reads=_reads(**{f"{BASE}/wbs": [*_WBS[:2], milestone]}))
+        data = await backend.run(_wbs([{"id": MS, "start_date": "2026-07-01"}]))
+        assert data["would_save"] == [
+            {
+                "index": 0,
+                "id": MS,
+                "title": "Go-live",
+                "action": "update",
+                "changes": {
+                    "start_date": {"old": "2026-06-01", "new": "2026-07-01"},
+                    "end_date": {"old": "2026-06-01", "new": "2026-07-01"},
+                },
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_the_whole_answer_of_a_mid_run_refusal(self, fake_token):
+        backend = _Backend(
+            writes={("patch", f"/ppm/tasks/{T1}"): _http_error(409, "Changed meanwhile")}
+        )
+        items = [{"title": "a"}, {"id": T1, "title": "b"}]
+        data = await backend.run(_tasks(items, dry_run=False))
+        applied = {key: None for key in server._ppm.TASK_KEYS}
+        applied.update({"id": "00000000-0000-4000-8000-000000000001", "title": "a"})
+        assert data == {
+            "error": "save_refused",
+            "status_code": 409,
+            "detail": "Changed meanwhile",
+            "initiative_id": INI,
+            "index": 1,
+            "applied": [{"index": 0, "action": "create", **applied}],
+            "not_applied": [1],
+            "url": _link("tasks"),
+            "batch_id": "B-1",
+        }
+
+    @pytest.mark.asyncio
+    async def test_the_whole_answer_of_a_commit(self, fake_token):
+        backend = _Backend()
+        items = [{"id": T1, "title": "Draw v2"}, {"id": T2, "status": "todo"}]
+        data = await backend.run(_tasks(items, dry_run=False))
+        saved = {key: None for key in server._ppm.TASK_KEYS}
+        saved.update({"id": T1, "title": "Draw v2"})
+        assert data == {
+            "dry_run": False,
+            "initiative_id": INI,
+            "saved": [{"index": 0, "action": "update", **saved}],
+            "unchanged": [1],
+            "url": _link("tasks"),
+            "next_action": _NO_ROLLBACK,
+            "batch_id": "B-1",
+        }
 
     @pytest.mark.asyncio
     async def test_a_server_error_mid_run_is_raised(self, fake_token):
