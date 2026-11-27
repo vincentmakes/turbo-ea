@@ -1993,7 +1993,7 @@ class TestPermissions:
 class TestTaskWorkPackageScope:
     """A task's ``wbs_id`` must be a work package of the task's own initiative.
 
-    Before 2.221.0 only the Gantt move checked it; the task routes stored a
+    Before 2.222.0 only the Gantt move checked it; the task routes stored a
     work package of another initiative, so the task rolled up into a project
     it is not part of.
     """
