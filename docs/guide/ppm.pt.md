@@ -5,6 +5,9 @@ O módulo **PPM** fornece uma solução completa de gerenciamento de portfólio 
 !!! note
     O módulo PPM pode ser habilitado ou desabilitado por um administrador nas [Configurações](../admin/settings.md). Quando desabilitado, a navegação e funcionalidades do PPM ficam ocultas.
 
+!!! tip
+    O plano de um projeto (pacotes de trabalho, marcos, tarefas e dependências), os relatórios de status, os riscos e os comentários de tarefas também podem ser lidos e mantidos a partir de um assistente de IA por meio do [servidor MCP](../admin/mcp.md#available-capabilities), com as mesmas permissões `ppm.view` / `ppm.manage`. Cada alteração é primeiro pré-visualizada; pacotes de trabalho, tarefas, relatórios e riscos só são excluídos aqui.
+
 ## Painel do Portfólio
 
 ![Painel do Portfólio PPM](../assets/img/pt/40_ppm_portfolio.png)
@@ -233,7 +236,14 @@ O gerenciador de tarefas suporta as visualizações **quadro Kanban** e **lista*
 - **Concluído** — Tarefas concluídas
 - **Bloqueado** — Tarefas que não podem prosseguir
 
-As tarefas podem ser filtradas e agrupadas por item da Estrutura Analítica do Projeto (EAP/WBS). Quando agrupadas, cada pacote de trabalho aparece como um grupo — inclusive um que ainda não contém tarefas, que mostra uma dica e um botão **Adicionar tarefa** que abre o diálogo de tarefa com esse pacote pré-selecionado. Os marcos aparecem apenas quando contêm uma tarefa. Arraste e solte cards entre as colunas para atualizar o status.
+As tarefas podem ser filtradas e agrupadas por item da Estrutura Analítica do Projeto (EAP/WBS). Quando agrupadas, cada pacote de trabalho aparece como um grupo — inclusive um que ainda não contém tarefas, que mostra uma dica e um botão **Adicionar tarefa** que abre o diálogo de tarefa com esse pacote pré-selecionado. Os marcos aparecem apenas quando contêm uma tarefa. Arraste e solte cards entre as colunas para atualizar o status. Cada tarefa suporta:
+
+- Uma descrição, cujo campo na caixa de diálogo da tarefa cresce enquanto você digita — até 16 linhas, depois rola
+- Níveis de prioridade (Crítica, Alta, Média, Baixa)
+- Responsável (com notificação na atribuição)
+- Datas de início e de vencimento
+- Tags para categorização
+- Comentários para discussão
 
 Os filtros de exibição (modo de visualização, filtro WBS, alternância de agrupamento) são mantidos na URL entre atualizações de página.
 

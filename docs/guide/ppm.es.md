@@ -5,6 +5,9 @@ El módulo **PPM** proporciona una solución completa de gestión de cartera de 
 !!! note
     El módulo PPM puede ser habilitado o deshabilitado por un administrador en [Configuración](../admin/settings.md). Cuando está deshabilitado, la navegación y funciones de PPM quedan ocultas.
 
+!!! tip
+    El plan de un proyecto (paquetes de trabajo, hitos, tareas y dependencias), los informes de estado, los riesgos y los comentarios de tareas también pueden leerse y mantenerse desde un asistente de IA a través del [servidor MCP](../admin/mcp.md#available-capabilities), con los mismos permisos `ppm.view` / `ppm.manage`. Cada cambio se previsualiza primero; los paquetes de trabajo, tareas, informes y riesgos se eliminan solo aquí.
+
 ## Panel de Portafolio
 
 ![Panel de Portafolio PPM](../assets/img/es/40_ppm_portafolio.png)
@@ -233,7 +236,14 @@ El gestor de tareas admite vistas de **tablero Kanban** y **lista** con cuatro c
 - **Hecho** — Tareas completadas
 - **Bloqueado** — Tareas que no pueden avanzar
 
-Las tareas se pueden filtrar y agrupar por elemento de Estructura de Desglose del Trabajo (WBS). Al agrupar, cada paquete de trabajo aparece como un grupo —incluido uno que aún no contiene tareas, que muestra una indicación y un botón **Agregar tarea** que abre el diálogo de tarea con ese paquete preseleccionado—. Los hitos aparecen solo cuando contienen una tarea. Arrastre y suelte tarjetas entre columnas para actualizar el estado.
+Las tareas se pueden filtrar y agrupar por elemento de Estructura de Desglose del Trabajo (WBS). Al agrupar, cada paquete de trabajo aparece como un grupo —incluido uno que aún no contiene tareas, que muestra una indicación y un botón **Agregar tarea** que abre el diálogo de tarea con ese paquete preseleccionado—. Los hitos aparecen solo cuando contienen una tarea. Arrastre y suelte tarjetas entre columnas para actualizar el estado. Cada tarea admite:
+
+- Una descripción, cuyo campo en el diálogo de la tarea crece mientras escribe — hasta 16 líneas, luego se desplaza
+- Niveles de prioridad (Crítica, Alta, Media, Baja)
+- Responsable (con notificación al asignar)
+- Fechas de inicio y vencimiento
+- Etiquetas para categorizar
+- Comentarios para la discusión
 
 Los filtros de visualización (modo de vista, filtro WBS, alternancia de agrupación) se mantienen en la URL entre actualizaciones de página.
 

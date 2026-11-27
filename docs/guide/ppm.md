@@ -5,6 +5,9 @@ The **PPM** module provides a complete project portfolio management solution for
 !!! note
     The PPM module can be enabled or disabled by an administrator in [Settings](../admin/settings.md). When disabled, PPM navigation and features are hidden.
 
+!!! tip
+    A project's plan (work packages, milestones, tasks and dependencies), status reports, risks and task comments can also be read and maintained from an AI assistant through the [MCP server](../admin/mcp.md#available-capabilities), with the same `ppm.view` / `ppm.manage` permissions. Every change is previewed first; work packages, tasks, reports and risks are deleted here only.
+
 ## Portfolio Dashboard
 
 ![PPM Portfolio Dashboard](../assets/img/en/40_ppm_portfolio.png)
@@ -235,6 +238,7 @@ The task manager supports both **Kanban board** and **list** views with four sta
 
 Tasks can be filtered and grouped by Work Breakdown Structure (WBS) item. When grouped, every work package appears as a group — including one that holds no tasks yet, which shows a hint and an **Add Task** button that opens the task dialog with that package preselected. Milestones appear only once they hold a task. Drag and drop cards between columns to update status. Each task supports:
 
+- A description, whose field in the task dialog grows as you type — up to 16 lines, then it scrolls
 - Priority levels (Critical, High, Medium, Low)
 - Assignee (with notification on assignment)
 - Start and due dates

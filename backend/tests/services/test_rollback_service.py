@@ -26,7 +26,7 @@ from app.models.todo import Todo
 from app.services import adr_service, risk_service, stakeholder_service, tag_service
 from app.services.event_bus import event_bus, request_batch_id
 from app.services.rollback_service import execute_rollback, plan_rollback
-from tests.conftest import create_card, create_user
+from tests.conftest import create_budget_line, create_card, create_card_type, create_user
 
 
 async def _open_batch(db, actor) -> MutationBatch:
@@ -453,6 +453,63 @@ class TestMixedBatch:
             await db.execute(select(Card).where(Card.id == card_id))
         ).scalar_one_or_none() is None
         assert (await db.execute(select(Risk))).scalars().all() == []
+
+
+class TestPpmRollupRollback:
+    async def test_ppm_rollup_is_declined_and_the_edit_beside_it_reversed(self, db, actor):
+        """An Initiative's costBudget is calculated from its PPM budget lines;
+        rolling back the batch that moved it must leave it following those
+        lines (which a rollback does not touch), while a plain edit of the
+        same card in the same batch is still reversed."""
+        from app.api.v1 import ppm
+
+        await create_card_type(db, key="Initiative", label="Initiative")
+        card = await create_card(
+            db, card_type="Initiative", name="Before", attributes={"costBudget": 100.0}
+        )
+        await create_budget_line(db, initiative_id=card.id, amount=250.0)
+        batch = await _open_batch(db, actor)
+        with _InBatch(batch):
+            card.name = "After"
+            await event_bus.publish(
+                "card.updated",
+                {"id": str(card.id), "changes": {"name": {"old": "Before", "new": "After"}}},
+                db=db,
+                card_id=card.id,
+            )
+            await ppm._sync_initiative_costs(db, str(card.id), actor.id)
+        card_id = card.id
+        [edit, rollup] = sorted(
+            await _events(db, batch, "card.updated"), key=lambda e: e.data.get("source") or ""
+        )
+        assert rollup.data["source"] == "ppm_cost_rollup"
+        assert rollup.data["changes"]["attributes"]["new"]["costBudget"] == 250.0
+
+        plan = await plan_rollback(db, batch)
+        assert plan["unsupported_events"] == [
+            {
+                "event_id": str(rollup.id),
+                "op": "unsupported",
+                "event_type": "card.updated",
+                "reason": (
+                    "card.updated is not reversed: the change was calculated from the "
+                    "project's PPM work packages, tasks, budgets and costs, which a "
+                    "rollback leaves in place; the card keeps following them."
+                ),
+            }
+        ]
+        assert [(o["op"], o["event_id"]) for o in plan["operations"]] == [
+            ("restore_card_fields", str(edit.id))
+        ]
+
+        result = await execute_rollback(db, batch, actor.id)
+        assert [r["status"] for r in _ops(result, "restore_card_fields")] == ["ok"]
+        from app.models.card import Card
+
+        restored = (await db.execute(select(Card).where(Card.id == card_id))).scalar_one()
+        await db.refresh(restored)
+        assert restored.name == "Before"
+        assert restored.attributes["costBudget"] == 250.0
 
 
 class TestExtensionTodoRollback:

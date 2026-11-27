@@ -181,7 +181,8 @@ export default function PpmWbsDialog({
             onChange={(e) => setDescription(e.target.value)}
             fullWidth
             multiline
-            rows={3}
+            minRows={3}
+            maxRows={12}
           />
           <FormControl fullWidth size="small">
             <InputLabel>{t("wbsParent")}</InputLabel>

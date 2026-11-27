@@ -5,6 +5,9 @@ Das **PPM**-Modul bietet eine vollständige Lösung für das Projektportfolioman
 !!! note
     Das PPM-Modul kann von einem Administrator in den [Einstellungen](../admin/settings.md) aktiviert oder deaktiviert werden. Wenn deaktiviert, sind PPM-Navigation und -Funktionen ausgeblendet.
 
+!!! tip
+    Der Plan eines Projekts (Arbeitspakete, Meilensteine, Aufgaben und Abhängigkeiten), Statusberichte, Risiken und Aufgabenkommentare lassen sich auch über den [MCP-Server](../admin/mcp.md#available-capabilities) von einem KI-Assistenten lesen und pflegen, mit denselben Berechtigungen `ppm.view` / `ppm.manage`. Jede Änderung wird zuerst als Vorschau gezeigt; Arbeitspakete, Aufgaben, Berichte und Risiken werden nur hier gelöscht.
+
 ## Portfolio-Dashboard
 
 ![PPM Portfolio-Dashboard](../assets/img/de/40_ppm_portfolio.png)
@@ -233,7 +236,14 @@ Der Aufgabenmanager unterstützt **Kanban-Board** und **Listen**-Ansichten mit v
 - **Erledigt** — Abgeschlossene Aufgaben
 - **Blockiert** — Aufgaben, die nicht fortgesetzt werden können
 
-Aufgaben können nach Projektstrukturplan (PSP)-Element gefiltert und gruppiert werden. Bei Gruppierung erscheint jedes Arbeitspaket als Gruppe — auch eines, das noch keine Aufgaben enthält; es zeigt einen Hinweis und eine Schaltfläche **Aufgabe hinzufügen**, die den Aufgabendialog mit diesem Paket vorausgewählt öffnet. Meilensteine erscheinen erst, sobald sie eine Aufgabe enthalten. Ziehen Sie Karten zwischen Spalten, um den Status zu aktualisieren.
+Aufgaben können nach Projektstrukturplan (PSP)-Element gefiltert und gruppiert werden. Bei Gruppierung erscheint jedes Arbeitspaket als Gruppe — auch eines, das noch keine Aufgaben enthält; es zeigt einen Hinweis und eine Schaltfläche **Aufgabe hinzufügen**, die den Aufgabendialog mit diesem Paket vorausgewählt öffnet. Meilensteine erscheinen erst, sobald sie eine Aufgabe enthalten. Ziehen Sie Karten zwischen Spalten, um den Status zu aktualisieren. Jede Aufgabe unterstützt:
+
+- Eine Beschreibung, deren Feld im Aufgabendialog beim Tippen wächst — bis zu 16 Zeilen, danach scrollt es
+- Prioritätsstufen (Kritisch, Hoch, Mittel, Niedrig)
+- Zuständiger (mit Benachrichtigung bei Zuweisung)
+- Start- und Fälligkeitsdatum
+- Tags zur Kategorisierung
+- Kommentare zur Diskussion
 
 Anzeigefilter (Ansichtsmodus, WBS-Filter, Gruppierungs-Umschalter) bleiben in der URL zwischen Seitenaktualisierungen erhalten.
 
