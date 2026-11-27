@@ -14,6 +14,7 @@ import jwt
 import pytest
 
 from app.config import settings
+from app.core import security
 from app.core.security import (
     ALGORITHM,
     PORTAL_AUD,
@@ -312,3 +313,96 @@ class TestPortalTokenMatches:
     def test_no_claims_do_not_match(self):
         assert portal_token_matches(None, "portal", uuid.uuid4()) is False
         assert portal_token_matches({}, "portal", uuid.uuid4()) is False
+
+
+# ---------------------------------------------------------------------------
+# MCP: the connection claim, the derived keys and the service token (#1449)
+# ---------------------------------------------------------------------------
+
+
+def _service_token(*, key: bytes | None = None, **claims) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "iss": security.MCP_SERVICE_ISS,
+        "aud": security.MCP_SERVICE_AUD,
+        "iat": now,
+        "exp": now + timedelta(seconds=60),
+    }
+    payload.update(claims)
+    payload = {name: value for name, value in payload.items() if value is not None}
+    signing_key = key or security.derive_key(security.MCP_SERVICE_KEY_CONTEXT)
+    return jwt.encode(payload, signing_key, algorithm=ALGORITHM)
+
+
+class TestMcpConnectionClaim:
+    def test_a_plain_token_carries_no_connection(self):
+        assert "msid" not in decode_access_token(create_access_token(uuid.uuid4()))
+
+    def test_a_connection_token_names_its_connection(self):
+        session_id = uuid.uuid4()
+        payload = decode_access_token(create_access_token(uuid.uuid4(), mcp_session_id=session_id))
+        assert payload["msid"] == str(session_id)
+
+    def test_a_given_lifetime_replaces_the_configured_one(self):
+        payload = decode_access_token(
+            create_access_token(uuid.uuid4(), expires=timedelta(minutes=60))
+        )
+        assert payload["exp"] - payload["iat"] == 3600
+
+
+class TestDeriveKey:
+    def test_known_answer_for_the_service_key(self):
+        """The MCP server derives the same key in its own code
+        (``mcp-server/tests/test_config.py`` pins this same vector)."""
+        key = security.derive_key(security.MCP_SERVICE_KEY_CONTEXT, "known-answer-secret")
+        assert security.MCP_SERVICE_KEY_CONTEXT == b"turbo-ea-mcp/service-auth/v1"
+        assert key.hex() == "25688bcbaf929bb9a9dd67c18cdadec4b5fecdd2a2e231f7be82a931ec463250"
+
+    def test_the_instance_secret_is_the_default(self):
+        context = b"some/purpose/v1"
+        assert security.derive_key(context) == security.derive_key(context, settings.SECRET_KEY)
+
+    def test_two_purposes_never_share_a_key(self):
+        assert security.derive_key(b"one/v1") != security.derive_key(b"two/v1")
+
+    def test_an_empty_secret_is_used_as_given(self):
+        assert security.derive_key(b"one/v1", "") != security.derive_key(b"one/v1")
+
+
+class TestVerifyMcpServiceToken:
+    def test_a_token_the_mcp_server_signed_passes(self):
+        assert security.verify_mcp_service_token(_service_token()) is True
+
+    def test_the_names_both_sides_agree_on(self):
+        assert security.MCP_SERVICE_ISS == "turbo-ea-mcp"
+        assert security.MCP_SERVICE_AUD == "turbo-ea-backend"
+
+    def test_no_token_fails(self):
+        assert security.verify_mcp_service_token("") is False
+
+    def test_garbage_fails(self):
+        assert security.verify_mcp_service_token("not.a.token") is False
+
+    def test_an_expired_token_fails(self):
+        past = datetime.now(timezone.utc) - timedelta(seconds=5)
+        assert security.verify_mcp_service_token(_service_token(exp=past)) is False
+
+    @pytest.mark.parametrize("missing", ["exp", "iat"])
+    def test_a_token_without_its_times_fails(self, missing):
+        assert security.verify_mcp_service_token(_service_token(**{missing: None})) is False
+
+    def test_another_issuer_fails(self):
+        assert security.verify_mcp_service_token(_service_token(iss="turbo-ea")) is False
+
+    def test_another_audience_fails(self):
+        assert security.verify_mcp_service_token(_service_token(aud="turbo-ea")) is False
+
+    def test_a_token_signed_with_the_raw_secret_fails(self):
+        raw = settings.SECRET_KEY.encode()
+        assert security.verify_mcp_service_token(_service_token(key=raw)) is False
+
+    def test_a_user_session_is_not_a_service_token(self):
+        assert security.verify_mcp_service_token(create_access_token(uuid.uuid4())) is False
+
+    def test_a_service_token_is_not_a_user_session(self):
+        assert decode_access_token(_service_token(sub=str(uuid.uuid4()))) is None

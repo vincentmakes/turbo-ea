@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -17,6 +19,25 @@ ALGORITHM = "HS256"
 PORTAL_ISS = "turbo-ea-portal"
 PORTAL_AUD = "turbo-ea-portal"
 
+# The MCP server proves it is this instance's own MCP server with a short-lived
+# token signed by a key both sides derive from SECRET_KEY. A third issuer and
+# audience again, and a derived key rather than SECRET_KEY itself, so nothing
+# the MCP server signs can ever verify as a user session, and no user session
+# verifies as the service. The context string is mirrored in
+# ``mcp-server/turbo_ea_mcp/config.py`` (the two packages share no code); a
+# known-answer test on each side keeps them from drifting.
+MCP_SERVICE_ISS = "turbo-ea-mcp"
+MCP_SERVICE_AUD = "turbo-ea-backend"
+MCP_SERVICE_KEY_CONTEXT = b"turbo-ea-mcp/service-auth/v1"
+
+
+def derive_key(context: bytes, secret: str | None = None) -> bytes:
+    """A 32-byte key for one purpose, derived from the instance's SECRET_KEY.
+
+    ``context`` names the purpose, so two purposes never share a key."""
+    source = settings.SECRET_KEY if secret is None else secret
+    return hmac.new(source.encode(), context, hashlib.sha256).digest()
+
 
 def _sign(payload: dict) -> str:
     # Fenced rather than a trailing pragma: the reason would push the line past 100 columns.
@@ -30,19 +51,52 @@ def create_access_token(
     role: str = "member",
     *,
     impersonated_role: str | None = None,
+    expires: timedelta | None = None,
+    mcp_session_id: uuid.UUID | None = None,
 ) -> str:
+    """A user session token.
+
+    ``mcp_session_id`` binds the token to one MCP connection (the ``msid``
+    claim): ``get_current_user`` then accepts it only while that connection is
+    live, so revoking the connection ends the token at once. ``expires``
+    shortens the lifetime for such a token; the default is the instance's
+    ``ACCESS_TOKEN_EXPIRE_MINUTES``."""
     now = datetime.now(timezone.utc)
+    lifetime = expires or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload: dict = {
         "sub": str(user_id),
         "role": role,
         "iat": now,
-        "exp": now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        "exp": now + lifetime,
         "iss": "turbo-ea",
         "aud": "turbo-ea",
     }
     if impersonated_role:
         payload["impersonated_role"] = impersonated_role
+    if mcp_session_id is not None:
+        payload["msid"] = str(mcp_session_id)
     return _sign(payload)
+
+
+def verify_mcp_service_token(token: str) -> bool:
+    """Whether ``token`` was signed by this instance's MCP server just now.
+
+    The MCP server signs a token that lives a minute; an expired one, one with
+    another issuer or audience, and one signed with any other key all fail."""
+    if not token:
+        return False
+    try:
+        jwt.decode(
+            token,
+            derive_key(MCP_SERVICE_KEY_CONTEXT),
+            algorithms=[ALGORITHM],
+            issuer=MCP_SERVICE_ISS,
+            audience=MCP_SERVICE_AUD,
+            options={"require": ["exp", "iat"]},
+        )
+    except jwt.PyJWTError:
+        return False
+    return True
 
 
 def decode_access_token(token: str) -> dict | None:

@@ -19,6 +19,7 @@ from app.models.event import Event
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
+from app.services import mcp_session_service
 from app.services.card_read_scope import (
     CardReadScope,
     event_read_filters,
@@ -93,6 +94,9 @@ async def event_stream(request: Request, token: str = Query("")):
             timezone.utc
         ):
             raise HTTPException(status_code=401, detail="Account access has expired")
+        # Mirrors get_current_user: a token of an ended MCP connection is no token.
+        if not await mcp_session_service.token_session_is_live(db, payload):
+            raise HTTPException(status_code=401, detail="MCP connection ended")
 
         is_events_admin = await PermissionService.has_app_permission(db, user, "admin.events")
         user_id = str(user.id)

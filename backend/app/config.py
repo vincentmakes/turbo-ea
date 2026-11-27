@@ -125,6 +125,14 @@ class Settings:
     # portal is the instant kill switch). Default 8h.
     PORTAL_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("PORTAL_TOKEN_EXPIRE_MINUTES", "480"))
 
+    # An AI tool's MCP connection (``mcp_sessions``). It renews itself while it
+    # is used at least once every MCP_SESSION_IDLE_DAYS, and ends for good
+    # MCP_SESSION_MAX_DAYS after the sign-in that created it, whatever the use
+    # (0 = no such end). The second is what makes a person removed at the
+    # identity provider, but still active here, sign in again eventually.
+    MCP_SESSION_IDLE_DAYS: int = int(os.getenv("MCP_SESSION_IDLE_DAYS", "30"))
+    MCP_SESSION_MAX_DAYS: int = int(os.getenv("MCP_SESSION_MAX_DAYS", "180"))
+
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
     ALLOWED_ORIGINS: list[str] = [
