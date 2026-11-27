@@ -221,7 +221,7 @@ MCP_ALLOWED_HOSTS: list[str] = parse_hosts(os.environ.get("MCP_ALLOWED_HOSTS", "
 _CLIENT_ID_KEY_CONTEXT = b"turbo-ea-mcp/oauth-client-id/v1"
 # Mirrored in the backend (``MCP_SERVICE_KEY_CONTEXT``, app/core/security.py):
 # the two packages share no code, so a known-answer test on each side pins it.
-_SERVICE_AUTH_KEY_CONTEXT = b"turbo-ea-mcp/service-auth/v1"
+_SERVICE_PROOF_KEY_CONTEXT = b"turbo-ea-mcp/service-auth/v1"
 _ACCESS_TOKEN_KEY_CONTEXT = b"turbo-ea-mcp/oauth-access-token/v1"
 # Mirrors ``REFRESH_KEY_CONTEXT`` in the backend (app/services/mcp_session_service.py),
 # which signs the refresh tokens; pinned by a known-answer test like the service key.
@@ -247,13 +247,13 @@ def oauth_client_key(secret: str) -> bytes | None:
     return _derive_key(secret, _CLIENT_ID_KEY_CONTEXT)
 
 
-def service_auth_key(secret: str) -> bytes | None:
+def service_proof_key(secret: str) -> bytes | None:
     """The key that signs the short-lived proof this server shows the backend
     when it opens or renews an MCP session; ``None`` without a secret.
 
     The backend derives the same key from its own SECRET_KEY, so the proof is
     accepted only when both containers were given the same secret."""
-    return _derive_key(secret, _SERVICE_AUTH_KEY_CONTEXT)
+    return _derive_key(secret, _SERVICE_PROOF_KEY_CONTEXT)
 
 
 def oauth_token_key(secret: str) -> bytes | None:
@@ -273,6 +273,6 @@ def refresh_token_key(secret: str) -> bytes | None:
 
 _SECRET_KEY = os.environ.get("SECRET_KEY", "")
 MCP_OAUTH_CLIENT_KEY: bytes | None = oauth_client_key(_SECRET_KEY)
-MCP_SERVICE_AUTH_KEY: bytes | None = service_auth_key(_SECRET_KEY)
+MCP_SERVICE_PROOF_KEY: bytes | None = service_proof_key(_SECRET_KEY)
 MCP_OAUTH_TOKEN_KEY: bytes | None = oauth_token_key(_SECRET_KEY)
 MCP_REFRESH_TOKEN_KEY: bytes | None = refresh_token_key(_SECRET_KEY)

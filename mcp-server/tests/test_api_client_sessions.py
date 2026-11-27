@@ -26,7 +26,7 @@ from turbo_ea_mcp.api_client import (
 )
 
 BASE = "http://backend:8000"
-KEY = config.service_auth_key("known-answer-secret")
+KEY = config.service_proof_key("known-answer-secret")
 NOW = 1_700_000_000
 TOKENS = {
     "access_token": "session.jwt.x",
@@ -66,7 +66,7 @@ def wire(monkeypatch):
 
     monkeypatch.setattr(api_client.httpx, "AsyncClient", client)
     monkeypatch.setattr(api_client, "TURBO_EA_URL", BASE)
-    monkeypatch.setattr(api_client, "MCP_SERVICE_AUTH_KEY", KEY)
+    monkeypatch.setattr(api_client, "MCP_SERVICE_PROOF_KEY", KEY)
     monkeypatch.setattr(api_client.time, "time", lambda: NOW + 0.75)
     return w
 
@@ -89,7 +89,7 @@ def proof_claims(request: httpx.Request) -> dict:
 
 class TestServiceToken:
     def test_none_without_a_key(self, monkeypatch):
-        monkeypatch.setattr(api_client, "MCP_SERVICE_AUTH_KEY", None)
+        monkeypatch.setattr(api_client, "MCP_SERVICE_PROOF_KEY", None)
         assert service_token() is None
 
     def test_a_one_minute_hs256_token_for_the_backend(self, wire):
@@ -114,7 +114,7 @@ class TestServiceToken:
         with pytest.raises(jwt.InvalidSignatureError):
             jwt.decode(
                 service_token(),
-                config.service_auth_key("another-secret"),
+                config.service_proof_key("another-secret"),
                 algorithms=["HS256"],
                 audience="turbo-ea-backend",
                 options={"verify_exp": False, "verify_iat": False},
@@ -150,7 +150,7 @@ class TestCreateMcpSession:
     async def test_without_a_key_nothing_is_sent_and_the_operator_is_told(
         self, wire, monkeypatch, caplog
     ):
-        monkeypatch.setattr(api_client, "MCP_SERVICE_AUTH_KEY", None)
+        monkeypatch.setattr(api_client, "MCP_SERVICE_PROOF_KEY", None)
         with caplog.at_level(logging.WARNING, logger=api_client.logger.name):
             assert await create_mcp_session("user.jwt", "Claude", "mcp:read") is None
         assert wire.requests == []
@@ -238,7 +238,7 @@ class TestRefreshMcpSession:
 
     @pytest.mark.asyncio
     async def test_without_a_key_it_is_refused_unasked(self, wire, monkeypatch):
-        monkeypatch.setattr(api_client, "MCP_SERVICE_AUTH_KEY", None)
+        monkeypatch.setattr(api_client, "MCP_SERVICE_PROOF_KEY", None)
         assert await refresh_mcp_session("tea1r.s1.0.sig") is None
         assert wire.requests == []
 

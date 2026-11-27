@@ -167,7 +167,7 @@ class TestDegradedMode:
     """No SECRET_KEY: sign-in still works, no refresh token is handed out."""
 
     async def test_no_secret_key_issues_no_refresh_token(self, boot, monkeypatch):
-        monkeypatch.setattr(api_client, "MCP_SERVICE_AUTH_KEY", None)
+        monkeypatch.setattr(api_client, "MCP_SERVICE_PROOF_KEY", None)
         module = boot(None)
         sso_jwt = jwt_with({"exp": time.time() + 86_400})
         tokens = await sign_in(module, sso_jwt)

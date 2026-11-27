@@ -12,7 +12,7 @@ import httpx
 import jwt
 from pydantic import BaseModel, Field, ValidationError
 
-from turbo_ea_mcp.config import MCP_SERVICE_AUTH_KEY, TURBO_EA_URL
+from turbo_ea_mcp.config import MCP_SERVICE_PROOF_KEY, TURBO_EA_URL
 
 logger = logging.getLogger(__name__)
 
@@ -349,7 +349,7 @@ class McpSessionTokens(BaseModel):
 def service_token() -> str | None:
     """A proof, valid for a minute, that the caller is this instance's MCP
     server; ``None`` when no SECRET_KEY reached this process."""
-    if MCP_SERVICE_AUTH_KEY is None:
+    if MCP_SERVICE_PROOF_KEY is None:
         return None
     now = int(time.time())
     claims = {
@@ -359,7 +359,7 @@ def service_token() -> str | None:
         "exp": now + SERVICE_TOKEN_TTL,
     }
     # Positional: HS256 is PyJWT's default, so a dropped keyword would sign the same.
-    return jwt.encode(claims, MCP_SERVICE_AUTH_KEY, "HS256")
+    return jwt.encode(claims, MCP_SERVICE_PROOF_KEY, "HS256")
 
 
 def _session_tokens(resp: httpx.Response) -> McpSessionTokens:

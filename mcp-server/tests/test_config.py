@@ -262,7 +262,7 @@ class TestDerivedKeys:
         # The same vector is pinned in backend/tests/core/test_security.py
         # (TestDeriveKey): the two packages share no code, so this is what
         # keeps the service proof's key from drifting between them.
-        assert config.service_auth_key("known-answer-secret").hex() == (
+        assert config.service_proof_key("known-answer-secret").hex() == (
             "25688bcbaf929bb9a9dd67c18cdadec4b5fecdd2a2e231f7be82a931ec463250"
         )
 
@@ -282,14 +282,14 @@ class TestDerivedKeys:
             return hmac.new(b"s", context, hashlib.sha256).digest()
 
         assert config.oauth_client_key("s") == derive(b"turbo-ea-mcp/oauth-client-id/v1")
-        assert config.service_auth_key("s") == derive(b"turbo-ea-mcp/service-auth/v1")
+        assert config.service_proof_key("s") == derive(b"turbo-ea-mcp/service-auth/v1")
         assert config.oauth_token_key("s") == derive(b"turbo-ea-mcp/oauth-access-token/v1")
         assert config.refresh_token_key("s") == derive(b"turbo-ea/mcp-refresh-token/v1")
 
     def test_the_four_keys_differ(self):
         keys = {
             config.oauth_client_key("s"),
-            config.service_auth_key("s"),
+            config.service_proof_key("s"),
             config.oauth_token_key("s"),
             config.refresh_token_key("s"),
         }
@@ -299,7 +299,7 @@ class TestDerivedKeys:
         "derive",
         [
             config.oauth_client_key,
-            config.service_auth_key,
+            config.service_proof_key,
             config.oauth_token_key,
             config.refresh_token_key,
         ],
@@ -314,13 +314,13 @@ class TestDerivedKeys:
         try:
             reloaded = importlib.reload(config)
             assert reloaded.MCP_OAUTH_CLIENT_KEY == config.oauth_client_key("known-answer-secret")
-            assert reloaded.MCP_SERVICE_AUTH_KEY.hex().startswith("25688bcb")
+            assert reloaded.MCP_SERVICE_PROOF_KEY.hex().startswith("25688bcb")
             assert reloaded.MCP_OAUTH_TOKEN_KEY == config.oauth_token_key("known-answer-secret")
             assert reloaded.MCP_REFRESH_TOKEN_KEY.hex().startswith("27dea087")
             monkeypatch.delenv("SECRET_KEY")
             reloaded = importlib.reload(config)
             assert reloaded.MCP_OAUTH_CLIENT_KEY is None
-            assert reloaded.MCP_SERVICE_AUTH_KEY is None
+            assert reloaded.MCP_SERVICE_PROOF_KEY is None
             assert reloaded.MCP_OAUTH_TOKEN_KEY is None
             assert reloaded.MCP_REFRESH_TOKEN_KEY is None
         finally:
