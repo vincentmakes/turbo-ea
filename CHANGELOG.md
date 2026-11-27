@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.220.0] - 2026-11-27
+
+### Added
+- The **Lifecycle report** lists each card's dated relations beneath it as foldable rows, each led by the other card's name and drawn as its own phase bar on the report's time axis — in *All types* as well as for one card type, in the table view with their state and dates, and in exports; a card with no dates of its own is listed when it has dated relations.
+- A card's **Lifecycle** section shows its dated relations on one time axis with the card itself — grouped by verb, with a Today line, their phase chips and the clock to edit them — and flags a relation still in effect after the card's own End of Life.
+- The **Add relation** dialog takes relation dates for a relation type that tracks lifecycle, applied to every card added and to those already added.
+- The inventory's relation cell popover carries the clock that sets or edits a relation's dates.
+- The NexaTech demo data includes dated relations in every state, with Track lifecycle switched on for their relation types.
+
+### Changed
+- **Track lifecycle** is switched on and off right in the relation list (the Relations tab and a card type's own Relations tab), in place of the read-only Lifecycle chip.
+- The Excel export of a report's table leaves icon names out of its headers and cells.
+- Right to left, the Lifecycle report's timeline opens on the last five years instead of the oldest dates.
+
 ## [2.219.2] - 2026-11-27
 
 ### Fixed
