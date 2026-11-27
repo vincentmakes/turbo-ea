@@ -385,6 +385,26 @@ describe("ProcessFlowTab published elements table", () => {
     );
   });
 
+  it("keeps a cell opened while another cell's save is still out", async () => {
+    // Every write to the first step waits until released: Enter, and the blur
+    // the click on the next cell causes.
+    const held: (() => void)[] = [];
+    mockApi.on("put", `${BASE}/elements/el1`, () => new Promise((r) => held.push(() => r({ status: "updated" }))));
+    const user = await renderPublished();
+    await user.click(within(cellOf(rowOf("Create Order"), "TCode")).getByText("VA01"));
+    await user.type(screen.getByPlaceholderText("e.g. SE16"), "{Enter}");
+    await waitFor(() => expect(held.length).toBeGreaterThan(0));
+
+    // The next step's cell is opened before that save has answered...
+    await user.click(within(cellOf(rowOf("Check stock"), "TCode")).getByText("Add"));
+    expect(screen.getByPlaceholderText("e.g. SE16")).toHaveValue("");
+    // ...and stays open once it has: the save closes only the cell it came from.
+    held.forEach((release) => release());
+    expect(await screen.findByText("Element updated")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("e.g. SE16")).toHaveValue("");
+    expect(mockApi.callsOf("put", `${BASE}/elements/el2`)).toHaveLength(0);
+  });
+
   it("shows a failed elements load as an error in place of the table", async () => {
     mockApi.fail("get", `${BASE}/elements`);
     renderTab();
@@ -724,6 +744,29 @@ describe("ProcessFlowTab drafts", () => {
     await user.click(screen.getByText("Revision 4"));
     // Re-opening uses what was already loaded.
     expect(mockApi.callsOf("get", `${BASE}/flow/versions/d1`)).toHaveLength(detailLoads);
+  });
+
+  it("keeps a draft cell opened while another draft cell's save is still out", async () => {
+    mockApi.on("get", `${BASE}/flow/versions/d1`, { ...DRAFTS[0], bpmn_xml: "" });
+    mockApi.on("get", `${BASE}/flow/versions/d1/draft-elements`, [ELEMENTS[0], ELEMENTS[1]]);
+    const held: (() => void)[] = [];
+    mockApi.on(
+      "put",
+      `${BASE}/flow/versions/d1/draft-elements/task_1`,
+      () => new Promise((r) => held.push(() => r({ status: "updated" }))),
+    );
+    const user = await openDrafts();
+    await user.click(screen.getByText("Revision 4"));
+    expect(await screen.findByText("Pre-link Elements")).toBeInTheDocument();
+    await user.click(within(cellOf(rowOf("Create Order"), "TCode")).getByText("VA01"));
+    await user.type(screen.getByPlaceholderText("e.g. SE16"), "{Enter}");
+    await waitFor(() => expect(held.length).toBeGreaterThan(0));
+
+    await user.click(within(cellOf(rowOf("Check stock"), "TCode")).getByText("Add"));
+    expect(screen.getByPlaceholderText("e.g. SE16")).toHaveValue("");
+    held.forEach((release) => release());
+    expect(await screen.findByText("Draft element link updated")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("e.g. SE16")).toHaveValue("");
   });
 
   it("reports a failed draft link update", async () => {

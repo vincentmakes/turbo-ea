@@ -22,12 +22,15 @@
  *
  * The stored order is self-healing: `applyOrder` folds whatever columns are
  * currently present into it (`mergeOrder`) and publishes the result back
- * through `onOrderChange` from an effect. That is what lets the inventory's
+ * through `onOrderChange` from a layout effect — inside the commit, never a
+ * passive effect: an order set between a commit and its passive effects (a
+ * view applied as the metamodel lands) would be overwritten by the fold that
+ * React flushes first (`useColumnOrder.test.tsx`). That is what lets the inventory's
  * attribute and relation columns — which only exist once the metamodel has
  * loaded, and change again on every card-type switch — take their place
  * without the page having to sequence anything.
  */
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import type { RefObject } from "react";
 import type { ColDef } from "ag-grid-community";
 import {
@@ -101,7 +104,7 @@ export function useColumnOrder<TData = unknown>(
   // Publish the reconciliation. In an effect, never during render — and only
   // when it actually differs, so this converges in one extra render instead of
   // looping. `publishedRef` guards the window before the state round-trips.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const merged = mergedRef.current;
     if (sameOrder(merged, orderedIds)) return;
     const key = JSON.stringify(merged);

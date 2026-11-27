@@ -97,6 +97,38 @@ beforeEach(() => {
   localesMock.enabled = ["en"];
 });
 
+describe("StakeholderRolePanel — a parent re-render", () => {
+  it("does not reload the roles or hide the form when the parent passes a new onError", async () => {
+    // TypeDetailDrawer passes an inline `onError`, a new function on every one
+    // of its renders. The schema fetch depended on it, so each parent render
+    // (the drawer showing a failed save's error, say) re-ran the load: the
+    // form gave way to a spinner and both lists were fetched again.
+    mockApi();
+    const { rerender } = render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+    await screen.findByText("Typo Role");
+    const loads = () => apiMock.get.mock.calls.filter(([p]) => !String(p).includes("/usage")).length;
+    const before = loads();
+
+    rerender(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+    await act(async () => {});
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.getByText("Typo Role")).toBeInTheDocument();
+    expect(loads()).toBe(before);
+  });
+
+  it("still reports a failed schema read through the onError it was given last", async () => {
+    apiMock.get.mockImplementation((path: string) =>
+      String(path).includes("permissions-schema") ? Promise.reject(new Error("schema down")) : Promise.resolve(ROLES),
+    );
+    const first = vi.fn();
+    const last = vi.fn();
+    const { rerender } = render(<StakeholderRolePanel typeKey="Application" onError={first} />);
+    rerender(<StakeholderRolePanel typeKey="Application" onError={last} />);
+    await waitFor(() => expect(last).toHaveBeenCalledWith("schema down"));
+    expect(first).not.toHaveBeenCalled();
+  });
+});
+
 describe("StakeholderRolePanel — key entry", () => {
   it("derives a valid camelCase key from the label so the admin never hand-authors one", async () => {
     mockApi();

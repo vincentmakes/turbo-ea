@@ -589,6 +589,45 @@ describe("MentionPopup review fixes", () => {
     }
   });
 
+  it("scrolls the row a key picked when the key lands between the rows' commit and its effects", async () => {
+    // The editor's keys come through a native listener, outside React, so one
+    // can land after the commit that shows the rows and before that commit's
+    // passive effects run. A MutationObserver callback is exactly there: a
+    // microtask after the commit's DOM change, ahead of the effects' task.
+    // Nightly run 69 failed the test above that way: the pending effect of the
+    // rows' commit took the scroll for the first row, and the key's own render
+    // found nothing left to scroll.
+    const scrolled = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrolled;
+    const g = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const actEnvironment = g.IS_REACT_ACT_ENVIRONMENT;
+    let observer: MutationObserver | null = null;
+    try {
+      mockApi();
+      const { start, renderer } = setup(["card"]);
+      let pressed = false;
+      observer = new MutationObserver(() => {
+        if (pressed || !screen.queryByRole("option", { name: /CRM/ })) return;
+        pressed = true;
+        // A native key, as the editor sends it: not inside act().
+        g.IS_REACT_ACT_ENVIRONMENT = false;
+        renderer.onKeyDown({ event: new KeyboardEvent("keydown", { key: "ArrowUp" }) } as never);
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      start();
+      await waitFor(() => expect(pressed).toBe(true));
+      await waitFor(() => expect(screen.getByTestId("mention-browse")).toHaveAttribute("aria-selected", "true"));
+      await waitFor(() => expect(scrolled).toHaveBeenCalled());
+      expect(scrolled).toHaveBeenCalledTimes(1);
+      expect(scrolled.mock.contexts[0]).toBe(screen.getByTestId("mention-browse"));
+    } finally {
+      observer?.disconnect();
+      g.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   it("keeps Browse highlighted when rows arrive under it", async () => {
     let release = () => {};
     const hold = new Promise<void>((r) => (release = r));
