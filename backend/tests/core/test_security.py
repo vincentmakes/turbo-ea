@@ -384,7 +384,8 @@ class TestVerifyMcpServiceToken:
         assert security.verify_mcp_service_token("not.a.token") is False
 
     def test_an_expired_token_fails(self):
-        past = datetime.now(timezone.utc) - timedelta(seconds=5)
+        drift = security.MCP_SERVICE_CLOCK_LEEWAY_SECONDS + 5
+        past = datetime.now(timezone.utc) - timedelta(seconds=drift)
         assert security.verify_mcp_service_token(_service_token(exp=past)) is False
 
     @pytest.mark.parametrize("missing", ["exp", "iat"])
@@ -406,3 +407,51 @@ class TestVerifyMcpServiceToken:
 
     def test_a_service_token_is_not_a_user_session(self):
         assert decode_access_token(_service_token(sub=str(uuid.uuid4()))) is None
+
+
+class TestMcpServiceTokenClockDrift:
+    """The proof is checked against a frozen clock, so each boundary is exact."""
+
+    T = 1_800_000_000
+
+    @pytest.fixture(autouse=True)
+    def _frozen_clock(self, monkeypatch):
+        import jwt.api_jwt
+
+        moment = datetime.fromtimestamp(self.T, timezone.utc)
+
+        class Frozen(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return moment
+
+        monkeypatch.setattr(jwt.api_jwt, "datetime", Frozen)
+
+    def _token(self, *, iat: int, exp: int) -> str:
+        key = security.derive_key(security.MCP_SERVICE_KEY_CONTEXT)
+        claims = {
+            "iss": security.MCP_SERVICE_ISS,
+            "aud": security.MCP_SERVICE_AUD,
+            "iat": iat,
+            "exp": exp,
+        }
+        return jwt.encode(claims, key, algorithm=ALGORITHM)
+
+    def test_the_leeway_is_thirty_seconds(self):
+        assert security.MCP_SERVICE_CLOCK_LEEWAY_SECONDS == 30
+
+    def test_a_proof_expired_less_than_the_leeway_ago_passes(self):
+        token = self._token(iat=self.T - 89, exp=self.T - 29)
+        assert security.verify_mcp_service_token(token) is True
+
+    def test_a_proof_expired_the_leeway_ago_fails(self):
+        token = self._token(iat=self.T - 90, exp=self.T - 30)
+        assert security.verify_mcp_service_token(token) is False
+
+    def test_a_proof_issued_up_to_the_leeway_ahead_passes(self):
+        token = self._token(iat=self.T + 30, exp=self.T + 90)
+        assert security.verify_mcp_service_token(token) is True
+
+    def test_a_proof_issued_beyond_the_leeway_ahead_fails(self):
+        token = self._token(iat=self.T + 31, exp=self.T + 91)
+        assert security.verify_mcp_service_token(token) is False

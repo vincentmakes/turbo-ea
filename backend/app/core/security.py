@@ -29,6 +29,10 @@ PORTAL_AUD = "turbo-ea-portal"
 MCP_SERVICE_ISS = "turbo-ea-mcp"
 MCP_SERVICE_AUD = "turbo-ea-backend"
 MCP_SERVICE_KEY_CONTEXT = b"turbo-ea-mcp/service-auth/v1"
+# The two containers' clocks are never exactly in step, and a proof refused for a
+# few seconds of drift would end a renewal. Wide enough for ordinary drift,
+# short against the proof's own minute.
+MCP_SERVICE_CLOCK_LEEWAY_SECONDS = 30
 
 
 def derive_key(context: bytes, secret: str | None = None) -> bytes:
@@ -81,8 +85,9 @@ def create_access_token(
 def verify_mcp_service_token(token: str) -> bool:
     """Whether ``token`` was signed by this instance's MCP server just now.
 
-    The MCP server signs a token that lives a minute; an expired one, one with
-    another issuer or audience, and one signed with any other key all fail."""
+    The MCP server signs a token that lives a minute; an expired one (beyond
+    ``MCP_SERVICE_CLOCK_LEEWAY_SECONDS`` of clock drift), one with another
+    issuer or audience, and one signed with any other key all fail."""
     if not token:
         return False
     try:
@@ -93,6 +98,7 @@ def verify_mcp_service_token(token: str) -> bool:
             issuer=MCP_SERVICE_ISS,
             audience=MCP_SERVICE_AUD,
             options={"require": ["exp", "iat"]},
+            leeway=MCP_SERVICE_CLOCK_LEEWAY_SECONDS,
         )
     except jwt.PyJWTError:
         return False
