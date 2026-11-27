@@ -358,13 +358,13 @@ export function filterItems(
 ): PpmPortfolioItem[] {
   const matches = (i: PpmPortfolioItem) => matchesBoard(i, search, subtype, ids);
   const unfiltered = !search && !subtype && ids === null;
+  // Anchors exist only under a subtype grouping, where every row is in one
+  // group, so `group_id` is all of it there.
   const keptGroups = new Set(
-    items
-      .filter((i) => !i.group_anchor && matches(i))
-      .flatMap((i) => itemGroups(i).map((g) => g.id)),
+    items.filter((i) => !i.group_anchor && matches(i)).map((i) => i.group_id),
   );
   return items.filter((i) =>
-    i.group_anchor ? unfiltered || itemGroups(i).some((g) => keptGroups.has(g.id)) : matches(i),
+    i.group_anchor ? unfiltered || keptGroups.has(i.group_id) : matches(i),
   );
 }
 

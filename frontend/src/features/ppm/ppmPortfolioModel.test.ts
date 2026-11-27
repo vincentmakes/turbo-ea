@@ -1940,35 +1940,6 @@ describe("an initiative in several groups (#1452)", () => {
     });
   });
 
-  describe("filterItems", () => {
-    const anchor = (id: string) =>
-      item({
-        id,
-        name: id,
-        groups: [ref(id, id)],
-        group_id: id,
-        group_name: id,
-        group_anchor: true,
-      });
-    const rows = [
-      anchor("p"),
-      anchor("q"),
-      anchor("r"),
-      item({ id: "a", name: "Alpha", groups: [ref("p", "p"), ref("q", "q")] }),
-      item({ id: "b", name: "Beta", groups: [ref("r", "r")] }),
-    ];
-    const ids = (list: PpmPortfolioItem[]) => list.map((i) => i.id);
-
-    it("keeps the anchor of every group a kept row belongs to", () => {
-      expect(ids(filterItems(rows, "alpha", "", null))).toEqual([
-        "p",
-        "q",
-        "a",
-      ]);
-      expect(ids(filterItems(rows, "beta", "", null))).toEqual(["r", "b"]);
-    });
-  });
-
   describe("buildPortfolioExport", () => {
     it("writes the initiative once under each of its groups, as the board shows it", () => {
       const shared = item({
