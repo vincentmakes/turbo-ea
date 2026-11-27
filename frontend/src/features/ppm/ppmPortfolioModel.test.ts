@@ -15,6 +15,7 @@ import {
   barModel,
   buildPortfolioExport,
   buildPrintParams,
+  collapsedRowsIn,
   costBarModel,
   derivedCostTipKey,
   depthLabel,
@@ -29,6 +30,7 @@ import {
   hasAnyCost,
   hasHierarchy,
   healthLabelKey,
+  itemGroups,
   matchesBoard,
   maxTreeDepth,
   money,
@@ -38,6 +40,7 @@ import {
   portfolioWindow,
   projectManager,
   ragColor,
+  rowCollapseId,
   rowFigures,
   shownDashboard,
   subtypeGroupBy,
@@ -1881,5 +1884,150 @@ describe("shownDashboard", () => {
     });
     expect(full.total_initiatives).toBe(9);
     expect(full.health_schedule.noReport).toBe(1);
+  });
+});
+
+describe("an initiative in several groups (#1452)", () => {
+  const ref = (id: string, name: string) => ({ id, name });
+
+  describe("itemGroups", () => {
+    it("reads every group the row carries, in its order", () => {
+      const groups = [ref("g-z", "Zeta"), ref("g-a", "Alpha")];
+      expect(
+        itemGroups(item({ groups, group_id: "g-z", group_name: "Zeta" })),
+      ).toEqual(groups);
+    });
+
+    it("falls back to the single group of a payload without groups", () => {
+      expect(itemGroups(item({ group_id: "g", group_name: "G" }))).toEqual([
+        ref("g", "G"),
+      ]);
+      expect(
+        itemGroups(item({ groups: [], group_id: "g", group_name: "G" })),
+      ).toEqual([ref("g", "G")]);
+    });
+
+    it("has no group without both an id and a name", () => {
+      expect(itemGroups(item())).toEqual([]);
+      expect(itemGroups(item({ group_id: "g", group_name: null }))).toEqual([]);
+      expect(itemGroups(item({ group_id: null, group_name: "G" }))).toEqual([]);
+    });
+  });
+
+  describe("groupItems", () => {
+    it("lists the initiative under each of its groups, never under no group", () => {
+      const shared = item({
+        id: "s",
+        groups: [ref("erp", "ERP"), ref("crm", "CRM")],
+        group_id: "erp",
+        group_name: "ERP",
+      });
+      const single = item({
+        id: "1",
+        groups: [ref("erp", "ERP")],
+        group_id: "erp",
+        group_name: "ERP",
+      });
+      const loose = item({ id: "u", groups: [] });
+      const groups = groupItems([shared, single, loose], "No group");
+      expect(
+        groups.map(([id, g]) => [id, g.name, g.items.map((i) => i.id)]),
+      ).toEqual([
+        ["crm", "CRM", ["s"]],
+        ["erp", "ERP", ["s", "1"]],
+        ["__ungrouped", "No group", ["u"]],
+      ]);
+    });
+  });
+
+  describe("filterItems", () => {
+    const anchor = (id: string) =>
+      item({
+        id,
+        name: id,
+        groups: [ref(id, id)],
+        group_id: id,
+        group_name: id,
+        group_anchor: true,
+      });
+    const rows = [
+      anchor("p"),
+      anchor("q"),
+      anchor("r"),
+      item({ id: "a", name: "Alpha", groups: [ref("p", "p"), ref("q", "q")] }),
+      item({ id: "b", name: "Beta", groups: [ref("r", "r")] }),
+    ];
+    const ids = (list: PpmPortfolioItem[]) => list.map((i) => i.id);
+
+    it("keeps the anchor of every group a kept row belongs to", () => {
+      expect(ids(filterItems(rows, "alpha", "", null))).toEqual([
+        "p",
+        "q",
+        "a",
+      ]);
+      expect(ids(filterItems(rows, "beta", "", null))).toEqual(["r", "b"]);
+    });
+  });
+
+  describe("buildPortfolioExport", () => {
+    it("writes the initiative once under each of its groups, as the board shows it", () => {
+      const shared = item({
+        id: "s",
+        name: "Shared",
+        groups: [ref("crm", "CRM"), ref("erp", "ERP")],
+      });
+      const data = buildPortfolioExport(
+        {
+          groups: groupItems([shared], "No group"),
+          groupTypeLabel: "Application",
+          printParams: [],
+          chartNode: null,
+          layout: { kind: "flat" },
+          allItems: [shared],
+        },
+        t,
+        subtypeLabel,
+      );
+      expect(data.sheets[0].rows.map((r) => [r.group, r.name])).toEqual([
+        ["CRM", "Shared"],
+        ["ERP", "Shared"],
+      ]);
+    });
+  });
+
+  describe("per-group collapse", () => {
+    it("names a row's subtree apart from its group and from every sub-group", () => {
+      expect(rowCollapseId("g", "i")).toBe("g>i");
+      expect(rowCollapseId("g", "i")).not.toBe(subGroupId("g", "i"));
+      expect(rowCollapseId("g", "i")).not.toBe(rowCollapseId("h", "i"));
+    });
+
+    it("reads back only the rows folded inside the one group", () => {
+      const collapsed = new Set([
+        "g",
+        rowCollapseId("g", "a"),
+        rowCollapseId("h", "b"),
+        rowCollapseId("g", "c"),
+        subGroupId("g", "a"),
+      ]);
+      expect([...collapsedRowsIn(collapsed, "g")].sort()).toEqual(["a", "c"]);
+      expect([...collapsedRowsIn(collapsed, "h")]).toEqual(["b"]);
+      expect([...collapsedRowsIn(collapsed, "x")]).toEqual([]);
+    });
+
+    it("folds a parent in one group while the same parent stays open in another", () => {
+      const members = [
+        item({ id: "p", name: "Parent" }),
+        item({ id: "c", name: "Child", parent_id: "p" }),
+      ];
+      const collapsed = new Set([rowCollapseId("g", "p")]);
+      const rowsIn = (groupId: string) =>
+        treeRows(members, {
+          collapsed: collapsedRowsIn(collapsed, groupId),
+          maxDepth: ALL_LEVELS,
+        }).map((r) => r.item.id);
+      expect(rowsIn("g")).toEqual(["p"]);
+      expect(rowsIn("h")).toEqual(["p", "c"]);
+    });
   });
 });

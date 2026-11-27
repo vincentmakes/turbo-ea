@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.219.2] - 2026-11-27
+
+### Fixed
+- The PPM portfolio board, grouped by a related card type, lists an initiative under every card it is related to — an initiative related to two Applications appears in both groups, matching the Applications' own Relations — where it showed under only one ([#1452](https://github.com/vincentmakes/turbo-ea/issues/1452)).
+
 ## [2.219.1] - 2026-11-27
 
 ### Fixed

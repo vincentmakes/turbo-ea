@@ -18,7 +18,7 @@ The **Portfolio Dashboard** is the main entry point for PPM. It provides:
 
 Use the toolbar to:
 
-- **Group by** any related card type (e.g., Organization, Platform) to see initiatives grouped by business unit or technology platform
+- **Group by** any related card type (e.g., Organization, Platform) to see initiatives grouped by business unit or technology platform. An initiative related to several cards of that type — say two Applications — is listed in each of their groups, and counts in each group's totals; the KPI bar still counts it once
 - **Group by** an Initiative subtype (e.g., Program), listed in a second section of the same menu, to see each program with every initiative beneath it (see below)
 - **Filter by subtype** (Idea, Program, Project, Epic)
 - **Search** by initiative name

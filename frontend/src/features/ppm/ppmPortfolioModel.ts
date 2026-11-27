@@ -23,6 +23,7 @@ import type {
   PpmPortfolioDashboard,
   PpmPortfolioGroupOption,
   PpmPortfolioItem,
+  PpmGroupRef,
   PpmPortfolioPerson,
   PpmRollup,
 } from "@/types";
@@ -358,10 +359,12 @@ export function filterItems(
   const matches = (i: PpmPortfolioItem) => matchesBoard(i, search, subtype, ids);
   const unfiltered = !search && !subtype && ids === null;
   const keptGroups = new Set(
-    items.filter((i) => !i.group_anchor && matches(i)).map((i) => i.group_id),
+    items
+      .filter((i) => !i.group_anchor && matches(i))
+      .flatMap((i) => itemGroups(i).map((g) => g.id)),
   );
   return items.filter((i) =>
-    i.group_anchor ? unfiltered || keptGroups.has(i.group_id) : matches(i),
+    i.group_anchor ? unfiltered || itemGroups(i).some((g) => keptGroups.has(g.id)) : matches(i),
   );
 }
 
@@ -409,11 +412,22 @@ export interface PortfolioGroup {
 export const UNGROUPED_ID = "__ungrouped";
 
 /**
- * Initiatives grouped by their related card, groups sorted by name, with the
- * ungrouped ones last under `noGroupLabel`. An initiative needs both a group
- * id and a name to join a group. A `group_anchor` initiative becomes its
- * group's `anchor` rather than one of its items, so a group may hold an
- * anchor and no rows (a program with nothing beneath it still shows).
+ * Every group an initiative belongs to: its `groups`, or — from a payload that
+ * carries none — its single `group_id` / `group_name`, which needs both an id
+ * and a name to make a group.
+ */
+export function itemGroups(item: PpmPortfolioItem): PpmGroupRef[] {
+  if (item.groups?.length) return item.groups;
+  return item.group_id && item.group_name ? [{ id: item.group_id, name: item.group_name }] : [];
+}
+
+/**
+ * Initiatives grouped by their related cards, groups sorted by name, with the
+ * ungrouped ones last under `noGroupLabel`. An initiative related to several
+ * cards of the grouping type is a row of each of their groups (#1452). A
+ * `group_anchor` initiative becomes its group's `anchor` rather than one of
+ * its items, so a group may hold an anchor and no rows (a program with
+ * nothing beneath it still shows).
  */
 export function groupItems(
   items: PpmPortfolioItem[],
@@ -422,13 +436,13 @@ export function groupItems(
   const map = new Map<string, PortfolioGroup>();
   const ungrouped: PpmPortfolioItem[] = [];
   for (const item of items) {
-    if (item.group_id && item.group_name) {
-      const group = map.get(item.group_id) ?? { name: item.group_name, items: [], anchor: null };
+    const memberOf = itemGroups(item);
+    if (!memberOf.length) ungrouped.push(item);
+    for (const ref of memberOf) {
+      const group = map.get(ref.id) ?? { name: ref.name, items: [], anchor: null };
       if (item.group_anchor) group.anchor = item;
       else group.items.push(item);
-      map.set(item.group_id, group);
-    } else {
-      ungrouped.push(item);
+      map.set(ref.id, group);
     }
   }
   const result = [...map.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
@@ -436,6 +450,24 @@ export function groupItems(
     result.push([UNGROUPED_ID, { name: noGroupLabel, items: ungrouped, anchor: null }]);
   }
   return result;
+}
+
+/**
+ * The collapse id of a tree row's subtree inside one group. An initiative in
+ * two groups is two rows, each folding on its own; the `>` keeps the id
+ * distinct from every group id and every `subGroupId`.
+ */
+export const rowCollapseId = (groupId: string, itemId: string): string =>
+  `${groupId}>${itemId}`;
+
+/** The ids of the initiatives whose subtree is folded inside the group `groupId`. */
+export function collapsedRowsIn(collapsed: ReadonlySet<string>, groupId: string): Set<string> {
+  const prefix = rowCollapseId(groupId, "");
+  const out = new Set<string>();
+  for (const id of collapsed) {
+    if (id.startsWith(prefix)) out.add(id.slice(prefix.length));
+  }
+  return out;
 }
 
 /** Collapse a group that is open, or open one that is collapsed. */

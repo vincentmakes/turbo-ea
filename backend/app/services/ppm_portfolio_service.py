@@ -40,6 +40,7 @@ from app.schemas.ppm import (
     PpmGanttItem,
     PpmGanttStakeholder,
     PpmGroupOption,
+    PpmGroupRef,
     PpmRollup,
     PpmRollupOut,
     PpmRollupYear,
@@ -48,6 +49,7 @@ from app.schemas.ppm import (
 )
 from app.schemas.ppm_public import (
     PpmPublicDashboard,
+    PpmPublicGroup,
     PpmPublicGroupOption,
     PpmPublicItem,
     PpmPublicPerson,
@@ -383,11 +385,18 @@ async def build_group_map(
     group_by: str,
     *,
     read_scope: CardReadScope | None = None,
-) -> dict[uuid.UUID, tuple[uuid.UUID, str]]:
-    """Map initiative id → (group card id, group card name).
+) -> dict[uuid.UUID, list[tuple[uuid.UUID, str]]]:
+    """Map initiative id → every (group card id, group card name) it belongs to.
 
-    A group card hidden from the reader (``read_scope``) is not a group: its
-    initiatives fall to the ungrouped bucket.
+    An initiative belongs to the group of **every** card of type ``group_by`` it is
+    related to now — an initiative related to two Applications is listed under both
+    (#1452). A card reached through several relation types is one group. A group
+    card hidden from the reader (``read_scope``) is not a group: an initiative with
+    no other group falls to the ungrouped bucket.
+
+    The groups are ordered by relation type (``sort_order`` then key, so the order
+    never falls out of row order, which is not stable), then by name and id; the
+    first is what a client reading a single ``group_id`` gets.
     """
     if not initiative_ids:
         return {}
@@ -407,9 +416,7 @@ async def build_group_map(
         return {}
 
     # Several relation types may connect Initiative to the grouping type (the
-    # metamodel allows any number per ordered pair). An initiative is placed in the
-    # first group it is related through, so fix that order — by sort_order then key —
-    # rather than letting it fall out of row order, which is not stable.
+    # metamodel allows any number per ordered pair); they decide the groups' order.
     rel_types = sorted(rel_types, key=lambda rt: (rt.sort_order or 0, rt.key))
     rt_priority = {rt.key: i for i, rt in enumerate(rel_types)}
     rt_keys = [rt.key for rt in rel_types]
@@ -424,39 +431,50 @@ async def build_group_map(
             lifecycle_in_effect_sql(Relation),
         )
     )
-    relations = sorted(
-        rel_result.scalars().all(), key=lambda rel: rt_priority.get(rel.type, len(rt_priority))
-    )
+    relations = rel_result.scalars().all()
 
     source_is_initiative = {rt.key: rt.source_type_key == INITIATIVE_TYPE for rt in rel_types}
-    init_to_group_id: dict[uuid.UUID, uuid.UUID] = {}
-    group_card_ids: set[uuid.UUID] = set()
+
+    def _ends(rel: Relation) -> tuple[uuid.UUID, uuid.UUID]:
+        """(initiative id, group card id) of a relation."""
+        if source_is_initiative[rel.type]:
+            return rel.source_id, rel.target_id
+        return rel.target_id, rel.source_id
 
     hidden_groups: set[uuid.UUID] = set()
     if read_scope is not None:
-        candidates = {
-            rel.target_id if source_is_initiative.get(rel.type, True) else rel.source_id
-            for rel in relations
-        }
-        hidden_groups = await read_scope.hidden_card_ids(db, candidates, mode="module")
+        hidden_groups = await read_scope.hidden_card_ids(
+            db, {_ends(rel)[1] for rel in relations}, mode="module"
+        )
+    # initiative → group card → the best (lowest) relation-type rank reaching it.
+    ranks: dict[uuid.UUID, dict[uuid.UUID, int]] = defaultdict(dict)
     for rel in relations:
-        if source_is_initiative.get(rel.type, True):
-            init_id, group_id = rel.source_id, rel.target_id
-        else:
-            init_id, group_id = rel.target_id, rel.source_id
+        init_id, group_id = _ends(rel)
         if group_id in hidden_groups:
             continue
-        if init_id not in init_to_group_id:
-            init_to_group_id[init_id] = group_id
-            group_card_ids.add(group_id)
+        rank = rt_priority[rel.type]
+        per_init = ranks[init_id]
+        per_init[group_id] = min(rank, per_init.get(group_id, rank))
 
+    group_card_ids = {gid for per_init in ranks.values() for gid in per_init}
     if not group_card_ids:
         return {}
     gc_result = await db.execute(select(Card.id, Card.name).where(Card.id.in_(group_card_ids)))
     group_names = {row[0]: row[1] for row in gc_result.all()}
 
     return {
-        init_id: (gid, group_names.get(gid, "Unknown")) for init_id, gid in init_to_group_id.items()
+        init_id: [
+            (gid, group_names.get(gid, "Unknown"))
+            for gid in sorted(
+                per_init,
+                key=lambda gid: (
+                    per_init[gid],
+                    group_names.get(gid, "Unknown").casefold(),
+                    str(gid),
+                ),
+            )
+        ]
+        for init_id, per_init in ranks.items()
     }
 
 
@@ -568,7 +586,7 @@ async def build_gantt_items(
     if subtype_key is not None:
         anchors = anchor_groups(parents, {c.id: c.subtype for c in initiatives}, subtype_key)
         names = {c.id: c.name for c in initiatives}
-        group_map = {i: (a, names[a]) for i, a in anchors.items()}
+        group_map = {i: [(a, names[a])] for i, a in anchors.items()}
     elif group_by:
         group_map = await build_group_map(db, init_ids, group_by, read_scope=read_scope)
     else:
@@ -617,7 +635,7 @@ async def build_gantt_items(
                 updated_at=report.updated_at,
             )
 
-        group_info = group_map.get(card.id)
+        groups = [PpmGroupRef(id=str(gid), name=gname) for gid, gname in group_map.get(card.id, [])]
         costs = cost_agg.get(card.id, {})
 
         items.append(
@@ -635,8 +653,9 @@ async def build_gantt_items(
                 capex_actual=costs.get("capex_actual", 0),
                 opex_planned=costs.get("opex_planned", 0),
                 opex_actual=costs.get("opex_actual", 0),
-                group_id=str(group_info[0]) if group_info else None,
-                group_name=group_info[1] if group_info else None,
+                groups=groups,
+                group_id=groups[0].id if groups else None,
+                group_name=groups[0].name if groups else None,
                 group_anchor=anchors.get(card.id) == card.id,
                 latest_report=report_out,
                 latest_report_id=str(report.id) if report else None,
@@ -785,10 +804,11 @@ def to_public_portfolio(
       ``ppm_cost_lines``/``ppm_budget_lines`` tables — not card attributes, and
       so genuinely outside that invariant. The board renders neither of the two
       card attributes anyway.
-    * **Identifiers other than the board's own rows.** ``group_id`` becomes an
-      opaque per-response token (under a subtype grouping the anchor's own id,
-      tokenised like every other group id, so ``group_anchor`` names no new
-      identifier), and ``latest_report_id`` / ``reporter_id`` /
+    * **Identifiers other than the board's own rows.** ``group_id`` and every id
+      in ``groups`` become an opaque per-response token, one per group card, so
+      two rows sharing a group share its token (under a subtype grouping the
+      anchor's own id, tokenised like every other group id, so ``group_anchor``
+      names no new identifier), and ``latest_report_id`` / ``reporter_id`` /
       ``user_id`` are not emitted at all. The initiative ``id`` *is* a real card
       UUID because a portfolio portal links its rows to ``/ppm/{id}`` behind the
       login wall. ``parent_id`` is published so the board can nest its rows, and
@@ -806,9 +826,10 @@ def to_public_portfolio(
 
     public_items: list[PpmPublicItem] = []
     for it in items:
-        group_token: str | None = None
-        if it.group_id is not None:
-            group_token = group_tokens.setdefault(it.group_id, f"g{len(group_tokens)}")
+        public_groups = [
+            PpmPublicGroup(id=group_tokens.setdefault(g.id, f"g{len(group_tokens)}"), name=g.name)
+            for g in it.groups
+        ]
 
         report: PpmPublicReport | None = None
         if it.latest_report is not None:
@@ -845,8 +866,9 @@ def to_public_portfolio(
                 parent_id=it.parent_id,
                 start_date=it.start_date,
                 end_date=it.end_date,
-                group_id=group_token,
-                group_name=it.group_name,
+                groups=public_groups,
+                group_id=public_groups[0].id if public_groups else None,
+                group_name=public_groups[0].name if public_groups else None,
                 group_anchor=it.group_anchor,
                 capex_planned=it.capex_planned if cfg.show_costs else None,
                 capex_actual=it.capex_actual if cfg.show_costs else None,
