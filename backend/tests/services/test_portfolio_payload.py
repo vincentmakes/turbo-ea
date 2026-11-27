@@ -19,9 +19,11 @@ from app.services.permission_service import PermissionService
 from app.services.portfolio_payload import (
     _relation_entry,
     build_portfolio_payload,
+    dated_relations_by_card,
     has_timeline_dates,
     relations_in_effect_now,
     roadmap_from_portfolio,
+    roadmap_rows,
 )
 from tests.conftest import (
     create_card,
@@ -92,7 +94,7 @@ def test_roadmap_view_keeps_drawable_cards_and_the_filter_payload():
         "organizations": [{"id": "o", "name": "Org"}],
         "tag_groups": [{"id": "g"}],
     }
-    assert roadmap_from_portfolio(payload, "Application") == {
+    assert roadmap_from_portfolio(payload, "Application", {}) == {
         "items": [
             {
                 "id": "a",
@@ -153,10 +155,121 @@ def test_roadmap_view_filters_only_through_relations_in_effect_today():
         "groupable_types": {},
         "tag_groups": [],
     }
-    kept = roadmap_from_portfolio(payload, "Application")["items"][0]["relations"]
+    kept = roadmap_from_portfolio(payload, "Application", {})["items"][0]["relations"]
     assert sorted(r["related_id"] for r in kept) == COUNTING
     assert {"relation_type": "r", "related_id": "current"} in kept
     assert all("lifecycle" not in r for r in kept)
+
+
+def _portfolio_item(item_id: str, **over) -> dict:
+    return {
+        "id": item_id,
+        "name": item_id.upper(),
+        "subtype": None,
+        "attributes": {},
+        "lifecycle": {},
+        "relations": [],
+        "org_ids": [],
+        "tag_ids": [],
+        **over,
+    }
+
+
+def test_roadmap_view_keeps_an_undated_card_with_dated_relations():
+    dated = [{"relation_type": "r", "related_id": "x", "lifecycle": {"active": "2030-01-01"}}]
+    payload = {
+        "items": [
+            _portfolio_item("own", lifecycle={"active": "2024-01-01"}),
+            _portfolio_item("rel"),
+            _portfolio_item("none"),
+            # An empty list is no dated relation.
+            _portfolio_item("empty"),
+        ],
+        "fields_schema": [],
+        "relation_types": [],
+        "groupable_types": {},
+        "tag_groups": [],
+    }
+    out = roadmap_from_portfolio(payload, "Application", {"rel": dated, "empty": []})
+    assert [i["id"] for i in out["items"]] == ["own", "rel"]
+    own, rel = out["items"]
+    # The key travels only with something in it.
+    assert "relation_lifecycles" not in own
+    assert rel == {
+        "id": "rel",
+        "name": "REL",
+        "type": "Application",
+        "subtype": None,
+        "lifecycle": {},
+        "attributes": {},
+        "relations": [],
+        "tag_ids": [],
+        "relation_lifecycles": dated,
+    }
+    # A card with its own dates keeps its dated relations too.
+    both = roadmap_from_portfolio(payload, "Application", {"own": dated})["items"][0]
+    assert both["id"] == "own"
+    assert both["relation_lifecycles"] == dated
+
+
+def test_roadmap_rows_are_the_drawable_cards_with_costs_stripped():
+    from types import SimpleNamespace
+
+    def card(cid, **over):
+        base = {
+            "id": cid,
+            "name": f"Card {cid}",
+            "type": "Application",
+            "subtype": None,
+            "lifecycle": None,
+            "attributes": None,
+        }
+        return SimpleNamespace(**{**base, **over})
+
+    dated = [{"relation_type": "r", "related_id": "x", "lifecycle": {"endOfLife": "2020-01-01"}}]
+    cards = [
+        card(
+            "a",
+            subtype="saas",
+            lifecycle={"active": "2024-01-01"},
+            attributes={"cost": 9, "keep": "y"},
+        ),
+        card("b"),
+        card("c", type="ITComponent"),
+        card("d", attributes={"startDate": "2024-01-01", "cost": 3}),
+        card("e"),
+    ]
+    rows = roadmap_rows(cards, {"a": {"cost"}, "d": set()}, {"c": dated, "e": []})
+    assert rows == [
+        {
+            "id": "a",
+            "name": "Card a",
+            "type": "Application",
+            "subtype": "saas",
+            "lifecycle": {"active": "2024-01-01"},
+            "attributes": {"keep": "y"},
+        },
+        {
+            "id": "c",
+            "name": "Card c",
+            "type": "ITComponent",
+            "subtype": None,
+            "lifecycle": {},
+            "attributes": {},
+            "relation_lifecycles": dated,
+        },
+        {
+            "id": "d",
+            "name": "Card d",
+            "type": "Application",
+            "subtype": None,
+            "lifecycle": {},
+            # An empty strip set strips nothing.
+            "attributes": {"startDate": "2024-01-01", "cost": 3},
+        },
+    ]
+    # The input attributes are not mutated.
+    assert cards[0].attributes == {"cost": 9, "keep": "y"}
 
 
 def test_a_relation_entry_names_every_field_the_reports_read():
@@ -578,3 +691,109 @@ async def test_a_type_the_reader_may_not_see_is_left_out(db, env):
     assert caps["Shipping"]["parent_id"] == str(env["mid"].id)
     assert caps["Fulfilment"]["parent_id"] == str(env["root"].id)
     assert caps["Operations"]["parent_id"] is None
+
+
+# ---------------------------------------------------------------------------
+# The Lifecycle report's relation sub-rows
+# ---------------------------------------------------------------------------
+
+
+async def test_dated_relations_order_ties_and_the_type_filter(db, env):
+    """Sorted by the other card's name, case-insensitively, then relation type,
+    direction and id; with a type, listed only on that type's cards."""
+    erp, crm, zeta = env["erp"], env["crm"], env["zeta"]
+    dates = {"active": "2030-01-01"}
+    twin_a = await create_card(db, card_type="Organization", name="twin")
+    twin_b = await create_card(db, card_type="Organization", name="Twin")
+    for org in (twin_b, twin_a):
+        await create_relation(
+            db, type_key="relAppToOrg", source_id=erp.id, target_id=org.id, lifecycle=dates
+        )
+    await create_relation(
+        db, type_key="relOrgToApp", source_id=twin_a.id, target_id=erp.id, lifecycle=dates
+    )
+    await create_relation(
+        db, type_key="relAppToOrg", source_id=crm.id, target_id=zeta.id, lifecycle=dates
+    )
+    # Both ends of a self-pair: CRM is incoming from ERP and outgoing to Lone.
+    await create_relation(
+        db, type_key="relAppToApp", source_id=crm.id, target_id=env["lone"].id, lifecycle=dates
+    )
+    # Undated rows (the env's) and an all-blank lifecycle are never listed.
+    blank = await create_card(db, card_type="Organization", name="Blank")
+    await create_relation(
+        db,
+        type_key="relAppToOrg",
+        source_id=erp.id,
+        target_id=blank.id,
+        lifecycle={"active": ""},
+    )
+    scope = await CardReadScope.load(db, env["admin"])
+
+    out = await dated_relations_by_card(db, scope, type_key="Application")
+    assert set(out) == {str(erp.id), str(crm.id), str(env["lone"].id)}
+    twins = sorted([str(twin_a.id), str(twin_b.id)])
+    a_first = twins[0] == str(twin_a.id)
+    assert [(e["related_name"], e["relation_type"], e["direction"]) for e in out[str(erp.id)]] == [
+        ("twin", "relAppToOrg", "outgoing") if a_first else ("Twin", "relAppToOrg", "outgoing"),
+        ("Twin", "relAppToOrg", "outgoing") if a_first else ("twin", "relAppToOrg", "outgoing"),
+        ("twin", "relOrgToApp", "incoming"),
+    ]
+    assert [e["related_id"] for e in out[str(erp.id)][:2]] == twins
+    assert [(e["related_name"], e["direction"]) for e in out[str(crm.id)]] == [
+        ("Lone", "outgoing"),
+        ("Zeta Org", "outgoing"),
+    ]
+    assert out[str(env["lone"].id)] == [
+        {
+            "relation_type": "relAppToApp",
+            "direction": "incoming",
+            "related_id": str(crm.id),
+            "related_name": "CRM",
+            "related_type": "Application",
+            "lifecycle": dates,
+        }
+    ]
+
+    # Without a type every end is listed; with the Organization type, only theirs.
+    every = await dated_relations_by_card(db, scope, type_key=None)
+    assert set(every) == {
+        str(erp.id),
+        str(crm.id),
+        str(env["lone"].id),
+        str(twin_a.id),
+        str(twin_b.id),
+        str(zeta.id),
+    }
+    orgs = await dated_relations_by_card(db, scope, type_key="Organization")
+    assert set(orgs) == {str(twin_a.id), str(twin_b.id), str(zeta.id)}
+    assert [(e["related_name"], e["direction"]) for e in orgs[str(twin_a.id)]] == [
+        ("ERP", "incoming"),
+        ("ERP", "outgoing"),
+    ]
+    assert await dated_relations_by_card(db, scope, type_key="Initiative") == {}
+
+
+async def test_dated_relations_honour_the_read_scope_on_both_ends(db, env):
+    dates = {"endOfLife": "2020-01-01"}
+    await create_relation(
+        db,
+        type_key="relInitToApp",
+        source_id=env["program"].id,
+        target_id=env["lone"].id,
+        lifecycle=dates,
+    )
+    ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
+    ct.role_permissions = {"viewer": {"inventory.view": False}}
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+    try:
+        viewer_scope = await CardReadScope.load(db, env["viewer"])
+        assert await dated_relations_by_card(db, viewer_scope, type_key=None) == {}
+        assert await dated_relations_by_card(db, viewer_scope, type_key="Application") == {}
+    finally:
+        PermissionService.invalidate_type_permission_cache()
+    admin_scope = await CardReadScope.load(db, env["admin"])
+    out = await dated_relations_by_card(db, admin_scope, type_key=None)
+    assert out[str(env["lone"].id)][0]["related_name"] == "Program"
+    assert out[str(env["program"].id)][0]["related_name"] == "Lone"

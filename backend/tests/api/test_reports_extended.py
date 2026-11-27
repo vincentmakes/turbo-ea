@@ -8,6 +8,7 @@ These endpoints require a PostgreSQL test database.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -1121,6 +1122,278 @@ class TestRoadmap:
             headers=auth_headers(env["noreports"]),
         )
         assert resp.status_code == 403
+
+
+@pytest.fixture
+async def dated_env(db, env):
+    """Hub (Application) related to three IT Components through dated
+    relations — one per window of ``tests.relation_windows`` that has dates —
+    plus everything the relation sub-rows must leave out."""
+    from tests.relation_windows import WINDOWS
+
+    hub = await create_card(
+        db, card_type="Application", name="Hub", lifecycle={"active": "2020-01-01"}
+    )
+    # Named so a case-sensitive sort would order them differently.
+    names = {"current": "beta Current", "ended": "Alpha Ended", "planned": "Charlie Planned"}
+    itcs = {}
+    for window, name in names.items():
+        itcs[window] = await create_card(db, card_type="ITComponent", name=name)
+        await create_relation(
+            db,
+            type_key="app_to_itc",
+            source_id=hub.id,
+            target_id=itcs[window].id,
+            lifecycle=WINDOWS[window],
+            # A relation attribute may be a cost: it must never travel here.
+            attributes={"costTotalAnnual": 98765},
+        )
+    # Undated: always in effect, but nothing to draw.
+    undated = await create_card(db, card_type="ITComponent", name="Undated Server")
+    await create_relation(db, type_key="app_to_itc", source_id=hub.id, target_id=undated.id)
+    # A self-referencing type: the row belongs to both of its cards.
+    peer = await create_card(db, card_type="Application", name="Peer")
+    await create_relation(
+        db,
+        type_key="app_to_app",
+        source_id=hub.id,
+        target_id=peer.id,
+        lifecycle=WINDOWS["current"],
+    )
+    # Archived far end, hidden relation type, hidden card type: all dropped.
+    archived = await create_card(
+        db, card_type="ITComponent", name="Archived Server", status="ARCHIVED"
+    )
+    await create_relation(
+        db,
+        type_key="app_to_itc",
+        source_id=hub.id,
+        target_id=archived.id,
+        lifecycle=WINDOWS["current"],
+    )
+    await create_relation_type(
+        db,
+        key="app_to_bc_hidden",
+        label="retired link",
+        source_type_key="Application",
+        target_type_key="BusinessCapability",
+        is_hidden=True,
+    )
+    cap = await create_card(db, card_type="BusinessCapability", name="Hidden Link Cap")
+    await create_relation(
+        db,
+        type_key="app_to_bc_hidden",
+        source_id=hub.id,
+        target_id=cap.id,
+        lifecycle=WINDOWS["current"],
+    )
+    await create_card_type(db, key="Legacy", label="Legacy", is_hidden=True)
+    await create_relation_type(
+        db,
+        key="app_to_legacy",
+        label="ran on",
+        source_type_key="Application",
+        target_type_key="Legacy",
+    )
+    box = await create_card(db, card_type="Legacy", name="Legacy Box")
+    await create_relation(
+        db,
+        type_key="app_to_legacy",
+        source_id=hub.id,
+        target_id=box.id,
+        lifecycle=WINDOWS["current"],
+    )
+    return {**env, "hub": hub, "itcs": itcs, "undated": undated, "peer": peer}
+
+
+def _hub_entries(dated_env) -> list[dict]:
+    """Hub's relation sub-rows, as the report must receive them."""
+    from tests.relation_windows import WINDOWS
+
+    itcs = dated_env["itcs"]
+
+    def entry(window: str) -> dict:
+        return {
+            "relation_type": "app_to_itc",
+            "direction": "outgoing",
+            "related_id": str(itcs[window].id),
+            "related_name": itcs[window].name,
+            "related_type": "ITComponent",
+            "lifecycle": WINDOWS[window],
+        }
+
+    peer = {
+        "relation_type": "app_to_app",
+        "direction": "outgoing",
+        "related_id": str(dated_env["peer"].id),
+        "related_name": "Peer",
+        "related_type": "Application",
+        "lifecycle": WINDOWS["current"],
+    }
+    # By the other card's name, case-insensitively.
+    return [entry("ended"), entry("current"), entry("planned"), peer]
+
+
+async def _roadmap(client, user, **params):
+    resp = await client.get("/api/v1/reports/roadmap", params=params, headers=auth_headers(user))
+    assert resp.status_code == 200
+    return resp
+
+
+def _by_name(data) -> dict[str, dict]:
+    return {i["name"]: i for i in data["items"]}
+
+
+class TestRoadmapRelationLifecycles:
+    """``relation_lifecycles``: the Lifecycle report's relation sub-rows."""
+
+    async def test_typed_lists_every_dated_relation_on_its_cards(self, client, db, dated_env):
+        from tests.relation_windows import WINDOWS
+
+        data = (await _roadmap(client, dated_env["admin"], type="Application")).json()
+        items = _by_name(data)
+        assert set(items) == {"Hub", "Peer"}
+        assert items["Hub"]["relation_lifecycles"] == _hub_entries(dated_env)
+        # The other end of the self-pair sees the same row as incoming.
+        assert items["Peer"]["relation_lifecycles"] == [
+            {
+                "relation_type": "app_to_app",
+                "direction": "incoming",
+                "related_id": str(dated_env["hub"].id),
+                "related_name": "Hub",
+                "related_type": "Application",
+                "lifecycle": WINDOWS["current"],
+            }
+        ]
+        # Peer has no dates of its own and is listed for its relation alone.
+        assert items["Peer"]["lifecycle"] == {}
+
+    async def test_filters_keep_reading_relations_in_effect_today(self, client, db, dated_env):
+        data = (await _roadmap(client, dated_env["admin"], type="Application")).json()
+        hub = _by_name(data)["Hub"]
+        assert sorted((r["relation_type"], r["related_name"]) for r in hub["relations"]) == sorted(
+            [
+                ("app_to_itc", "beta Current"),
+                ("app_to_itc", "Undated Server"),
+                ("app_to_app", "Peer"),
+                # The filter payload's own rules are unchanged by the sub-rows.
+                ("app_to_bc_hidden", "Hidden Link Cap"),
+                ("app_to_legacy", "Legacy Box"),
+            ]
+        )
+        assert all("lifecycle" not in r for r in hub["relations"])
+
+    async def test_typed_on_the_target_type_lists_undated_cards_by_their_relation(
+        self, client, db, dated_env
+    ):
+        data = (await _roadmap(client, dated_env["admin"], type="ITComponent")).json()
+        items = _by_name(data)
+        # The undated server has only an undated relation: nothing to draw.
+        assert set(items) == {"Alpha Ended", "beta Current", "Charlie Planned"}
+        hub = dated_env["hub"]
+        for name, item in items.items():
+            assert item["lifecycle"] == {}
+            assert item["relation_lifecycles"] == [
+                {
+                    "relation_type": "app_to_itc",
+                    "direction": "incoming",
+                    "related_id": str(hub.id),
+                    "related_name": "Hub",
+                    "related_type": "Application",
+                    "lifecycle": next(
+                        e["lifecycle"] for e in _hub_entries(dated_env) if e["related_name"] == name
+                    ),
+                }
+            ]
+
+    async def test_all_types_lists_both_ends(self, client, db, dated_env):
+        data = (await _roadmap(client, dated_env["admin"])).json()
+        items = _by_name(data)
+        assert set(items) == {"Hub", "Peer", "Alpha Ended", "beta Current", "Charlie Planned"}
+        assert items["Hub"]["relation_lifecycles"] == _hub_entries(dated_env)
+        assert items["Peer"]["relation_lifecycles"][0]["direction"] == "incoming"
+        assert items["beta Current"]["relation_lifecycles"][0]["related_name"] == "Hub"
+        assert set(items["Hub"]) == {
+            "id",
+            "name",
+            "type",
+            "subtype",
+            "lifecycle",
+            "attributes",
+            "relation_lifecycles",
+        }
+
+    async def test_a_card_without_dated_relations_carries_no_key(self, client, db, dated_env):
+        await create_card(
+            db, card_type="Application", name="Plain", lifecycle={"active": "2022-01-01"}
+        )
+        for params in ({}, {"type": "Application"}):
+            items = _by_name((await _roadmap(client, dated_env["admin"], **params)).json())
+            assert "relation_lifecycles" not in items["Plain"]
+
+    async def test_no_relation_attribute_travels(self, client, db, dated_env):
+        for params in ({}, {"type": "Application"}, {"type": "ITComponent"}):
+            data = (await _roadmap(client, dated_env["admin"], **params)).json()
+            for item in data["items"]:
+                for entry in item.get("relation_lifecycles", []):
+                    assert "attributes" not in entry
+            assert "98765" not in json.dumps([i.get("relation_lifecycles") for i in data["items"]])
+
+    async def test_dropped_rows_never_appear(self, client, db, dated_env):
+        for params in ({}, {"type": "Application"}):
+            data = (await _roadmap(client, dated_env["admin"], **params)).json()
+            rows = json.dumps([i.get("relation_lifecycles") for i in data["items"]])
+            # Archived far end, hidden relation type, hidden card type.
+            for name in ("Archived Server", "Hidden Link Cap", "Legacy Box"):
+                assert name not in rows
+            assert "Archived Server" not in json.dumps(data)
+            hub = _by_name(data)["Hub"]
+            assert {e["relation_type"] for e in hub["relation_lifecycles"]} == {
+                "app_to_itc",
+                "app_to_app",
+            }
+        # Asked for the hidden type itself, its card is listed without them.
+        data = (await _roadmap(client, dated_env["admin"], type="Legacy")).json()
+        assert data == {"items": []}
+
+    async def test_permission_denied(self, client, db, dated_env):
+        resp = await client.get(
+            "/api/v1/reports/roadmap", headers=auth_headers(dated_env["noreports"])
+        )
+        assert resp.status_code == 403
+
+    async def test_a_peer_the_reader_may_not_see_never_leaks(self, client, db, dated_env):
+        from app.services.permission_service import PermissionService
+
+        await create_role(
+            db,
+            key="no_itc",
+            label="No IT Components",
+            permissions={"reports.ea_dashboard": True, "inventory.view": True},
+        )
+        reader = await create_user(db, email="noitc@reports-ext.com", role="no_itc")
+        ct = (await db.execute(select(CardType).where(CardType.key == "ITComponent"))).scalar_one()
+        ct.role_permissions = {"no_itc": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        itcs = dated_env["itcs"]
+        try:
+            for params in ({}, {"type": "Application"}):
+                admin_text = (await _roadmap(client, dated_env["admin"], **params)).text
+                text = (await _roadmap(client, reader, **params)).text
+                for card in itcs.values():
+                    # The control: an unrestricted reader does see them.
+                    assert card.name in admin_text
+                    assert str(card.id) in admin_text
+                    assert card.name not in text
+                    assert str(card.id) not in text
+                hub = _by_name(json.loads(text))["Hub"]
+                assert hub["relation_lifecycles"] == [_hub_entries(dated_env)[-1]]
+            # The restricted cards' own rows are gone too.
+            items = _by_name((await _roadmap(client, reader)).json())
+            assert set(items) == {"Hub", "Peer"}
+        finally:
+            PermissionService.invalidate_type_permission_cache()
 
 
 # ---------------------------------------------------------------------------

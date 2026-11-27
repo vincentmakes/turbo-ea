@@ -18,8 +18,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models.card import Card
 from app.models.card_type import CardType
@@ -317,13 +318,143 @@ def has_timeline_dates(lifecycle: dict | None, attributes: dict | None) -> bool:
     return any((lifecycle or {}).values()) or bool(attrs.get("startDate") or attrs.get("endDate"))
 
 
-def roadmap_from_portfolio(payload: dict, type_key: str) -> dict:
+async def dated_relations_by_card(
+    db: AsyncSession, read_scope: CardReadScope, *, type_key: str | None
+) -> dict[str, list[dict]]:
+    """Every relation with its own lifecycle dates, listed on each card it
+    belongs to — the Lifecycle report's relation sub-rows.
+
+    All-time on purpose: the report draws planned and ended relations on its
+    time axis, so a relation not in effect today is listed like any other.
+    Both ends must be ACTIVE and inside the reader's scope (module mode), and
+    neither the relation type nor either card type may be hidden; a relation
+    whose far end the reader may not see does not exist for them. With
+    ``type_key``, only relations touching a card of that type, listed on
+    those cards.
+
+    Each entry is ``{relation_type, direction, related_id, related_name,
+    related_type, lifecycle}`` from the listing card's side. No
+    ``attributes``: a relation attribute may be a cost, and this list is not
+    redacted for cost. A self-referencing row lands on both of its cards,
+    once per side. Each card's list is sorted by the other card's name
+    (case-insensitive), then relation type, direction and id.
+    """
+    src = aliased(Card, name="dated_rel_source")
+    tgt = aliased(Card, name="dated_rel_target")
+    hidden_types = select(CardType.key).where(CardType.is_hidden.is_(True))
+    q = (
+        select(
+            Relation.type,
+            Relation.lifecycle,
+            src.id,
+            src.name,
+            src.type,
+            tgt.id,
+            tgt.name,
+            tgt.type,
+        )
+        .join(src, src.id == Relation.source_id)
+        .join(tgt, tgt.id == Relation.target_id)
+        .join(RelationType, RelationType.key == Relation.type)
+        .where(
+            Relation.lifecycle != {},
+            RelationType.is_hidden.is_(False),
+            src.status == "ACTIVE",
+            tgt.status == "ACTIVE",
+            src.type.not_in(hidden_types),
+            tgt.type.not_in(hidden_types),
+            *read_scope.where(src, mode="module"),
+            *read_scope.where(tgt, mode="module"),
+        )
+    )
+    if type_key is not None:
+        q = q.where(or_(src.type == type_key, tgt.type == type_key))
+    rows = (await db.execute(q)).all()
+
+    out: dict[str, list[dict]] = {}
+
+    def add(card_id, direction: str, rel_type: str, lifecycle: dict, oid, oname, otype) -> None:
+        out.setdefault(str(card_id), []).append(
+            {
+                "relation_type": rel_type,
+                "direction": direction,
+                "related_id": str(oid),
+                "related_name": oname,
+                "related_type": otype,
+                "lifecycle": lifecycle,
+            }
+        )
+
+    for rel_type, lifecycle, sid, sname, stype, tid, tname, ttype in rows:
+        if not any((lifecycle or {}).values()):
+            continue
+        if type_key is None or stype == type_key:
+            add(sid, "outgoing", rel_type, lifecycle, tid, tname, ttype)
+        if type_key is None or ttype == type_key:
+            add(tid, "incoming", rel_type, lifecycle, sid, sname, stype)
+    for entries in out.values():
+        entries.sort(
+            key=lambda e: (
+                e["related_name"].casefold(),
+                e["relation_type"],
+                e["direction"],
+                e["related_id"],
+            )
+        )
+    return out
+
+
+def roadmap_rows(
+    cards: Sequence[Card],
+    redact: dict,
+    relation_lifecycles: dict[str, list[dict]],
+) -> list[dict]:
+    """The type-less roadmap's rows (*All types*, or a type the reader cannot
+    use): every card the report can draw — its own dates, or dated relations
+    (``relation_lifecycles``, added only when non-empty) — with the cost
+    attributes ``redact`` names (``card_cost_redaction_map``) stripped."""
+    items = []
+    for card in cards:
+        lc = card.lifecycle or {}
+        attrs = card.attributes or {}
+        dated = relation_lifecycles.get(str(card.id), [])
+        if not (has_timeline_dates(lc, attrs) or dated):
+            continue
+        strip = redact.get(card.id)
+        if strip:
+            attrs = {k: v for k, v in attrs.items() if k not in strip}
+        row: dict = {
+            "id": str(card.id),
+            "name": card.name,
+            "type": card.type,
+            "subtype": card.subtype,
+            "lifecycle": lc,
+            "attributes": attrs,
+        }
+        if dated:
+            row["relation_lifecycles"] = dated
+        items.append(row)
+    return items
+
+
+def roadmap_from_portfolio(
+    payload: dict, type_key: str, relation_lifecycles: dict[str, list[dict]]
+) -> dict:
     """The Lifecycle report's view of a portfolio payload: only the cards it
     can draw, each stamped with its ``type`` like the type-less roadmap's rows,
     plus everything its filter section reads. ``organizations`` and per-card
-    ``org_ids`` are the portfolio's legacy organisation filter and stay out."""
-    items = [
-        {
+    ``org_ids`` are the portfolio's legacy organisation filter and stay out.
+
+    ``relation_lifecycles`` (``dated_relations_by_card``) adds each card's
+    dated relations as ``relation_lifecycles`` — only when it has any — and
+    keeps a card with no dates of its own when it has some, so its relations
+    can be drawn beneath it."""
+    items = []
+    for item in payload["items"]:
+        dated = relation_lifecycles.get(item["id"], [])
+        if not (has_timeline_dates(item["lifecycle"], item["attributes"]) or dated):
+            continue
+        row = {
             "id": item["id"],
             "name": item["name"],
             "type": type_key,
@@ -335,9 +466,9 @@ def roadmap_from_portfolio(payload: dict, type_key: str) -> dict:
             "relations": relations_in_effect_now(item["relations"]),
             "tag_ids": item["tag_ids"],
         }
-        for item in payload["items"]
-        if has_timeline_dates(item["lifecycle"], item["attributes"])
-    ]
+        if dated:
+            row["relation_lifecycles"] = dated
+        items.append(row)
     return {
         "items": items,
         "fields_schema": payload["fields_schema"],
