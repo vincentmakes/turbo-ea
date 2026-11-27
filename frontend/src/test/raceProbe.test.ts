@@ -8,10 +8,10 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import raceConfig, { RACE_PROBE_SETUP } from "../../vitest.race.config";
-import { RACE_PROBE_DELAY_MS, installRaceProbe, probeDelay } from "./raceProbe";
+import { RACE_PROBE_DELAY_MS, installRaceProbe, probeDelay, probeReactScheduler } from "./raceProbe";
 
-// Node's own functions: importing ./raceProbe already replaced the globals in
-// this file, and vi.useFakeTimers() replaces globals, never node:timers.
+// Node's own functions: tests below swap the globals on purpose, and
+// vi.useFakeTimers() replaces globals, never node:timers.
 const realSetTimeout = nodeSetTimeout;
 const realSetImmediate = nodeSetImmediate;
 const realClearImmediate = nodeClearImmediate;
@@ -97,9 +97,9 @@ describe("the race probe", () => {
     const wrapped = target.setImmediate;
     expect(installRaceProbe(target)).toBe(false);
     expect(target.setImmediate).toBe(wrapped);
-    // Importing the module installed it on this file's globalThis already.
+    // Importing the module installed it on this file's globalThis already (and
+    // then put the real functions back: see probeReactScheduler).
     expect(installRaceProbe()).toBe(false);
-    expect(globalThis.setImmediate).not.toBe(realSetImmediate);
   });
 
   it("holds React's work back past Testing Library's zero-delay timer, and no longer", () => {
@@ -116,6 +116,41 @@ describe("the race probe", () => {
     for (const bad of ["", " ", "-5", "1.5", "60ms", "1e3", "x60"]) {
       expect(probeDelay({ RACE_PROBE_DELAY_MS: bad })).toBe(RACE_PROBE_DELAY_MS);
     }
+  });
+});
+
+describe("probeReactScheduler", () => {
+  it("lets only what loads while it is installed capture the wrapper, then puts the real functions back", async () => {
+    const target = { setImmediate: realSetImmediate, clearImmediate: realClearImmediate } as unknown as Target;
+    let captured: unknown = null;
+    const installed = await probeReactScheduler(target, async () => {
+      // What React's scheduler does when its module is evaluated.
+      captured = target.setImmediate;
+    }, 7);
+    expect(installed).toBe(true);
+    expect(captured).not.toBe(realSetImmediate);
+    expect(typeof captured).toBe("function");
+    // Everyone else gets the real functions back...
+    expect(target.setImmediate).toBe(realSetImmediate);
+    expect(target.clearImmediate).toBe(realClearImmediate);
+    // ...and a second call changes nothing.
+    expect(await probeReactScheduler(target, async () => {}, 7)).toBe(false);
+    expect(target.setImmediate).toBe(realSetImmediate);
+  });
+
+  it("puts the real functions back when loading fails", async () => {
+    const target = { setImmediate: realSetImmediate, clearImmediate: realClearImmediate } as unknown as Target;
+    await expect(
+      probeReactScheduler(target, async () => {
+        throw new Error("no react");
+      }, 7),
+    ).rejects.toThrow("no react");
+    expect(target.setImmediate).toBe(realSetImmediate);
+    expect(target.clearImmediate).toBe(realClearImmediate);
+  });
+
+  it("left this file's globals real: only React's scheduler holds the wrapper", () => {
+    expect(globalThis.setImmediate).toBe(realSetImmediate);
   });
 });
 

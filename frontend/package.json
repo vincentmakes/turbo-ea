@@ -16,6 +16,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:race": "vitest run --config vitest.race.config.ts",
+    "test:race:sweep": "vitest run --config vitest.race-sweep.config.ts",
     "test:coverage": "vitest run --coverage",
     "mutation": "stryker run",
     "test:e2e": "playwright test",

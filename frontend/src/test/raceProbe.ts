@@ -110,4 +110,36 @@ export function installRaceProbe(
   return true;
 }
 
-installRaceProbe();
+/**
+ * Hold back React's scheduler only. The wrapper is installed on globalThis,
+ * React (react-dom and the scheduler it requires) is loaded so the scheduler
+ * captures the wrapper (it takes
+ * `setImmediate` once, when its module is evaluated; react-dom requires the
+ * same cached instance later), and the real functions are put back for
+ * everyone else. Without that, every other user of `setImmediate` paid the
+ * delay too — fake timers' async ticks, a test's own `setImmediate` drain,
+ * setup.ts's afterEach — and at 60 ms a test that walks a fake clock through
+ * a few hundred timers ran out of its 15 s (ExtensionsAdmin, CommitInitiative
+ * Dialog): a failure of the probe, not of the test.
+ */
+export async function probeReactScheduler(
+  target: ProbeGlobal = globalThis as unknown as ProbeGlobal,
+  // react-dom requires the scheduler (one cached copy in node_modules), and is
+  // a dependency of this package, which `scheduler` itself is not.
+  loadScheduler: () => Promise<unknown> = () => import("react-dom/client"),
+  delayMs: number = probeDelay(),
+): Promise<boolean> {
+  const { setImmediate: realSet, clearImmediate: realClear } = target;
+  const installed = installRaceProbe(target, delayMs);
+  try {
+    await loadScheduler();
+  } finally {
+    if (installed) {
+      target.setImmediate = realSet;
+      target.clearImmediate = realClear;
+    }
+  }
+  return installed;
+}
+
+await probeReactScheduler();
