@@ -102,6 +102,8 @@ An info icon beside each phase on the timeline explains what the phase means —
 
 **Relation lifecycles** — When some of the card's relations have their own dates (see [When a relation applies](#when-a-relation-applies)), the Lifecycle section ends with a **Relation lifecycles** block. It puts them on one time axis with the card itself: the top row, **This card**, draws the card's own phases, and below it each relation is a slim phase bar of its own, grouped under its verb as read from this card (for example *is used by*). A dashed **Today** line runs across every row, so you can see at a glance which relations are planned, which are in effect and which ended — and whether the card's relations line up with its own phases. The header counts the relations in effect, planned and ended. Each row names the other card (click it to open that card) with the same chip the Relations section shows, and a warning icon when the relation is still in effect after this card's own **End of Life**. Where you may manage relations and the relation type tracks lifecycle, the clock beside a row edits its dates; a change made here or in the Relations section shows in both straight away. Ended relations are tucked behind **Show ended**, and a long list shows its first eight rows with **Show all**. A card with no dated relations shows no such block. The block appears in the card's side panel as well.
 
+![Relation lifecycles in a card's Lifecycle section](../assets/img/en/106_card_relation_lifecycles.png)
+
 ### Custom Attribute Sections
 
 Depending on the card type, you will see additional sections with **custom fields** configured in the metamodel. Field types include:

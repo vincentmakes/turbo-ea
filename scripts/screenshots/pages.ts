@@ -82,6 +82,9 @@ export const CARD_LOOKUPS = {
   // application subtypes, so the drawer shows real grouping rather than one
   // undifferentiated list.
   sampleParentCapability: { name: "Service & After-Sales", type: "BusinessCapability" },
+  // The demo Application whose IT components carry their own dates in every
+  // state (seed_demo.py) — the card Lifecycle section's relation lifecycles.
+  relationLifecycleApp: { name: "NexaCloud IoT Platform", type: "Application" },
 } as const;
 
 /** Demo diagrams looked up by exact name at runtime (`{{diagramId:<key>}}`). */
@@ -258,6 +261,11 @@ function ariaSelector(tag: string, ...labels: string[]): string {
   return labels.map((l) => `${tag}[aria-label="${hasTextArg(l)}"]`).join(", ");
 }
 
+const TAB_MM_RELATIONS = tabSelector(...i18nLabels("admin:metamodel.tabs.relationTypes"));
+const EXPAND_ALL_RELATIONS = ariaSelector(
+  "button",
+  ...i18nLabels("reports:lifecycle.expandAllRelations"),
+);
 const TAB_MM_CALCULATIONS = tabSelector(...i18nLabels("admin:metamodel.tabs.calculations"));
 const TAB_MM_TAGS = tabSelector(...i18nLabels("admin:metamodel.tabs.tags"));
 // The card-type drawer's Permissions tab (per-card-type RBAC, discussion #1068).
@@ -460,6 +468,21 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
   {
+    // The Lifecycle section's relation lifecycles: NexaCloud's IT components
+    // dated in every state (seed_demo.py), on one axis with the card itself.
+    id: "106_card_relation_lifecycles",
+    route: "/cards/{{cardId:relationLifecycleApp}}",
+    waitFor: "[data-testid='card-detail'], [class*='CardDetail'], h5, h4",
+    actions: [
+      { type: "waitFor", selector: "[data-testid='relation-lifecycles']", timeout: 15000 },
+      { type: "scroll", target: "#card-section-lifecycle", align: "start" },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "106_card_relation_lifecycles",
+    },
+  },
+  {
     id: "05_card_comments",
     route: "/cards/{{cardId:sampleApp}}",
     waitFor: "[data-testid='card-detail'], [class*='CardDetail'], h5, h4",
@@ -634,6 +657,28 @@ export const DOC_PAGES: PageDef[] = [
       pt: "12_ciclo_vida",
       zh: "12_lifecycle",
       ru: "12_zhiznennyy_tsikl",
+    },
+  },
+  {
+    // Applications with every card's dated relations unfolded; the demo's four
+    // parents (NexaCloud, the Commerce Portal, the Engagement Hub, Outreach)
+    // sit together alphabetically, so the shot starts at the first of them.
+    id: "105_lifecycle_relations",
+    route: "/reports/lifecycle",
+    waitFor: "[role='combobox']",
+    actions: [
+      { type: "wait", ms: 800 },
+      { type: "click", selector: "[role='combobox']" },
+      { type: "wait", ms: 300 },
+      { type: "click", selector: "li[data-value='Application']" },
+      { type: "waitFor", selector: EXPAND_ALL_RELATIONS, timeout: 15000 },
+      { type: "click", selector: EXPAND_ALL_RELATIONS },
+      { type: "wait", ms: 800 },
+      { type: "scroll", target: "[data-export-row]:has(+ [data-relation-row])", align: "start" },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "105_lifecycle_relations",
     },
   },
   {
@@ -893,6 +938,29 @@ export const DOC_PAGES: PageDef[] = [
       pt: "20_admin_metamodelo",
       zh: "20_admin_metamodel",
       ru: "20_admin_metamodel",
+    },
+  },
+  {
+    // The relation list's Track lifecycle switches, on the first relation
+    // type the demo dates (switched on by the demo seed).
+    id: "104_admin_relation_track_lifecycle",
+    route: "/admin/metamodel",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "waitFor", selector: TAB_MM_RELATIONS, timeout: 15000 },
+      { type: "click", selector: TAB_MM_RELATIONS },
+      { type: "waitFor", selector: ".MuiCard-root input[aria-describedby]:checked" },
+      {
+        type: "scroll",
+        target: ".MuiCard-root:has(input[aria-describedby]:checked)",
+        align: "start",
+      },
+      // Off the switches, so no tooltip covers the rows.
+      { type: "hover", selector: "header" },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "104_admin_relation_track_lifecycle",
     },
   },
   {
