@@ -59,6 +59,14 @@ class PpmPublicRollup(BaseModel):
     end_date: str | None = None
 
 
+class PpmPublicGroup(BaseModel):
+    """A group a board row belongs to. ``id`` is the opaque per-response token
+    the row's ``group_id`` uses, never the group card's id."""
+
+    id: str
+    name: str
+
+
 class PpmPublicItem(BaseModel):
     """One board row.
 
@@ -67,7 +75,8 @@ class PpmPublicItem(BaseModel):
     ``parent_id`` is set only when the parent is itself a row of the same
     response, so it repeats an ``id`` already published and lets the board nest
     its rows; a parent the portal does not publish reads ``None``. Every other
-    identifier is withheld: ``group_id`` is an opaque per-response token, and the
+    identifier is withheld: ``group_id`` and the ids in ``groups`` are opaque
+    per-response tokens (``group_id`` repeats the first of ``groups``), and the
     report, reporter and stakeholder ids are not emitted at all. ``group_anchor``
     marks the row that names its group under a subtype grouping.
     """
@@ -78,6 +87,7 @@ class PpmPublicItem(BaseModel):
     parent_id: str | None = None
     start_date: str | None = None
     end_date: str | None = None
+    groups: list[PpmPublicGroup] = []
     group_id: str | None = None
     group_name: str | None = None
     group_anchor: bool = False

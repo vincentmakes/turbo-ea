@@ -40,6 +40,7 @@ from app.models.extension import (
 )
 from app.models.file_attachment import FileAttachment
 from app.models.kpi_snapshot import KpiSnapshot
+from app.models.mcp_session import McpSession
 from app.models.migration import IdentityMap, Migration, StagedRecord
 from app.models.mutation_batch import MutationBatch
 from app.models.notification import Notification
@@ -151,6 +152,7 @@ __all__ = [
     "Migration",
     "StagedRecord",
     "WorkspaceTransfer",
+    "McpSession",
     "MutationBatch",
     "Notification",
     "PpmBudgetLine",

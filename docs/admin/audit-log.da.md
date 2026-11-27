@@ -106,6 +106,9 @@ Panelet har ingen handlinger. Poster kan hverken redigeres eller slettes.
 | `auth.password.changed` | en indlogget bruger ændrer sin egen adgangskode |
 | `auth.impersonation.started` | en administrator starter **Vis som rolle…**. Målet er den valgte rolle |
 | `auth.impersonation.stopped` | administratoren vender tilbage til sin egen rolle |
+| `auth.mcp.connected` | en person logger ind på MCP-serveren fra et AI-værktøj og åbner dermed en forbindelse. Målet er AI-værktøjets navn |
+| `auth.mcp.revoked` | en forbindelse afsluttes fra tabellen [Aktive forbindelser](mcp.md#active-connections) af dens ejer eller en administrator. Emnet er den person, forbindelsen tilhørte |
+| `auth.mcp.replay_detected` | et opdateringstoken, der allerede er blevet erstattet, fremvises igen, så forbindelsen afsluttes. Registreres som en fejl: nogen kan have en kopi af tokenet |
 
 **Årsagskoder** for `auth.login.failed`:
 
@@ -172,7 +175,7 @@ Hver gang data forlader instansen i bulk, registrerer en `access`-post, hvem der
 
 ## Hvad der ikke registreres
 
-- **Fornyelse af token.** Webappen fornyer sin session med faste mellemrum, så hver åben fane ville tilføje poster, og ingen af dem ville betyde noget.
+- **Fornyelse af token.** Webappen fornyer sin session med faste mellemrum, så hver åben fane ville tilføje poster, og ingen af dem ville betyde noget. Det samme gælder et AI-værktøj, der fornyer sin MCP-forbindelse hver time; kun et genbrugt opdateringstoken registreres (`auth.mcp.replay_detected`).
 - **Anmodninger, der afvises på grund af et udløbet eller ugyldigt sessionstoken.** De opstår, hver gang en session slutter naturligt.
 - **Læsninger af OData-feeds.** Excel og Power BI henter en gemt visnings OData-feed efter en tidsplan, så hver opdatering ville tilføje en post.
 - **Regneark og præsentationer bygget i browseren.** Inventarets og rapporternes Excel- og PowerPoint-downloads laves ud fra data, siden allerede har indlæst, så de er læsninger, ikke eksporter fra serveren.

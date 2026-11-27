@@ -142,6 +142,16 @@
   "lifecycle.eolAlert_many": "{{count}} элементов достигли конца жизненного цикла",
   "lifecycle.eolAlert_other": "{{count}} элементов достигли конца жизненного цикла",
   "lifecycle.noData": "Данные о жизненном цикле не найдены.",
+  "lifecycle.expandRelations": "Показать связи с датами для «{{name}}»",
+  "lifecycle.collapseRelations": "Скрыть связи с датами для «{{name}}»",
+  "lifecycle.expandAllRelations": "Показать связи с датами для всех карточек",
+  "lifecycle.collapseAllRelations": "Скрыть связи с датами для всех карточек",
+  "lifecycle.relationCount_one": "{{count}} связь",
+  "lifecycle.relationCount_other": "{{count}} связей",
+  "lifecycle.relationState.inEffect": "Действует",
+  "lifecycle.relationState.planned": "Запланирована",
+  "lifecycle.relationState.ended": "Завершена",
+  "lifecycle.relationSentence": "{{card}} {{verb}} {{other}}",
   "lifecycle.currentPhase": "Текущая фаза",
   "lifecycle.notSet": "Не задано",
   "lifecycle.start": "Начало",
@@ -592,5 +602,7 @@
   "dataQuality.eolCoverage": "Покрытие данными об окончании поддержки",
   "dataQuality.eolCoverageHint": "Приложения и ИТ-компоненты — с разбивкой по тому, заполнено ли окончание поддержки. Щёлкните сегмент, чтобы увидеть карточки за ним.",
   "dataQuality.eolLinked": "Связано с продуктом EOL",
-  "dataQuality.eolManual": "Дата заполнена вручную"
+  "dataQuality.eolManual": "Дата заполнена вручную",
+  "lifecycle.relationCount_many": "{{count}} связей",
+  "lifecycle.relationCount_few": "{{count}} связи"
 }

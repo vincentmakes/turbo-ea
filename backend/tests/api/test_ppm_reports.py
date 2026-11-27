@@ -242,6 +242,143 @@ class TestPpmGantt:
         assert data[0]["group_name"] is None
 
 
+class TestPpmGanttEveryGroup:
+    """An initiative belongs to the group of every card it is related to (#1452).
+
+    Grouped by Application, an initiative related to two Applications is listed
+    under both, as the Applications' own Relations sections list it.
+    """
+
+    @staticmethod
+    async def _by_name(client, user) -> dict[str, dict]:
+        resp = await client.get(
+            "/api/v1/reports/ppm/gantt",
+            params={"group_by": "Application"},
+            headers=auth_headers(user),
+        )
+        assert resp.status_code == 200
+        return {i["name"]: i for i in resp.json()}
+
+    @staticmethod
+    async def _rel_types(db):
+        await create_relation_type(
+            db,
+            key="relInitToApp",
+            label="affects",
+            source_type_key="Initiative",
+            target_type_key="Application",
+            sort_order=1,
+        )
+        # Stored Application → Initiative, ranked first.
+        await create_relation_type(
+            db,
+            key="relAppToInit",
+            label="is funded by",
+            source_type_key="Application",
+            target_type_key="Initiative",
+            sort_order=0,
+        )
+
+    async def test_an_initiative_related_to_two_cards_is_in_both_groups(self, client, db, ppm_env):
+        await self._rel_types(db)
+        crm = await create_card(db, card_type="Application", name="CRM")
+        erp = await create_card(db, card_type="Application", name="ERP")
+        shared = await create_card(db, card_type="Initiative", name="Shared")
+        single = await create_card(db, card_type="Initiative", name="Single")
+        for app in (erp, crm):
+            await create_relation(
+                db, type_key="relInitToApp", source_id=shared.id, target_id=app.id
+            )
+        await create_relation(db, type_key="relInitToApp", source_id=single.id, target_id=erp.id)
+
+        items = await self._by_name(client, ppm_env["admin"])
+        # Ordered by name within one relation type; the first is the single group.
+        assert items["Shared"]["groups"] == [
+            {"id": str(crm.id), "name": "CRM"},
+            {"id": str(erp.id), "name": "ERP"},
+        ]
+        assert (items["Shared"]["group_id"], items["Shared"]["group_name"]) == (
+            str(crm.id),
+            "CRM",
+        )
+        assert items["Single"]["groups"] == [{"id": str(erp.id), "name": "ERP"}]
+        assert items["Single"]["group_id"] == str(erp.id)
+
+    async def test_groups_follow_the_relation_type_order_and_never_repeat(
+        self, client, db, ppm_env
+    ):
+        await self._rel_types(db)
+        crm = await create_card(db, card_type="Application", name="CRM")
+        erp = await create_card(db, card_type="Application", name="ERP")
+        init = await create_card(db, card_type="Initiative", name="Init")
+        # CRM through the second-ranked type only; ERP through both.
+        await create_relation(db, type_key="relInitToApp", source_id=init.id, target_id=crm.id)
+        await create_relation(db, type_key="relInitToApp", source_id=init.id, target_id=erp.id)
+        await create_relation(db, type_key="relAppToInit", source_id=erp.id, target_id=init.id)
+
+        items = await self._by_name(client, ppm_env["admin"])
+        assert [g["name"] for g in items["Init"]["groups"]] == ["ERP", "CRM"]
+        assert items["Init"]["group_id"] == str(erp.id)
+
+    async def test_a_reader_without_inventory_view_still_sees_the_groups(self, client, db, ppm_env):
+        """The board reads group cards in module mode: a PPM-only role, with no
+        inventory grant and no type deny, still sees what an initiative relates to."""
+        await self._rel_types(db)
+        await create_role(db, key="ppm_only", label="PPM only", permissions={"ppm.view": True})
+        reader = await create_user(db, email="ppm@test.com", role="ppm_only")
+        crm = await create_card(db, card_type="Application", name="CRM")
+        init = await create_card(db, card_type="Initiative", name="Init")
+        await create_relation(db, type_key="relInitToApp", source_id=init.id, target_id=crm.id)
+
+        items = await self._by_name(client, reader)
+        assert items["Init"]["groups"] == [{"id": str(crm.id), "name": "CRM"}]
+
+    async def test_a_group_card_hidden_from_the_reader_is_dropped_alone(self, client, db, ppm_env):
+        from sqlalchemy import select
+
+        from app.core.permissions import MEMBER_PERMISSIONS
+        from app.models.card_type import CardType
+        from app.models.stakeholder import Stakeholder
+        from app.services.permission_service import PermissionService
+        from tests.conftest import create_stakeholder_role_def
+
+        await self._rel_types(db)
+        await create_role(db, key="member", label="Member", permissions=MEMBER_PERMISSIONS)
+        member = await create_user(db, email="member@test.com", role="member")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="responsible", permissions={"card.view": True}
+        )
+        crm = await create_card(db, card_type="Application", name="CRM")
+        secret = await create_card(db, card_type="Application", name="Secret")
+        init = await create_card(db, card_type="Initiative", name="Init")
+        only_secret = await create_card(db, card_type="Initiative", name="OnlySecret")
+        for app in (crm, secret):
+            await create_relation(db, type_key="relInitToApp", source_id=init.id, target_id=app.id)
+        await create_relation(
+            db, type_key="relInitToApp", source_id=only_secret.id, target_id=secret.id
+        )
+        db.add(Stakeholder(card_id=crm.id, user_id=member.id, role="responsible"))
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.role_permissions = {"member": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+
+        resp = await client.get(
+            "/api/v1/reports/ppm/gantt",
+            params={"group_by": "Application"},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+        items = {i["name"]: i for i in resp.json()}
+        assert items["Init"]["groups"] == [{"id": str(crm.id), "name": "CRM"}]
+        assert items["OnlySecret"]["groups"] == []
+        assert items["OnlySecret"]["group_id"] is None
+        assert str(secret.id) not in resp.text
+
+        admin_items = await self._by_name(client, ppm_env["admin"])
+        assert [g["name"] for g in admin_items["Init"]["groups"]] == ["CRM", "Secret"]
+
+
 class TestPpmGanttParent:
     """``parent_id`` names a parent only when that parent is a row on the board.
 
@@ -431,6 +568,7 @@ class TestPpmGanttSubtypeGroup:
         # The admin sees the whole chain, grouped under the top-most program.
         admin_items = await self._by_name(client, ppm_env["admin"], "subtype:program")
         assert admin_items["Held"]["group_id"] == str(top.id)
+        assert admin_items["Held"]["groups"] == [{"id": str(top.id), "name": "Top"}]
         assert admin_items["Secret"]["group_anchor"] is False
 
     async def test_an_unknown_subtype_leaves_every_row_ungrouped(self, client, db, ppm_env):

@@ -5,6 +5,45 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.220.0] - 2026-11-27
+
+### Added
+- The **Lifecycle report** lists each card's dated relations beneath it as foldable rows, each led by the other card's name and drawn as its own phase bar on the report's time axis — in *All types* as well as for one card type, in the table view with their state and dates, and in exports; a card with no dates of its own is listed when it has dated relations.
+- A card's **Lifecycle** section shows its dated relations on one time axis with the card itself — grouped by verb, with a Today line, their phase chips and the clock to edit them — and flags a relation still in effect after the card's own End of Life.
+- The **Add relation** dialog takes relation dates for a relation type that tracks lifecycle, applied to every card added and to those already added.
+- The inventory's relation cell popover carries the clock that sets or edits a relation's dates.
+- The NexaTech demo data includes dated relations in every state, with Track lifecycle switched on for their relation types.
+
+### Changed
+- **Track lifecycle** is switched on and off right in the relation list (the Relations tab and a card type's own Relations tab), in place of the read-only Lifecycle chip.
+- The Excel export of a report's table leaves icon names out of its headers and cells.
+- Right to left, the Lifecycle report's timeline opens on the last five years instead of the oldest dates.
+
+## [2.219.2] - 2026-11-27
+
+### Fixed
+- The PPM portfolio board, grouped by a related card type, lists an initiative under every card it is related to — an initiative related to two Applications appears in both groups, matching the Applications' own Relations — where it showed under only one ([#1452](https://github.com/vincentmakes/turbo-ea/issues/1452)).
+
+## [2.219.1] - 2026-11-27
+
+### Fixed
+- A card section with several empty required fields can be saved after filling only some of them: a required field that is still empty now carries a note instead of blocking Save, and only emptying a required field that already has a value is refused ([#1451](https://github.com/vincentmakes/turbo-ea/issues/1451)).
+
+## [2.219.0] - 2026-11-27
+
+### Added
+- **Active connections** in Admin → Settings → AI → MCP Integration lists every AI tool signed in to the MCP server, with its person and when it connected, was last used and ends, and lets an administrator revoke any of them ([#1449](https://github.com/vincentmakes/turbo-ea/issues/1449)).
+- Two backend settings, `MCP_SESSION_IDLE_DAYS` (default 30) and `MCP_SESSION_MAX_DAYS` (default 180, `0` = no limit), set how long an AI tool's connection may stay unused and how long it may last at most (#1449).
+- The Security & admin log records an AI tool connecting, a connection being revoked, and a reused MCP refresh token (#1449).
+
+### Changed
+- AI tool connections to the MCP server, Copilot Studio and Claude included, now survive MCP container restarts and upgrades and renew themselves while they are used at least once every 30 days, instead of having to be recreated (#1449).
+- **After upgrading, reconnect each existing AI tool connection once** (in Copilot Studio, recreate the connection); connections made from this version on are kept (#1449).
+
+### Security
+- MCP refresh tokens are rotated on every use, and a replaced refresh token that is presented again ends the connection at once and is logged (#1449).
+- An AI tool's access stops at once when its connection is revoked or the person's account is disabled or expires (#1449).
+
 ## [2.218.0] - 2026-11-26
 
 ### Added

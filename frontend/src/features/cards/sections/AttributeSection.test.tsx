@@ -519,11 +519,92 @@ describe("AttributeSection — a field of an inactive or unlicensed extension", 
     const root = container.firstElementChild as HTMLElement & { scrollIntoView: () => void };
     root.scrollIntoView = vi.fn();
     fireEvent.click(screen.getByText("edit"));
-    expect(screen.queryByText(i18n.t("validation:requiredEmpty"))).toBeNull();
+    expect(screen.queryByText(i18n.t("validation:requiredCleared"))).toBeNull();
+    expect(screen.queryByText(i18n.t("validation:requiredStillEmpty"))).toBeNull();
     const save = screen.getByRole("button", { name: "Save" });
     expect(save).toBeEnabled();
     fireEvent.click(save);
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(onSave.mock.calls[0][0]).toEqual({ attributes: { note: "n" } });
+  });
+});
+
+describe("AttributeSection — required fields (#1451)", () => {
+  const requiredSection: SectionDef & { columns?: 1 | 2 } = {
+    section: "Ownership",
+    columns: 1,
+    fields: [
+      { key: "owner", label: "Owner", type: "text", required: true },
+      { key: "contact", label: "Contact", type: "text", required: true },
+      { key: "notes", label: "Notes", type: "text" },
+    ],
+  };
+
+  function renderEditing(attributes: Record<string, unknown>) {
+    const onSave = vi.fn(async (_u: Record<string, unknown>) => {});
+    const utils = render(
+      <AttributeSection
+        section={requiredSection}
+        card={{ ...card, attributes } as unknown as Card}
+        onSave={onSave}
+        canEdit
+      />,
+    );
+    // jsdom has no scrollIntoView; the post-save snap calls it.
+    const root = utils.container.firstElementChild as HTMLElement & { scrollIntoView: () => void };
+    root.scrollIntoView = vi.fn();
+    fireEvent.click(screen.getByText("edit"));
+    const input = (key: string) =>
+      utils.container.querySelector(`[data-field-key="${key}"] input`) as HTMLInputElement;
+    return { ...utils, onSave, input };
+  }
+
+  it("saves one filled required field while another stays empty", async () => {
+    const { onSave, input } = renderEditing({});
+    fireEvent.change(input("owner"), { target: { value: "Jane" } });
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual({ attributes: { owner: "Jane" } });
+  });
+
+  it("lets an optional field be saved while a required one is still empty", async () => {
+    const { onSave, input } = renderEditing({ owner: "Jane" });
+    fireEvent.change(input("notes"), { target: { value: "n" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual({ attributes: { owner: "Jane", notes: "n" } });
+  });
+
+  it("marks a still-empty required field with a hint, not an error", () => {
+    renderEditing({ owner: "Jane" });
+    expect(screen.getByTestId("field-hint-contact")).toHaveTextContent(
+      i18n.t("validation:requiredStillEmpty"),
+    );
+    expect(screen.queryByTestId("field-hint-owner")).toBeNull();
+    expect(screen.queryByText(i18n.t("validation:requiredCleared"))).toBeNull();
+  });
+
+  it("blocks Save when a required field that had a value is emptied", async () => {
+    const { onSave, input } = renderEditing({ owner: "Jane" });
+    fireEvent.change(input("owner"), { target: { value: "" } });
+    expect(screen.getByText(i18n.t("validation:requiredCleared"))).toBeInTheDocument();
+    expect(screen.queryByTestId("field-hint-owner")).toBeNull();
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeDisabled();
+    fireEvent.click(save);
+    expect(onSave).not.toHaveBeenCalled();
+    // Typing a value back clears the block.
+    fireEvent.change(input("owner"), { target: { value: "Joe" } });
+    expect(screen.queryByText(i18n.t("validation:requiredCleared"))).toBeNull();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  it("neither flags nor blocks a required field that is filled", () => {
+    renderEditing({ owner: "Jane", contact: "jane@example.com" });
+    expect(screen.queryByTestId("field-hint-owner")).toBeNull();
+    expect(screen.queryByTestId("field-hint-contact")).toBeNull();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 });

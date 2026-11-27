@@ -1372,3 +1372,52 @@ describe("PpmPortfolioView board state", () => {
     expect(rowNames()).toEqual(["Transformation", "ERP Rollout", "Finance Stream"]);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  An initiative related to several cards of the grouping type        */
+/* ------------------------------------------------------------------ */
+
+describe("PpmPortfolioView — an initiative in several groups (#1452)", () => {
+  const groups = [
+    { id: "app-crm", name: "CRM" },
+    { id: "app-erp", name: "ERP" },
+  ];
+  const SHARED: PpmPortfolioItem = { ...ITEM, groups, group_id: "app-crm", group_name: "CRM" };
+  const headerNames = () =>
+    Array.from(document.querySelectorAll('[data-group-variant="group"]')).map(
+      (el) => el.querySelector("p")?.textContent,
+    );
+  const total = () =>
+    screen.getByText("Total Initiatives").nextElementSibling?.textContent;
+
+  it("lists the initiative under every group, counting it once in the tiles", () => {
+    renderAt("/", { items: [SHARED] });
+    expect(headerNames()).toEqual(["CRM", "ERP"]);
+    expect(screen.getAllByText("ERP Replacement")).toHaveLength(2);
+    expect(screen.getAllByText(/Totals/)).toHaveLength(2);
+
+    fireEvent.change(screen.getByPlaceholderText("Search initiatives..."), {
+      target: { value: "erp" },
+    });
+    expect(screen.getAllByText("ERP Replacement")).toHaveLength(2);
+    expect(total()).toBe("1");
+  });
+
+  it("folds a parent's subtree in one group and leaves it open in the other", () => {
+    const parent: PpmPortfolioItem = { ...PROGRAM, groups, group_id: "app-crm", group_name: "CRM" };
+    const child: PpmPortfolioItem = { ...PROJECT, groups, group_id: "app-crm", group_name: "CRM" };
+    renderAt("/?hierarchy=1", { items: [parent, child], subtypeDefs: SUBTYPES });
+    expect(rowNames()).toEqual(["Transformation", "ERP Rollout", "Transformation", "ERP Rollout"]);
+
+    const [inCrm, inErp] = screen.getAllByRole("button", {
+      name: "Show or hide the children: Transformation",
+    });
+    fireEvent.click(inCrm);
+    expect(inCrm).toHaveAttribute("aria-expanded", "false");
+    expect(inErp).toHaveAttribute("aria-expanded", "true");
+    expect(rowNames()).toEqual(["Transformation", "Transformation", "ERP Rollout"]);
+
+    fireEvent.click(inCrm);
+    expect(rowNames()).toEqual(["Transformation", "ERP Rollout", "Transformation", "ERP Rollout"]);
+  });
+});

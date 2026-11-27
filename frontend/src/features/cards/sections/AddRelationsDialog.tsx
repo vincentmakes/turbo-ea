@@ -3,6 +3,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import Collapse from "@mui/material/Collapse";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -19,6 +20,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { onSide } from "@/lib/relationSort";
+import { cleanRelationLifecycle } from "@/lib/relationLifecycle";
 import { useCardSearch, useFillVisible } from "@/hooks/useCardSearch";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -33,6 +35,7 @@ import {
 } from "@/lib/cardTree";
 import { cardSearchRank, compareByRank } from "@/lib/searchRank";
 import type { Card, Relation, RelationType } from "@/types";
+import LifecycleDateFields from "./LifecycleDateFields";
 import RelationAttributesEditor, {
   hasEditableRelationAttributes,
   type RelationAttributes,
@@ -135,6 +138,10 @@ export default function AddRelationsDialog({
   const [debouncedSearch, searchPending] = useDebouncedValue(search, 300);
   const [added, setAdded] = useState<Added[]>([]);
   const [attributes, setAttributes] = useState<RelationAttributes>({});
+  // The relation's own dates, for a type that tracks lifecycle: like the
+  // attributes, they describe the whole batch.
+  const [lifecycle, setLifecycle] = useState<Record<string, string>>({});
+  const [datesOpen, setDatesOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   /**
    * Cards created from this dialog. Tree mode never re-queries (its search is
@@ -163,6 +170,8 @@ export default function AddRelationsDialog({
     setSearch("");
     setAdded([]);
     setAttributes({});
+    setLifecycle({});
+    setDatesOpen(false);
     setCreateName("");
     setCreated([]);
     setError("");
@@ -375,6 +384,8 @@ export default function AddRelationsDialog({
         target_id: isSource ? card.id : fsId,
       };
       if (Object.keys(attributes).length > 0) payload.attributes = attributes;
+      const dates = rt.lifecycle_enabled ? cleanRelationLifecycle(lifecycle) : {};
+      if (Object.keys(dates).length > 0) payload.lifecycle = dates;
       const created = await api.post<Relation>("/relations", payload);
       // Name the row from the card that was picked rather than trusting the
       // response to carry its refs — the picked card is authoritative and
@@ -422,6 +433,35 @@ export default function AddRelationsDialog({
     } finally {
       setBusy(false);
     }
+  };
+
+  /**
+   * The relation dates, likewise: a date set after cards were added is
+   * re-applied to every relation added in this opening, and blanking every
+   * field clears their dates again.
+   *
+   * Unlike the attributes, this does NOT mark the dialog busy: a date field
+   * commits when it is left, which is usually the moment the next one is
+   * entered, and disabling the fields during the PATCHes threw that next
+   * field's focus and keystrokes away. The writes queue instead, one batch
+   * after the other, so the last dates entered are the ones that stay.
+   */
+  const lifecycleWrites = useRef<Promise<void>>(Promise.resolve());
+  const applyLifecycle = (next: Record<string, string>) => {
+    setLifecycle(next);
+    if (added.length === 0) return;
+    const targets = added;
+    const dates = cleanRelationLifecycle(next);
+    lifecycleWrites.current = lifecycleWrites.current.then(async () => {
+      try {
+        for (const a of targets) {
+          const updated = await api.patch<Relation>(`/relations/${a.relId}`, { lifecycle: dates });
+          onUpdated(updated);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("relations.errors.create"));
+      }
+    });
   };
 
   /** Undo one of this batch's adds from its chip. */
@@ -513,6 +553,31 @@ export default function AddRelationsDialog({
             compact
             disabled={busy}
           />
+        )}
+
+        {/* Folded by default: most relations are simply in effect. */}
+        {rt?.lifecycle_enabled && (
+          <Box>
+            <Button
+              size="small"
+              color="inherit"
+              aria-expanded={datesOpen}
+              onClick={() => setDatesOpen((v) => !v)}
+              startIcon={<MaterialSymbol icon="schedule" size={16} />}
+              endIcon={<MaterialSymbol icon={datesOpen ? "expand_less" : "expand_more"} size={16} />}
+              sx={{
+                color: Object.keys(cleanRelationLifecycle(lifecycle)).length > 0 ? "primary.main" : "text.secondary",
+              }}
+            >
+              {t("relations.lifecycle.addDates")}
+            </Button>
+            <Collapse in={datesOpen} unmountOnExit>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, mb: 1.5 }}>
+                {t("relations.lifecycle.addDatesHelp")}
+              </Typography>
+              <LifecycleDateFields lifecycle={lifecycle} onChange={applyLifecycle} />
+            </Collapse>
+          </Box>
         )}
 
         {added.length > 0 && (

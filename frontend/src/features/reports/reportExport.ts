@@ -67,6 +67,19 @@ export interface ReportExportSection {
 export const EXPORT_HEADING_ATTR = "data-export-heading";
 
 /**
+ * A cell's text as a spreadsheet should read it: whitespace collapsed, and
+ * without the ligature names of Material Symbols icons (`expand_more`,
+ * `unfold_less`, …) that a button or badge in the cell renders as text — on
+ * screen they are glyphs, in a text export they were words glued to the
+ * cell's content.
+ */
+export function exportCellText(cell: Element): string {
+  const clone = cell.cloneNode(true) as Element;
+  clone.querySelectorAll(".material-symbols-outlined").forEach((icon) => icon.remove());
+  return (clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+/**
  * Extract tabular data from any `<table>` elements inside a node so reports
  * don't need bespoke serialization logic. The first preceding heading
  * (h1–h6) is used as the sheet name when available.
@@ -81,7 +94,7 @@ export function extractSheetsFromDOM(node: HTMLElement | null): ExportSheet[] {
     if (headerCells.length === 0) return;
 
     const columns: ExportColumn[] = headerCells.map((th, i) => {
-      const label = (th.textContent || "").replace(/\s+/g, " ").trim() || `Column ${i + 1}`;
+      const label = exportCellText(th) || `Column ${i + 1}`;
       const align = th.getAttribute("align") || getComputedStyle(th).textAlign;
       return {
         key: `c${i}`,
@@ -97,7 +110,7 @@ export function extractSheetsFromDOM(node: HTMLElement | null): ExportSheet[] {
       if (cells.length === 0) continue;
       const row: Record<string, unknown> = {};
       cells.forEach((td, i) => {
-        const text = (td.textContent || "").replace(/\s+/g, " ").trim();
+        const text = exportCellText(td);
         if (columns[i]?.type === "number") {
           row[`c${i}`] = parseDisplayedNumber(text) ?? text;
         } else {

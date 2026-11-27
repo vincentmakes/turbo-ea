@@ -20,6 +20,7 @@ import {
   getUrlErrorMsg,
   isEmptyAttrValue,
   isEnforcedRequiredField,
+  requiredFieldState,
   isWriteLockedField,
   useFieldHelp,
 } from "@/features/cards/sections/cardDetailUtils";
@@ -147,13 +148,14 @@ function AttributeSection({
     : visibleFields;
 
   // Compute per-field validation errors for this section's draft: URL format
-  // plus the mandatory-field rule — a section cannot be saved while a required
-  // field in it is empty (whether just cleared or empty since creation). The
-  // draft equals the saved values on entering edit mode, so an incomplete
-  // section immediately shows what must be filled; Cancel always stays
-  // available. Calculated fields are excluded — their FieldEditor row is
-  // read-only, so an empty value would block Save with no way to type it in.
+  // plus the mandatory-field rule, the API's own (`requiredFieldState`):
+  // emptying a required field that has a saved value blocks Save, while one
+  // that was already empty may stay empty and only carries a hint — so an
+  // incomplete card is filled one field at a time (#1451). Calculated fields
+  // are excluded — their FieldEditor row is read-only, so a flag on an empty
+  // value would point at something the user cannot type in.
   const fieldErrors: Record<string, string> = {};
+  const fieldHints: Record<string, string> = {};
   for (const f of visibleFields) {
     if (f.type === "url") {
       const val = attrs[f.key];
@@ -172,12 +174,10 @@ function AttributeSection({
         }
       }
     }
-    if (
-      isEnforcedRequiredField(f) &&
-      !calculatedFieldKeys.includes(f.key) &&
-      isEmptyAttrValue(attrs[f.key])
-    ) {
-      fieldErrors[f.key] = t("validation:requiredEmpty");
+    if (!calculatedFieldKeys.includes(f.key)) {
+      const required = requiredFieldState(f, (card.attributes || {})[f.key], attrs[f.key]);
+      if (required === "cleared") fieldErrors[f.key] = t("validation:requiredCleared");
+      else if (required === "missing") fieldHints[f.key] = t("validation:requiredStillEmpty");
     }
   }
   const hasValidationErrors = Object.keys(fieldErrors).length > 0;
@@ -389,6 +389,7 @@ function AttributeSection({
               onChange={(v) => setAttr(field.key, v)}
               currencySymbol={symbol}
               error={fieldErrors[field.key]}
+              hint={fieldHints[field.key]}
               canViewCosts={canViewCosts}
             />
           </Box>

@@ -1,6 +1,7 @@
 {
   "required": "Questo campo \u00e8 obbligatorio",
-  "requiredEmpty": "Questo campo è obbligatorio: compilalo per salvare.",
+  "requiredCleared": "Questo campo è obbligatorio: non può essere svuotato.",
+  "requiredStillEmpty": "Obbligatorio: puoi salvare ora e compilarlo più tardi.",
   "key.mustStartWithLetter": "Deve iniziare con una lettera",
   "key.noUnderscores": "I trattini bassi non sono consentiti \u2014 utilizzare il camelCase",
   "key.noSpaces": "Gli spazi non sono consentiti \u2014 utilizzare il camelCase",

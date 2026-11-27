@@ -106,6 +106,9 @@ El panel no ofrece acciones. Las entradas no se pueden editar ni eliminar.
 | `auth.password.changed` | un usuario con sesión iniciada cambia su propia contraseña |
 | `auth.impersonation.started` | un administrador inicia **Ver como rol…**. El destino es el rol elegido |
 | `auth.impersonation.stopped` | el administrador vuelve a su propio rol |
+| `auth.mcp.connected` | una persona inicia sesión en el servidor MCP desde una herramienta de IA y se abre una conexión. El destino es el nombre de la herramienta de IA |
+| `auth.mcp.revoked` | una conexión se termina desde la tabla [Conexiones activas](mcp.md#active-connections), por su propietario o un administrador. El sujeto es la persona a quien pertenecía la conexión |
+| `auth.mcp.replay_detected` | se presenta de nuevo un token de actualización que ya fue reemplazado, por lo que la conexión termina. Se registra como fallo: alguien puede tener una copia del token |
 
 **Códigos de motivo** de `auth.login.failed`:
 
@@ -172,7 +175,7 @@ Cada vez que los datos salen de la instancia de forma masiva, una entrada `acces
 
 ## Qué no se registra
 
-- **La renovación del token.** La aplicación web renueva su sesión de forma periódica, así que cada pestaña abierta añadiría entradas y ninguna significaría nada.
+- **La renovación del token.** La aplicación web renueva su sesión de forma periódica, así que cada pestaña abierta añadiría entradas y ninguna significaría nada. Lo mismo ocurre cuando una herramienta de IA renueva su conexión MCP cada hora; solo se registra un token de actualización reutilizado (`auth.mcp.replay_detected`).
 - **Las solicitudes rechazadas por un token de sesión caducado o no válido.** Ocurren cada vez que una sesión termina de forma natural.
 - **Las lecturas de feeds OData.** Excel y Power BI consultan el feed OData de una vista guardada de forma programada, así que cada actualización añadiría una entrada.
 - **Hojas de cálculo y presentaciones generadas en el navegador.** Las descargas de Excel y PowerPoint del inventario y de los informes se construyen con datos que la página ya ha cargado, así que son lecturas, no exportaciones desde el servidor.

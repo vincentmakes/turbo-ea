@@ -13,6 +13,8 @@
 | `POSTGRES_PASSWORD` | `turboea` | Database password |
 | `SECRET_KEY` | `change-me-in-production` | HMAC key for JWT signing. **Must** be changed in production (app refuses to start with default in non-development environments) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` (24h) | JWT token lifetime |
+| `MCP_SESSION_IDLE_DAYS` | `30` | An AI tool's MCP connection (`mcp_sessions`) renews itself while it is used at least once in this many days; unused that long, it ends. Each renewal (hourly while in use) rotates the refresh token. |
+| `MCP_SESSION_MAX_DAYS` | `180` | An MCP connection ends this many days after the sign-in that created it, however often it is used, so the person signs in through SSO again. `0` = no such end (the idle end still applies). |
 | `HOST_PORT` | `8920` | Public HTTP port exposed on the host for the bundled edge nginx. Set `80` for direct HTTPS deployments with redirect support. |
 | `TLS_HOST_PORT` | `9443` | Public HTTPS port exposed on the host when direct TLS is enabled. Set `443` for standard HTTPS deployments. |
 | `RESET_DB` | `false` | Drop all tables and re-create + re-seed on startup |
@@ -159,6 +161,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `compliance_regulations` | `ComplianceRegulation` | Admin-managed regulation catalogue driving the GRC Compliance scanner |
 | `turbolens_*` | TurboLens models | Vendor analysis, duplicates, modernizations, analysis runs, compliance findings — see TurboLens section |
 | `mutation_batches` | `MutationBatch` | MCP write ledger — every MCP write call opens a batch; each emitted row in the `events` table is stamped with its `batch_id` (see MCP section) |
+| `mcp_sessions` | `McpSession` | One row per AI tool connection to the MCP server: the refresh-token family (`generation` counts rotations; no token or hash is stored, a refresh token is an HMAC over id + generation), idle and absolute end, `revoked_at` / `revoked_reason`. Instance-local, never in a workspace transfer. Lifetimes: `MCP_SESSION_IDLE_DAYS` / `MCP_SESSION_MAX_DAYS` |
 | `workspace_transfers` | `WorkspaceTransfer` | Async preview/apply lifecycle of an uploaded full-workspace export bundle (`uploaded → parsing → previewed → applying → applied`/`failed`). Bundle binary stored on disk under `data/workspace_transfers/{id}.bin` (see Workspace Transfer Conventions) |
 
 ### Migration (Platform Import) Tables

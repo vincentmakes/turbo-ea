@@ -18,7 +18,7 @@ Il **Dashboard del Portafoglio** è il punto di ingresso principale per PPM. For
 
 Utilizzare la barra degli strumenti per:
 
-- **Raggruppare per** qualsiasi tipo di card correlato (es. Organizzazione, Piattaforma)
+- **Raggruppare per** qualsiasi tipo di card correlato (es. Organizzazione, Piattaforma). Un'iniziativa correlata a più card di quel tipo — ad esempio due Applicazioni — viene elencata in ciascuno dei rispettivi gruppi e conta nei totali di ogni gruppo; la barra dei KPI continua a contarla una sola volta
 - **Raggruppare per** un sottotipo di iniziativa (es. Programma), elencato in una seconda sezione dello stesso menu, per vedere ogni programma con tutte le iniziative sottostanti (vedi sotto)
 - **Filtrare per sottotipo** (Idea, Programma, Progetto, Epic)
 - **Cercare** per nome dell'iniziativa

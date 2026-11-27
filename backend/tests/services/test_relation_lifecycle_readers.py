@@ -475,12 +475,12 @@ class TestPpmGroupMap:
             )
         groups = await build_group_map(db, [i.id for i in inits.values()], "Organization")
         assert groups == {
-            inits["undated"].id: (org.id, "Finance"),
-            inits["current"].id: (org.id, "Finance"),
+            inits["undated"].id: [(org.id, "Finance")],
+            inits["current"].id: [(org.id, "Finance")],
         }
         # Only the initiatives asked about are grouped, though others relate too.
         asked = await build_group_map(db, [inits["current"].id], "Organization")
-        assert asked == {inits["current"].id: (org.id, "Finance")}
+        assert asked == {inits["current"].id: [(org.id, "Finance")]}
 
 
 # ── TurboLens loaders ────────────────────────────────────────────────────────

@@ -85,8 +85,9 @@ from app.services.lifecycle import (
 from app.services.permission_service import PermissionService
 from app.services.portfolio_payload import (
     build_portfolio_payload,
-    has_timeline_dates,
+    dated_relations_by_card,
     roadmap_from_portfolio,
+    roadmap_rows,
 )
 from app.services.ppm_fiscal_costs import load_fiscal_costs
 
@@ -1365,6 +1366,16 @@ async def roadmap(
     in it — the rows, their related cards, the ancestor closure — stays inside
     the reader's ``CardReadScope``, so a reports-only role sees nothing here it
     could not see on the report itself.
+
+    On both paths a card with relations that carry their own lifecycle dates
+    lists them as ``relation_lifecycles`` — ``[{relation_type, direction,
+    related_id, related_name, related_type, lifecycle}]``, sorted by the other
+    card's name, present only when non-empty — for the report's relation
+    sub-rows. These are every dated relation, planned and ended ones included,
+    whose other card the reader may see (no relation attributes travel with
+    them). A card with no dates of its own is listed when it has such
+    relations. ``relations`` (the filters' input) stays the relations in
+    effect today, without dates.
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     read_scope = await CardReadScope.load(db, user)
@@ -1374,32 +1385,16 @@ async def roadmap(
         if target_type is not None and not target_type.is_hidden:
             payload = await build_portfolio_payload(db, read_scope, target_type, all_types)
             payload = await redact_portfolio_costs(db, user, payload, target_type)
-            return roadmap_from_portfolio(payload, type)
+            dated = await dated_relations_by_card(db, read_scope, type_key=type)
+            return roadmap_from_portfolio(payload, type, dated)
     q = select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
     if type:
         q = q.where(Card.type == type)
     result = await db.execute(q)
     sheets = result.scalars().all()
     redact = await card_cost_redaction_map(db, user, sheets)
-    items = []
-    for card in sheets:
-        lc = card.lifecycle or {}
-        attrs = card.attributes or {}
-        if has_timeline_dates(lc, attrs):
-            strip = redact.get(card.id)
-            if strip:
-                attrs = {k: v for k, v in attrs.items() if k not in strip}
-            items.append(
-                {
-                    "id": str(card.id),
-                    "name": card.name,
-                    "type": card.type,
-                    "subtype": card.subtype,
-                    "lifecycle": lc,
-                    "attributes": attrs,
-                }
-            )
-    return {"items": items}
+    dated = await dated_relations_by_card(db, read_scope, type_key=type or None)
+    return {"items": roadmap_rows(sheets, redact, dated)}
 
 
 @router.get("/cost")

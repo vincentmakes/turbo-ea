@@ -110,7 +110,7 @@ La **Carte de capacités** affiche une **carte thermique hiérarchique** des cap
 
 **Replier les filtres** — La ligne **Filtres d’application** se replie ; cliquez sur son en-tête pour récupérer l'espace. L'état est enregistré avec le rapport, le nombre de filtres actifs reste visible sur l'en-tête replié, et **Tout effacer** reste accessible sans avoir à déplier.
 
-## Rapport Cycle de vie
+## Rapport Cycle de vie {: #lifecycle-report }
 
 ![Rapport Cycle de vie](../assets/img/fr/12_cycle_de_vie.png)
 
@@ -121,6 +121,10 @@ Le **Rapport Cycle de vie** affiche une **visualisation chronologique** indiquan
 - **Coordination des migrations** -- Visualiser les périodes de chevauchement entre mise en service et retrait progressif
 
 Les composants sont affichés sous forme de barres horizontales couvrant leurs phases de cycle de vie : Planification, Mise en service, Actif, Retrait progressif et Fin de vie.
+
+**Cycles de vie des relations** — Lorsqu'une fiche a des relations qui portent leurs propres dates (voir [Quand une relation s'applique](card-details.md#when-a-relation-applies)), un chevron et un compteur apparaissent à côté de son nom. Cliquez sur le chevron pour lister ces relations sous la fiche : chaque ligne commence par le nom de l'autre fiche, avec le verbe de la relation en dessous, et dessine les phases propres de la relation sous forme d'une barre plus fine sur le même axe temporel — les relations planifiées après aujourd'hui, les relations terminées en grisé. Un clic sur une ligne de relation ouvre l'autre fiche. Le bouton dans l'en-tête de la colonne des noms ouvre ou replie toutes les fiches d'un coup ; les fiches sont repliées par défaut, et celles que vous avez ouvertes sont enregistrées avec le rapport. Cela fonctionne avec *Tous les types* comme avec un type de fiche choisi, et une fiche sans date propre est listée lorsqu'elle a des relations datées, ce qui permet de voir, par exemple, à partir de quand chaque organisation utilise une application. Dans la vue tableau, chaque fiche ayant des relations datées porte le même chevron, et les relations ouvertes apparaissent sous forme de lignes à part, avec le type de l'autre fiche, l'indication *En vigueur*, *Planifiée* ou *Terminée* aujourd'hui, et ses cinq dates. Les impressions et les exports de diapositives montrent les lignes ouvertes ; l'export Excel de la vue tableau liste chacune sous la forme *autre fiche · verbe* sous sa fiche. Le nombre à côté du nom d'une fiche compte ses relations datées — survolez-le pour voir la phrase complète. Les lignes de relation ne sont pas affichées dans la vue par plage de dates. Seules sont listées les relations dont l'autre fiche vous est visible.
+
+![Rapport de cycle de vie avec les relations datées listées sous leurs fiches](../assets/img/fr/105_cycle_de_vie_relations.png)
 
 **Limiter à certaines fiches** — Une fois un type de fiche choisi, la puce voisine ouvre un sélecteur : choisissez une ou plusieurs fiches et la chronologie n'affiche que celles-ci et tout ce qui se trouve en dessous. Les fiches filles sont incluses automatiquement. La puce reste désactivée tant que le sélecteur est sur *Tous les types*, car un périmètre a besoin d'une seule hiérarchie.
 

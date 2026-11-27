@@ -627,6 +627,7 @@ def test_every_report_key_that_holds_an_id_is_translated():
         "colScopeIds": [OLD_A, OLD_B],
         "filterOrgs": [OLD_B],
         "filterCtxs": [OLD_A, "__empty__"],
+        "relToggledIds": [OLD_B],
         "relationFilters": {"relAppToOrg": [OLD_B]},
         "tagFilterIds": [OLD_TAG],
         "tagFilters": {"group": [OLD_TAG]},
@@ -643,6 +644,7 @@ def test_every_report_key_that_holds_an_id_is_translated():
         "colScopeIds": [NEW_A, NEW_B],
         "filterOrgs": [NEW_B],
         "filterCtxs": [NEW_A, "__empty__"],
+        "relToggledIds": [NEW_B],
         "relationFilters": {"relAppToOrg": [NEW_B]},
         "tagFilterIds": [NEW_TAG],
         "tagFilters": {"group": [NEW_TAG]},
@@ -652,7 +654,21 @@ def test_every_report_key_that_holds_an_id_is_translated():
         "attrFilters": {"status": [NEW_A]},
     }
     assert config["center"] == OLD_A  # input untouched
-    assert tally.counts == {rm.REMAPPED: 12}
+    assert tally.counts == {rm.REMAPPED: 13}
+
+
+def test_lifecycle_relation_toggles_are_card_ids():
+    """``relToggledIds`` lists the Lifecycle report's cards whose relation rows
+    were folded the other way. A named card-id key, so an id with no mapping
+    is counted unresolved rather than walked past, and a tag id is never
+    looked up in the tag table for it."""
+    assert "relToggledIds" in rm.REPORT_CARD_ID_LIST_KEYS
+    tally = rm.RewriteTally()
+    out = rm.rewrite_saved_report_config(
+        {"relToggledIds": [OLD_A, OLD_TAG], "relExpandAll": True}, _ids(), tally
+    )
+    assert out == {"relToggledIds": [NEW_A, OLD_TAG], "relExpandAll": True}
+    assert tally.counts == {rm.REMAPPED: 1, rm.UNRESOLVED: 1}
 
 
 def test_added_filter_fields_are_field_keys_never_rewritten():

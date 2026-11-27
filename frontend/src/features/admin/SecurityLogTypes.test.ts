@@ -54,6 +54,25 @@ describe("SecurityLogTypes", () => {
     for (const o of SECURITY_OUTCOMES) expect(i18n.exists(`admin:securityLog.outcomes.${o}`)).toBe(true);
   });
 
+  it("labels the MCP connection actions and their target", () => {
+    const t = i18n.getFixedT("en", "admin");
+    expect(t(actionLabelKey("auth.mcp.connected"))).toBe("AI tool connected (MCP)");
+    expect(t(actionLabelKey("auth.mcp.revoked"))).toBe("AI tool connection revoked (MCP)");
+    expect(t(actionLabelKey("auth.mcp.replay_detected"))).toBe(
+      "Reused MCP refresh token: connection ended",
+    );
+    expect(
+      formatTarget(
+        {
+          target_type: "mcp_session",
+          target_id: "00000000-0000-4000-8000-000000000002",
+          target_label: "Claude",
+        },
+        (key, opts) => t(key, opts),
+      ),
+    ).toBe("AI tool connection · Claude");
+  });
+
   it("labels a decision recorded as decided, its target and its context fields", () => {
     const t = i18n.getFixedT("en", "admin");
     expect(t(actionLabelKey("admin.adr.recorded"))).toBe("Decision recorded as decided");

@@ -110,7 +110,7 @@ La **Mappa delle Capability** mostra una **mappa di calore** gerarchica delle bu
 
 **Comprimere i filtri** — La riga **Filtri applicazioni** si può richiudere; un clic sulla sua intestazione recupera lo spazio. Lo stato viene salvato con il report, il numero di filtri attivi resta visibile sull'intestazione richiusa e **Cancella tutto** rimane raggiungibile senza doverla riaprire.
 
-## Report Ciclo di vita
+## Report Ciclo di vita {: #lifecycle-report }
 
 ![Report Ciclo di vita](../assets/img/it/12_ciclo_vita.png)
 
@@ -121,6 +121,10 @@ Il **Report Ciclo di vita** mostra una **visualizzazione temporale** di quando i
 - **Coordinamento delle migrazioni** — Visualizzate i periodi sovrapposti di phase-in e phase-out
 
 I componenti sono visualizzati come barre orizzontali che attraversano le fasi del ciclo di vita: Plan, Phase In, Active, Phase Out e End of Life.
+
+**Cicli di vita delle relazioni** — Quando una card ha relazioni che portano date proprie (vedi [Quando si applica una relazione](card-details.md#when-a-relation-applies)), accanto al suo nome compaiono una freccia e un numero. Cliccate la freccia per elencare quelle relazioni sotto la card: ogni riga inizia con il nome dell'altra card, con il verbo della relazione sotto, e disegna le fasi proprie della relazione come una barra più sottile sullo stesso asse temporale — le relazioni pianificate oltre oggi, quelle terminate in grigio. Cliccando una riga di relazione si apre l'altra card. Il pulsante nell'intestazione della colonna dei nomi apre o richiude tutte le card insieme; le card sono ripiegate per impostazione predefinita e quelle che avete aperto vengono salvate con il report. Funziona con *Tutti i tipi* come con un tipo di card scelto, e una card senza date proprie viene elencata quando ha relazioni con date, così potete vedere, per esempio, da quando ogni organizzazione usa un'applicazione. Nella vista tabella ogni card con relazioni con date ha la stessa freccia, e le relazioni aperte compaiono come righe a sé, con il tipo dell'altra card, se la relazione oggi è *In vigore*, *Pianificata* o *Terminata*, e le sue cinque date. Le stampe e le esportazioni in diapositive mostrano le righe aperte; l'esportazione Excel della vista tabella elenca ciascuna come *altra card · verbo* sotto la sua card. Il numero accanto al nome di una card conta le sue relazioni con date: passandoci sopra si vede la frase completa. Le righe di relazione non sono mostrate nella vista per intervallo di date. Sono elencate solo le relazioni la cui altra card potete vedere.
+
+![Report del ciclo di vita con le relazioni con date elencate sotto le loro card](../assets/img/it/105_ciclo_vita_relazioni.png)
 
 **Limitare a schede specifiche** — Una volta scelto un tipo di scheda, il chip accanto apre un selettore: scegli una o più schede e la cronologia mostrerà solo quelle e tutto ciò che si trova sotto di esse. Le schede figlie sono incluse automaticamente. Il chip resta disattivato finché il selettore è su *Tutti i tipi*, perché un ambito richiede una sola gerarchia.
 

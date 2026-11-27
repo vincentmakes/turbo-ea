@@ -28,6 +28,9 @@ dependencies = [
     # depends on it directly for the typed tool schema.
     "pydantic>=2,<3",
     "pyjwt>=2.9.0",
+    # Fernet seals the access token handed to an AI tool (oauth.py), so it
+    # survives a restart without being stored. Same range as the backend.
+    "cryptography>=42.0.0,<51",
     # Same reasoning as the cap above: starlette crossed 0.x -> 1.x, and this
     # image installs unpinned at build time.
     "starlette>=0.45.0,<2",

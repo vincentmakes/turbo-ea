@@ -18,7 +18,7 @@ O **Painel do Portfólio** é o ponto de entrada principal para o PPM. Ele forne
 
 Use a barra de ferramentas para:
 
-- **Agrupar por** qualquer tipo de card relacionado (ex., Organização, Plataforma)
+- **Agrupar por** qualquer tipo de card relacionado (ex., Organização, Plataforma). Uma iniciativa relacionada a vários cards desse tipo — por exemplo, duas Aplicações — é listada em cada um dos respetivos grupos e conta nos totais de cada grupo; a barra de KPIs continua a contá-la apenas uma vez
 - **Agrupar por** um subtipo de iniciativa (ex., Programa), listado numa segunda secção do mesmo menu, para ver cada programa com todas as iniciativas abaixo dele (veja abaixo)
 - **Filtrar por subtipo** (Ideia, Programa, Projeto, Épico)
 - **Pesquisar** por nome de iniciativa

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { useTheme, type SxProps, type Theme } from "@mui/material/styles";
+import type { SxProps, Theme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -20,6 +20,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import LifecyclePhaseBar from "@/components/LifecyclePhaseBar";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
@@ -64,14 +65,22 @@ import {
   useTypeLabel,
   useFieldLabel,
   useOptionLabel,
+  useRelationLabel,
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
+import { useIsRtl } from "@/hooks/useIsRtl";
+import { relationLifecycleState, todayLifecycleMs } from "@/lib/relationLifecycle";
+import {
+  buildDisplayRows,
+  toggleId,
+  type DisplayRow,
+  type RelationLifecycleEntry,
+} from "./lifecycleRows";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import {
   EOL_WARNING_COLOR,
   LIFECYCLE_PHASE_COLORS,
-  STATUS_CHIP_COLORS,
   STATUS_COLORS,
   UNSET_VALUE_COLOR,
 } from "@/theme/tokens";
@@ -97,6 +106,9 @@ interface RoadmapItem {
   /** Present once a card type is chosen: what the filter section reads. */
   relations?: AppRelation[];
   tag_ids?: string[];
+  /** The card's relations that carry their own dates — planned and ended
+   *  ones included — drawn as rows beneath it. Absent when it has none. */
+  relation_lifecycles?: RelationLifecycleEntry[];
 }
 
 /** `GET /reports/roadmap`. The filter payload comes only with a `type`. */
@@ -153,14 +165,22 @@ const phaseChipSx =
     ({ bgcolor: color, color: theme.palette.common.white, fontWeight: 600, height: 22, fontSize: "0.72rem" });
 // Stryker restore all
 
+/** The colour a relation row's state chip is drawn in: the phase it reads as. */
+const RELATION_STATE_COLORS = {
+  inEffect: LIFECYCLE_PHASE_COLORS.active,
+  planned: LIFECYCLE_PHASE_COLORS.plan,
+  ended: LIFECYCLE_PHASE_COLORS.endOfLife,
+} as const;
+
 /* ------------------------------------------------------------------ */
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
 export default function LifecycleReport() {
-  const theme = useTheme();
   const { t } = useTranslation(["reports", "common"]);
-  const { types, loading: ml } = useMetamodel();
+  const { types, relationTypes: metaRelationTypes, loading: ml } = useMetamodel();
+  const relationLabel = useRelationLabel();
+  const isRtl = useIsRtl();
   // Report type pickers offer only the types the user may see.
   const readableTypes = useReadableCardTypes("module");
   const typeLabel = useTypeLabel();
@@ -188,6 +208,11 @@ export default function LifecycleReport() {
   const [customColorBy, setCustomColorBy] = useState("");
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
 
+  // Relation rows beneath each card: all folded or all open, except the cards
+  // toggled the other way. Saved with the report.
+  const [relExpandAll, setRelExpandAll] = useState(false);
+  const [relToggledIds, setRelToggledIds] = useState<string[]>([]);
+
   // Narrow the timeline to chosen cards and everything beneath them (#954).
   // No `hierarchy` here on purpose: `/reports/roadmap` returns no `parent_id`
   // AND drops cards with no lifecycle dates, so a payload-walked chain would
@@ -213,6 +238,12 @@ export default function LifecycleReport() {
       else if (cfg.useInitiativeDates !== undefined) setUseCustomDates(cfg.useInitiativeDates as boolean);
       if (cfg.customColorBy) setCustomColorBy(cfg.customColorBy as string);
       else if (cfg.initiativeColorBy) setCustomColorBy(cfg.initiativeColorBy as string);
+      if (typeof cfg.relExpandAll === "boolean") setRelExpandAll(cfg.relExpandAll);
+      if (Array.isArray(cfg.relToggledIds)) {
+        setRelToggledIds(
+          (cfg.relToggledIds as unknown[]).filter((v): v is string => typeof v === "string"),
+        );
+      }
       // Set for the restored type, so the scope is read as that type's from
       // the render the type lands on.
       if (Array.isArray(cfg.scopeIds)) {
@@ -235,12 +266,14 @@ export default function LifecycleReport() {
     ...filters,
     search,
     filtersCollapsed,
+    relExpandAll,
+    relToggledIds,
   });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy, scopeIds, filters, search, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy, scopeIds, filters, search, filtersCollapsed, relExpandAll, relToggledIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -255,6 +288,8 @@ export default function LifecycleReport() {
     setFilters(EMPTY_CARD_FILTERS);
     setSearch("");
     setFiltersCollapsed(false);
+    setRelExpandAll(false);
+    setRelToggledIds([]);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A filter names the old type's fields, relations and options, so a new
@@ -263,6 +298,8 @@ export default function LifecycleReport() {
     if (next === cardTypeKey) return;
     setCardTypeKey(next);
     setFilters((prev) => ({ ...EMPTY_CARD_FILTERS, includeDescendants: prev.includeDescendants }));
+    // The toggled cards were the old type's; whether all are open is a preference.
+    setRelToggledIds([]);
   };
 
   // Derive date fields and single_select fields from selected type's schema
@@ -419,6 +456,16 @@ export default function LifecycleReport() {
         const t = parseDate(d.lifecycle[p.key]);
         if (t != null) { dMin = Math.min(dMin, t); dMax = Math.max(dMax, t); }
       }
+      // A relation row is drawn on the same axis, so its dates widen it too —
+      // whether it is expanded or not, so opening a card never rescales.
+      if (!useCustomDates) {
+        for (const r of d.relation_lifecycles ?? []) {
+          for (const p of PHASES) {
+            const t = parseDate(r.lifecycle[p.key]);
+            if (t != null) { dMin = Math.min(dMin, t); dMax = Math.max(dMax, t); }
+          }
+        }
+      }
       // Also consider custom date fields from attributes
       if (d.attributes && startDateKey && endDateKey) {
         const sd = parseDate(d.attributes[startDateKey] as string);
@@ -439,10 +486,11 @@ export default function LifecycleReport() {
       todayPct: ((now - tMin) / tRange) * 100,
       eolCount: eol,
     };
-  }, [filteredData, startDateKey, endDateKey]);
+  }, [filteredData, startDateKey, endDateKey, useCustomDates]);
 
   // Year tick marks across the full range
   const totalMax = totalMin + totalRange;
+  const barAxis = useMemo(() => ({ min: totalMin, range: totalRange }), [totalMin, totalRange]);
   const ticks = useMemo(() => {
     if (!totalRange) return [];
     const out: { label: string; pct: number }[] = [];
@@ -481,8 +529,11 @@ export default function LifecycleReport() {
     const el = timelineRef.current;
     if (!el || items.length === 0 || !totalRange) return;
     const viewMinPct = (viewMin - totalMin) / totalRange;
-    el.scrollLeft = el.scrollWidth * viewMinPct;
-  }, [items.length, viewMin, totalMin, totalRange]);
+    // Right to left, the axis runs from the right edge and the browser counts
+    // scrollLeft from there, negative — scrolling the positive way left the
+    // viewport on the oldest dates, with today and the relation rows off-screen.
+    el.scrollLeft = (isRtl ? -1 : 1) * el.scrollWidth * viewMinPct;
+  }, [items.length, viewMin, totalMin, totalRange, isRtl]);
 
   const singleSelectFields = useMemo(
     () => selectFields.filter((f) => f.type === "single_select"),
@@ -594,6 +645,80 @@ export default function LifecycleReport() {
   };
   // One order for the timeline rows and the table alike.
   const sorted = sortLifecycleItems(items, effectiveSortK, sortD, sortCtx);
+
+  // Relation rows are drawn on the phase timeline; the date-range view has
+  // no relation dates to show.
+  const relationsEnabled = !useCustomDates;
+  const hasRelRows =
+    relationsEnabled && items.some((d) => (d.relation_lifecycles?.length ?? 0) > 0);
+  const verbOf = (entry: RelationLifecycleEntry) =>
+    relationLabel(
+      metaRelationTypes.find((rt) => rt.key === entry.relation_type),
+      entry.direction === "incoming",
+    );
+  const displayRows: DisplayRow<RoadmapItem>[] = buildDisplayRows(sorted, {
+    enabled: relationsEnabled,
+    expandAll: relExpandAll,
+    toggled: new Set(relToggledIds),
+    verbOf,
+  });
+  const todayMs = todayLifecycleMs();
+  const toggleRelations = (id: string) => setRelToggledIds((prev) => toggleId(prev, id));
+  const toggleAllRelations = () => {
+    setRelExpandAll((v) => !v);
+    setRelToggledIds([]);
+  };
+  const relationSentence = (row: Extract<DisplayRow<RoadmapItem>, { kind: "relation" }>) =>
+    t("lifecycle.relationSentence", {
+      card: row.parent.name,
+      verb: row.verb,
+      other: row.entry.related_name,
+    });
+  const expandAllButton = (
+    <Tooltip title={relExpandAll ? t("lifecycle.collapseAllRelations") : t("lifecycle.expandAllRelations")}>
+      <IconButton
+        size="small"
+        aria-label={relExpandAll ? t("lifecycle.collapseAllRelations") : t("lifecycle.expandAllRelations")}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleAllRelations();
+        }}
+      >
+        <MaterialSymbol icon={relExpandAll ? "unfold_less" : "unfold_more"} size={18} />
+      </IconButton>
+    </Tooltip>
+  );
+  const typeColor = (key: string) => types.find((tp) => tp.key === key)?.color;
+  type CardRow = Extract<DisplayRow<RoadmapItem>, { kind: "card" }>;
+  /** A card row's fold chevron, in the chart and the table alike — or, on a
+   *  card without dated relations, a spacer that keeps the names aligned. */
+  const relationToggle = (row: CardRow) => {
+    if (row.relationCount === 0) {
+      return hasRelRows ? <Box sx={{ width: 22, flexShrink: 0 }} /> : null;
+    }
+    const label = row.expanded
+      ? t("lifecycle.collapseRelations", { name: row.item.name })
+      : t("lifecycle.expandRelations", { name: row.item.name });
+    return (
+      <IconButton
+        size="small"
+        sx={{ p: 0.25 }}
+        aria-expanded={row.expanded}
+        aria-label={`${label} (${t("lifecycle.relationCount", { count: row.relationCount })})`}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleRelations(row.item.id);
+        }}
+      >
+        <MaterialSymbol
+          icon={row.expanded ? "expand_more" : isRtl ? "chevron_left" : "chevron_right"}
+          size={18}
+        />
+      </IconButton>
+    );
+  };
+
+  const phaseLabel = (phase: string) => t(PHASES[phaseRank(phase)].labelKey);
 
   function getCustomBucket(item: RoadmapItem): FacetBucket {
     const fd = selectFields.find((f) => f.key === customColorBy);
@@ -775,23 +900,89 @@ export default function LifecycleReport() {
             <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>{t("lifecycle.noData")}</Typography>
           ) : (
             <Box sx={{ display: "flex" }}>
-              {/* Fixed name column */}
-              <Box sx={{ width: 200, flexShrink: 0, pr: 1 }}>
-                <Box sx={{ height: 24, mb: 1 }} />
-                {sorted.map((item) => {
+              {/* Fixed name column — wider when relation rows need the room */}
+              <Box sx={{ width: hasRelRows ? 280 : 200, flexShrink: 0, pr: 1 }}>
+                <Box sx={{ height: 24, mb: 1, display: "flex", alignItems: "center" }}>
+                  {hasRelRows && expandAllButton}
+                </Box>
+                {displayRows.map((row) => {
+                  if (row.kind === "relation") {
+                    const ended = relationLifecycleState(row.entry.lifecycle, todayMs) === "ended";
+                    return (
+                      <Box
+                        key={row.key}
+                        data-export-row
+                        data-relation-row
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.75,
+                          height: 28,
+                          paddingInlineStart: 4,
+                          cursor: "pointer",
+                          opacity: ended ? 0.6 : 1,
+                          "&:hover": { bgcolor: "action.hover" },
+                        }}
+                        onClick={() => setSidePanelCardId(row.entry.related_id)}
+                      >
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            flexShrink: 0,
+                            bgcolor: typeColor(row.entry.related_type) ?? "text.disabled",
+                          }}
+                        />
+                        <Tooltip title={relationSentence(row)}>
+                          <Box sx={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+                            <Typography variant="body2" noWrap sx={{ fontSize: "0.8rem", lineHeight: 1.2 }}>
+                              {row.entry.related_name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: "0.68rem", lineHeight: 1.1 }}>
+                              {row.verb}
+                            </Typography>
+                          </Box>
+                        </Tooltip>
+                      </Box>
+                    );
+                  }
+                  const item = row.item;
                   const cp = currentPhase(item.lifecycle);
                   const isEol = !useCustomDates && cp === "endOfLife";
                   return (
                     <Box
-                      key={item.id}
+                      key={row.key}
                       data-export-row
                       sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                       onClick={() => setSidePanelCardId(item.id)}
                     >
+                      {relationToggle(row)}
                       {isEol && <MaterialSymbol icon="warning" size={14} color={STATUS_COLORS.error} />}
-                      <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400 }}>
+                      <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400, minWidth: 0 }}>
                         {item.name}
                       </Typography>
+                      {row.relationCount > 0 && (
+                        // The number only, so a long card name keeps its room;
+                        // the sentence is its tooltip and the chevron's label.
+                        <Tooltip title={t("lifecycle.relationCount", { count: row.relationCount })}>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            data-relation-count
+                            sx={{
+                              flexShrink: 0,
+                              marginInlineStart: "auto",
+                              px: 0.75,
+                              borderRadius: 1,
+                              bgcolor: "action.selected",
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            {row.relationCount}
+                          </Typography>
+                        </Tooltip>
+                      )}
                     </Box>
                   );
                 })}
@@ -814,7 +1005,34 @@ export default function LifecycleReport() {
                   </Box>
 
                   {/* Timeline bars */}
-                  {sorted.map((item) => {
+                  {displayRows.map((row) => {
+                    if (row.kind === "relation") {
+                      const ended = relationLifecycleState(row.entry.lifecycle, todayMs) === "ended";
+                      return (
+                        <Box
+                          key={row.key}
+                          data-relation-row
+                          sx={{
+                            position: "relative",
+                            height: 28,
+                            cursor: "pointer",
+                            opacity: ended ? 0.5 : 1,
+                            "&:hover": { bgcolor: "action.hover" },
+                          }}
+                          onClick={() => setSidePanelCardId(row.entry.related_id)}
+                        >
+                          <LifecyclePhaseBar
+                            dense
+                            lifecycle={row.entry.lifecycle}
+                            axis={barAxis}
+                            phaseLabel={phaseLabel}
+                            formatDate={fmtDate}
+                            titlePrefix={relationSentence(row)}
+                          />
+                        </Box>
+                      );
+                    }
+                    const item = row.item;
                     if (useCustomDates && startDateKey && endDateKey) {
                       // Custom date range mode: single bar from start to end date field
                       const startMs = parseDate(item.attributes?.[startDateKey] as string);
@@ -855,53 +1073,18 @@ export default function LifecycleReport() {
                     }
 
                     // Standard lifecycle phases mode
-                    const segments: { left: number; width: number; color: string; label: string; phaseKey: string }[] = [];
-                    let eolPct: number | null = null;
-                    for (let i = 0; i < PHASES.length; i++) {
-                      const start = parseDate(item.lifecycle[PHASES[i].key]);
-                      if (!start) continue;
-                      if (PHASES[i].key === "endOfLife") {
-                        eolPct = ((start - totalMin) / totalRange) * 100;
-                        continue;
-                      }
-                      const nextPhaseStart = PHASES.slice(i + 1).map((p) => parseDate(item.lifecycle[p.key])).find((d) => d != null);
-                      const end = nextPhaseStart ?? totalMax;
-                      const left = ((start - totalMin) / totalRange) * 100;
-                      const width = Math.max(((end - start) / totalRange) * 100, 0.5);
-                      segments.push({ left, width, color: PHASES[i].color, label: t(PHASES[i].labelKey), phaseKey: PHASES[i].key });
-                    }
                     return (
                       <Box
                         key={item.id}
                         sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                         onClick={() => setSidePanelCardId(item.id)}
                       >
-                        <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
-                          {segments.map((s, i) => (
-                            <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[s.phaseKey])}`}>
-                              <Box
-                                sx={{
-                                  position: "absolute",
-                                  left: `${s.left}%`,
-                                  width: `${s.width}%`,
-                                  height: "100%",
-                                  bgcolor: s.color,
-                                  borderRadius: i === 0 ? "3px 0 0 3px" : i === segments.length - 1 ? "0 3px 3px 0" : 0,
-                                }}
-                              />
-                            </Tooltip>
-                          ))}
-                          {eolPct != null && (
-                            <Tooltip title={`${t("lifecycle.phaseEndOfLife")}: ${fmtDate(item.lifecycle.endOfLife)}`}>
-                              <Box sx={{ position: "absolute", left: `${eolPct}%`, top: -2, transform: "translateX(-50%)", zIndex: 2, lineHeight: 0 }}>
-                                <svg width="20" height="20" viewBox="0 0 20 20">
-                                  <circle cx="10" cy="10" r="9" fill={STATUS_COLORS.error} stroke={STATUS_CHIP_COLORS.error.text} strokeWidth="1" />
-                                  <rect x="4" y="8" width="12" height="4" rx="1" fill={theme.palette.common.white} />
-                                </svg>
-                              </Box>
-                            </Tooltip>
-                          )}
-                        </Box>
+                        <LifecyclePhaseBar
+                          lifecycle={item.lifecycle}
+                          axis={barAxis}
+                          phaseLabel={phaseLabel}
+                          formatDate={fmtDate}
+                        />
                       </Box>
                     );
                   })}
@@ -929,7 +1112,10 @@ export default function LifecycleReport() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell><TableSortLabel active={effectiveSortK === "name"} direction={effectiveSortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>{t("common:labels.name")}</TableSortLabel></TableCell>
+                <TableCell>
+                  {hasRelRows && expandAllButton}
+                  <TableSortLabel active={effectiveSortK === "name"} direction={effectiveSortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>{t("common:labels.name")}</TableSortLabel>
+                </TableCell>
                 <TableCell><TableSortLabel active={effectiveSortK === "type"} direction={effectiveSortK === "type" ? sortD : "asc"} onClick={() => sort("type")}>{t("common:labels.type")}</TableSortLabel></TableCell>
                 {useCustomDates ? (
                   <>
@@ -952,7 +1138,37 @@ export default function LifecycleReport() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {sorted.map((d) => {
+              {displayRows.map((row) => {
+                if (row.kind === "relation") {
+                  const state = relationLifecycleState(row.entry.lifecycle, todayMs);
+                  const lc = row.entry.lifecycle;
+                  return (
+                    <TableRow
+                      key={row.key}
+                      hover
+                      data-relation-row
+                      sx={{ cursor: "pointer", opacity: state === "ended" ? 0.6 : 1 }}
+                      onClick={() => setSidePanelCardId(row.entry.related_id)}
+                    >
+                      <TableCell sx={{ paddingInlineStart: 5 }}>
+                        <Typography variant="body2">{row.entry.related_name}</Typography>
+                        {/* Unseen, but an export reads "Other card · verb". */}
+                        <span hidden> · </span>
+                        <Typography variant="caption" color="text.secondary">{row.verb}</Typography>
+                      </TableCell>
+                      <TableCell>{cardTypeLabel(row.entry.related_type)}</TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={t(`lifecycle.relationState.${state}`)}
+                          sx={phaseChipSx(RELATION_STATE_COLORS[state])}
+                        />
+                      </TableCell>
+                      {PHASES.map((p) => <TableCell key={p.key}>{fmtDate(lc[p.key])}</TableCell>)}
+                    </TableRow>
+                  );
+                }
+                const d = row.item;
                 if (useCustomDates) {
                   const colorLabel = getCustomColorLabel(d);
                   const barColor = getCustomBarColor(d);
@@ -977,7 +1193,16 @@ export default function LifecycleReport() {
                 const phase = PHASES[phaseRank(currentPhase(d.lifecycle))];
                 return (
                   <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
-                    <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>
+                      {hasRelRows ? (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          {relationToggle(row)}
+                          {d.name}
+                        </Box>
+                      ) : (
+                        d.name
+                      )}
+                    </TableCell>
                     <TableCell>{cardTypeLabel(d.type)}</TableCell>
                     <TableCell>
                       <Chip size="small" label={t(phase.labelKey)} sx={phaseChipSx(phase.color)} />

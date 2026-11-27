@@ -20,6 +20,7 @@ import {
   getUrlErrorMsg,
   isEmptyAttrValue,
   isEnforcedRequiredField,
+  requiredFieldState,
   isWriteLockedField,
   useFieldHelp,
 } from "@/features/cards/sections/cardDetailUtils";
@@ -121,8 +122,10 @@ function DescriptionSection({
   }, [dirty, onDirtyChange]);
 
   // Per-field validation for extra fields: URL format + the mandatory-field
-  // rule (a required field cannot be left empty when saving this section).
+  // rule (`requiredFieldState`, the API's own): emptying a required field that
+  // has a saved value blocks Save; one already empty only carries a hint (#1451).
   const fieldErrors: Record<string, string> = {};
+  const fieldHints: Record<string, string> = {};
   if (extraFields) {
     for (const f of extraFields) {
       if (f.type === "url") {
@@ -142,12 +145,10 @@ function DescriptionSection({
           }
         }
       }
-      if (
-        isEnforcedRequiredField(f) &&
-        !calculatedFieldKeys.includes(f.key) &&
-        isEmptyAttrValue(attrs[f.key])
-      ) {
-        fieldErrors[f.key] = t("validation:requiredEmpty");
+      if (!calculatedFieldKeys.includes(f.key)) {
+        const required = requiredFieldState(f, (card.attributes || {})[f.key], attrs[f.key]);
+        if (required === "cleared") fieldErrors[f.key] = t("validation:requiredCleared");
+        else if (required === "missing") fieldHints[f.key] = t("validation:requiredStillEmpty");
       }
     }
   }
@@ -255,7 +256,7 @@ function DescriptionSection({
                 </Box>
               ) : (
                 <Box key={field.key} data-field-key={field.key} sx={{ mb: 2 }}>
-                  <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} error={fieldErrors[field.key]} />
+                  <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} error={fieldErrors[field.key]} hint={fieldHints[field.key]} />
                 </Box>
               ),
             )}

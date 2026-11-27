@@ -159,6 +159,20 @@ def _session_block(user: User) -> tuple[str, str] | None:
     return None
 
 
+MCP_TOKEN_NOT_EXCHANGEABLE = "A token of an MCP connection cannot be exchanged for a new session"
+
+
+def _refuse_mcp_connection_token(request: Request) -> None:
+    """403 for a token minted for an MCP connection (``msid``).
+
+    Such a token lives an hour and dies with its connection. Exchanged here for
+    an ordinary session it would outlive both, so a revoked connection would
+    keep a way in. The MCP server renews through ``/auth/mcp/sessions/refresh``.
+    Reads the claims ``get_current_user`` kept on the request."""
+    if "msid" in request.state.token_claims:
+        raise HTTPException(403, MCP_TOKEN_NOT_EXCHANGEABLE)
+
+
 async def _federated_user_exists(db: AsyncSession, *, subject_id: str, email: str) -> bool:
     """Whether ``_provision_federated_user`` would find an account rather than
     create one — what the audit row's ``created`` flag reports. Same lookup order
@@ -737,6 +751,7 @@ async def impersonate_role(
     from app.services.permission_service import PermissionService
 
     await PermissionService.require_permission(db, user, "admin.impersonate")
+    _refuse_mcp_connection_token(request)
 
     target = body.role.strip()
     if not target:
@@ -784,13 +799,8 @@ async def stop_impersonating(
     JWT without the claim so all subsequent checks revert to the user's
     real role.
     """
-    from app.core.security import decode_access_token
-
-    raw_auth = request.headers.get("Authorization", "")
-    raw_token = (
-        raw_auth[7:] if raw_auth.startswith("Bearer ") else request.cookies.get("access_token", "")
-    )
-    payload = decode_access_token(raw_token) if raw_token else None
+    _refuse_mcp_connection_token(request)
+    payload = request.state.token_claims
     if not payload or not payload.get("impersonated_role"):
         raise HTTPException(400, "No active impersonation session")
 
@@ -822,7 +832,10 @@ async def refresh_token(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Issue a new short-lived access token. Re-reads role and active status from DB."""
+    """Issue a new short-lived access token. Re-reads role and active status from DB.
+
+    A token of an MCP connection is refused (``_refuse_mcp_connection_token``)."""
+    _refuse_mcp_connection_token(request)
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
     token = create_access_token(user.id, user.role)

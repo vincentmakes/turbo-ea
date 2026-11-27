@@ -16,6 +16,7 @@ from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.architecture_decision_person import ArchitectureDecisionPerson
 from app.models.card import Card
 from app.models.relation import Relation
+from app.models.relation_type import RelationType
 from app.models.soaw import SoAW
 from app.models.tag import CardTag, Tag, TagGroup
 from app.services.seed import TYPES as _META_TYPES
@@ -89,8 +90,16 @@ def _fs(
     return d
 
 
-def _rel(type_: str, src: str, tgt: str, attrs: dict | None = None, desc: str | None = None):
-    return dict(
+def _rel(
+    type_: str,
+    src: str,
+    tgt: str,
+    attrs: dict | None = None,
+    desc: str | None = None,
+    *,
+    lifecycle: dict | None = None,
+):
+    d: dict = dict(
         id=uuid.uuid4(),
         type=type_,
         source_id=_id(src),
@@ -98,6 +107,11 @@ def _rel(type_: str, src: str, tgt: str, attrs: dict | None = None, desc: str | 
         attributes=attrs or {},
         description=desc,
     )
+    # A relation's own phase dates (see `services/lifecycle.py`); left out
+    # entirely for the undated majority, which reads as "always in effect".
+    if lifecycle:
+        d["lifecycle"] = lifecycle
+    return d
 
 
 # ===================================================================
@@ -4295,13 +4309,43 @@ RELATIONS = [
     _rel("relAppToBC", "app_tableau", "bc_cust_analytics", {"supportType": "supporting"}),
     # ── Application → IT Component (relAppToITC) ─────────────────
     _rel("relAppToITC", "app_sap_s4", "itc_azure_sql"),
-    _rel("relAppToITC", "app_nexacloud", "itc_postgres"),
-    _rel("relAppToITC", "app_nexacloud", "itc_redis"),
+    # NexaCloud's stack moves over time (relation lifecycles demo): Postgres
+    # since its launch, Redis until it is phased out, React planned for the
+    # next frontend, Nginx retired a few months ago (further down).
+    _rel("relAppToITC", "app_nexacloud", "itc_postgres", lifecycle={"active": _in_years(-5)}),
+    _rel(
+        "relAppToITC",
+        "app_nexacloud",
+        "itc_redis",
+        lifecycle={
+            "active": _in_years(-4),
+            "phaseOut": _in_years(1),
+            "endOfLife": _in_years(2, 6, 30),
+        },
+    ),
     _rel("relAppToITC", "app_nexacloud", "itc_nodejs"),
-    _rel("relAppToITC", "app_nexacloud", "itc_react"),
+    _rel(
+        "relAppToITC",
+        "app_nexacloud",
+        "itc_react",
+        lifecycle={
+            "plan": _in_months(-2),
+            "phaseIn": _in_months(4),
+            "active": _in_years(1, 7, 1),
+        },
+    ),
     _rel("relAppToITC", "app_nexaportal", "itc_react"),
     _rel("relAppToITC", "app_nexaportal", "itc_nginx"),
-    _rel("relAppToITC", "app_nexacloud", "itc_nginx"),
+    _rel(
+        "relAppToITC",
+        "app_nexacloud",
+        "itc_nginx",
+        lifecycle={
+            "active": _in_years(-6),
+            "phaseOut": _in_years(-1),
+            "endOfLife": _in_months(-3),
+        },
+    ),
     _rel("relAppToITC", "app_kafka", "itc_azure_eh"),
     _rel("relAppToITC", "app_timescale", "itc_postgres"),
     _rel("relAppToITC", "app_anomaly_ai", "itc_anomaly_model"),
@@ -4873,7 +4917,14 @@ RELATIONS = [
     _rel("relAppToBC", "app_commerce_portal", "bc_cust_comm", {"supportType": "supporting"}),
     _rel("relAppToBizCtx", "app_commerce_portal", "bctx_otc"),
     _rel("relOrgToApp", "org_sales", "app_commerce_portal", {"usageType": "owner"}),
-    _rel("relOrgToApp", "org_marketing", "app_commerce_portal", {"usageType": "user"}),
+    # Marketing joins the portal next season (planned relation).
+    _rel(
+        "relOrgToApp",
+        "org_marketing",
+        "app_commerce_portal",
+        {"usageType": "user"},
+        lifecycle={"plan": _in_months(-1), "active": _in_months(5)},
+    ),
     _rel("relProviderToApp", "prov_aws", "app_commerce_portal"),
     _rel("relPlatformToApp", "plat_integration", "app_commerce_portal"),
     _rel("relAppToITC", "app_commerce_portal", "itc_commerce_search"),
@@ -5071,7 +5122,14 @@ RELATIONS = [
     _rel("relAppToBC", "app_hubspot", "bc_campaign_mgmt", {"supportType": "leading"}),
     _rel("relOrgToApp", "org_sales", "app_account_planner", {"usageType": "owner"}),
     _rel("relOrgToApp", "org_sales", "app_outreach", {"usageType": "owner"}),
-    _rel("relOrgToApp", "org_marketing", "app_outreach", {"usageType": "user"}),
+    # Marketing stopped using Outreach a couple of months ago (ended relation).
+    _rel(
+        "relOrgToApp",
+        "org_marketing",
+        "app_outreach",
+        {"usageType": "user"},
+        lifecycle={"active": _in_years(-3), "endOfLife": _in_months(-2)},
+    ),
     _rel("relProviderToApp", "prov_salesforce", "app_account_planner"),
     _rel(
         "relAppToDataObj",
@@ -5105,7 +5163,14 @@ RELATIONS = [
         {"crudCreate": True, "crudRead": True, "crudUpdate": True, "crudDelete": False},
     ),
     _rel("relOrgToApp", "org_marketing", "app_cdp", {"usageType": "owner"}),
-    _rel("relOrgToApp", "org_sales", "app_engagement_hub", {"usageType": "user"}),
+    # Sales uses the hub until the end of next year (in effect, with an end).
+    _rel(
+        "relOrgToApp",
+        "org_sales",
+        "app_engagement_hub",
+        {"usageType": "user"},
+        lifecycle={"active": _in_years(-1, 4, 1), "endOfLife": _in_years(1, 12, 31)},
+    ),
     _rel("relProviderToApp", "prov_salesforce", "app_engagement_hub"),
     _rel("relPlatformToApp", "plat_integration", "app_cdp"),
     _rel("relInitiativeToApp", "init_omnichannel", "app_cdp"),
@@ -7579,6 +7644,12 @@ def _compute_data_quality(d: dict, type_schemas: dict[str, list]) -> float:
 
 SEEDER_KEY = "base"
 
+#: The relation types whose demo relations carry their own dates: their
+#: "Track lifecycle" switch is turned on with the demo, so card detail offers
+#: the clock on them. Only on a first demo seed; an existing install keeps its
+#: own setting.
+DEMO_TRACKED_RELATION_TYPES = ("relAppToITC", "relOrgToApp")
+
 
 async def seed_demo_data(db: AsyncSession, *, today: date | None = None) -> dict:
     """Insert full demo dataset. Returns counts. Safe to re-run (skips if data exists).
@@ -7636,6 +7707,14 @@ async def seed_demo_data(db: AsyncSession, *, today: date | None = None) -> dict
     # Insert relations
     for r in RELATIONS:
         db.add(Relation(**r))
+    await db.flush()
+
+    # The dated demo relations' types offer the date editor.
+    tracked = await db.execute(
+        select(RelationType).where(RelationType.key.in_(DEMO_TRACKED_RELATION_TYPES))
+    )
+    for rt in tracked.scalars().all():
+        rt.lifecycle_enabled = True
     await db.flush()
 
     # Insert tag groups + tags + assignments

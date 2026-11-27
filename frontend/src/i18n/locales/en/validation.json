@@ -1,6 +1,7 @@
 {
   "required": "This field is required",
-  "requiredEmpty": "This field is required — fill it in to save.",
+  "requiredCleared": "This field is required — it cannot be emptied.",
+  "requiredStillEmpty": "Required — you can save now and fill it in later.",
 
   "key.mustStartWithLetter": "Must start with a letter",
   "key.noUnderscores": "Underscores are not allowed — use camelCase",

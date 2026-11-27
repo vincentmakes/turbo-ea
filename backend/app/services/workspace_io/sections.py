@@ -13,6 +13,11 @@ this instance's own history — who changed what, who signed in, which admin
 touched which setting — not workspace content. Copying the security audit log
 (``audit_log``, migration 154) onto another instance would forge that instance's
 sign-in and admin record, so it is never exported and never imported.
+
+Also absent: ``mcp_sessions`` (migration 181). A row is a live credential, an
+AI tool's connection to this instance's MCP server, bound to this instance's
+SECRET_KEY: on another instance it would be either useless or, with the same
+secret, a connection nobody there signed in for.
 """
 
 from __future__ import annotations

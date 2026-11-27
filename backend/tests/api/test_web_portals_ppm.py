@@ -308,6 +308,46 @@ class TestPublicPortfolioPayload:
         assert item["group_id"] == "g0"
         assert str(org.id) not in json.dumps(body)
 
+    async def test_every_group_is_published_as_a_shared_token(self, client, db, ppm_portal_env):
+        """An initiative related to two cards is in both groups (#1452); each group
+        card gets one token, shared by every row in it, and no card id leaks."""
+        from app.models.relation import Relation
+        from app.models.relation_type import RelationType
+
+        await create_card_type(db, key="Organization", label="Organization")
+        db.add(
+            RelationType(
+                key="relOrgToInitiative",
+                label="drives",
+                reverse_label="driven by",
+                source_type_key="Organization",
+                target_type_key="Initiative",
+            )
+        )
+        await db.flush()
+        finance = await create_card(db, card_type="Organization", name="Finance")
+        sales = await create_card(db, card_type="Organization", name="Sales")
+        other = await create_card(db, card_type="Initiative", name="CRM Rollout", subtype="Project")
+        for org, init in (
+            (finance, ppm_portal_env["initiative"]),
+            (sales, ppm_portal_env["initiative"]),
+            (sales, other),
+        ):
+            db.add(Relation(type="relOrgToInitiative", source_id=org.id, target_id=init.id))
+        await db.flush()
+
+        body = (await client.get(f"{PUBLIC}?group_by=Organization")).json()
+        items = {i["name"]: i for i in body["items"]}
+        shared = items["ERP Replacement"]["groups"]
+        assert [g["name"] for g in shared] == ["Finance", "Sales"]
+        assert {g["id"] for g in shared} == {"g0", "g1"}
+        assert items["ERP Replacement"]["group_id"] == shared[0]["id"]
+        sales_token = shared[1]["id"]
+        assert items["CRM Rollout"]["groups"] == [{"id": sales_token, "name": "Sales"}]
+        assert items["CRM Rollout"]["group_id"] == sales_token
+        dumped = json.dumps(body)
+        assert str(finance.id) not in dumped and str(sales.id) not in dumped
+
 
 class TestPublicPortfolioSubtypeGroup:
     """``group_by=subtype:<key>`` on the public board: one anchor per opaque token."""

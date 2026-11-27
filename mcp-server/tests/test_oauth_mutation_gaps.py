@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -18,20 +19,19 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from tests.refresh_tokens import signed_refresh
 from turbo_ea_mcp import api_client, oauth, server
 from turbo_ea_mcp.api_client import RefreshUnavailableError, TurboEAClient
 from turbo_ea_mcp.oauth import (
     MAX_CLIENT_ID_LENGTH,
     OAuthStore,
     RegisteredClient,
-    TokenEntry,
     _b64encode,
     _client_id_signature,
     _handle_refresh,
     _lookup_client,
     client_from_id,
     mint_client_id,
-    resolve_token,
 )
 
 CB = "https://global.consent.azure-apim.net/redirect/connector-1"
@@ -73,14 +73,15 @@ class TestEncoding:
     def test_base64url_without_padding(self, data, encoded):
         assert _b64encode(data) == encoded
 
-    def test_a_minted_id_carries_exactly_the_uris_and_a_nonce(self):
+    def test_a_minted_id_carries_exactly_the_uris_the_name_and_a_nonce(self):
         cid = mint_client_id([CB])
         prefix, payload, signature = cid.split(".")
         raw = base64.urlsafe_b64decode(payload + "==")
         assert b", " not in raw and b": " not in raw  # compact JSON
         claims = json.loads(raw)
-        assert set(claims) == {"r", "n"}
+        assert set(claims) == {"r", "c", "n"}
         assert claims["r"] == [CB]
+        assert claims["c"] == "MCP Client"
         assert len(claims["n"]) == 11  # secrets.token_urlsafe(8)
         assert (prefix, signature) == ("tea1", _client_id_signature(payload))
 
@@ -152,32 +153,18 @@ class TestTokenBodyWithoutContentType:
         assert resp.json() == {"error": "unsupported_grant_type"}
 
 
-class Down:
-    def __init__(self, token: str) -> None:
-        pass
-
-    async def refresh_token(self):
-        raise RefreshUnavailableError("backend answered 502")
-
-
-class TestOutageBoundaries:
-    @pytest.mark.asyncio
-    async def test_a_jwt_expiring_this_instant_counts_as_expired(self, store, monkeypatch):
-        monkeypatch.setattr(api_client, "TurboEAClient", Down)
-        monkeypatch.setattr(oauth.time, "time", lambda: 5_000.0)
-        store.tokens["acc"] = TokenEntry("jwt", 5_000.0, "ref", "mcp:read")
-        with pytest.raises(RefreshUnavailableError):
-            await resolve_token("acc")
-
+class TestOutageLogging:
     @pytest.mark.asyncio
     async def test_the_refresh_grant_logs_the_outage_with_its_cause(
         self, store, monkeypatch, caplog
     ):
-        monkeypatch.setattr(api_client, "TurboEAClient", Down)
-        store.tokens["acc"] = TokenEntry("jwt", 0.0, "ref", "mcp:read")
-        store.refresh_tokens["ref"] = "acc"
+        monkeypatch.setattr(
+            api_client,
+            "refresh_mcp_session",
+            AsyncMock(side_effect=RefreshUnavailableError("backend answered 502")),
+        )
         with caplog.at_level(logging.WARNING, logger=oauth.logger.name):
-            await _handle_refresh({"refresh_token": "ref"})
+            await _handle_refresh({"refresh_token": signed_refresh()})
         (record,) = [r for r in caplog.records if r.name == oauth.logger.name]
         assert record.getMessage() == "Turbo EA backend unavailable during token refresh"
         assert record.exc_info is not None and record.exc_info[0] is RefreshUnavailableError
@@ -225,8 +212,9 @@ class TestEphemeralKeyMessage:
         assert messages == [
             (
                 "SECRET_KEY is not set for the MCP server: dynamically registered "
-                "OAuth clients will not survive a restart. Pass the instance's "
-                "SECRET_KEY to the mcp-server container."
+                "OAuth clients and AI tool connections will not survive a restart, "
+                "and connections will not renew. Pass the instance's SECRET_KEY to "
+                "the mcp-server container."
             )
         ]
 

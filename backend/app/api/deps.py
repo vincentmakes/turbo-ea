@@ -23,6 +23,9 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     payload = decode_access_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+    # Kept for a route that has to read its own token's claims (``/auth/refresh``,
+    # the impersonation routes), so none of them decodes the token a second time.
+    request.state.token_claims = payload
     user_id = payload.get("sub")
     result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
     user = result.scalar_one_or_none()
@@ -33,6 +36,14 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
 
         if user.access_expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=401, detail="Account access has expired")
+    # A token minted for an MCP connection (``msid``) is good only while that
+    # connection is: revoking it, or a replayed refresh token, ends the token
+    # at once rather than at its expiry. Any other token skips the lookup.
+    if "msid" in payload:
+        from app.services import mcp_session_service
+
+        if not await mcp_session_service.token_session_is_live(db, payload):
+            raise HTTPException(status_code=401, detail="MCP connection ended")
     return user
 
 

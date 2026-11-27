@@ -41,6 +41,11 @@ services:
       DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      # An AI tool's MCP connection renews itself while it is used at least once
+      # every MCP_SESSION_IDLE_DAYS, and ends MCP_SESSION_MAX_DAYS after its
+      # sign-in whatever the use (0 = no such end).
+      MCP_SESSION_IDLE_DAYS: ${MCP_SESSION_IDLE_DAYS:-30}
+      MCP_SESSION_MAX_DAYS: ${MCP_SESSION_MAX_DAYS:-180}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8920}
       RESET_DB: ${RESET_DB:-false}

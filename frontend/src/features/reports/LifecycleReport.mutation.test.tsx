@@ -365,6 +365,8 @@ const DEFAULT_CONFIG = {
   attrConditions: {},
   search: "",
   filtersCollapsed: false,
+  relExpandAll: false,
+  relToggledIds: [],
 };
 
 beforeEach(() => {
