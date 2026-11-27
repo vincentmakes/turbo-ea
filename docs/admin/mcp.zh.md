@@ -196,20 +196,20 @@ pip install ./mcp-server
 
 ## 可用功能
 
-MCP 服务器提供 **75 个工具**，分为两组：**44 个读取工具** 用于查询 EA 数据，**31 个写入工具**（23 个增量型、8 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。每个工具还会拒绝其未声明的参数：调用失败，错误信息会指出未知参数并列出有效参数，且不执行任何操作。（在 2.203.0 之前，此类参数会被静默忽略，因此调用可能报告成功，而所请求的部分内容却丢失了。） 此外还有用于标签的工具，以及用于运行已安装扩展所提供操作的工具（参见[扩展操作](#extension-operations)）。
+MCP 服务器提供 **85 个工具**，分为两组：**48 个读取工具** 用于查询 EA 数据，**37 个写入工具**（28 个增量型、9 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图、项目计划等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。每个工具还会拒绝其未声明的参数：调用失败，错误信息会指出未知参数并列出有效参数，且不执行任何操作。（在 2.203.0 之前，此类参数会被静默忽略，因此调用可能报告成功，而所请求的部分内容却丢失了。） 此外还有用于标签的工具，以及用于运行已安装扩展所提供操作的工具（参见[扩展操作](#extension-operations)）。
 
 ### 写入操作的演练安全机制
 
 每个写入工具默认使用 **`dry_run=true`**，在 AI 工具以 `dry_run=false` 再次调用之前不会持久化任何内容——而它只应在用户查看预览并确认之后才这样做。这可以防止过于热心的代理在解读错误的电子表格基础上悄悄创建数百张卡片。唯一的例外是 `submit_translations`，它在第一次调用时就保存：它只写入自定义语言的文本，每个字符串都会单独检查，被拒绝的字符串绝不会保存，而一种语言有成千上万个字符串，因此为每一批都做预览只会使工作量翻倍，却没有任何人可以审阅的内容。预览分为两种：
 
 - **由后端验证。** 当底层端点支持演练时，后端会运行每一个校验器和解析器——权限、卡片 id、用户可读取的内容——构建完整结果，然后**回滚事务**。这涵盖卡片（`create_cards_bulk`、`update_cards_bulk`）、关系（`upsert_relations_bulk`）和图表（`create_diagram`、`update_diagram`）。图表预览会返回后端接受的卡片链接；对于更新，则返回确切的变更：重命名的字段、新增和移除的卡片链接，以及画布是否发生变化。 标签（`set_card_tags`、`create_tag_groups`）同样以此方式验证，声明了自身试运行的扩展操作也是如此（`call_extension_write`，由扩展验证调用且不存储任何内容）。
-- **由 MCP 服务器构建。** 当端点没有演练功能时，工具会校验并转换其输入，并展示提交将发送的确切负载，而不会调用写入端点：`import_bpmn`（查找提交时将保存到的草稿；其流程节点数量只是估算，因此预览会显示 `verified: false`）、`submit_process_flow` 和 `approve_process_flow`（读取该版本并报告状态变化，或说明为何无法进行）、`link_process_flow_elements`（读取版本及其步骤，并报告每个链接的当前值和新值，或其不认识的步骤）、`create_adr`、`update_adr`、`sign_adr`、`revise_adr`（读取该决策并报告将创建的修订号，或后端会拒绝的原因）、`create_soaw`、`add_card_comment`、`add_document_comment`（读取讨论并报告您是否可以评论，以及您回复的主题是否属于该文档）、`transition_card_lifecycle`、`save_inventory_view`（运行查询并报告匹配的卡片数量及若干示例名称）、`assign_stakeholders`、`create_risks`、`update_risks`、`archive_cards`（会显示每张卡片的归档影响），以及 `set_card_logos` / `clear_card_logos`（会查询每张卡片的类型和当前徽标，并获取每个 `image_url`）。 对于没有自身试运行的扩展操作，`call_extension_write` 也采用这种方式：它不向扩展发送任何内容，而是显示提交时将发出的请求。
+- **由 MCP 服务器构建。** 当端点没有演练功能时，工具会校验并转换其输入，并展示提交将发送的确切负载，而不会调用写入端点：`import_bpmn`（查找提交时将保存到的草稿；其流程节点数量只是估算，因此预览会显示 `verified: false`）、`submit_process_flow` 和 `approve_process_flow`（读取该版本并报告状态变化，或说明为何无法进行）、`link_process_flow_elements`（读取版本及其步骤，并报告每个链接的当前值和新值，或其不认识的步骤）、`create_adr`、`update_adr`、`sign_adr`、`revise_adr`（读取该决策并报告将创建的修订号，或后端会拒绝的原因）、`create_soaw`、`add_card_comment`、`add_document_comment`（读取讨论并报告您是否可以评论，以及您回复的主题是否属于该文档）、`transition_card_lifecycle`、`save_inventory_view`（运行查询并报告匹配的卡片数量及若干示例名称）、`assign_stakeholders`、`create_risks`、`update_risks`、PPM 工具 `save_ppm_work_packages`、`save_ppm_tasks`、`save_ppm_status_reports`、`save_ppm_risks`、`add_ppm_task_comment`、`set_ppm_dependencies`（会读取该计划的当前行，并逐项报告将创建、更新——附每个变更字段的旧值和新值——还是保持不变，或哪些 id 不属于该计划）、`archive_cards`（会显示每张卡片的归档影响），以及 `set_card_logos` / `clear_card_logos`（会查询每张卡片的类型和当前徽标，并获取每个 `image_url`）。 对于没有自身试运行的扩展操作，`call_extension_write` 也采用这种方式：它不向扩展发送任何内容，而是显示提交时将发出的请求。
 
 无论哪种方式，预览都会作为演练批次记录在审计日志中，因此管理员既能看到代理提议了什么，也能看到它提交了什么。
 
 ### 读取工具
 
-服务器以十二个集群提供 44 个读取工具。
+服务器以十三个集群提供 48 个读取工具。
 
 **卡片与元模型**
 
@@ -295,6 +295,15 @@ MCP 服务器提供 **75 个工具**，分为两组：**44 个读取工具** 用
 | `get_process_flow_version` | 读取单个流程图版本（包括其 BPMN XML），以便代理修订草稿并通过 `import_bpmn` 保存回去。 |
 | `get_process_flow_elements` | 列出流程图版本的步骤——每个步骤的元素 ID、类型、名称、泳道和顺序——以及每个步骤所关联的卡片：应用、数据对象、IT 组件、该步骤交接至的业务流程，以及组织。用户无权查看的已关联卡片显示为无链接。说明该版本的步骤链接是否可以设置（草稿或待审批修订）。 |
 
+**PPM（项目）**
+
+| 工具 | 描述 |
+|------|------|
+| `get_ppm_plan` | 某个计划的项目计划：整体完成度、工作包和里程碑（`is_milestone`）、任务及其所在的工作包，以及它们之间的完成-开始依赖，并附两端的标题。需要 `ppm.view` |
+| `list_ppm_status_reports` | 某个计划的状态报告，按最新优先：日期、进度 / 成本 / 范围健康度、摘要、成果、后续步骤和报告人（`limit` 1–100，默认 10）。需要 `ppm.view` |
+| `list_ppm_risks` | 某个计划的项目风险，按得分从高到低：概率和影响（1–5）、得分、缓解措施、负责人和状态。这些是项目自身的风险，而非风险登记册。需要 `ppm.view` |
+| `get_ppm_task_comments` | 某个 PPM 任务的评论，按最早优先，并附每位作者的姓名。需要 `ppm.view` |
+
 **审计与变更历史**
 
 | 工具 | 描述 |
@@ -319,9 +328,9 @@ MCP 服务器提供 **75 个工具**，分为两组：**44 个读取工具** 用
 
 ### 写入工具
 
-服务器提供 31 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
+服务器提供 37 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
 
-**增量型（23 个）**
+**增量型（28 个）**
 
 | 工具 | 描述 |
 |------|------|
@@ -348,8 +357,13 @@ MCP 服务器提供 **75 个工具**，分为两组：**44 个读取工具** 用
 | `create_tag_groups` | 创建带标签的标签组，或向现有标签组（通过 `list_tag_groups` 中的 id）添加标签。标签组设定其描述、单选或多选、是否必填以及适用的卡片类型。名称会先与现有标签组和标签进行不区分大小写的比对：已存在的会被报告为 `exists` 而不再重复创建，因此重复调用是安全的。指向同一现有标签组的条目（无论按 id 还是按名称）会合并为一个结果，其中重复出现的标签只创建一次（重复项报告为 `duplicate`）。试运行会让后端检查它将创建的每个标签组以及将添加到现有标签组的每个标签（权限、选择模式、卡片类型）；新标签组的标签由 MCP 服务器检查。需要 `tags.manage`。无法通过 `rollback_batch` 回滚：请在**管理 → 标签**中删除不需要的标签组或标签。 |
 | `submit_translations` | 将翻译后的字符串保存到[自定义语言](custom-languages.md)中，格式为 `{namespace: {key: text}}`——界面文本和元模型名称均可——每次调用最多 `MCP_MAX_TRANSLATIONS_PER_CALL` 个字符串。它在第一次调用时就保存，没有预览。MCP 服务器会附上每个字符串是依据哪段英文文本翻译的（即 `get_untranslated_strings` 给出的文本），这样期间被重命名的名称会被跳过，而不会被错误翻译。每个字符串单独检查（占位符和 `$t(...)` 引用与英文一致，不含新的标签或链接）；被拒绝的会连同原因一并报告，此版本不认识的键列在 `unknown_keys` 下，其余字符串会保存，返回结果按分区统计被接受的字符串数。一条翻译还会填充该语言中英文文本相同且完全没有翻译的其他所有字符串（以 `filled` 报告，与所发送的字符串分开；依据较旧英文所做的翻译，或同一次调用中对同一文本的两种不同翻译，不会填充任何内容）——翻译一次「High」即可填充全部，已翻译的字符串绝不会被更改。当同一英文在不同位置需要不同译法时，请传入 `fill_identical=false`。需要 `admin.settings`。无法通过 `rollback_batch` 回滚：请在**设置 → 自定义语言**中修正错误的字符串。 |
 | `stop_ai_translation` | 停止自定义语言的 AI 翻译任务。它已存储的字符串会保留。预览会说明是否有任务正在运行。需要 `admin.settings`。 |
+| `save_ppm_work_packages` | 创建或更新某个计划的工作包和里程碑（标题、描述、父级、日期、顺序、里程碑、完成度、负责人）。不带 `id` 的条目会被创建，带 `id` 的会被更新；更新只发送发生变化的字段，发送为 `null` 的字段会被清空。里程碑只有一个日期：其结束日期始终等于开始日期，与 Web 应用一致。新条目可以带本地 `ref`，后续条目可以带 `parent_ref`，因此一次调用即可创建整个层级。若某个 id 不属于该计划，则在写入任何内容之前拒绝该调用。需要 `ppm.manage`。不能用 `rollback_batch` 回滚；工作包只能在 Web 应用中删除。 |
+| `save_ppm_tasks` | 创建或更新某个计划的任务（标题、描述、状态、优先级、负责人、日期、顺序、标签、工作包）。工作包必须属于该计划且不能是里程碑。分配任务会通知负责人并为其创建待办事项，与 Web 应用一致。创建 / 更新规则与 `save_ppm_work_packages` 相同。需要 `ppm.manage`。不能用 `rollback_batch` 回滚；任务只能在 Web 应用中删除。 |
+| `save_ppm_status_reports` | 创建或更新某个计划的状态报告（日期、进度 / 成本 / 范围健康度、摘要、成果、后续步骤）。新报告的报告人始终是当前登录用户。需要 `ppm.manage`。不能用 `rollback_batch` 回滚；报告只能在 Web 应用中删除。 |
+| `save_ppm_risks` | 创建或更新某个计划的项目风险（标题、描述、概率和影响 1–5、缓解措施、负责人、状态）；得分由 Turbo EA 计算。需要 `ppm.manage`。不能用 `rollback_batch` 回滚；风险只能在 Web 应用中删除。 |
+| `add_ppm_task_comment` | 在 PPM 任务上发表纯文本评论（最多 10 000 个字符）。需要 `ppm.manage`。不能用 `rollback_batch` 回滚；请在任务对话框中编辑或删除。 |
 
-**破坏型（8 个）**
+**破坏型（9 个）**
 
 | 工具 | 描述 |
 |------|------|
@@ -360,6 +374,7 @@ MCP 服务器提供 **75 个工具**，分为两组：**44 个读取工具** 用
 | `clear_card_logos` | Remove the custom logo from cards, falling them back to their card-type icon. Recoverable — set it again to restore. |
 | `start_ai_translation` | 一次调用即可翻译整个[自定义语言](custom-languages.md)：启动服务器自带的**使用 AI 翻译**任务，它将字符串发送给在设置中配置的 AI 提供商，检查每个回答，并在后台存储有效的结果。`mode` 为 `missing`（新增和已更改的字符串，默认）或 `all`；`include_manual` 与 `all` 搭配时还会替换手动修正的字符串，因此该工具被标记为破坏型。预览会报告将发送多少个字符串，因为该任务会消耗提供商的预算；超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 个字符串时，启动时必须回传预览中的 `confirm_token`，该令牌仅对与预览相同的语言、`mode` 和 `include_manual` 有效。进度可通过 `list_custom_languages` 读取。需要 `admin.settings`。 |
 | `call_extension_write` | 运行已安装扩展提供的写入操作（参见[扩展操作](#extension-operations)）。先预览：扩展支持试运行时由扩展验证调用，否则预览显示提交时将发送的请求。扩展标记为破坏型的操作会被拒绝，除非运维人员设置 `MCP_ALLOW_EXTENSION_DESTRUCTIVE=true`。无法通过 `rollback_batch` 回滚：扩展将记录保存在自己的表中，因此请在扩展中撤销已提交的调用。 |
+| `set_ppm_dependencies` | 添加或移除某个计划的任务与工作包之间的完成-开始依赖链接（甘特图中的箭头）。新链接的两端都必须属于该计划，已存在的链接会被报告而不会重复添加；会形成环的链接会被拒绝。移除链接是 MCP 服务器提供的唯一 PPM 删除操作——工作包、任务、报告和风险需在 Web 应用中删除。需要 `ppm.manage`。不能用 `rollback_batch` 回滚：请用此工具重新添加或移除该链接。 |
 | `set_card_tags` | 一次调用即可为多张卡片添加、移除或替换标签，使用来自 `list_tag_groups` 的标签 id。标签组规则适用于卡片最终的标签：单选标签组每张卡片最多保留一个标签（替换即换掉一个），限定卡片类型的标签组会拒绝其他类型。每张卡片是独立的一行：用户无权查看的卡片显示为未找到，已归档的卡片或违反规则只会使该行失败。需要 `tags.manage`，或对所列每张卡片的编辑权限。可通过 `rollback_batch` 回滚。 |
 
 ### 扩展操作 { #extension-operations }
@@ -503,13 +518,13 @@ BPMN 图与在 Web 界面中绘制的图走相同的审批工作流，每次一�
 
 在演练之上的纵深防御，以确保 LLM 失误不会造成大规模损害：
 
-- **每次调用的大小上限。** MCP 写入工具强制施加比底层 Excel 导入端点小得多的上限：`create_cards_bulk` 为 200 行，`upsert_relations_bulk` 为 500 次操作。足以应对任何实际的单一工件上传，又小到可以快速扫描演练预览。
+- **每次调用的大小上限。** MCP 写入工具强制施加比底层 Excel 导入端点小得多的上限：`create_cards_bulk` 为 200 行，`upsert_relations_bulk` 为 500 次操作，每个 PPM 写入工具为 200 行。足以应对任何实际的单一工件上传，又小到可以快速扫描演练预览。
 - **默认不允许删除关系。** `upsert_relations_bulk` 拒绝 `action: "delete"` 操作——若要删除关系，请使用 Web 界面，那里的操作会以用户身份被记录。运营者可通过设置 `MCP_ALLOW_RELATION_DELETE=true` 启用此功能。
 - **默认不允许破坏型扩展操作。** `call_extension_write` 会拒绝扩展标记为破坏型的操作。运维人员可通过设置 `MCP_ALLOW_EXTENSION_DESTRUCTIVE=true` 选择启用。
-- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 31 个写入工具。44 个读取工具继续工作。
+- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 37 个写入工具。48 个读取工具继续工作。
 - **徽标下载仅限白名单主机。** 内置图标包无法覆盖客户使用的每一款产品，而助手往往运行在无法访问外网的沙箱里，因此 `set_card_logos` 接受 `image_url`，由 MCP 服务器代为下载。仅限 `https`、仅限 `MCP_LOGO_FETCH_HOSTS` 中的主机、仅限公网地址，最多两次重定向（每次重新校验），最多以流式读取 1 MB，且字节必须带有真实的 PNG/JPEG/WebP/GIF 签名。下载发生在 MCP 边缘而非后端，随后图片经普通通道上传 —— 由大模型选定的 URL 永远不会抵达持有数据库的进程。`MCP_LOGO_FETCH_ENABLED=false` 可将其关闭。
 - **审计来源标记。** 来自 MCP 服务器的每个后端请求都携带 `X-Turbo-EA-Origin: mcp` 头。从这些请求发出的事件在审计日志载荷中被标记为 `origin: "mcp"`，以便管理员可以将 MCP 驱动的写入与 Web 界面操作分别从时间线中筛选出来。
-- **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。在决策或 SoAW 上发表的评论同样不可撤销：它可能已经被人阅读，因此应改为在讨论中将其删除。流程图的各个步骤同样如此：`rollback_batch` 会将提交或批准报告为不可撤销，且不做任何更改——待审批的修订由审批人驳回，已发布的修订则被撤回，两者都在 Web 界面中完成。由 `import_bpmn` 保存的草稿不可撤销，因为它不记录任何事件；应在「草稿」子标签页中将其删除。由 `link_process_flow_elements` 设置的步骤链接同样不记录任何事件；如需更改，请重新设置。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。`start_ai_translation` 的令牌还与其预览的语言、`mode` 和 `include_manual` 绑定，因此某一语言的预览无法为另一种语言启动任务。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`、`set_card_tags`、`create_tag_groups`、`link_process_flow_elements`，以及 `start_ai_translation`（按任务将发送的字符串数计算）。`submit_translations` 是唯一的例外：它的批次与其他批次一样会被记录，但无论大小都不需要令牌。 `set_card_tags` 为卡片添加或移除的标签，与其他卡片更改一样可以回滚，但 `create_tag_groups` 创建的标签组和标签属于管理记录，而非卡片更改：请在**管理 → 标签**中删除。使用 `call_extension_write` 对扩展发起的调用同样无法回滚：扩展将记录保存在自己的表中，因此请在扩展中撤销。
+- **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。在决策或 SoAW 上发表的评论同样不可撤销：它可能已经被人阅读，因此应改为在讨论中将其删除。流程图的各个步骤同样如此：`rollback_batch` 会将提交或批准报告为不可撤销，且不做任何更改——待审批的修订由审批人驳回，已发布的修订则被撤回，两者都在 Web 界面中完成。由 `import_bpmn` 保存的草稿不可撤销，因为它不记录任何事件；应在「草稿」子标签页中将其删除。由 `link_process_flow_elements` 设置的步骤链接同样不记录任何事件；如需更改，请重新设置。PPM 行同样不可回滚：PPM 工具保存的内容无法用 `rollback_batch` 回滚；请重新保存旧值，或在 Web 应用中删除该行。PPM 模块关闭时，PPM 工具还会拒绝每一次调用。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。`start_ai_translation` 的令牌还与其预览的语言、`mode` 和 `include_manual` 绑定，因此某一语言的预览无法为另一种语言启动任务。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`、`set_card_tags`、`create_tag_groups`、`link_process_flow_elements`、`save_ppm_work_packages`、`save_ppm_tasks`、`save_ppm_status_reports`、`save_ppm_risks`、`set_ppm_dependencies`，以及 `start_ai_translation`（按任务将发送的字符串数计算）。`submit_translations` 是唯一的例外：它的批次与其他批次一样会被记录，但无论大小都不需要令牌。 `set_card_tags` 为卡片添加或移除的标签，与其他卡片更改一样可以回滚，但 `create_tag_groups` 创建的标签组和标签属于管理记录，而非卡片更改：请在**管理 → 标签**中删除。使用 `call_extension_write` 对扩展发起的调用同样无法回滚：扩展将记录保存在自己的表中，因此请在扩展中撤销。
 - **没有硬删除。** 工具集刻意省略了卡片的永久删除。`archive_cards` 和 `update_cards_bulk` *确实*已暴露，但归档是可恢复的软删除（30 天还原窗口），且两者都带有破坏性标注并受演练机制约束。添加任何执行不可逆变更的工具（硬删除、强制清除）都需要进行明确的设计评审。
 
 MCP 容器上的防护栏环境变量：
@@ -521,6 +536,7 @@ MCP 容器上的防护栏环境变量：
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | 每次请求 `upsert_relations_bulk` 操作数的硬性上限。 |
 | `MCP_MAX_LOGOS_PER_CALL` | `50` | Hard cap on `set_card_logos` rows per request. Lower than the card cap because each logo is its own upload and carries image bytes. |
 | `MCP_MAX_TRANSLATIONS_PER_CALL` | `2000` | 单次 `submit_translations` 调用向自定义语言发送的字符串数量的硬性上限（后端每次写入最多接受 10 000 个）。 |
+| `MCP_MAX_PPM_ROWS_PER_CALL` | `200` | 单次 `save_ppm_work_packages`、`save_ppm_tasks`、`save_ppm_status_reports` 或 `save_ppm_risks` 调用的条目数硬上限，以及单次 `set_ppm_dependencies` 调用添加加移除的链接数硬上限。 |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | 当为 `true` 时，`upsert_relations_bulk` 接受 `action: "delete"` 操作。 |
 | `MCP_ALLOW_EXTENSION_DESTRUCTIVE` | `false` | 为 `true` 时，`call_extension_write` 会运行已安装扩展标记为破坏型的操作。 |
 | `MCP_LOGO_FETCH_ENABLED` | `true` | 为 `true` 时，`set_card_logos` 可接受 `image_url`：由 MCP 服务器下载图片，再经普通上传通道写入，因此权限、大小与格式校验一律照常执行。设为 `false` 则完全拒绝 URL 方式 —— 图标 slug 与直接粘贴的字节仍可使用。 |
@@ -551,7 +567,7 @@ MCP 容器上的防护栏环境变量：
 | 角色 | 访问权限 |
 |------|----------|
 | **管理员** | 配置 MCP 设置（`admin.mcp` 权限）。通过 MCP 拥有完整的读取 + 写入访问。 |
-| **所有已认证用户** | 读取访问由其现有 RBAC 控制。写入工具需要相应的后端权限——`inventory.create` / `inventory.edit` / `inventory.archive`（卡片）、`relations.manage`（关系）、`diagrams.manage`（图表）、`bpm.edit`（BPMN 草稿、其步骤链接及其提交）、`bpm.approve_flows`（批准流程图）、`risks.manage`（风险登记册）、`comments.create`（评论）、`stakeholders.manage`（干系人）、`tags.manage`（标签组和标签，以及为任意卡片打标签——为您可编辑的卡片打标签无需更多权限）, `soaw.create`（SoAW）、`adr.manage` / `adr.sign`（ADR）、`adr.comment` / `soaw.comment`（决策和 SoAW 的讨论）、`bookmarks.manage` / `bookmarks.share`（已保存的清单视图）。; 扩展操作需要扩展为其声明的权限. |
+| **所有已认证用户** | 读取访问由其现有 RBAC 控制。写入工具需要相应的后端权限——`inventory.create` / `inventory.edit` / `inventory.archive`（卡片）、`relations.manage`（关系）、`diagrams.manage`（图表）、`bpm.edit`（BPMN 草稿、其步骤链接及其提交）、`bpm.approve_flows`（批准流程图）、`risks.manage`（风险登记册）、`comments.create`（评论）、`stakeholders.manage`（干系人）、`tags.manage`（标签组和标签，以及为任意卡片打标签——为您可编辑的卡片打标签无需更多权限）, `soaw.create`（SoAW）、`adr.manage` / `adr.sign`（ADR）、`adr.comment` / `soaw.comment`（决策和 SoAW 的讨论）、`bookmarks.manage` / `bookmarks.share`（已保存的清单视图），`ppm.view` / `ppm.manage`（在 PPM 模块开启时读取 / 更改项目计划、状态报告、项目风险和任务评论）。; 扩展操作需要扩展为其声明的权限. |
 
 `admin.mcp` 权限控制谁可以管理 MCP 设置。默认情况下仅对管理员角色可用。可以通过角色管理页面向自定义角色授予此权限。
 

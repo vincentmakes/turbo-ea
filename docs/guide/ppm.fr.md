@@ -5,6 +5,9 @@ Le module **PPM** fournit une solution complète de gestion de portefeuille de p
 !!! note
     Le module PPM peut être activé ou désactivé par un administrateur dans les [Paramètres](../admin/settings.md). Lorsqu'il est désactivé, la navigation et les fonctionnalités PPM sont masquées.
 
+!!! tip
+    Le plan d'un projet (lots de travaux, jalons, tâches et dépendances), les rapports de statut, les risques et les commentaires de tâches peuvent aussi être lus et tenus à jour depuis un assistant IA via le [serveur MCP](../admin/mcp.md#available-capabilities), avec les mêmes permissions `ppm.view` / `ppm.manage`. Chaque modification est d'abord prévisualisée ; les lots de travaux, tâches, rapports et risques ne se suppriment qu'ici.
+
 ## Tableau de Bord du Portefeuille
 
 ![Tableau de bord du portefeuille PPM](../assets/img/fr/40_ppm_portefeuille.png)
@@ -233,7 +236,14 @@ Le gestionnaire de tâches prend en charge les vues **tableau Kanban** et **list
 - **Terminé** — Tâches terminées
 - **Bloqué** — Tâches qui ne peuvent pas progresser
 
-Les tâches peuvent être filtrées et regroupées par élément de Structure de Découpage du Travail (WBS). En mode regroupé, chaque lot de travaux apparaît comme un groupe — y compris un lot qui ne contient encore aucune tâche, qui affiche une indication et un bouton **Ajouter une tâche** ouvrant la boîte de dialogue de tâche avec ce lot présélectionné. Les jalons n'apparaissent qu'une fois qu'ils contiennent une tâche. Glissez-déposez les tâches entre les colonnes pour mettre à jour le statut.
+Les tâches peuvent être filtrées et regroupées par élément de Structure de Découpage du Travail (WBS). En mode regroupé, chaque lot de travaux apparaît comme un groupe — y compris un lot qui ne contient encore aucune tâche, qui affiche une indication et un bouton **Ajouter une tâche** ouvrant la boîte de dialogue de tâche avec ce lot présélectionné. Les jalons n'apparaissent qu'une fois qu'ils contiennent une tâche. Glissez-déposez les tâches entre les colonnes pour mettre à jour le statut. Chaque tâche prend en charge :
+
+- Une description, dont le champ dans la boîte de dialogue de la tâche s'agrandit au fil de la saisie — jusqu'à 16 lignes, puis il défile
+- Niveaux de priorité (Critique, Haute, Moyenne, Faible)
+- Responsable (avec notification lors de l'assignation)
+- Dates de début et d'échéance
+- Tags pour la catégorisation
+- Commentaires pour la discussion
 
 Les filtres d'affichage (mode de vue, filtre WBS, bascule de regroupement) sont conservés dans l'URL entre les actualisations de page.
 
