@@ -1005,6 +1005,7 @@ describe("StakeholderRolePanel — reorder (#1439)", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Move down: Responsible" }));
     await waitFor(() => expect(onError).toHaveBeenCalledWith("boom"));
-    expect(screen.getByRole("button", { name: "Move down: Responsible" })).toBeEnabled();
+    // onError is called before the buttons it re-enables have rendered.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Move down: Responsible" })).toBeEnabled());
   });
 });

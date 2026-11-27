@@ -307,7 +307,8 @@ describe("VendorField", () => {
     await user.click(screen.getByLabelText("Provider"));
     await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
     await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("Acme Corp")).toBeInTheDocument();
+    // The callback fires before the re-read that names the chip has rendered.
+    expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
     expect(screen.queryByText("Globex")).not.toBeInTheDocument();
   });
 
@@ -318,7 +319,8 @@ describe("VendorField", () => {
     await user.click(screen.getByLabelText("Provider"));
     await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
     await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
-    expect(document.querySelector(".MuiChip-root")).toBeNull();
+    // The callback fires before the re-read that drops the chip has rendered.
+    await waitFor(() => expect(document.querySelector(".MuiChip-root")).toBeNull());
   });
 
   it("follows a metamodel change in which way round the Provider relation runs", async () => {
@@ -501,7 +503,8 @@ describe("VendorField", () => {
     await user.click(screen.getByLabelText("Provider"));
     await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
     await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("Acme Corp", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    // The callback fires before the re-read that names the chip has rendered.
+    expect(await screen.findByText("Acme Corp", { selector: ".MuiChip-label" })).toBeInTheDocument();
     expect(screen.queryByText("PostgreSQL")).not.toBeInTheDocument();
   });
 

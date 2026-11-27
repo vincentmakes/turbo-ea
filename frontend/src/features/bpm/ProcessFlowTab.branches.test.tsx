@@ -343,7 +343,8 @@ describe("ProcessFlowTab published elements table", () => {
     await waitFor(() =>
       expect(mockApi.callsOf("put", `${BASE}/elements/el2`)[0].body).toEqual({ organization_ids: ["org-9"] }),
     );
-    expect(input).not.toBeInTheDocument();
+    // The picker closes once the write and its re-read have answered, after the call.
+    await waitFor(() => expect(input).not.toBeInTheDocument());
 
     // Open again and leave without picking.
     await user.click(within(cellOf(rowOf("Check stock"), "Organization")).getByText("Link Organization"));
@@ -568,7 +569,8 @@ describe("ProcessFlowTab without a published flow", () => {
         svg_thumbnail: "<svg>generated</svg>",
       }),
     );
-    expect(screen.queryByTestId("template-chooser")).toBeNull();
+    // The chooser closes once the create has answered, after the call.
+    await waitFor(() => expect(screen.queryByTestId("template-chooser")).toBeNull());
     expect(await screen.findByText("No draft process flows.")).toBeInTheDocument();
   });
 

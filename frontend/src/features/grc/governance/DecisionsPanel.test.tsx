@@ -856,7 +856,8 @@ describe("DecisionsPanel — spreadsheet export and import", () => {
       ["a3", "<p>a3</p>"],
     ]);
     expect(mockApi.callsOf("get", FULL)).toHaveLength(1);
-    expect(screen.getByRole("button", { name: /^download Export$/ })).toBeEnabled();
+    // The export is called before the button it re-enables has rendered.
+    await waitFor(() => expect(screen.getByRole("button", { name: /^download Export$/ })).toBeEnabled());
   });
 
   it("keeps a row the content fetch no longer returns rather than dropping it", async () => {

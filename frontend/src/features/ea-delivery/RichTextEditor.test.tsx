@@ -526,6 +526,19 @@ describe("RichTextEditor '@' popup lifetime", () => {
       editor.chain().focus("end").insertContent(text).run();
     });
 
+  /**
+   * Whether typing `more` would end the open "@query": the popup has told the
+   * store that the query found nothing. It does that in an effect, which React
+   * runs after "No matches" is on screen, so seeing the text does not prove it.
+   */
+  const endsOnTyping = (editor: Editor, more: string): boolean => {
+    const mention = editor.extensionManager.extensions.find((e) => e.name === "mention");
+    const suggestion = mention?.options.suggestion;
+    const state = suggestion?.pluginKey.getState(editor.state);
+    if (!state?.active) return false;
+    return !suggestion.shouldShow({ editor, range: state.range, query: `${state.query}${more}` });
+  };
+
   it("closes when the editor loses focus", async () => {
     const { container } = render(
       <>
@@ -629,6 +642,7 @@ describe("RichTextEditor '@' popup lifetime", () => {
     expect(screen.getByText("No matches")).toBeInTheDocument();
     // Still open while nothing more is typed.
     expect(screen.getByRole("listbox")).toBeInTheDocument();
+    await waitFor(() => expect(endsOnTyping(editor, " top")).toBe(true));
     type(editor, " top");
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
     expect(editor.getHTML()).toBe("<p>see @zz top</p>");
