@@ -17,25 +17,44 @@ import {
   isRecorded,
   type Translate,
 } from "./decisionStanding";
+import { OUTCOME_CHIP, REVIEW_OUTCOMES, outcomeKind } from "./reviewOutcome";
 
 /** Group key of the "Recorded" status group (a signed decision recorded as
  *  decided outside Turbo EA). */
 export const RECORDED_GROUP_KEY = "recorded";
 
 /** A decision's status group: its workflow status, "recorded" for a
- *  recorded decision, so the group reads like the Status column. */
-export function statusGroupKey(adr: Pick<ArchitectureDecision, "status" | "recorded_at">): string {
-  return isRecorded(adr) ? RECORDED_GROUP_KEY : adr.status;
+ *  recorded decision, and its review outcome (`changes_requested`,
+ *  `rejected`, `withdrawn`) for a draft that has one, so the group reads
+ *  like the Status column. */
+export function statusGroupKey(
+  adr: Pick<ArchitectureDecision, "status" | "recorded_at" | "outcome">,
+): string {
+  if (isRecorded(adr)) return RECORDED_GROUP_KEY;
+  if (adr.status === "draft") {
+    const kind = outcomeKind(adr);
+    if (kind) return kind;
+  }
+  return adr.status;
 }
 
-/** The status groups, in workflow order, "Recorded" after "Signed". */
+/** The status groups, in workflow order: "Draft", then each review outcome,
+ *  then "In review", "Signed" and "Recorded". */
 export function statusGroupVocab(t: Translate): GroupVocabEntry[] {
+  const status = (key: (typeof DECISION_STATUSES)[number]): GroupVocabEntry => ({
+    key,
+    label: t(STATUS_CHIP[key].labelKey),
+    color: STATUS_CHIP[key].dot,
+  });
+  const [draft, ...rest] = DECISION_STATUSES;
   return [
-    ...DECISION_STATUSES.map((status) => ({
-      key: status,
-      label: t(STATUS_CHIP[status].labelKey),
-      color: STATUS_CHIP[status].dot,
+    status(draft),
+    ...REVIEW_OUTCOMES.map((kind) => ({
+      key: kind,
+      label: t(OUTCOME_CHIP[kind].labelKey),
+      color: OUTCOME_CHIP[kind].dot,
     })),
+    ...rest.map(status),
     { key: RECORDED_GROUP_KEY, label: t(RECORDED_CHIP.labelKey), color: RECORDED_CHIP.dot },
   ];
 }

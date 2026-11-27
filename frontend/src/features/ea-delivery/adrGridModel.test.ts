@@ -25,9 +25,28 @@ describe("status grouping", () => {
     expect(statusGroupKey({ status: "in_review" })).toBe("in_review");
   });
 
-  it("lists the statuses in workflow order, Recorded last, with token colours", () => {
+  it("groups a draft by its review outcome, each outcome on its own", () => {
+    const outcome = (kind: "changes_requested" | "rejected" | "withdrawn") => ({
+      kind,
+      at: null,
+      by: null,
+      note: null,
+    });
+    expect(statusGroupKey({ status: "draft", outcome: outcome("rejected") })).toBe("rejected");
+    expect(statusGroupKey({ status: "draft", outcome: outcome("withdrawn") })).toBe("withdrawn");
+    expect(statusGroupKey({ status: "draft", outcome: outcome("changes_requested") })).toBe(
+      "changes_requested",
+    );
+    expect(statusGroupKey({ status: "draft", outcome: null })).toBe("draft");
+    expect(statusGroupKey({ status: "in_review", outcome: outcome("rejected") })).toBe("in_review");
+  });
+
+  it("lists the statuses in workflow order, the outcomes after Draft, Recorded last, with token colours", () => {
     expect(statusGroupVocab(t)).toEqual([
       { key: "draft", label: "t:status.draft", color: STATUS_COLORS.neutral },
+      { key: "changes_requested", label: "t:outcome.changesRequested", color: STATUS_COLORS.warning },
+      { key: "rejected", label: "t:outcome.rejected", color: STATUS_COLORS.error },
+      { key: "withdrawn", label: "t:outcome.withdrawn", color: STATUS_COLORS.neutral },
       { key: "in_review", label: "t:status.inReview", color: STATUS_COLORS.warning },
       { key: "signed", label: "t:status.signed", color: STATUS_COLORS.success },
       { key: "recorded", label: "t:status.recorded", color: STATUS_COLORS.success },

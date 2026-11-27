@@ -150,3 +150,26 @@ async def test_a_full_reader_pays_no_extra_query(client, db, env, monkeypatch, u
 
     assert with_filter == without_filter
     assert with_filter > 0
+
+
+OUTCOME_EVENTS = {
+    "adr": ("adr.changes_requested", "adr.rejected", "adr.withdrawn", "adr.reopened"),
+    "soaw": ("soaw.changes_requested", "soaw.rejected", "soaw.withdrawn", "soaw.reopened"),
+}
+
+
+@pytest.mark.parametrize("reader", list(READERS))
+async def test_review_outcome_events_follow_the_document_permission(client, db, env, reader):
+    """The outcome events (2.221.0) name the document and who decided, so a
+    reader without that document's view permission never sees them."""
+    for kind, types in OUTCOME_EVENTS.items():
+        for event_type in types:
+            db.add(Event(card_id=None, event_type=event_type, data={"actor": "One", "kind": kind}))
+    await db.flush()
+    got = await _types(client, env["users"][reader], "/api/v1/reports/dashboard", "recent_events")
+    expected = set(EXPECTED[reader])
+    if "adr.view" in READERS[reader]:
+        expected |= set(OUTCOME_EVENTS["adr"])
+    if "soaw.view" in READERS[reader]:
+        expected |= set(OUTCOME_EVENTS["soaw"])
+    assert got == expected

@@ -16,9 +16,15 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
-import type { ArchitectureDecision, DecisionLinkKind, DecisionRef } from "@/types";
+import type {
+  ArchitectureDecision,
+  DecisionLinkKind,
+  DecisionRef,
+  ReviewOutcomeKind,
+} from "@/types";
 import { decisionHref } from "./DecisionBanners";
 import { decisionRefLabel, type Translate } from "./decisionStanding";
+import { isClosedOutcome, isReviewOutcome, outcomeLabelKey } from "./reviewOutcome";
 
 type MenuAdr = Pick<
   ArchitectureDecision,
@@ -31,7 +37,20 @@ type MenuAdr = Pick<
   | "is_earlier_revision"
   | "open_revision"
   | "linked_cards"
->;
+> &
+  Partial<Pick<ArchitectureDecision, "revisions">>;
+
+/**
+ * The review outcome of the revision being drafted, read off the chain
+ * (`revisions` on the detail). A rejected or withdrawn revision stays the
+ * chain's open revision: the way forward is to open and reopen it.
+ */
+export function openRevisionOutcome(adr: MenuAdr): ReviewOutcomeKind | null {
+  if (!adr.open_revision) return null;
+  const id = adr.open_revision.id;
+  const kind = (adr.revisions ?? []).find((r) => r.id === id)?.outcome;
+  return isReviewOutcome(kind) ? kind : null;
+}
 
 /** Why an action is not offered (a `delivery` key), or null when it is. */
 export interface ReviseMenuState {
@@ -151,14 +170,22 @@ export default function ReviseMenu({ adr, canManage, onNotice, onError }: Revise
       }
     });
 
+  const openOutcome = openRevisionOutcome(adr);
   const items = [
     {
       key: "revise",
       icon: "edit_note",
       label: adr.open_revision
-        ? t("adr.revise.openRevision", { revision: decisionRefLabel(adr.open_revision, t) })
+        ? openOutcome
+          ? t("adr.revise.openRevisionOutcome", {
+              revision: decisionRefLabel(adr.open_revision, t),
+              outcome: t(outcomeLabelKey(openOutcome)),
+            })
+          : t("adr.revise.openRevision", { revision: decisionRefLabel(adr.open_revision, t) })
         : t("adr.revise.revise"),
-      hint: t("adr.revise.reviseHint"),
+      hint: isClosedOutcome(openOutcome)
+        ? t("adr.revise.closedRevisionHint")
+        : t("adr.revise.reviseHint"),
       reason: state.revise,
       onClick: revise,
     },

@@ -3,6 +3,8 @@
 | Term | Definition |
 |------|------------|
 | **ADR (Architecture Decision Record)** | A formal document that captures an important architecture decision, including the context, decision rationale, consequences, and alternatives considered. ADRs support a sign-off workflow and revision chain |
+| **ADR review outcome** | How the last review of a decision or a SoAW ended without a signature: **Changes requested** (sent back to an editable draft), **Rejected** or **Withdrawn** (both close the document, locked until it is reopened). Shown in place of *Draft* on the status. The set is fixed, not configurable |
+| **Closed (decision or SoAW)** | A rejected or withdrawn draft: kept on record, locked like one in review, hidden from the decisions register until **Show closed** is on, and made a plain draft again with **Reopen** |
 | **Approval Status** | The review state of a card: Draft, Approved, Broken, or Rejected. Approved cards change to Broken when edited |
 | **Bookmark / Saved View** | A saved filter, column, and sort configuration in the Inventory that can be reloaded with one click |
 | **BPM** | Business Process Management — the discipline of modeling, analyzing, and improving business processes |

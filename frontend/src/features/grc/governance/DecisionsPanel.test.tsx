@@ -65,6 +65,8 @@ vi.mock("@/features/ea-delivery/AdrGrid", () => ({
     onPreview,
     onDuplicate,
     onDelete,
+    onReopen,
+    canDeleteClosed,
     onExport,
     onQuickFilterChange,
     onFrozenColumnsChange,
@@ -80,6 +82,8 @@ vi.mock("@/features/ea-delivery/AdrGrid", () => ({
     onPreview: (a: ArchitectureDecision) => void;
     onDuplicate: (a: ArchitectureDecision) => void;
     onDelete: (a: ArchitectureDecision) => void;
+    onReopen?: (a: ArchitectureDecision) => void;
+    canDeleteClosed?: boolean;
     onExport: (a: ArchitectureDecision[]) => void;
     onQuickFilterChange: (s: string) => void;
     onFrozenColumnsChange?: (next: string[]) => void;
@@ -95,6 +99,8 @@ vi.mock("@/features/ea-delivery/AdrGrid", () => ({
       data-order={(columnOrder ?? []).join(",")}
       data-quick={quickFilterText}
       data-auto-height={String(Boolean(autoHeight))}
+      data-can-reopen={String(Boolean(onReopen))}
+      data-can-delete-closed={String(Boolean(canDeleteClosed))}
     >
       {adrs.map((a) => (
         <div key={a.id} data-testid={`row-${a.id}`}>
@@ -102,6 +108,7 @@ vi.mock("@/features/ea-delivery/AdrGrid", () => ({
           <button type="button" data-testid={`preview-${a.id}`} onClick={() => onPreview(a)} />
           <button type="button" data-testid={`dup-${a.id}`} onClick={() => onDuplicate(a)} />
           <button type="button" data-testid={`del-${a.id}`} onClick={() => onDelete(a)} />
+          <button type="button" data-testid={`reopen-${a.id}`} onClick={() => onReopen?.(a)} />
         </div>
       ))}
       <button type="button" data-testid="export-all" onClick={() => onExport(adrs)} />
@@ -474,6 +481,58 @@ describe("DecisionsPanel — row actions", () => {
     await user.click(screen.getByRole("button", { name: /New decision/ }));
     await user.click(screen.getByTestId("create-done"));
     expect(path()).toBe("/ea-delivery/adr/adr-new");
+  });
+});
+
+describe("DecisionsPanel — closed decisions", () => {
+  const CLOSED = makeAdr({
+    id: "a9",
+    outcome: { kind: "withdrawn", at: "2026-11-27T10:00:00Z", by: null, note: null },
+  });
+
+  it("hides closed decisions until Show closed is on", async () => {
+    mockApi.on("get", "/adr", [...ADRS, CLOSED]);
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    await applyFilters(user, { showClosed: true });
+    expect(gridIds()).toBe("a1,a2,a3,a9");
+    await applyFilters(user, { showClosed: false, outcomes: ["withdrawn"] });
+    expect(gridIds()).toBe("a9");
+  });
+
+  it("offers Reopen to adr.manage and Delete on a closed row to adr.delete", async () => {
+    const { unmount } = renderPanel(userWith("adr.view"));
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    expect(grid()).toHaveAttribute("data-can-reopen", "false");
+    expect(grid()).toHaveAttribute("data-can-delete-closed", "false");
+    unmount();
+    renderPanel(userWith("adr.view", "adr.manage", "adr.delete"));
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    expect(grid()).toHaveAttribute("data-can-reopen", "true");
+    expect(grid()).toHaveAttribute("data-can-delete-closed", "true");
+  });
+
+  it("reopens a closed decision and shows the reply in its row", async () => {
+    mockApi.on("get", "/adr", [...ADRS, CLOSED]);
+    mockApi.on("post", "/adr/a9/reopen", { ...CLOSED, outcome: null });
+    const { user } = renderPanel(userWith("adr.view", "adr.manage"));
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    await applyFilters(user, { showClosed: true });
+    await user.click(screen.getByTestId("reopen-a9"));
+    await waitFor(() => expect(mockApi.callsOf("post", "/adr/a9/reopen")).toHaveLength(1));
+    // No longer closed: shown with "Show closed" off.
+    await applyFilters(user, { showClosed: false });
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3,a9"));
+  });
+
+  it("shows the error when a reopen is refused", async () => {
+    mockApi.on("get", "/adr", [...ADRS, CLOSED]);
+    mockApi.fail("post", "/adr/a9/reopen", 409);
+    const { user } = renderPanel(userWith("adr.view", "adr.manage"));
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    await applyFilters(user, { showClosed: true });
+    await user.click(screen.getByTestId("reopen-a9"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("POST /adr/a9/reopen failed");
   });
 });
 

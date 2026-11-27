@@ -62,3 +62,48 @@ describe("DecisionStateChip", () => {
     expect(screen.getByText("Draft")).toBeInTheDocument();
   });
 });
+
+describe("review outcome chips", () => {
+  const outcome = (kind: "changes_requested" | "rejected" | "withdrawn") => ({
+    kind,
+    at: "2026-11-27T10:00:00Z",
+    by: { id: "u1", display_name: "Ada" },
+    note: "why",
+  });
+
+  it("shows the outcome instead of Draft", () => {
+    const { container } = render(
+      <DecisionStatusChip adr={{ status: "draft", outcome: outcome("rejected") }} />,
+    );
+    expect(screen.getByText("Rejected")).toBeInTheDocument();
+    expect(screen.queryByText("Draft")).not.toBeInTheDocument();
+    const chip = container.querySelector(".MuiChip-root")!;
+    expect(chip.className).toContain("MuiChip-colorError");
+    expect(chip.className).toContain("MuiChip-filled");
+  });
+
+  it("outlines changes requested in the warning hue", () => {
+    const { container } = render(
+      <DecisionStateChip
+        adr={{ status: "draft", standing: null, outcome: outcome("changes_requested") }}
+      />,
+    );
+    expect(screen.getByText("Changes requested")).toBeInTheDocument();
+    const chip = container.querySelector(".MuiChip-root")!;
+    expect(chip.className).toContain("MuiChip-colorWarning");
+    expect(chip.className).toContain("MuiChip-outlined");
+  });
+
+  it("labels a withdrawn decision Withdrawn, neutral", () => {
+    const { container } = render(
+      <DecisionStatusChip adr={{ status: "draft", outcome: outcome("withdrawn") }} />,
+    );
+    expect(screen.getByText("Withdrawn")).toBeInTheDocument();
+    expect(container.querySelector(".MuiChip-root")!.className).toContain("MuiChip-colorDefault");
+  });
+
+  it("ignores an outcome outside a draft", () => {
+    render(<DecisionStatusChip adr={{ status: "in_review", outcome: outcome("rejected") }} />);
+    expect(screen.getByText("In Review")).toBeInTheDocument();
+  });
+});

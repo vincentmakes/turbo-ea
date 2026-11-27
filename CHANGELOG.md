@@ -5,13 +5,25 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.220.1] - 2026-11-27
+## [2.221.1] - 2026-11-27
 
 ### Fixed
 - In the **@** mention list of a decision or SoAW, the row picked with the arrow keys is scrolled into view even when the key is pressed just as the results appear, instead of the first card row.
 - In a process's **Process Flow** element tables (published and draft), a cell opened while another cell's change is still saving stays open when that save finishes.
 - Applying a saved inventory view keeps the view's column order when it is applied while the card type's fields are still loading.
 - The **Stakeholder Roles** tab of a card type no longer reloads, and briefly hides the role being edited, each time the drawer around it updates, for example to show a failed save's error.
+
+## [2.221.0] - 2026-11-27
+
+### Added
+- Decisions and Statements of Architecture Work record how a review ended without a signature — **Changes requested**, **Rejected** or **Withdrawn** — with who, when and why, shown on the status chip, in a banner on the document, on its History timeline, in the exports and as an **Outcome** filter and group in the decisions register.
+- A pending signatory can **Request changes**, which sends the document back to an editable draft, besides **Sign** and **Reject**.
+- **Withdraw** closes a saved draft or a document in review with a reason, cancelling its pending signature requests, and **Reopen** turns a rejected or withdrawn document back into a plain draft.
+- The decisions register hides rejected and withdrawn decisions until **Show closed** is switched on.
+- Extension SDK 1.21: decisions read through the decisions bridge carry their review outcome; UI SDK 1.40: decision panels receive the outcome and are read-only on a rejected or withdrawn decision.
+
+### Changed
+- **Reject** now closes the decision or SoAW (locked and kept on record until reopened) instead of returning it to draft; returning it to draft is the new **Request changes**, and `POST /adr/{id}/reject` and `POST /soaw/{id}/reject` changed meaning accordingly (the former behaviour is `POST /{id}/request-changes`). Drafts whose last review was rejected before this version read **Changes requested**.
 
 ## [2.220.0] - 2026-11-27
 

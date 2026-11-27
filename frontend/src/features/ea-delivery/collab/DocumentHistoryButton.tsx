@@ -23,6 +23,8 @@ interface Props<D> {
   label: string;
   /** The document's status: restore is offered on a draft only. */
   status: string;
+  /** A closed (rejected or withdrawn) draft: no restore until it is reopened. */
+  closed?: boolean;
   /** Re-read the timeline when this changes while the view is open. */
   refreshKey?: string | number;
   /** Whether the page holds edits it has not saved (a restore discards them). */
@@ -36,6 +38,7 @@ export default function DocumentHistoryButton<D>({
   owner,
   label,
   status,
+  closed = false,
   refreshKey,
   isDirty,
   onRestored,
@@ -69,6 +72,7 @@ export default function DocumentHistoryButton<D>({
           owner={owner}
           label={label}
           status={status}
+          closed={closed}
           refreshKey={refreshKey}
           isDirty={isDirty}
           onRestored={(detail) => {

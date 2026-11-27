@@ -407,6 +407,15 @@ class TestRestoreFields:
         for status in ("in_review", "signed"):
             assert history.restore_refusal("soaw", status) == (409, {"error": "not_draft"})
 
+    def test_a_closed_draft_is_not_restored(self):
+        for kind in ("adr", "soaw"):
+            for outcome in ("rejected", "withdrawn"):
+                assert history.restore_refusal(kind, "draft", outcome) == (
+                    409,
+                    {"error": "closed", "outcome": outcome},
+                )
+            assert history.restore_refusal(kind, "draft", "changes_requested") is None
+
     def test_source_id(self):
         sid = uuid.uuid4()
         assert history.source_id(SimpleNamespace(kind="restored", note=str(sid))) == sid

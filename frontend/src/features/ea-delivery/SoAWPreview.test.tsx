@@ -228,6 +228,28 @@ describe("SoAWPreview — revisions", () => {
     expect(screen.queryByText(t("adr.banner.inReviewLock"))).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: t("adr.revision.strip") })).not.toBeInTheDocument();
   });
+
+  it("labels a rejected draft by its outcome and says who rejected it and why", async () => {
+    mockApi.on("get", "/soaw/s1", {
+      ...SOAW,
+      revisions: [],
+      outcome: {
+        kind: "rejected",
+        at: "2026-06-03T10:00:00Z",
+        by: { id: "u2", display_name: "Grace Hopper" },
+        note: "Out of scope",
+      },
+    });
+    renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    expect(screen.queryByText(t("status.draft"))).not.toBeInTheDocument();
+    expect(screen.getByText(t("outcome.rejected")).closest(".MuiChip-root")).toHaveClass("MuiChip-colorError");
+    const banner = document.querySelector('[data-banner="rejected"]') as HTMLElement;
+    expect(banner).toHaveTextContent("Rejected by Grace Hopper on");
+    expect(banner).toHaveTextContent("Out of scope");
+    // The closed lock line belongs to the editor.
+    expect(screen.queryByText(t("adr.banner.closedLock"))).not.toBeInTheDocument();
+  });
 });
 
 describe("SoAWPreview — signatures", () => {

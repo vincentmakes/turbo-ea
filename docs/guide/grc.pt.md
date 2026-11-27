@@ -29,7 +29,7 @@ Os ADR documentam decisões de arquitetura importantes junto com seu contexto, c
 
 O registo responde antes de mais a uma pergunta: **que decisões estão em vigor hoje?** Cada decisão assinada tem uma [vigência](#standing) que o Turbo EA calcula a partir das suas datas, das suas revisões e das outras decisões que atuam sobre ela, e a grelha lista apenas a revisão atual de cada decisão, a menos que peça também as anteriores.
 
-A grelha também pode ser **agrupada por estado** ou **por vigência** através do botão *Agrupar por* junto à caixa de pesquisa: cada estado ou vigência recolhe-se sob o seu próprio cabeçalho, e a caixa de seleção do cabeçalho seleciona todo o grupo para uma exportação em massa.
+A grelha também pode ser **agrupada por estado** ou **por vigência** através do botão *Agrupar por* junto à caixa de pesquisa: cada estado ou vigência recolhe-se sob o seu próprio cabeçalho (agrupando por estado, cada resultado da revisão tem o seu próprio grupo), e a caixa de seleção do cabeçalho seleciona todo o grupo para uma exportação em massa.
 
 #### Status e vigência {: #standing }
 
@@ -37,6 +37,18 @@ Uma decisão tem dois estados distintos:
 
 - O **Status** é o fluxo de assinatura, e é sobre ele que atua: **Rascunho** → **Em Revisão** (assinaturas solicitadas) → **Assinado**. Uma decisão tomada fora do Turbo EA e [registada como decidida](#recording-a-past-decision) mostra **Registado** em vez de Assinado.
 - A **Vigência** indica a situação atual de uma decisão assinada ou registada. É derivada — nunca definida manualmente — e um rascunho ou uma decisão em revisão não tem nenhuma (*Ainda não assinada*).
+
+Um rascunho também pode ter um **resultado da revisão**, que indica como a sua última revisão terminou sem assinatura. Aparece no lugar de *Rascunho* no chip de estado, e um banner na decisão indica quem, quando e porquê (*Rejeitada por Ada Lovelace em 27 nov 2026: …*):
+
+| Resultado | Significado |
+|-----------|-------------|
+| **Alterações solicitadas** | Um signatário devolveu a decisão para retrabalho. É um rascunho editável; a marca desaparece quando as assinaturas são solicitadas novamente |
+| **Rejeitada** | Um signatário rejeitou a decisão. Fica **encerrada** |
+| **Retirada** | O lado do autor retirou a decisão. Fica **encerrada** |
+
+Uma decisão **encerrada** fica registada, mas bloqueada como uma em revisão: apenas os seus cards vinculados e [diagramas](#decision-diagrams) ainda podem mudar, e o seu autor não a pode enviar para revisão, registar, restaurar nem eliminar (eliminá-la exige a permissão `adr.delete`). Para voltar a trabalhar nela, clique em **Reabrir**, que a transforma num rascunho normal. O registo oculta as decisões encerradas até ativar **Mostrar encerradas**. Um rascunho cuja última revisão foi rejeitada antes da versão 2.221.0 — quando uma rejeição ainda devolvia a decisão a rascunho — mostra **Alterações solicitadas**.
+
+O ciclo de vida é fixo: os três estados, as seis vigências e os três resultados são os mesmos em todos os espaços de trabalho e não podem ser configurados, nem por um administrador nem por uma extensão.
 
 | Vigência | Significado |
 |----------|-------------|
@@ -56,7 +68,7 @@ A grade de ADR espelha o layout da grade de Inventário:
 | Coluna | Descrição |
 |--------|-----------|
 | **N.º de ref.** | Número de referência gerado automaticamente (ADR-001, ADR-002, …) com um ponto de status; uma revisão após a primeira acrescenta o seu número (ADR-012 · Rev. 2) |
-| **Status** | Chip colorido — Rascunho, Em Revisão, Assinado ou Registado |
+| **Status** | Chip colorido — Rascunho, Em Revisão, Assinado ou Registado, ou o resultado da revisão (Alterações solicitadas, Rejeitada, Retirada) de um rascunho que o tenha |
 | **Vigência** | A situação atual de uma decisão assinada — ver [Status e vigência](#standing); vazia até ser assinada |
 | **Título** | Título do ADR |
 | **Decisão** | Trecho em texto simples da decisão |
@@ -78,15 +90,17 @@ A barra lateral persistente à esquerda tem duas abas:
 - **Filtros** — filtros de facetas sobre a lista de ADRs:
     - **Em vigor** — um clique mostra apenas as decisões em vigor hoje (Em vigor e Em vigor (alterada)); clique novamente para o limpar
     - **Mostrar revisões anteriores** — desativado por predefinição, para que cada decisão apareça uma só vez, como a sua revisão atual (mais uma revisão em redação). Ative-o para listar também as revisões anteriores; o botão **Exportar** segue a mesma opção
+    - **Mostrar encerradas** — desativado por predefinição, para que as decisões rejeitadas e retiradas fiquem de fora. Ative-o para as listar também
     - **Tipos de card** — caixas de seleção com pontos coloridos que filtram por tipos de cards vinculados
     - **Cards vinculados** — filtrar por cards vinculados específicos
     - **Status** — Rascunho / Em Revisão / Assinado (uma decisão registada conta como assinada)
     - **Vigência** — Agendada / Em vigor / Em vigor (alterada) / Substituída / Revogada / Expirada / Ainda não assinada
+    - **Resultado** — Alterações solicitadas / Rejeitada / Retirada / Sem resultado. Escolher **Rejeitada** ou **Retirada** lista essas decisões mesmo com **Mostrar encerradas** desativado
     - **Assinado por** — filtrar por signatário
     - **Data de criação / modificação / assinatura / da decisão** — intervalos de datas de/até (**Data da decisão** corresponde à data *Decidida em* de uma decisão assinada ou registada)
 - **Colunas** — escolha quais colunas da grade ficam visíveis. **N.º de ref.** e **Título** são sempre exibidos; **Redefinir** restaura a seleção padrão. Sua escolha é lembrada por navegador.
 
-Use a barra de **filtro rápido** para pesquisa de texto completo. Clique com o botão direito em qualquer linha para um menu de contexto (**Editar**, **Pré-visualizar**, **Duplicar**, **Excluir**).
+Use a barra de **filtro rápido** para pesquisa de texto completo. Clique com o botão direito em qualquer linha para um menu de contexto (**Editar**, **Pré-visualizar**, **Duplicar**, **Excluir** e, numa decisão encerrada, **Reabrir** para quem tem `adr.manage`). **Excluir** é oferecido num rascunho; numa decisão encerrada, apenas a quem tem `adr.delete`.
 
 #### Exportar e importar decisões {: #decisions-import }
 
@@ -256,17 +270,24 @@ A secção **Diagramas**, depois de **Ficheiros**, anexa a uma decisão diagrama
 - **Quem os vê.** Ver a secção exige a permissão para ver diagramas (`diagrams.view`); anexar e desanexar exigem também `adr.manage`. Um leitor sem `diagrams.view` não vê nenhuma secção Diagramas. Uma decisão que não pode ser editada e não tem diagramas também não mostra a secção.
 - **Onde aparecem.** A [pré-visualização](#preview) mostra os diagramas só de leitura; a cópia PDF / impressa e a exportação para Word listam os seus nomes. Uma revisão e um duplicado mantêm os diagramas. Os diagramas não fazem parte de uma versão do [Histórico](#decision-history).
 
-#### Fluxo de Assinatura
+#### Fluxo de Assinatura {: #sign-off-workflow }
 
 Os ADR suportam um processo formal de assinatura:
 
 1. Crie o ADR no status **Rascunho**.
 2. Clique em **Solicitar Assinaturas** e pesquise signatários por nome ou e-mail (ou clique em **Adicionar decisores**). Só é possível solicitar assinaturas a partir de um rascunho.
 3. O ADR passa para **Em Revisão** — cada signatário recebe uma notificação e uma tarefa.
-4. Os signatários revisam e clicam em **Assinar**.
+4. Os signatários revisam e clicam em **Assinar**, **Solicitar alterações** ou **Rejeitar**.
 5. Quando todos os signatários assinarem, o ADR passa automaticamente para o status **Assinado**.
 
-**Uma decisão em revisão fica bloqueada**, para que os signatários assinem exatamente o que lhes foi enviado: o texto, as datas, as pessoas, as ligações a outras decisões, os ficheiros e os painéis de extensões ficam só de leitura, e apenas os cards vinculados e os [diagramas](#decision-diagrams) anexados ainda podem mudar. Para a editar, clique em **Recolher assinaturas**, o que a devolve a rascunho. Um signatário que clique em **Rejeitar** também a devolve a rascunho, com o mesmo número de revisão.
+**Uma decisão em revisão fica bloqueada**, para que os signatários assinem exatamente o que lhes foi enviado: o texto, as datas, as pessoas, as ligações a outras decisões, os ficheiros e os painéis de extensões ficam só de leitura, e apenas os cards vinculados e os [diagramas](#decision-diagrams) anexados ainda podem mudar. Para a editar, clique em **Recolher assinaturas**, o que a devolve a rascunho.
+
+Um signatário pendente que não assine tem duas opções, cada uma com um motivo (até 4000 carateres) do qual todos os outros signatários e o autor são notificados:
+
+- **Solicitar alterações** devolve a decisão para retrabalho: volta a ser um rascunho editável, com o mesmo número de revisão, marcado como **Alterações solicitadas**. Edite-a e solicite assinaturas novamente; a marca desaparece então. Até à versão 2.221.0 era isto que **Rejeitar** fazia.
+- **Rejeitar** encerra a decisão: continua a ser um rascunho, marcado como **Rejeitada**, e fica bloqueada até que alguém a reabra. Basta um único signatário para rejeitar.
+
+Pela parte do autor, quem tem `adr.manage` pode **Retirar** um rascunho guardado ou uma decisão em revisão, com um motivo: os pedidos de assinatura pendentes são cancelados, os seus signatários são notificados e a decisão é encerrada, marcada como **Retirada**. **Reabrir** transforma uma decisão rejeitada ou retirada de novo num rascunho normal que pode ser editado e enviado novamente para revisão. Cada passo aparece na cronologia do [Histórico](#decision-history).
 
 ADR assinados ficam bloqueados e não podem ser editados — para mudanças crie uma nova revisão.
 
@@ -284,6 +305,7 @@ Abra um ADR assinado e escolha **Revisar → Revisar esta decisão** para criar 
 - **A revisão atual é a que está em vigor.** Quando uma revisão está assinada e efetiva, as anteriores ficam **Substituídas** e mostram um banner com uma ligação para a atual. A faixa **Revisões** em cada revisão lista a cadeia completa e assinala a atual.
 - **Só a revisão atual pode ser revisada**, e não depois de a decisão ter sido revogada ou substituída. Uma decisão expirada ou alterada ainda pode ser revisada.
 - **Uma rejeição não conta como revisão**: o número de revisão só muda quando é criada uma nova revisão.
+- **Uma revisão rejeitada ou retirada continua a ser a revisão aberta.** Continua a impedir uma nova revisão da sua decisão, e o menu **Rever** nomeia-a (*Abrir a revisão em rascunho (ADR-012 · Rev 3, Rejeitada)*). Para tentar novamente, abra-a e clique em **Reabrir**; ou elimine-a para iniciar uma revisão nova.
 - As decisões revisadas antes da versão 2.199.0 mantêm os números de referência com que foram emitidas, e continuam a ler-se como uma única decisão com uma única faixa de revisões.
 
 #### Pré-visualização {: #preview }
@@ -303,10 +325,10 @@ Cada decisão tem a sua própria **Discussão**, para que uma decisão possa ser
 - **Formatação.** Um comentário aceita negrito, itálico, tachado, **Código em linha**, listas com marcadores e numeradas, citações e [ligações](#decision-text-links) (o botão **Ligação** ou Ctrl/Cmd+K). Títulos, blocos de código, imagens e tabelas pertencem às secções, não aos comentários.
 - **Quem pode publicar.** A leitura da discussão segue quem pode abrir a decisão (`adr.view`). Publicar, responder, resolver e reabrir exigem a permissão `adr.comment`, que os membros e administradores têm por predefinição e os visualizadores não; um administrador pode alterá-la por papel. Os signatários da decisão podem sempre comentá-la, incluindo as pessoas a quem foi pedido que a assinassem numa ronda de revisão anterior que foi recolhida ou rejeitada.
 - **Durante a revisão e após a assinatura.** O [bloqueio de revisão](#fluxo-de-assinatura) abrange o conteúdo, não a conversa: a discussão continua aberta enquanto a decisão está em revisão e depois de assinada.
-- **Notas de revisão.** Quando um signatário rejeita uma decisão, o motivo abre um tópico marcado como **Motivo da rejeição** (*Nenhum motivo indicado* quando o signatário o deixou vazio), que se responde e resolve como qualquer outro. Um signatário pode acrescentar uma nota opcional ao assinar; esta aparece na discussão como **Nota de assinatura**. Nenhum dos dois se perde já quando as assinaturas são recolhidas, e ambos aparecem também no [Histórico](#decision-history).
-- **Tópicos abertos antes da revisão.** **Solicitar assinaturas**, **Assinar** e **Rejeitar** avisam quando a decisão ainda tem tópicos abertos (*2 tópicos de discussão abertos neste documento.*). É apenas um aviso: nada é bloqueado.
+- **Notas de revisão.** Quando um signatário rejeita uma decisão, o motivo abre um tópico marcado como **Motivo da rejeição** (*Nenhum motivo indicado* quando o signatário o deixou vazio), que se responde e resolve como qualquer outro; um pedido de alterações abre um marcado como **Alterações solicitadas**. O motivo de uma retirada fica guardado na decisão e no Histórico, não na discussão. Um signatário pode acrescentar uma nota opcional ao assinar; esta aparece na discussão como **Nota de assinatura**. Nenhum dos dois se perde já quando as assinaturas são recolhidas, e ambos aparecem também no [Histórico](#decision-history).
+- **Tópicos abertos antes da revisão.** **Solicitar assinaturas**, **Assinar**, **Solicitar alterações**, **Rejeitar** e **Retirar** avisam quando a decisão ainda tem tópicos abertos (*2 tópicos de discussão abertos neste documento.*). É apenas um aviso: nada é bloqueado.
 - **Notificações.** Um novo comentário notifica o autor da decisão, os seus signatários, os seus decisores e participantes que sejam utilizadores do Turbo EA, e as pessoas que comentaram antes — nunca quem o publicou. Escreva **@** num comentário para mencionar um colega: este recebe uma notificação de menção em vez disso. Alguém que mencione e que não possa abrir a decisão não é notificado, e o painel indica-o (*… não foi notificado: não pode abrir este documento.*). As notificações não trazem o texto do comentário, e clicar numa abre a pré-visualização da decisão com o painel nesse tópico. Ver [Notificações](notifications.md#tipos-de-notificacao).
-- **Editar e eliminar.** Pode editar os seus próprios comentários; um comentário editado é marcado como *(editado)*. Pode eliminar os seus próprios comentários, e quem pode editar a decisão (`adr.manage`) pode eliminar qualquer comentário; um comentário eliminado reduz-se, no seu lugar, a uma pequena linha com o seu autor, a sua data e *Comentário eliminado*. Eliminar o primeiro comentário de um tópico fecha o tópico: as respostas já existentes mantêm-se, mas ninguém pode responder-lhe, resolvê-lo ou reabri-lo. Um motivo de rejeição e uma nota de assinatura não podem ser editados nem eliminados: uma rejeição é resolvida em vez disso.
+- **Editar e eliminar.** Pode editar os seus próprios comentários; um comentário editado é marcado como *(editado)*. Pode eliminar os seus próprios comentários, e quem pode editar a decisão (`adr.manage`) pode eliminar qualquer comentário; um comentário eliminado reduz-se, no seu lugar, a uma pequena linha com o seu autor, a sua data e *Comentário eliminado*. Eliminar o primeiro comentário de um tópico fecha o tópico: as respostas já existentes mantêm-se, mas ninguém pode responder-lhe, resolvê-lo ou reabri-lo. Um motivo de rejeição, um pedido de alterações e uma nota de assinatura não podem ser editados nem eliminados: os dois primeiros são resolvidos em vez disso.
 - **Revisões anteriores.** Um tópico pertence à revisão em que foi iniciado. Ative **Mostrar a discussão de revisões anteriores** para ler os tópicos das revisões anteriores da decisão, agrupados por revisão.
 
 #### Menções {: #decision-mentions }
@@ -322,13 +344,13 @@ Ao redigir uma decisão, escreva **@** em qualquer uma das suas quatro seções 
 
 #### Histórico {: #decision-history }
 
-O botão **Histórico** no topo do editor ou da pré-visualização da decisão, ao lado da faixa de revisões quando a decisão tem várias revisões, abre uma vista ampla: a cronologia à esquerda, a versão selecionada à direita. A cronologia regista o que aconteceu à decisão, do mais recente para o mais antigo: criada, guardada, enviada para revisão, cada assinatura (com a sua nota), rejeitada (com o motivo), assinaturas recolhidas, totalmente assinada, registada como decidida, uma revisão iniciada, uma versão anterior restaurada. Todos os que podem abrir a decisão veem esta cronologia. Os eventos de revisão — enviada para revisão, assinada, recolhida, rejeitada — são guardados a partir da versão 2.200.0; antes, eram mostrados em direto mas nunca armazenados. As decisões que existiam antes dessa versão começam com uma cronologia reconstruída a partir do que estava armazenado: criada, revista, enviada para revisão (para uma decisão em revisão no momento da atualização, com os signatários a quem foi enviada), cada assinatura, assinada e registada.
+O botão **Histórico** no topo do editor ou da pré-visualização da decisão, ao lado da faixa de revisões quando a decisão tem várias revisões, abre uma vista ampla: a cronologia à esquerda, a versão selecionada à direita. A cronologia regista o que aconteceu à decisão, do mais recente para o mais antigo: criada, guardada, enviada para revisão, cada assinatura (com a sua nota), alterações solicitadas, rejeitada e retirada (cada uma com o motivo), reaberta, assinaturas recolhidas, totalmente assinada, registada como decidida, uma revisão iniciada, uma versão anterior restaurada. Todos os que podem abrir a decisão veem esta cronologia. Os eventos de revisão — enviada para revisão, assinada, recolhida, rejeitada — são guardados a partir da versão 2.200.0; antes, eram mostrados em direto mas nunca armazenados. As decisões que existiam antes dessa versão começam com uma cronologia reconstruída a partir do que estava armazenado: criada, revista, enviada para revisão (para uma decisão em revisão no momento da atualização, com os signatários a quem foi enviada), cada assinatura, assinada e registada.
 
 O Histórico não é a tabela **Histórico de versões do documento**, mantida à mão, de um [Statement of Architecture Work](delivery.md#o-editor-de-soaw), que regista o que os autores decidem escrever nela.
 
 - **Versões.** É guardada uma versão sempre que um rascunho é guardado com alterações. Contém o título, as quatro seções, as datas, o resumo das alterações e as pessoas; as ligações a outras decisões, os cards vinculados, os ficheiros e os diagramas não fazem parte de uma versão. Os passos que contêm uma versão estão assinalados na cronologia; as pessoas que podem editar a decisão e os seus signatários selecionam um para o mostrar à direita, e a versão mais recente fica selecionada quando a vista abre. Os outros leitores veem a cronologia sem as versões (*As versões guardadas só são mostradas a editores e signatários.*). Num ecrã estreito, a vista mostra primeiro a cronologia e depois a versão selecionada com um botão **Voltar**.
 - **Alterações.** Por cima da versão selecionada, **Versão** mostra-a tal como foi guardada e **Alterações** mostra o que mudou entre ela e a versão anterior, palavra a palavra em cada seção, juntamente com as datas e as pessoas que mudaram; escolha qualquer outra versão em **Comparar com**. Só as versões já carregadas na cronologia podem ser comparadas: quando a versão anterior à selecionada ainda não está carregada, **Alterações** indica-o, e **Carregar mais** carrega-a. Uma alteração apenas de formatação é indicada como *Apenas formatação: as palavras são as mesmas.*; uma ligação cujo endereço mudou conta como alteração, e uma linha de tabela lê-se como uma só linha, com as células separadas por ` | `.
-- **Restaurar.** Num rascunho, quem pode editar a decisão pode restaurar a versão selecionada com **Restaurar esta versão**. O restauro só avança: o texto, as datas e as pessoas da versão substituem os do rascunho e são guardados como uma nova versão, e o estado do rascunho antes do restauro fica no histórico. As ligações a outras decisões, os cards vinculados, os ficheiros e os diagramas não são restaurados. Quando o editor tem edições não guardadas, a confirmação avisa que serão descartadas. Depois do restauro, a página mostra a decisão restaurada e a vista fecha-se. Uma decisão em revisão ou assinada não pode ser restaurada.
+- **Restaurar.** Num rascunho, quem pode editar a decisão pode restaurar a versão selecionada com **Restaurar esta versão**. O restauro só avança: o texto, as datas e as pessoas da versão substituem os do rascunho e são guardados como uma nova versão, e o estado do rascunho antes do restauro fica no histórico. As ligações a outras decisões, os cards vinculados, os ficheiros e os diagramas não são restaurados. Quando o editor tem edições não guardadas, a confirmação avisa que serão descartadas. Depois do restauro, a página mostra a decisão restaurada e a vista fecha-se. Uma decisão em revisão, assinada ou encerrada (rejeitada ou retirada) não pode ser restaurada; reabra primeiro uma encerrada.
 
 #### Limitações conhecidas {: #collaboration-limits }
 

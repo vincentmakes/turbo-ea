@@ -16,15 +16,17 @@ export interface SoawEditorFields {
 }
 
 /**
- * The PATCH / POST body for a save. In review the content is locked and the
- * API accepts the initiative link alone (it is filing, not content), so only
- * that field is sent; any other field would be refused with a 403.
+ * The PATCH / POST body for a save. In review, and on a closed (rejected or
+ * withdrawn) draft, the content is locked and the API accepts the initiative
+ * link alone (it is filing, not content), so only that field is sent; any
+ * other field would be refused with a 403.
  */
 export function soawSavePayload(
   status: string,
   fields: SoawEditorFields,
+  closed = false,
 ): SoawEditorFields | Pick<SoawEditorFields, "initiative_id"> {
-  if (status === "in_review") return { initiative_id: fields.initiative_id };
+  if (status === "in_review" || closed) return { initiative_id: fields.initiative_id };
   return fields;
 }
 
@@ -117,17 +119,18 @@ export function soawEditorFields(state: SoawEditorState): SoawEditorFields {
 }
 
 /**
- * Whether Save is offered: never on a signed document; in review only when
- * the initiative link (the one thing review leaves editable) was changed.
+ * Whether Save is offered: never on a signed document; in review, and on a
+ * closed draft, only when the initiative link (the one thing the lock leaves
+ * editable) was changed.
  */
-export function canSaveSoaw(status: string, initiativeChanged: boolean): boolean {
+export function canSaveSoaw(status: string, initiativeChanged: boolean, closed = false): boolean {
   if (status === "signed") return false;
-  return status !== "in_review" || initiativeChanged;
+  return (status !== "in_review" && !closed) || initiativeChanged;
 }
 
-/** Signatures can be requested on a draft or an approved document only. */
-export function canRequestSoawSignatures(status: string): boolean {
-  return status === "draft" || status === "approved";
+/** Signatures can be requested on a draft or an approved document that is not closed. */
+export function canRequestSoawSignatures(status: string, closed = false): boolean {
+  return !closed && (status === "draft" || status === "approved");
 }
 
 /** "New revision" is offered on a signed document that is not itself an

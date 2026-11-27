@@ -11,6 +11,7 @@ import type { ArchitectureDecision } from "@/types";
 import ReviseMenu, {
   createRevision,
   isClosed,
+  openRevisionOutcome,
   reviseFailure,
   reviseMenuState,
   successorDraft,
@@ -207,6 +208,41 @@ describe("ReviseMenu", () => {
     expect(api.post).not.toHaveBeenCalled();
     expect(screen.getByTestId("where")).toHaveTextContent("/ea-delivery/adr/r5");
     expect(onNotice).toHaveBeenCalledWith("A revision is already being drafted: it is now open.");
+  });
+
+  it("names a rejected revision being drafted and says to reopen it there", async () => {
+    const OPEN = { id: "r5", reference_number: "ADR-012", revision_number: 3, title: "Use Kafka" };
+    const adr: ArchitectureDecision = {
+      ...ADR,
+      open_revision: OPEN,
+      revisions: [
+        { ...OPEN, revision_number: 2, id: "a1", status: "signed", standing: "in_force" },
+        { ...OPEN, status: "draft", standing: null, outcome: "rejected" },
+      ],
+    };
+    expect(openRevisionOutcome(adr)).toBe("rejected");
+    renderMenu(adr);
+    const menu = await openMenu();
+    const item = menu.getByRole("menuitem", {
+      name: /Open the revision being drafted \(ADR-012 · Rev 3, Rejected\)/,
+    });
+    expect(item).toHaveTextContent("It is closed: reopen it there to try again");
+    await userEvent.click(item);
+    expect(api.post).not.toHaveBeenCalled();
+    expect(screen.getByTestId("where")).toHaveTextContent("/ea-delivery/adr/r5");
+  });
+
+  it("names a revision sent back for changes without the closed hint", () => {
+    const OPEN = { id: "r5", reference_number: "ADR-012", revision_number: 3, title: "Use Kafka" };
+    expect(
+      openRevisionOutcome({
+        ...ADR,
+        open_revision: OPEN,
+        revisions: [{ ...OPEN, status: "draft", standing: null, outcome: "changes_requested" }],
+      }),
+    ).toBe("changes_requested");
+    expect(openRevisionOutcome({ ...ADR, open_revision: OPEN })).toBeNull();
+    expect(openRevisionOutcome(ADR)).toBeNull();
   });
 
   it("replaces with a new draft carrying the link and the cards", async () => {

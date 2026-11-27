@@ -257,6 +257,25 @@ describe("DeliverableSection — status chips", () => {
     expect(chipOf("archived")).toHaveClass("MuiChip-colorDefault");
   });
 
+  it("labels a SoAW draft with a review outcome by the outcome", () => {
+    renderSection(
+      <DeliverableSection
+        kind="soaw"
+        items={[
+          soaw({
+            id: "s1",
+            name: "One",
+            status: "draft",
+            outcome: { kind: "withdrawn", at: "2026-11-27T10:00:00Z", by: null, note: null },
+          }),
+        ]}
+      />,
+    );
+    expect(screen.queryByText("Draft")).toBeNull();
+    expect(chipOf("Withdrawn")).toHaveClass("MuiChip-colorDefault");
+    expect(chipOf("Withdrawn")).toHaveClass("MuiChip-outlined");
+  });
+
   it("labels and colours every ADR status from the shared vocabulary", () => {
     renderSection(
       <DeliverableSection

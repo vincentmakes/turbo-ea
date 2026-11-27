@@ -104,6 +104,7 @@ def _to_ext_decision(
         effective_from=_iso(adr.effective_from),
         valid_until=_iso(adr.valid_until),
         recorded=adr.recorded_at is not None,
+        outcome=adr.outcome,
     )
 
 

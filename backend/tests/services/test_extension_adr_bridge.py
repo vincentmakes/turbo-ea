@@ -159,7 +159,8 @@ class TestCreateDraft:
             out.effective_from,
             out.valid_until,
             out.recorded,
-        ) == (None, True, None, None, None, False)
+            out.outcome,
+        ) == (None, True, None, None, None, False, None)
         row = (
             await db.execute(
                 select(ArchitectureDecision).where(ArchitectureDecision.id == uuid.UUID(out.id))
@@ -434,6 +435,22 @@ class TestGet:
         )
         assert current.valid_until is None
         assert (open_draft.standing, open_draft.is_current) == (None, False)
+
+    async def test_the_review_outcome_is_carried(self, db, env):
+        """SDK 1.21: ``outcome`` names how a review ended; ``status`` stays draft."""
+        load_registry(grants=["core.adr.read"])
+        rows = {
+            kind: ArchitectureDecision(
+                reference_number=f"ADR-0{20 + n}", title=kind, status="draft", outcome=kind
+            )
+            for n, kind in enumerate(("changes_requested", "rejected", "withdrawn"))
+        }
+        db.add_all(rows.values())
+        await db.flush()
+        bridge = ExtensionDecisions(KEY)
+        for kind, row in rows.items():
+            got = await bridge.get(str(row.id))
+            assert (got.status, got.outcome) == ("draft", kind)
 
 
 class TestSessionDiscipline:

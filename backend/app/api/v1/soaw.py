@@ -14,7 +14,7 @@ from app.database import get_db
 from app.models.soaw import SoAW
 from app.models.todo import Todo
 from app.models.user import User
-from app.services import document_collab, notification_service, soaw_service
+from app.services import document_collab, notification_service, review_outcome, soaw_service
 from app.services import document_discussion_service as discussion
 from app.services import document_history_service as history
 from app.services.event_bus import event_bus
@@ -93,6 +93,7 @@ def _row_to_dict(s: SoAW, chains: soaw_service.SoAWChains) -> dict:
         "parent_id": str(s.parent_id) if s.parent_id else None,
         "signatories": s.signatories or [],
         "signed_at": s.signed_at.isoformat() if s.signed_at else None,
+        "outcome": review_outcome.outcome_payload(s),
         **soaw_service.chain_fields(chains, s.id),
     }
 
@@ -147,6 +148,40 @@ async def _get_soaw(db: AsyncSession, soaw_id: str) -> SoAW:
     return s
 
 
+async def _close_sign_todos(db: AsyncSession, s: SoAW) -> None:
+    """Mark every open sign to-do of ``s`` done (matched by its link: revisions
+    of one SoAW share a name)."""
+    sign_todos = await db.execute(
+        select(Todo).where(
+            Todo.is_system == True,  # noqa: E712
+            Todo.status == "open",
+            Todo.link == soaw_service.soaw_link(s.id),
+        )
+    )
+    for t in sign_todos.scalars().all():
+        t.status = "done"
+
+
+async def _require_signer_permission(db: AsyncSession, user: User) -> None:
+    """Signing and its verdicts: ``soaw.sign``, or ``soaw.manage`` (which kept
+    the right when ``soaw.sign`` was introduced)."""
+    can_sign = await PermissionService.check_permission(
+        db, user, "soaw.sign"
+    ) or await PermissionService.check_permission(db, user, "soaw.manage")
+    if not can_sign:
+        raise HTTPException(403, "Insufficient permissions")
+
+
+def _event_payload(s: SoAW, user: User) -> dict:
+    """The keys every review-outcome event carries."""
+    return {
+        "id": str(s.id),
+        "name": s.name,
+        "revision_number": s.revision_number,
+        "actor": user.display_name,
+    }
+
+
 # ---------------------------------------------------------------------------
 # CRUD Endpoints
 # ---------------------------------------------------------------------------
@@ -156,6 +191,9 @@ async def _get_soaw(db: AsyncSession, soaw_id: str) -> SoAW:
 async def list_soaws(
     initiative_id: str | None = Query(None),
     include_earlier: bool = Query(True),
+    include_closed: bool = Query(
+        True, description="Also list closed documents (rejected or withdrawn)"
+    ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -169,7 +207,13 @@ async def list_soaws(
     out = [_row_to_dict(s, chains) for s in rows]
     return await _render(
         db,
-        [r for r in out if soaw_service.keep_in_list(r, include_earlier=include_earlier)],
+        [
+            r
+            for r in out
+            if soaw_service.keep_in_list(
+                r, include_earlier=include_earlier, include_closed=include_closed
+            )
+        ],
         user,
     )
 
@@ -229,9 +273,12 @@ async def update_soaw(
 
     # Signed: no edit at all. Status moves with their own endpoint: 400. In
     # review: only the initiative (filing) may change.
-    _refuse(soaw_service.update_refusal(s.status, body.status, body.model_fields_set))
-    # Whether this save may change content: a draft, or a legacy approved SoAW.
-    was_draft = soaw_service.content_editable(s.status)
+    _refuse(
+        soaw_service.update_refusal(s.status, body.status, body.model_fields_set, outcome=s.outcome)
+    )
+    # Whether this save may change content: a draft that is not closed, or a
+    # legacy approved SoAW.
+    was_draft = soaw_service.content_editable(s.status, s.outcome)
     # The content before this save touches the row: the first recorded save
     # keeps it as the baseline version.
     before = history.snapshot_of(document_collab.SOAW, s) if was_draft else None
@@ -272,7 +319,7 @@ async def delete_soaw(
 ):
     await PermissionService.require_permission(db, user, "soaw.manage")
     s = await _get_soaw(db, soaw_id)
-    _refuse(soaw_service.delete_refusal(s.status))
+    _refuse(soaw_service.delete_refusal(s.status, s.outcome))
     await db.delete(s)
     await db.commit()
 
@@ -293,7 +340,7 @@ async def request_signatures(
     await PermissionService.require_permission(db, user, "soaw.manage")
     s = await _get_soaw(db, soaw_id)
 
-    _refuse(soaw_service.request_refusal(s.status))
+    _refuse(soaw_service.request_refusal(s.status, s.outcome))
     label = soaw_service.soaw_label(s.name, s.revision_number)
     link = soaw_service.soaw_link(s.id)
 
@@ -318,6 +365,8 @@ async def request_signatures(
     s.signatories = signatories
     flag_modified(s, "signatories")
     s.status = "in_review"
+    # Sent again: the changes asked for are taken as made.
+    review_outcome.clear_outcome(s)
     await document_collab.on_workflow(
         db, document_collab.SOAW, s, "sent_for_review", user=user, signatories=signatories
     )
@@ -379,11 +428,7 @@ async def sign_soaw(
     # Signing is gated by the dedicated `soaw.sign` permission (mirrors
     # `adr.py`'s sign_adr → `adr.sign`); `soaw.manage` holders retain the
     # ability too so the change never removes an existing capability.
-    can_sign = await PermissionService.check_permission(
-        db, user, "soaw.sign"
-    ) or await PermissionService.check_permission(db, user, "soaw.manage")
-    if not can_sign:
-        raise HTTPException(403, "Insufficient permissions")
+    await _require_signer_permission(db, user)
     s = await _get_soaw(db, soaw_id)
 
     if s.status == "signed":
@@ -505,15 +550,7 @@ async def recall_signatures(
     label = soaw_service.soaw_label(s.name, s.revision_number)
 
     # Close pending sign-request todos
-    sign_todos = await db.execute(
-        select(Todo).where(
-            Todo.is_system == True,  # noqa: E712
-            Todo.status == "open",
-            Todo.link == soaw_service.soaw_link(s.id),
-        )
-    )
-    for t in sign_todos.scalars().all():
-        t.status = "done"
+    await _close_sign_todos(db, s)
 
     # Notify pending signatories that the request was recalled
     for sig in s.signatories or []:
@@ -550,6 +587,98 @@ async def recall_signatures(
     return await _respond(db, s, user)
 
 
+#: A signatory's verdict short of a signature: the timeline step it writes
+#: (the event is ``soaw.<step>``) and how the notification names it.
+_VERDICTS: dict[str, tuple[str, str, str]] = {
+    review_outcome.CHANGES_REQUESTED: (
+        "changes_requested",
+        "SoAW Changes Requested",
+        "requested changes to",
+    ),
+    review_outcome.REJECTED: ("rejected", "SoAW Rejected", "rejected"),
+}
+
+
+async def _review_verdict(
+    db: AsyncSession, soaw_id: str, body: RejectRequest, user: User, outcome: str
+) -> SoAW:
+    """End a review on a signatory's verdict: request changes or reject.
+
+    The shared body of both routes, like signing: a signatory holding
+    ``soaw.sign`` (or ``soaw.manage``) of a SoAW in review. Signatories
+    cleared, back to ``draft`` (the revision number stays: revisions count
+    signed versions), every open sign to-do closed, the creator and the
+    other signatories notified (``soaw_rejected``, ``data.outcome`` naming
+    the verdict), ``outcome`` recorded, the timeline step written (which
+    opens a thread carrying the reason) and the event published; the route
+    commits.
+    """
+    step, title, verb = _VERDICTS[outcome]
+    await _require_signer_permission(db, user)
+    s = await _get_soaw(db, soaw_id)
+
+    if s.status != "in_review":
+        raise HTTPException(400, "Only documents in review can be rejected or sent back")
+
+    signatories = list(s.signatories or [])
+    if not any(sig["user_id"] == str(user.id) for sig in signatories):
+        raise HTTPException(403, "You are not a signatory of this document")
+    label = soaw_service.soaw_label(s.name, s.revision_number)
+
+    await _close_sign_todos(db, s)
+
+    recipients = ([s.created_by] if s.created_by else []) + [
+        uuid.UUID(sig["user_id"]) for sig in signatories if sig["user_id"] != str(user.id)
+    ]
+    for recipient in recipients:
+        await notification_service.create_notification(
+            db,
+            user_id=recipient,
+            actor_id=user.id,
+            notif_type="soaw_rejected",
+            title=title,
+            message=f'{user.display_name} {verb} "{label}": {body.comment}',
+            link=f"/ea-delivery/soaw/{soaw_id}",
+            data={
+                "soaw_id": soaw_id,
+                "soaw_name": s.name,
+                "revision_number": s.revision_number,
+                "comment": body.comment,
+                "outcome": outcome,
+            },
+        )
+
+    s.signatories = []
+    flag_modified(s, "signatories")
+    s.status = "draft"
+    review_outcome.set_outcome(s, outcome, user=user, note=body.comment)
+    await document_collab.on_workflow(
+        db, document_collab.SOAW, s, step, user=user, note=body.comment
+    )
+
+    payload: dict = {**_event_payload(s, user), "outcome": outcome}
+    if outcome == review_outcome.REJECTED:
+        payload["rejector"] = user.display_name
+    await event_bus.publish(f"soaw.{step}", payload, db=db, user_id=user.id)
+    return s
+
+
+@router.post("/{soaw_id}/request-changes")
+async def request_soaw_changes(
+    soaw_id: str,
+    body: RejectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Send the SoAW back for changes, as a signatory: an editable draft
+    again with outcome ``changes_requested`` (cleared when signatures are
+    requested again) and a ``change_request`` thread carrying the reason."""
+    s = await _review_verdict(db, soaw_id, body, user, review_outcome.CHANGES_REQUESTED)
+    await db.commit()
+    await db.refresh(s)
+    return await _detail(db, s, user)
+
+
 @router.post("/{soaw_id}/reject")
 async def reject_soaw(
     soaw_id: str,
@@ -557,96 +686,93 @@ async def reject_soaw(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Reject the SoAW as a signatory. Resets to draft (the revision number
-    stays: revisions count signed versions), clears all signatories, notifies
-    the creator and opens a rejection thread carrying the reason.
+    """Reject the SoAW, as a signatory: it closes (outcome ``rejected``),
+    stays a draft that is locked until it is reopened, and a ``rejection``
+    thread carries the reason. Sending it back to be worked on is
+    ``request-changes``."""
+    s = await _review_verdict(db, soaw_id, body, user, review_outcome.REJECTED)
+    await db.commit()
+    await db.refresh(s)
+    return await _detail(db, s, user)
 
-    Like signing: a signatory holding ``soaw.sign`` (or ``soaw.manage``)."""
-    can_sign = await PermissionService.check_permission(
-        db, user, "soaw.sign"
-    ) or await PermissionService.check_permission(db, user, "soaw.manage")
-    if not can_sign:
-        raise HTTPException(403, "Insufficient permissions")
+
+@router.post("/{soaw_id}/withdraw")
+async def withdraw_soaw(
+    soaw_id: str,
+    body: RejectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Withdraw a draft or a SoAW in review (``soaw.manage``): it closes
+    (outcome ``withdrawn``, the reason as its note) until it is reopened. In
+    review, the sign to-dos close and the pending signatories are told, as on
+    a recall. 400 when signed, 409 ``closed`` when already closed."""
+    await PermissionService.require_permission(db, user, "soaw.manage")
     s = await _get_soaw(db, soaw_id)
-
-    if s.status != "in_review":
-        raise HTTPException(400, "Only documents in review can be rejected")
-
-    signatories = list(s.signatories or [])
-    if not any(sig["user_id"] == str(user.id) for sig in signatories):
-        raise HTTPException(403, "You are not a signatory of this document")
+    _refuse(review_outcome.withdraw_refusal(s))
     label = soaw_service.soaw_label(s.name, s.revision_number)
 
-    # Close all pending sign-request todos
-    sign_todos = await db.execute(
-        select(Todo).where(
-            Todo.is_system == True,  # noqa: E712
-            Todo.status == "open",
-            Todo.link == soaw_service.soaw_link(s.id),
-        )
-    )
-    for t in sign_todos.scalars().all():
-        t.status = "done"
-
-    # Notify the creator
-    if s.created_by:
-        await notification_service.create_notification(
-            db,
-            user_id=s.created_by,
-            actor_id=user.id,
-            notif_type="soaw_rejected",
-            title="SoAW Rejected",
-            message=(f'{user.display_name} rejected "{label}": {body.comment}'),
-            link=f"/ea-delivery/soaw/{soaw_id}",
-            data={
-                "soaw_id": soaw_id,
-                "soaw_name": s.name,
-                "revision_number": s.revision_number,
-                "comment": body.comment,
-            },
-        )
-
-    # Notify other signatories
-    for sig in signatories:
-        if sig["user_id"] != str(user.id):
-            await notification_service.create_notification(
-                db,
-                user_id=uuid.UUID(sig["user_id"]),
-                actor_id=user.id,
-                notif_type="soaw_rejected",
-                title="SoAW Rejected",
-                message=(f'{user.display_name} rejected "{label}": {body.comment}'),
-                link=f"/ea-delivery/soaw/{soaw_id}",
-                data={
-                    "soaw_id": soaw_id,
-                    "soaw_name": s.name,
-                    "revision_number": s.revision_number,
-                    "comment": body.comment,
-                },
-            )
+    if s.status == "in_review":
+        await _close_sign_todos(db, s)
+        for sig in s.signatories or []:
+            if sig["status"] == "pending":
+                await notification_service.create_notification(
+                    db,
+                    user_id=uuid.UUID(sig["user_id"]),
+                    actor_id=user.id,
+                    notif_type="soaw_sign_recalled",
+                    title="SoAW Withdrawn",
+                    message=f'{user.display_name} withdrew "{label}": {body.comment}',
+                    link=f"/ea-delivery/soaw/{soaw_id}",
+                    data={
+                        "soaw_id": soaw_id,
+                        "soaw_name": s.name,
+                        "revision_number": s.revision_number,
+                        "outcome": review_outcome.WITHDRAWN,
+                    },
+                )
 
     s.signatories = []
     flag_modified(s, "signatories")
     s.status = "draft"
+    review_outcome.set_outcome(s, review_outcome.WITHDRAWN, user=user, note=body.comment)
     await document_collab.on_workflow(
-        db, document_collab.SOAW, s, "rejected", user=user, note=body.comment
+        db, document_collab.SOAW, s, "withdrawn", user=user, note=body.comment
     )
-
     await event_bus.publish(
-        "soaw.rejected",
-        {
-            "id": soaw_id,
-            "name": s.name,
-            "revision_number": s.revision_number,
-            "rejector": user.display_name,
-        },
+        "soaw.withdrawn",
+        {**_event_payload(s, user), "outcome": review_outcome.WITHDRAWN},
         db=db,
         user_id=user.id,
     )
     await db.commit()
     await db.refresh(s)
+    return await _detail(db, s, user)
 
-    return await _respond(db, s, user)
+
+@router.post("/{soaw_id}/reopen")
+async def reopen_soaw(
+    soaw_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Reopen a rejected or withdrawn SoAW (``soaw.manage``): a plain,
+    editable draft again. 409 ``not_closed`` otherwise."""
+    await PermissionService.require_permission(db, user, "soaw.manage")
+    s = await _get_soaw(db, soaw_id)
+    _refuse(review_outcome.reopen_refusal(s))
+
+    review_outcome.clear_outcome(s)
+    await document_collab.on_workflow(db, document_collab.SOAW, s, "reopened", user=user)
+    await event_bus.publish(
+        "soaw.reopened",
+        {**_event_payload(s, user), "outcome": None},
+        db=db,
+        user_id=user.id,
+    )
+    await db.commit()
+    await db.refresh(s)
+    return await _detail(db, s, user)
 
 
 @router.post("/{soaw_id}/revise")

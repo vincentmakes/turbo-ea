@@ -135,6 +135,8 @@ class DecisionRow:
     effective_from: date | None = None
     valid_until: date | None = None
     recorded: bool = False
+    # The review outcome (``services/review_outcome.py``); standing ignores it.
+    outcome: str | None = None
 
 
 @dataclass(frozen=True)
@@ -520,6 +522,7 @@ async def load_register(db: AsyncSession, *, today: date | None = None) -> Regis
             adr.effective_from,
             adr.valid_until,
             adr.recorded_at,
+            adr.outcome,
         )
     )
     decisions = [
@@ -535,6 +538,7 @@ async def load_register(db: AsyncSession, *, today: date | None = None) -> Regis
             effective_from=r.effective_from,
             valid_until=r.valid_until,
             recorded=r.recorded_at is not None,
+            outcome=r.outcome,
         )
         for r in decision_rows.all()
     ]

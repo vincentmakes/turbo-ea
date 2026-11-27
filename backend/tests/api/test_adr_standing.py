@@ -102,7 +102,9 @@ class TestStanding:
         assert adr["valid_until"] is None
         assert adr["recorded_at"] is None
         assert adr["recorded_by"] is None
-        assert adr["revisions"] == [{**_ref(adr), "status": "signed", "standing": "in_force"}]
+        assert adr["revisions"] == [
+            {**_ref(adr), "status": "signed", "standing": "in_force", "outcome": None}
+        ]
         row = (await _list(client, env["viewer"]))[adr["id"]]
         assert row["standing"] == "in_force"
         assert row["is_current"] is True
@@ -194,8 +196,8 @@ class TestStanding:
         assert got["is_current"] is False
         assert got["superseded_by"] == _ref(second)
         assert second["revisions"] == [
-            {**_ref(got), "status": "signed", "standing": "superseded"},
-            {**_ref(second), "status": "signed", "standing": "in_force"},
+            {**_ref(got), "status": "signed", "standing": "superseded", "outcome": None},
+            {**_ref(second), "status": "signed", "standing": "in_force", "outcome": None},
         ]
 
         everything = await _list(client, admin)

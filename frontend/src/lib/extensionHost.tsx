@@ -170,9 +170,19 @@ import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSide
 import LifecycleSection from "@/features/cards/sections/LifecycleSection";
 import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
-import type { ArchitectureDecision, Card, CardPanelFocus, DecisionStanding } from "@/types";
+import type {
+  ArchitectureDecision,
+  Card,
+  CardPanelFocus,
+  DecisionStanding,
+  ReviewOutcomeKind,
+} from "@/types";
 
-export const UI_SDK_VERSION = "1.39";
+// SDK 1.40 — ADR panels receive the decision's review `outcome`
+// (changes_requested | rejected | withdrawn, null for none), and `readOnly` is
+// also true on a closed decision (rejected or withdrawn): it stays a draft
+// but is locked until it is reopened. `status` keeps its three values.
+export const UI_SDK_VERSION = "1.40";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -318,8 +328,9 @@ export interface ExtensionAdrPanelProps {
   // the decision's attributes. Since SDK 1.34 it is true whenever the decision
   // is not a draft — in review as well as signed, because a decision sent for
   // review is locked so signatories sign exactly what they were sent — and
-  // always on the read-only preview page. Gate editing on `readOnly`, never on
-  // `signed` or `status`.
+  // always on the read-only preview page. Since SDK 1.40 it is also true on a
+  // closed decision (rejected or withdrawn: a draft locked until reopened).
+  // Gate editing on `readOnly`, never on `signed` or `status`.
   readOnly: boolean;
   // SDK 1.34: where a signed decision stands today (scheduled | in_force |
   // amended | superseded | revoked | expired), null before signing, and
@@ -327,6 +338,11 @@ export interface ExtensionAdrPanelProps {
   // them.
   standing?: DecisionStanding | null;
   isCurrent?: boolean;
+  // SDK 1.40: how the last review ended without a signature —
+  // changes_requested (an editable draft sent back), rejected or withdrawn
+  // (closed: the decision is a locked draft until reopened, and `readOnly` is
+  // true) — or null for none. Optional: older hosts omit it.
+  outcome?: ReviewOutcomeKind | null;
 }
 
 /**

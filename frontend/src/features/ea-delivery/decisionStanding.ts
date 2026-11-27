@@ -12,7 +12,9 @@ import type {
   ArchitectureDecision,
   DecisionLinkKind,
   DecisionStanding,
+  ReviewOutcome,
 } from "@/types";
+import { outcomeChip } from "./reviewOutcome";
 
 /** A `t` bound to the `delivery` namespace. */
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -65,6 +67,7 @@ export const RECORDED_CHIP: ChipStyle = {
 
 type StatusFields = Pick<ArchitectureDecision, "status"> & {
   recorded_at?: string | null;
+  outcome?: ReviewOutcome | null;
 };
 
 /** Signed by being recorded as decided outside Turbo EA (no signatures). */
@@ -72,24 +75,35 @@ export function isRecorded(adr: StatusFields): boolean {
   return adr.status === "signed" && Boolean(adr.recorded_at);
 }
 
-/** The chip style for a decision's status; "Recorded" for a recorded decision. */
+/**
+ * The chip style for a decision's status; "Recorded" for a recorded decision,
+ * and the review outcome ("Changes requested", "Rejected", "Withdrawn") in
+ * place of "Draft" on a draft that has one (`reviewOutcome.ts`).
+ */
 export function statusChip(adr: StatusFields): ChipStyle {
   if (isRecorded(adr)) return RECORDED_CHIP;
+  if (adr.status === "draft") {
+    const outcome = outcomeChip(adr);
+    if (outcome) return outcome;
+  }
   return STATUS_CHIP[adr.status] ?? STATUS_CHIP.draft;
 }
 
-/** The status label key; "Recorded" for a recorded decision. */
+/** The status label key; "Recorded" for a recorded decision, the outcome on a draft with one. */
 export function statusLabelKey(adr: StatusFields): string {
   return statusChip(adr).labelKey;
 }
 
 /**
  * The content of a decision (or a SoAW) is locked from the moment it is sent
- * for review: editing means recalling the signatures first.
+ * for review: editing means recalling the signatures first. A closed
+ * document (rejected or withdrawn, `reviewOutcome.ts`) is locked too, until
+ * it is reopened; pass its `closed` flag.
  */
-export function isLocked(status: string | null | undefined): boolean {
-  return status === "in_review" || status === "signed";
+export function isLocked(status: string | null | undefined, closed = false): boolean {
+  return closed || status === "in_review" || status === "signed";
 }
+
 
 // --- standing ----------------------------------------------------------------
 

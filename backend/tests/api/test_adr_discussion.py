@@ -648,6 +648,47 @@ class TestWorkflow:
         detail = await _call(client, env, "GET", f"{ADR}/{adr['id']}")
         assert detail["open_thread_count"] == 1
 
+    async def test_a_request_for_changes_opens_a_change_request_thread(self, client, env):
+        adr = await _adr(client, env)
+        await _request(client, env, adr["id"], "one")
+        await _call(
+            client,
+            env,
+            "POST",
+            f"{ADR}/{adr['id']}/request-changes",
+            who="one",
+            json={"comment": "Add the costs"},
+        )
+        listing = await _list(client, env, adr["id"])
+        (thread,) = listing["threads"]
+        assert (thread["kind"], thread["body"], thread["author_name"]) == (
+            "change_request",
+            "<p>Add the costs</p>",
+            "One",
+        )
+        assert listing["open_count"] == 1
+        assert thread["can"] == {"edit": False, "delete": False, "resolve": True}
+        path = f"{ADR}/{adr['id']}/comments/{thread['id']}"
+        resp = await _call(client, env, "DELETE", path, who="admin", status=403)
+        assert _detail(resp) == "A rejection reason is resolved, not deleted"
+        await _call(client, env, "POST", f"{path}/resolve")
+        assert (await _list(client, env, adr["id"]))["open_count"] == 0
+        assert ("changes_requested", "One", "Add the costs") in await self._timeline(
+            client, env, adr["id"]
+        )
+
+    async def test_a_withdrawal_and_a_reopen_open_no_thread(self, client, env):
+        adr = await _adr(client, env)
+        await _call(
+            client, env, "POST", f"{ADR}/{adr['id']}/withdraw", json={"comment": "Not needed"}
+        )
+        await _call(client, env, "POST", f"{ADR}/{adr['id']}/reopen")
+        assert (await _list(client, env, adr["id"]))["threads"] == []
+        assert (await self._timeline(client, env, adr["id"]))[-2:] == [
+            ("withdrawn", "Ada", "Not needed"),
+            ("reopened", "Ada", None),
+        ]
+
     async def test_an_empty_reason_opens_an_empty_thread(self, client, env):
         adr = await _adr(client, env)
         await _request(client, env, adr["id"], "one")

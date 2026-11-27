@@ -1389,6 +1389,8 @@ export interface SoAW {
   revisions?: SoAWRevision[];
   /** Detail only: unresolved discussion threads on this revision. */
   open_thread_count?: number;
+  /** How the last review ended without a signature (null = none). */
+  outcome?: ReviewOutcome | null;
 }
 
 /** A pointer to another revision of a SoAW chain. */
@@ -1401,6 +1403,25 @@ export interface SoAWRef {
 export interface SoAWRevision extends SoAWRef {
   status: SoAW["status"];
   signed_at?: string | null;
+  /** The revision's review outcome kind, if any. */
+  outcome?: ReviewOutcomeKind | null;
+}
+
+/**
+ * How a review ended without a signature (fixed vocabulary, never configurable).
+ * `changes_requested` returns an editable draft; `rejected` and `withdrawn`
+ * close the document (locked until reopened). A document with an outcome is
+ * always `status: "draft"`.
+ */
+export type ReviewOutcomeKind = "changes_requested" | "rejected" | "withdrawn";
+
+/** The outcome stored on a decision or SoAW (`outcome` on detail and list rows). */
+export interface ReviewOutcome {
+  kind: ReviewOutcomeKind;
+  at: string | null;
+  /** `null` when the user is gone and no name was kept; `id` null when only the name was kept. */
+  by: { id: string | null; display_name: string } | null;
+  note: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1496,6 +1517,8 @@ export interface AdrLinkedDiagram {
 export interface DecisionRevision extends DecisionRef {
   status: ArchitectureDecision["status"];
   standing: DecisionStanding | null;
+  /** The revision's review outcome kind, if any. */
+  outcome?: ReviewOutcomeKind | null;
 }
 
 export interface ArchitectureDecision {
@@ -1562,6 +1585,8 @@ export interface ArchitectureDecision {
   diagrams?: AdrLinkedDiagram[];
   /** Detail only: unresolved discussion threads on this revision. */
   open_thread_count?: number;
+  /** How the last review ended without a signature (null = none). */
+  outcome?: ReviewOutcome | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1582,8 +1607,9 @@ export interface DocumentUserRef {
   display_name: string;
 }
 
-/** `rejection`: a review was rejected with this reason; `sign_note`: a signer's note. */
-export type DocumentCommentKind = "comment" | "rejection" | "sign_note";
+/** `rejection`: a review was rejected with this reason; `change_request`: a
+ *  signatory asked for changes with this reason; `sign_note`: a signer's note. */
+export type DocumentCommentKind = "comment" | "rejection" | "change_request" | "sign_note";
 
 /** One comment, top-level or a reply (`GET /{adr|soaw}/{id}/comments`). */
 export interface DocumentComment {
@@ -1631,7 +1657,10 @@ export type DocumentHistoryKind =
   | "sent_for_review"
   | "signature"
   | "signed"
+  | "changes_requested"
   | "rejected"
+  | "withdrawn"
+  | "reopened"
   | "recalled"
   | "recorded";
 

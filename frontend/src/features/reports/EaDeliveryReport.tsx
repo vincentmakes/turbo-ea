@@ -22,6 +22,7 @@ import NewArtefactSplitButton, {
 import { UNLINKED_KEY } from "@/features/ea-delivery/initiatives/InitiativeTreeSidebar";
 import CreateDiagramDialog from "@/features/diagrams/CreateDiagramDialog";
 import type { Card, DiagramSummary, SoAW } from "@/types";
+import { isClosed } from "@/features/ea-delivery/reviewOutcome";
 import type { useInitiativeData } from "@/features/ea-delivery/initiatives";
 
 /**
@@ -312,8 +313,9 @@ export default function EaDeliveryReport() {
             <ListItemText>{t("menu.edit")}</ListItemText>
           </MenuItem>
         )}
-        {/* Only a draft can be deleted (the API refuses anything else). */}
-        {canManageSoaw && ctxMenu?.soaw.status === "draft" && (
+        {/* Only a draft can be deleted (the API refuses anything else); a
+            closed one (rejected or withdrawn) is reopened first. */}
+        {canManageSoaw && ctxMenu?.soaw.status === "draft" && !isClosed(ctxMenu.soaw) && (
           <MenuItem
             onClick={() => ctxMenu && handleDeleteSoaw(ctxMenu.soaw.id)}
             sx={{ color: "error.main" }}

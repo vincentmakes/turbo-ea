@@ -43,6 +43,7 @@ import SectionDiscussionMarker from "./collab/SectionDiscussionMarker";
 import { documentPeopleIds } from "./mentions/mentionModel";
 import MentionedInList from "./collab/MentionedInList";
 import { sectionOptions } from "./collab/discussionModel";
+import { isClosed } from "./reviewOutcome";
 import type { ArchitectureDecision } from "@/types";
 import { RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
@@ -125,6 +126,7 @@ export default function ADRPreview() {
         owner={{ kind: "adr", id }}
         label={`${decisionRefLabel(adr, t)} · ${adr.title}`}
         status={adr.status}
+        closed={isClosed(adr)}
         refreshKey={adr.updated_at ?? undefined}
         onRestored={(restored) => setAdr(restored)}
         compact={placeCompact}
@@ -413,6 +415,7 @@ export default function ADRPreview() {
                     readOnly
                     standing={adr.standing ?? null}
                     isCurrent={adr.is_current}
+                    outcome={adr.outcome?.kind ?? null}
                   />
                 </ExtensionBoundary>
               </Box>

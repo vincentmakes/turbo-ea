@@ -352,7 +352,8 @@ class TestAdrStatusError:
             "message": 'ADR statuses are "draft", "in_review", and "signed". '
             + tail
             + " Standing (in force, superseded, revoked, …) is derived from signed "
-            "decisions and their links, never set.",
+            "decisions and their links, never set. A rejected or withdrawn decision "
+            "is a draft with an outcome, set in the web UI.",
         }
 
 

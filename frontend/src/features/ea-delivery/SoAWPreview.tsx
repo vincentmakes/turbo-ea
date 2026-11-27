@@ -17,6 +17,7 @@ import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { SoawBanners } from "./DecisionBanners";
+import { isClosed, outcomeChipProps } from "./reviewOutcome";
 import RevisionStrip, { showsRevisionStrip, soawRevisionItems } from "./RevisionStrip";
 import { soawCurrentRevisionId } from "./soawEditorState";
 import MentionContainer from "./mentions/MentionContainer";
@@ -153,6 +154,8 @@ export default function SoAWPreview() {
   const handleExportPdf = () =>
     exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
 
+  // A review outcome ("Rejected", …) stands in for "Draft" on the status chip.
+  const outcomeChip = outcomeChipProps(soaw, t);
   const stripItems = soawRevisionItems(soaw.revisions ?? [], t);
   const stripShown = showsRevisionStrip(stripItems);
   const historyButton = (placeCompact: boolean) =>
@@ -161,6 +164,7 @@ export default function SoAWPreview() {
         owner={{ kind: "soaw", id }}
         label={soaw.name}
         status={soaw.status}
+        closed={isClosed(soaw)}
         refreshKey={soaw.updated_at}
         onRestored={(restored) => setSoaw(restored)}
         compact={placeCompact}
@@ -203,9 +207,10 @@ export default function SoAWPreview() {
           {soaw.name}
         </Typography>
         <Chip
-          label={STATUS_LABELS[soaw.status] ?? soaw.status}
+          label={outcomeChip?.label ?? STATUS_LABELS[soaw.status] ?? soaw.status}
           size="small"
-          color={STATUS_COLORS[soaw.status] ?? "default"}
+          color={outcomeChip?.color ?? STATUS_COLORS[soaw.status] ?? "default"}
+          variant={outcomeChip?.variant ?? "filled"}
         />
         {!stripShown && historyButton(compact)}
         <Tooltip title={t("preview.copyLink")}>

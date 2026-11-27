@@ -357,10 +357,10 @@ describe("EaDeliveryReport — create callbacks before the workspace reported it
 });
 
 describe("EaDeliveryReport — the SoAW context menu", () => {
-  async function openMenu() {
+  async function openMenu(extra: Record<string, unknown> = {}) {
     const anchor = document.createElement("div");
     document.body.appendChild(anchor);
-    await call("InitiativesTab", "onSoawContextMenu", anchor, { id: "soaw-1", status: "draft" });
+    await call("InitiativesTab", "onSoawContextMenu", anchor, { id: "soaw-1", status: "draft", ...extra });
     return screen.findByRole("menu");
   }
 
@@ -370,6 +370,15 @@ describe("EaDeliveryReport — the SoAW context menu", () => {
     expect(screen.getByText("Preview")).toBeInTheDocument();
     expect(screen.getByText("Edit")).toBeInTheDocument();
     expect(screen.getByText("Delete")).toBeInTheDocument();
+  });
+
+  it("offers no Delete on a closed draft (it is reopened first)", async () => {
+    renderPage();
+    await openMenu({
+      outcome: { kind: "withdrawn", at: "2026-11-27T10:00:00Z", by: null, note: null },
+    });
+    expect(screen.getByText("Edit")).toBeInTheDocument();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 
   it("closes after opening the preview", async () => {

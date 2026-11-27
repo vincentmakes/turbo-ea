@@ -2,8 +2,9 @@
  * The banners on top of a decision (or a SoAW) page that say where it stands:
  * an earlier revision pointing to the current one, superseded, revoked,
  * amended, scheduled, expired, a change scheduled to take effect, a revision
- * being drafted, an amendment consolidated elsewhere, the in-review lock, and
- * the "recorded, not signed" line.
+ * being drafted, an amendment consolidated elsewhere, the review outcome
+ * (changes requested, rejected, withdrawn: who, when and why), the in-review
+ * and closed locks, and the "recorded, not signed" line.
  *
  * Presentational only: everything is computed from the payload the page
  * already holds. `buildDecisionBanners` / `buildSoawBanners` are the pure part.
@@ -15,9 +16,11 @@ import Stack from "@mui/material/Stack";
 import { Link as RouterLink } from "react-router";
 import { useTranslation } from "react-i18next";
 
+import LinkifiedText from "@/components/LinkifiedText";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import type { ArchitectureDecision, DecisionRef, SoAW } from "@/types";
+import type { ArchitectureDecision, DecisionRef, ReviewOutcome, ReviewOutcomeKind, SoAW } from "@/types";
 import { decisionRefLabel, revisionLabel, type Translate } from "./decisionStanding";
+import { isClosed, outcomeKind, outcomeSentence } from "./reviewOutcome";
 
 export type BannerMode = "editor" | "preview";
 
@@ -34,6 +37,46 @@ export interface Banner {
   links: BannerLink[];
   /** Offer "Create consolidated revision". */
   consolidate?: boolean;
+  /** Free text a person typed (a review outcome's reason), shown after the
+   *  message through `LinkifiedText`. */
+  reason?: string;
+}
+
+/** Banner id and severity per outcome kind. */
+const OUTCOME_BANNER: Record<ReviewOutcomeKind, { id: string; severity: AlertColor }> = {
+  changes_requested: { id: "changes-requested", severity: "warning" },
+  rejected: { id: "rejected", severity: "error" },
+  withdrawn: { id: "withdrawn", severity: "info" },
+};
+
+/**
+ * The review outcome banner of a decision or SoAW draft: "Rejected by Ada on
+ * 27 Nov 2026:" followed by the reason. Null when there is no outcome (or the
+ * document is no longer a draft).
+ */
+function outcomeBanner(
+  doc: { status?: string; outcome?: ReviewOutcome | null },
+  t: Translate,
+  formatDate: (value: string | null | undefined) => string,
+): Banner | null {
+  const kind = outcomeKind(doc);
+  const message = outcomeSentence(doc, t, formatDate);
+  if (!kind || message === null) return null;
+  const spec = OUTCOME_BANNER[kind];
+  // The reason is free text: it is rendered after the message, linkified, and
+  // never interpolated into the translated sentence.
+  return {
+    id: spec.id,
+    severity: spec.severity,
+    message,
+    links: [],
+    reason: doc.outcome?.note || t("collab.discussion.noReason"),
+  };
+}
+
+/** The lock line of a closed document (editor only). */
+function closedLockBanner(t: Translate): Banner {
+  return { id: "closed-lock", severity: "info", message: t("adr.banner.closedLock"), links: [] };
 }
 
 interface BuildOptions {
@@ -142,8 +185,14 @@ export function buildDecisionBanners(
     });
   }
 
+  const outcome = outcomeBanner(adr, t, formatDate);
+  if (outcome) out.push(outcome);
+
   if (mode === "editor" && adr.status === "in_review") {
     out.push({ id: "in-review", severity: "info", message: t("adr.banner.inReviewLock"), links: [] });
+  }
+  if (mode === "editor" && isClosed(adr)) {
+    out.push(closedLockBanner(t));
   }
 
   if (adr.status === "signed" && adr.recorded_at) {
@@ -162,10 +211,20 @@ export function buildDecisionBanners(
   return out;
 }
 
-/** The SoAW page's banners: earlier revision, revision being drafted, review lock. */
+type SoawBannerFields = Pick<
+  SoAW,
+  "status" | "is_earlier_revision" | "superseded_by" | "open_revision" | "outcome"
+>;
+
+/** The SoAW page's banners: earlier revision, revision being drafted, the
+ *  review outcome, the review and closed locks. */
 export function buildSoawBanners(
-  soaw: Pick<SoAW, "status" | "is_earlier_revision" | "superseded_by" | "open_revision">,
-  { mode, t }: Omit<BuildOptions, "formatDate">,
+  soaw: SoawBannerFields,
+  {
+    mode,
+    t,
+    formatDate = (v) => v ?? "",
+  }: Omit<BuildOptions, "formatDate"> & { formatDate?: BuildOptions["formatDate"] },
 ): Banner[] {
   const out: Banner[] = [];
   if (soaw.is_earlier_revision && soaw.superseded_by) {
@@ -188,8 +247,13 @@ export function buildSoawBanners(
       links: [{ id: soaw.open_revision.id, label: t("adr.banner.open") }],
     });
   }
+  const outcome = outcomeBanner(soaw, t, formatDate);
+  if (outcome) out.push(outcome);
   if (mode === "editor" && soaw.status === "in_review") {
     out.push({ id: "in-review", severity: "info", message: t("adr.banner.inReviewLock"), links: [] });
+  }
+  if (mode === "editor" && isClosed(soaw)) {
+    out.push(closedLockBanner(t));
   }
   return out;
 }
@@ -225,6 +289,14 @@ function BannerList({
             }
           >
             {b.message}
+            {b.reason !== undefined && (
+              <>
+                {" "}
+                <Box component="span" data-banner-reason sx={{ whiteSpace: "pre-wrap" }}>
+                  <LinkifiedText text={b.reason} />
+                </Box>
+              </>
+            )}
             {!single && (b.links.length > 0 || b.consolidate) && (
               <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1, mt: 0.5 }}>
                 {b.links.map((l) => (
@@ -289,7 +361,7 @@ export default function DecisionBanners({
 }
 
 export interface SoawBannersProps {
-  soaw: Pick<SoAW, "status" | "is_earlier_revision" | "superseded_by" | "open_revision">;
+  soaw: SoawBannerFields;
   mode: BannerMode;
   /** Where a SoAW link goes; defaults to the SoAW editor route. */
   hrefFor?: (id: string) => string;
@@ -297,5 +369,6 @@ export interface SoawBannersProps {
 
 export function SoawBanners({ soaw, mode, hrefFor = soawHref }: SoawBannersProps) {
   const { t } = useTranslation("delivery");
-  return <BannerList banners={buildSoawBanners(soaw, { mode, t })} hrefFor={hrefFor} />;
+  const { formatDate } = useDateFormat();
+  return <BannerList banners={buildSoawBanners(soaw, { mode, t, formatDate })} hrefFor={hrefFor} />;
 }

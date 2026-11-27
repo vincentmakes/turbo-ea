@@ -1064,72 +1064,470 @@ class TestReviseADR:
 
 
 # -------------------------------------------------------------------
-# POST /adr/{id}/reject
+# Review outcomes: request-changes, reject, withdraw, reopen
 # -------------------------------------------------------------------
 
+ADR = "/api/v1/adr"
 
-class TestRejectADR:
-    async def test_reject_resets_to_draft_without_a_revision_bump(self, client, db, adr_env):
-        admin, member = adr_env["admin"], adr_env["member"]
-        adr_id = (await _create_adr(client, admin, title="Rejectable")).json()["id"]
-        await client.post(
-            f"/api/v1/adr/{adr_id}/request-signatures",
-            json={"user_ids": [str(member.id)]},
-            headers=auth_headers(admin),
+
+async def _in_review(client, admin, signers, title="Reviewed", **extra) -> str:
+    adr_id = (await _create_adr(client, admin, title=title, **extra)).json()["id"]
+    resp = await client.post(
+        f"{ADR}/{adr_id}/request-signatures",
+        json={"user_ids": [str(s.id) for s in signers]},
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 200, resp.text
+    return adr_id
+
+
+async def _closed(client, adr_env, outcome="rejected", **extra) -> str:
+    """A decision rejected by the member, or withdrawn by the admin."""
+    admin, member = adr_env["admin"], adr_env["member"]
+    adr_id = await _in_review(client, admin, [member], title="Closed", **extra)
+    if outcome == "rejected":
+        resp = await client.post(
+            f"{ADR}/{adr_id}/reject", json={"comment": "No"}, headers=auth_headers(member)
         )
+    else:
+        resp = await client.post(
+            f"{ADR}/{adr_id}/withdraw", json={"comment": "Gone"}, headers=auth_headers(admin)
+        )
+    assert resp.status_code == 200, resp.text
+    return adr_id
+
+
+async def _open_sign_todos(db, adr_id) -> list[Todo]:
+    rows = await db.execute(
+        select(Todo).where(Todo.link == f"/ea-delivery/adr/{adr_id}", Todo.status == "open")
+    )
+    return list(rows.scalars().all())
+
+
+class TestRequestChanges:
+    async def test_back_to_an_editable_draft_without_a_revision_bump(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = await _in_review(client, admin, [member], title="Rejectable")
 
         resp = await client.post(
-            f"/api/v1/adr/{adr_id}/reject",
+            f"{ADR}/{adr_id}/request-changes",
             json={"comment": "Needs numbers"},
             headers=auth_headers(member),
         )
 
-        assert resp.status_code == 200
+        assert resp.status_code == 200, resp.text
         data = resp.json()
         assert (data["status"], data["revision_number"], data["signatories"]) == (
             "draft",
             1,
             [],
         )
+        outcome = data["outcome"]
+        assert (outcome["kind"], outcome["note"]) == ("changes_requested", "Needs numbers")
+        assert outcome["by"] == {"id": str(member.id), "display_name": member.display_name}
+        assert outcome["at"] is not None
+        assert await _open_sign_todos(db, adr_id) == []
+        event = (
+            await db.execute(select(Event).where(Event.event_type == "adr.changes_requested"))
+        ).scalar_one()
+        assert event.data["revision_number"] == 1
+
+        # Still editable, and sending it again clears the flag.
+        patched = await client.patch(
+            f"{ADR}/{adr_id}", json={"context": "<p>Numbers</p>"}, headers=auth_headers(admin)
+        )
+        assert patched.status_code == 200, patched.text
+        assert patched.json()["outcome"]["kind"] == "changes_requested"
+        resent = await client.post(
+            f"{ADR}/{adr_id}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resent.status_code == 200, resent.text
+        assert (resent.json()["status"], resent.json()["outcome"]) == ("in_review", None)
+
+    async def test_a_non_signatory_cannot_request_changes(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = await _in_review(client, admin, [member])
+        resp = await client.post(
+            f"{ADR}/{adr_id}/request-changes", json={"comment": "x"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 403
+
+    async def test_without_adr_sign_is_403(self, client, db, adr_env):
+        admin, viewer = adr_env["admin"], adr_env["viewer"]
+        adr_id = await _in_review(client, admin, [viewer])
+        resp = await client.post(
+            f"{ADR}/{adr_id}/request-changes", json={"comment": "x"}, headers=auth_headers(viewer)
+        )
+        assert resp.status_code == 403
+
+    async def test_only_in_review_and_a_capped_reason(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        draft_id = (await _create_adr(client, admin, title="Draft")).json()["id"]
+        resp = await client.post(
+            f"{ADR}/{draft_id}/request-changes", json={"comment": "x"}, headers=auth_headers(member)
+        )
+        assert resp.status_code == 400
+        adr_id = await _in_review(client, admin, [member])
+        for body in ({"comment": "x" * 4001}, {}):
+            resp = await client.post(
+                f"{ADR}/{adr_id}/request-changes", json=body, headers=auth_headers(member)
+            )
+            assert resp.status_code == 422
+
+
+class TestRejectADR:
+    async def test_reject_closes_the_decision(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = await _in_review(client, admin, [member], title="Rejectable")
+
+        resp = await client.post(
+            f"{ADR}/{adr_id}/reject",
+            json={"comment": "Too costly"},
+            headers=auth_headers(member),
+        )
+
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert (data["status"], data["revision_number"], data["signatories"]) == (
+            "draft",
+            1,
+            [],
+        )
+        assert (data["outcome"]["kind"], data["outcome"]["note"]) == ("rejected", "Too costly")
+        assert await _open_sign_todos(db, adr_id) == []
         event = (
             await db.execute(select(Event).where(Event.event_type == "adr.rejected"))
         ).scalar_one()
-        assert event.data["revision_number"] == 1
+        assert (event.data["revision_number"], event.data["outcome"]) == (1, "rejected")
 
     async def test_a_rejected_revision_keeps_its_number(self, client, db, adr_env):
         admin, member = adr_env["admin"], adr_env["member"]
         adr_id = (await _create_adr(client, admin, title="Chain")).json()["id"]
         await _sign_adr(client, admin, [admin], adr_id)
-        rev = (
-            await client.post(f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(admin))
-        ).json()
+        rev = (await client.post(f"{ADR}/{adr_id}/revise", headers=auth_headers(admin))).json()
         await client.post(
-            f"/api/v1/adr/{rev['id']}/request-signatures",
+            f"{ADR}/{rev['id']}/request-signatures",
             json={"user_ids": [str(member.id)]},
             headers=auth_headers(admin),
         )
 
         resp = await client.post(
-            f"/api/v1/adr/{rev['id']}/reject",
+            f"{ADR}/{rev['id']}/reject",
             json={"comment": "No"},
             headers=auth_headers(member),
         )
 
         assert resp.status_code == 200
         assert (resp.json()["status"], resp.json()["revision_number"]) == ("draft", 2)
+        assert resp.json()["outcome"]["kind"] == "rejected"
 
     async def test_a_non_signatory_cannot_reject(self, client, db, adr_env):
         admin, member = adr_env["admin"], adr_env["member"]
-        adr_id = (await _create_adr(client, admin, title="Mine")).json()["id"]
+        adr_id = await _in_review(client, admin, [member], title="Mine")
+        resp = await client.post(
+            f"{ADR}/{adr_id}/reject", json={"comment": "x"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 403
+
+    async def test_a_closed_decision_cannot_be_rejected_again(self, client, db, adr_env):
+        adr_id = await _closed(client, adr_env)
+        resp = await client.post(
+            f"{ADR}/{adr_id}/reject",
+            json={"comment": "again"},
+            headers=auth_headers(adr_env["member"]),
+        )
+        assert resp.status_code == 400
+
+    async def test_an_over_long_reason_is_422(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = await _in_review(client, admin, [member])
+        resp = await client.post(
+            f"{ADR}/{adr_id}/reject", json={"comment": "x" * 4001}, headers=auth_headers(member)
+        )
+        assert resp.status_code == 422
+
+
+class TestWithdrawADR:
+    async def test_withdraw_a_draft(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Drafty")).json()["id"]
+        resp = await client.post(
+            f"{ADR}/{adr_id}/withdraw",
+            json={"comment": "Not needed"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert (data["status"], data["outcome"]["kind"], data["outcome"]["note"]) == (
+            "draft",
+            "withdrawn",
+            "Not needed",
+        )
+
+    async def test_withdraw_in_review_closes_todos_and_tells_the_signers(self, client, db, adr_env):
+        from app.models.notification import Notification
+
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = await _in_review(client, admin, [member])
+        assert len(await _open_sign_todos(db, adr_id)) == 1
+
+        resp = await client.post(
+            f"{ADR}/{adr_id}/withdraw", json={"comment": "Rethink"}, headers=auth_headers(admin)
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert (resp.json()["status"], resp.json()["signatories"]) == ("draft", [])
+        assert resp.json()["outcome"]["kind"] == "withdrawn"
+        assert await _open_sign_todos(db, adr_id) == []
+        notes = (
+            (
+                await db.execute(
+                    select(Notification).where(
+                        Notification.user_id == member.id,
+                        Notification.type == "adr_sign_recalled",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [n.data["outcome"] for n in notes] == ["withdrawn"]
+
+    async def test_without_adr_manage_is_403(self, client, db, adr_env):
+        adr_id = (await _create_adr(client, adr_env["admin"])).json()["id"]
+        resp = await client.post(
+            f"{ADR}/{adr_id}/withdraw",
+            json={"comment": "x"},
+            headers=auth_headers(adr_env["viewer"]),
+        )
+        assert resp.status_code == 403
+
+    async def test_signed_is_400_and_closed_is_409(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        signed_id = (await _create_adr(client, admin, title="Signed")).json()["id"]
+        await _sign_adr(client, admin, [admin], signed_id)
+        resp = await client.post(
+            f"{ADR}/{signed_id}/withdraw", json={"comment": "x"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 400
+
+        closed_id = await _closed(client, adr_env)
+        resp = await client.post(
+            f"{ADR}/{closed_id}/withdraw", json={"comment": "x"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == {"error": "closed", "outcome": "rejected"}
+
+    async def test_an_over_long_reason_is_422(self, client, db, adr_env):
+        adr_id = (await _create_adr(client, adr_env["admin"])).json()["id"]
+        resp = await client.post(
+            f"{ADR}/{adr_id}/withdraw",
+            json={"comment": "x" * 4001},
+            headers=auth_headers(adr_env["admin"]),
+        )
+        assert resp.status_code == 422
+
+
+class TestReopenADR:
+    @pytest.mark.parametrize("outcome", ["rejected", "withdrawn"])
+    async def test_reopen_makes_a_plain_editable_draft(self, client, db, adr_env, outcome):
+        admin = adr_env["admin"]
+        adr_id = await _closed(client, adr_env, outcome)
+
+        resp = await client.post(f"{ADR}/{adr_id}/reopen", headers=auth_headers(adr_env["member"]))
+
+        assert resp.status_code == 200, resp.text
+        assert (resp.json()["status"], resp.json()["outcome"]) == ("draft", None)
+        patched = await client.patch(
+            f"{ADR}/{adr_id}", json={"title": "Again"}, headers=auth_headers(admin)
+        )
+        assert patched.status_code == 200, patched.text
+
+    async def test_without_adr_manage_is_403(self, client, db, adr_env):
+        adr_id = await _closed(client, adr_env)
+        resp = await client.post(f"{ADR}/{adr_id}/reopen", headers=auth_headers(adr_env["viewer"]))
+        assert resp.status_code == 403
+
+    async def test_not_closed_is_409(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        draft_id = (await _create_adr(client, admin)).json()["id"]
+        resp = await client.post(f"{ADR}/{draft_id}/reopen", headers=auth_headers(admin))
+        assert (resp.status_code, resp.json()["detail"]) == (409, {"error": "not_closed"})
+
+        sent_back = await _in_review(client, admin, [member])
         await client.post(
-            f"/api/v1/adr/{adr_id}/request-signatures",
+            f"{ADR}/{sent_back}/request-changes",
+            json={"comment": "x"},
+            headers=auth_headers(member),
+        )
+        resp = await client.post(f"{ADR}/{sent_back}/reopen", headers=auth_headers(admin))
+        assert resp.status_code == 409
+
+
+class TestClosedLock:
+    async def test_patch_content_403_filing_passes(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        card_type = await create_card_type(db, key="Application", label="Application")
+        card = await create_card(db, card_type=card_type.key, name="Billing")
+        adr_id = await _closed(client, adr_env)
+
+        resp = await client.patch(
+            f"{ADR}/{adr_id}", json={"context": "<p>x</p>"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"].endswith("Reopen it to edit it.")
+        resp = await client.patch(
+            f"{ADR}/{adr_id}",
+            json={"linked_card_ids": [str(card.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [c["id"] for c in resp.json()["linked_cards"]] == [str(card.id)]
+
+    async def test_files_are_locked(self, client, db, adr_env):
+        adr_id = await _closed(client, adr_env, "withdrawn")
+        resp = await client.post(
+            f"{ADR}/{adr_id}/files",
+            files={"file": ("plan.pdf", b"%PDF-1.7\n", "application/pdf")},
+            headers=auth_headers(adr_env["admin"]),
+        )
+        assert resp.status_code == 403
+        resp = await client.delete(
+            f"{ADR}/{adr_id}/files/{uuid.uuid4()}", headers=auth_headers(adr_env["admin"])
+        )
+        assert resp.status_code == 403
+
+    async def test_request_signatures_record_and_restore_are_409(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = await _closed(client, adr_env)
+        closed = {"error": "closed", "outcome": "rejected"}
+
+        resp = await client.post(
+            f"{ADR}/{adr_id}/request-signatures",
             json={"user_ids": [str(member.id)]},
             headers=auth_headers(admin),
         )
+        assert (resp.status_code, resp.json()["detail"]) == (409, closed)
         resp = await client.post(
-            f"/api/v1/adr/{adr_id}/reject", json={"comment": "x"}, headers=auth_headers(admin)
+            f"{ADR}/{adr_id}/record", json={"decided_on": "2026-01-15"}, headers=auth_headers(admin)
         )
+        assert (resp.status_code, resp.json()["detail"]) == (409, closed)
+        resp = await client.post(
+            f"{ADR}/{adr_id}/history/{uuid.uuid4()}/restore", headers=auth_headers(admin)
+        )
+        assert (resp.status_code, resp.json()["detail"]) == (409, closed)
+        history = await client.get(f"{ADR}/{adr_id}/history", headers=auth_headers(admin))
+        assert history.json()["can_restore"] is False
+
+    async def test_delete_needs_adr_delete(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = (await _create_adr(client, member, title="Member's")).json()["id"]
+        await client.post(
+            f"{ADR}/{adr_id}/withdraw", json={"comment": "x"}, headers=auth_headers(member)
+        )
+
+        resp = await client.delete(f"{ADR}/{adr_id}", headers=auth_headers(member))
         assert resp.status_code == 403
+        resp = await client.delete(f"{ADR}/{adr_id}", headers=auth_headers(admin))
+        assert resp.status_code == 204
+
+    async def test_a_closed_revision_still_blocks_revise_until_reopened(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = (await _create_adr(client, admin, title="Chain")).json()["id"]
+        await _sign_adr(client, admin, [admin], adr_id)
+        rev = (await client.post(f"{ADR}/{adr_id}/revise", headers=auth_headers(admin))).json()
+        await client.post(
+            f"{ADR}/{rev['id']}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+        await client.post(
+            f"{ADR}/{rev['id']}/reject", json={"comment": "No"}, headers=auth_headers(member)
+        )
+
+        resp = await client.post(f"{ADR}/{adr_id}/revise", headers=auth_headers(admin))
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == {
+            "error": "open_revision_exists",
+            "revision_id": rev["id"],
+        }
+        parent = (await client.get(f"{ADR}/{adr_id}", headers=auth_headers(admin))).json()
+        assert parent["open_revision"]["id"] == rev["id"]
+        assert [r["outcome"] for r in parent["revisions"]] == [None, "rejected"]
+
+        await client.post(f"{ADR}/{rev['id']}/reopen", headers=auth_headers(admin))
+        patched = await client.patch(
+            f"{ADR}/{rev['id']}", json={"title": "Chain v2"}, headers=auth_headers(admin)
+        )
+        assert patched.status_code == 200, patched.text
+
+
+class TestOutcomeListFilters:
+    async def test_outcome_and_include_closed(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        rejected = await _closed(client, adr_env, "rejected")
+        withdrawn = await _closed(client, adr_env, "withdrawn")
+        sent_back = await _in_review(client, admin, [member], title="Sent back")
+        await client.post(
+            f"{ADR}/{sent_back}/request-changes",
+            json={"comment": "x"},
+            headers=auth_headers(member),
+        )
+        plain = (await _create_adr(client, admin, title="Plain")).json()["id"]
+
+        async def ids(**params):
+            resp = await client.get(ADR, params=params, headers=auth_headers(adr_env["viewer"]))
+            assert resp.status_code == 200, resp.text
+            return {row["id"]: row["outcome"] for row in resp.json()}
+
+        everything = await ids()
+        assert set(everything) == {rejected, withdrawn, sent_back, plain}
+        assert everything[plain] is None
+        assert everything[rejected]["kind"] == "rejected"
+        assert set(await ids(include_closed="false")) == {sent_back, plain}
+        assert set(await ids(outcome="rejected,changes_requested")) == {rejected, sent_back}
+        assert set(await ids(outcome="withdrawn", include_closed="false")) == set()
+
+    async def test_an_unknown_outcome_is_400(self, client, db, adr_env):
+        resp = await client.get(
+            ADR, params={"outcome": "closed"}, headers=auth_headers(adr_env["admin"])
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == {"error": "unknown_outcome", "values": ["closed"]}
+
+    async def test_by_card(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        card_type = await create_card_type(db, key="Application", label="Application")
+        card = await create_card(db, card_type=card_type.key, name="Billing")
+        rejected = await _closed(client, adr_env, linked_card_ids=[str(card.id)])
+        plain = (await _create_adr(client, admin, linked_card_ids=[str(card.id)])).json()["id"]
+        url = f"{ADR}/by-card/{card.id}"
+
+        resp = await client.get(url, headers=auth_headers(admin))
+        assert {r["id"] for r in resp.json()} == {rejected, plain}
+        resp = await client.get(
+            url, params={"include_closed": "false"}, headers=auth_headers(admin)
+        )
+        assert [r["id"] for r in resp.json()] == [plain]
+        resp = await client.get(url, params={"outcome": "rejected"}, headers=auth_headers(admin))
+        assert [r["id"] for r in resp.json()] == [rejected]
+        resp = await client.get(url, params={"outcome": "nope"}, headers=auth_headers(admin))
+        assert resp.status_code == 400
+
+
+class TestPatchStatus:
+    async def test_an_unknown_status_is_400(self, client, db, adr_env):
+        adr_id = (await _create_adr(client, adr_env["admin"])).json()["id"]
+        resp = await client.patch(
+            f"{ADR}/{adr_id}", json={"status": "bogus"}, headers=auth_headers(adr_env["admin"])
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"]["error"] == "unknown_status"
+        stored = await db.get(ArchitectureDecision, uuid.UUID(adr_id))
+        await db.refresh(stored)
+        assert stored.status == "draft"
 
 
 # -------------------------------------------------------------------

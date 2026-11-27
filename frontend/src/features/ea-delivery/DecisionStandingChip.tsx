@@ -1,7 +1,9 @@
 /**
  * Small chips naming a decision's standing ("In force", "Revoked", …) and its
- * workflow status ("Draft", "Signed", "Recorded", …). Colours and labels come
- * from `decisionStanding.ts`, the one home of that vocabulary.
+ * workflow status ("Draft", "Signed", "Recorded", …), or in place of "Draft"
+ * its review outcome ("Changes requested", "Rejected", "Withdrawn"). Colours
+ * and labels come from `decisionStanding.ts` and `reviewOutcome.ts`, the homes
+ * of that vocabulary.
  */
 import Chip from "@mui/material/Chip";
 import type { SxProps, Theme } from "@mui/material/styles";
@@ -38,11 +40,12 @@ export function DecisionStandingChip({ standing, sx }: DecisionStandingChipProps
 }
 
 export interface DecisionStatusChipProps {
-  adr: Pick<ArchitectureDecision, "status" | "recorded_at">;
+  adr: Pick<ArchitectureDecision, "status" | "recorded_at" | "outcome">;
   sx?: SxProps<Theme>;
 }
 
-/** The workflow status; "Recorded" for a decision recorded as decided. */
+/** The workflow status; "Recorded" for a decision recorded as decided, the
+ *  outcome on a draft that has one. */
 export function DecisionStatusChip({ adr, sx }: DecisionStatusChipProps) {
   return <StyledChip style={statusChip(adr)} sx={sx} />;
 }
@@ -55,7 +58,7 @@ export function DecisionStateChip({
   adr,
   sx,
 }: {
-  adr: Pick<ArchitectureDecision, "status" | "recorded_at" | "standing">;
+  adr: Pick<ArchitectureDecision, "status" | "recorded_at" | "standing" | "outcome">;
   sx?: SxProps<Theme>;
 }) {
   if (adr.standing) return <DecisionStandingChip standing={adr.standing} sx={sx} />;

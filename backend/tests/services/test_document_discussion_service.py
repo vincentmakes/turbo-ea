@@ -151,6 +151,13 @@ EDIT_TABLE = [
         (403, "A signing note or a rejection reason cannot be edited"),
     ),
     ("rejection", True, True, True, (409, "This comment has been deleted")),
+    (
+        "change_request",
+        True,
+        False,
+        True,
+        (403, "A signing note or a rejection reason cannot be edited"),
+    ),
 ]
 
 
@@ -176,6 +183,8 @@ DELETE_TABLE = [
     ("rejection", True, False, False, None),
     ("rejection", False, True, False, (403, "A rejection reason is resolved, not deleted")),
     ("rejection", False, False, False, (403, "Only the author or an editor may delete a comment")),
+    ("change_request", True, False, False, None),
+    ("change_request", False, True, False, (403, "A rejection reason is resolved, not deleted")),
     ("sign_note", True, False, False, None),
     ("sign_note", False, True, False, (403, "Only the author or an editor may delete a comment")),
     ("sign_note", False, False, True, (409, "This comment has already been deleted")),
@@ -193,6 +202,7 @@ def test_delete_truth_table(kind, mine, moderate, deleted, expected):
 RESOLVE_TABLE = [
     ("comment", False, False, True, None),
     ("rejection", False, False, True, None),
+    ("change_request", False, False, True, None),
     ("comment", False, False, False, (403, "You may not comment on this document")),
     ("comment", True, False, True, (400, "Only a thread can be resolved or reopened")),
     ("sign_note", False, False, True, (400, "A signing note is not a thread to resolve")),
@@ -268,9 +278,21 @@ def test_open_count():
         _c(deleted=NOW),
         _c(parent=OTHER),  # a reply is not a thread
         _c(kind="rejection", resolved=NOW),
+        _c(kind="change_request"),  # open
+        _c(kind="change_request", resolved=NOW),
     ]
-    assert [svc.is_open(t) for t in threads] == [True, True, False, False, False, False, False]
-    assert svc.open_count(threads) == 2
+    assert [svc.is_open(t) for t in threads] == [
+        True,
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        True,
+        False,
+    ]
+    assert svc.open_count(threads) == 3
     assert svc.open_count([]) == 0
 
 
@@ -768,3 +790,12 @@ def test_schedule_deliveries_hands_each_batch_to_the_batch_helper():
         (helper, ([recipient],), {"notif_type": "document_mention", "actor_id": U1}),
         (helper, ([recipient, recipient],), {"notif_type": "document_comment", "actor_id": U1}),
     ]
+
+
+def test_the_comment_kinds():
+    assert svc.COMMENT_KINDS == ("comment", "sign_note", "rejection", "change_request")
+    assert svc.OPEN_KINDS == ("comment", "rejection", "change_request")
+    assert svc.REASON_KINDS == ("rejection", "change_request")
+    assert svc.SYSTEM_KINDS == ("rejection", "change_request", "sign_note")
+    # Every kind fits the ``document_comments.kind`` column.
+    assert max(len(kind) for kind in svc.COMMENT_KINDS) <= 20

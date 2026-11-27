@@ -545,24 +545,87 @@ describe("ADREditor — review actions", () => {
     expect(within(again).queryByTestId("review-dialog-error")).toBeNull();
   });
 
-  it("rejects with a comment, back to a draft that keeps its revision number", async () => {
+  // Until 2.221.0 Reject returned the decision to draft; that is Request changes now.
+  it("requests changes with a comment, back to a draft that keeps its revision number", async () => {
     await renderLoaded(IN_REVIEW, (path, body) =>
+      path === "/adr/adr-1/request-changes"
+        ? {
+            ...IN_REVIEW,
+            status: "draft",
+            signatories: [],
+            comment: body,
+            outcome: {
+              kind: "changes_requested",
+              at: "2026-06-03T10:00:00Z",
+              by: { id: "u1", display_name: "Me" },
+              note: "Not costed",
+            },
+          }
+        : {},
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^rate_review Request changes$/ }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Request Changes")).toBeInTheDocument();
+    const confirm = dialog.getByRole("button", { name: "Request changes" });
+    expect(confirm).toBeDisabled();
+    await userEvent.type(dialog.getByLabelText("What needs to change"), "  Not costed  ");
+    await userEvent.click(confirm);
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith("/adr/adr-1/request-changes", { comment: "Not costed" }),
+    );
+    expect(
+      await screen.findByText("Changes requested: the decision is back to draft"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("ADR-0001")).toBeInTheDocument();
+    // The outcome stands in for "Draft", and the banner says who and why.
+    expect(screen.getByText("Changes requested")).toBeInTheDocument();
+    expect(screen.getByText(/Changes requested by Me on/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Still an editable draft: Save and Request Signatures are back.
+    expect(screen.getByRole("button", { name: /Save$/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Request Signatures/ })).toBeInTheDocument();
+  });
+
+  it("rejects with a comment: the decision is closed, locked, and offers Reopen to a manager", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true } };
+    await renderLoaded(IN_REVIEW, (path) =>
       path === "/adr/adr-1/reject"
-        ? { ...IN_REVIEW, status: "draft", signatories: [], comment: body }
+        ? {
+            ...IN_REVIEW,
+            status: "draft",
+            signatories: [],
+            outcome: {
+              kind: "rejected",
+              at: "2026-06-03T10:00:00Z",
+              by: { id: "u1", display_name: "Me" },
+              note: "Not costed",
+            },
+          }
         : {},
     );
     await userEvent.click(screen.getByRole("button", { name: /^block Reject$/ }));
     const dialog = within(await screen.findByRole("dialog"));
-    const confirm = dialog.getByRole("button", { name: "Reject" });
-    expect(confirm).toBeDisabled();
-    await userEvent.type(dialog.getByLabelText("Reason for rejection"), "  Not costed  ");
-    await userEvent.click(confirm);
+    expect(dialog.getByText(/the decision will be closed/)).toBeInTheDocument();
+    await userEvent.type(dialog.getByLabelText("Reason for rejection"), "Not costed");
+    await userEvent.click(dialog.getByRole("button", { name: "Reject" }));
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith("/adr/adr-1/reject", { comment: "Not costed" }),
     );
-    expect(await screen.findByText("Decision rejected and reset to draft")).toBeInTheDocument();
-    expect(screen.getByText("ADR-0001")).toBeInTheDocument();
-    expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Decision rejected and closed. Reopen it to work on it again."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Rejected")).toBeInTheDocument();
+    expect(screen.getByText(/Rejected by Me on/)).toBeInTheDocument();
+    expect(
+      screen.getByText("Closed: the content is locked. Reopen it to edit it."),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Locked: no Save, no Request Signatures, no Withdraw; Reopen instead.
+    expect(screen.queryByRole("button", { name: /Save$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Request Signatures/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Withdraw$/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /^replay Reopen$/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toBeDisabled();
   });
 
   it("reports a failed rejection and cancels the dialog", async () => {
@@ -611,11 +674,111 @@ describe("ADREditor — review actions", () => {
     expect(await screen.findByText("Reject Decision")).toBeInTheDocument();
   });
 
+  it("opens the request changes dialog from ?action=request-changes", async () => {
+    serve(IN_REVIEW);
+    renderAt("/ea-delivery/adr/adr-1?action=request-changes");
+    expect(await screen.findByRole("dialog", { name: "Request Changes" })).toBeInTheDocument();
+  });
+
   it("opens the signature request dialog from ?action=sign for anyone not a pending signatory", async () => {
     serve({ ...IN_REVIEW, signatories: [IN_REVIEW.signatories[1]] });
     renderAt("/ea-delivery/adr/adr-1?action=sign");
     expect(await screen.findByTestId("sign-dialog")).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Sign Decision" })).toBeNull();
+  });
+});
+
+describe("ADREditor — withdraw and reopen", () => {
+  beforeEach(() => resetExtensionHost());
+  afterEach(() => resetExtensionHost());
+
+  const WITHDRAWN: ArchitectureDecision = {
+    ...base,
+    outcome: {
+      kind: "withdrawn",
+      at: "2026-06-03T10:00:00Z",
+      by: { id: "u2", display_name: "Grace" },
+      note: "Superseded by the cloud plan",
+    },
+  };
+
+  it("offers Withdraw on a saved draft to a manager, and closes it with the reason", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true } };
+    await renderLoaded(base, (path) => (path === "/adr/adr-1/withdraw" ? WITHDRAWN : {}));
+    await userEvent.click(screen.getByRole("button", { name: /^cancel Withdraw$/ }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Withdraw Decision" }));
+    await userEvent.type(dialog.getByLabelText("Reason for withdrawing"), "Superseded");
+    await userEvent.click(dialog.getByRole("button", { name: "Withdraw" }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith("/adr/adr-1/withdraw", { comment: "Superseded" }),
+    );
+    expect(await screen.findByText("Decision withdrawn and closed")).toBeInTheDocument();
+    expect(screen.getByText("Withdrawn")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^cancel Withdraw$/ })).toBeNull();
+  });
+
+  it("offers Withdraw in review, and not without adr.manage", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true } };
+    await renderLoaded(IN_REVIEW);
+    expect(screen.getByRole("button", { name: /^cancel Withdraw$/ })).toBeInTheDocument();
+  });
+
+  it("offers no Withdraw or Reopen without adr.manage", async () => {
+    await renderLoaded(WITHDRAWN);
+    expect(screen.queryByRole("button", { name: /Withdraw$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Reopen$/ })).toBeNull();
+  });
+
+  it("shows a refused withdrawal inside the dialog", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true } };
+    await renderLoaded(base, () => new Error("x"));
+    await userEvent.click(screen.getByRole("button", { name: /^cancel Withdraw$/ }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await userEvent.type(dialog.getByLabelText("Reason for withdrawing"), "No");
+    await userEvent.click(dialog.getByRole("button", { name: "Withdraw" }));
+    expect(await dialog.findByTestId("review-dialog-error")).toHaveTextContent(
+      "Failed to withdraw the decision",
+    );
+  });
+
+  it("a closed decision: locked, no record, panels read-only with the outcome; Reopen makes it a draft", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true, "adr.record": true } };
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      adrPanels: [
+        {
+          id: "p",
+          component: (p: { readOnly: boolean; outcome?: unknown }) => (
+            <div data-testid="panel">{`${p.readOnly}|${String(p.outcome)}`}</div>
+          ),
+        },
+      ],
+    });
+    await renderLoaded(WITHDRAWN, (path) =>
+      path === "/adr/adr-1/reopen" ? { ...base, outcome: null } : {},
+    );
+    expect(screen.getByTestId("panel")).toHaveTextContent("true|withdrawn");
+    expect(screen.getByText(/Withdrawn by Grace on/)).toBeInTheDocument();
+    expect(screen.getByText("Superseded by the cloud plan")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Record as decided/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Request Signatures/ })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: /^replay Reopen$/ }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/adr/adr-1/reopen", {}));
+    expect(await screen.findByText("Decision reopened as a draft")).toBeInTheDocument();
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(screen.getByTestId("panel")).toHaveTextContent("false|null");
+    expect(screen.getByRole("button", { name: /Save$/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Request Signatures/ })).toBeInTheDocument();
+  });
+
+  it("reports a failed reopen", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true } };
+    await renderLoaded(WITHDRAWN, () => new Error("x"));
+    await userEvent.click(screen.getByRole("button", { name: /^replay Reopen$/ }));
+    expect(await screen.findByText("Failed to reopen the decision")).toBeInTheDocument();
   });
 });
 

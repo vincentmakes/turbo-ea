@@ -92,11 +92,20 @@ Tabeller vises i forhåndsvisningen, PDF-/printkopien (tilpasset siden) og Word-
 
 Fra en kladde eller en godkendt SoAW kan du anmode om underskrifter fra interessenter. Klik på **Request Signatures**, og brug derefter søgefeltet til at finde og tilføje underskrivere efter navn eller e-mail. Systemet sporer, hvem der har underskrevet, og sender notifikationer til afventende underskrivere.
 
-En SoAW under gennemgang er **låst**, så underskriverne underskriver præcis det, de fik tilsendt: kun dens initiativ kan stadig ændres. Klik på **Recall Signatures** for at redigere indholdet; det sender den tilbage til kladde. En underskriver, der klikker på **Reject**, sender den også tilbage til kladde, under samme revisionsnummer. Kun en SoAW i kladde kan slettes.
+En SoAW under gennemgang er **låst**, så underskriverne underskriver præcis det, de fik tilsendt: kun dens initiativ kan stadig ændres. Klik på **Recall Signatures** for at redigere indholdet; det sender den tilbage til kladde.
+
+Gennemgangsudfaldene er de samme som for en beslutning (se [Sign-off workflow](grc.md#sign-off-workflow) i GRC-vejledningen), hver med en begrundelse:
+
+- **Request changes** (en underskriver) sender SoAW'en tilbage til en redigerbar kladde under samme revisionsnummer, markeret **Changes requested**, indtil der igen anmodes om underskrifter. Indtil version 2.221.0 var det, hvad **Reject** gjorde.
+- **Reject** (en underskriver) lukker SoAW'en, markeret **Rejected**.
+- **Withdraw** (en indehaver af `soaw.manage`, på en gemt kladde eller en SoAW under gennemgang) annullerer de afventende underskriftsanmodninger og lukker SoAW'en, markeret **Withdrawn**.
+- **Reopen** (en indehaver af `soaw.manage`) gør en lukket SoAW til en almindelig kladde igen.
+
+En **lukket** SoAW bevares, men er låst som en under gennemgang: kun dens initiativ kan stadig ændres, og den kan ikke sendes til gennemgang, gendannes eller slettes, før den genåbnes. Statuschippen viser udfaldet i stedet for *Draft*, og et banner fortæller, hvem, hvornår og hvorfor. Kun en SoAW i kladde, der ikke er lukket, kan slettes. Livscyklussen er fast og kan ikke konfigureres.
 
 ### Revisioner
 
-En underskrevet SoAW er skrivebeskyttet. Klik på **New Revision** for at starte en ny kladde ud fra den, under samme navn med det næste revisionsnummer. Der er én åben revision ad gangen: mens en revision er under udarbejdelse, oplyser den underskrevne SoAW det og tilbyder **Open the revision** i stedet for at starte en ny. Kun den seneste revision kan revideres, og en afvisning ændrer ikke revisionsnummeret.
+En underskrevet SoAW er skrivebeskyttet. Klik på **New Revision** for at starte en ny kladde ud fra den, under samme navn med det næste revisionsnummer. Der er én åben revision ad gangen: mens en revision er under udarbejdelse, oplyser den underskrevne SoAW det og tilbyder **Open the revision** i stedet for at starte en ny. Kun den seneste revision kan revideres, og en afvisning ændrer ikke revisionsnummeret. En afvist eller tilbagetrukket revision forbliver den åbne revision: åbn den og klik på **Reopen** for at prøve igen.
 
 En tidligere revision viser et banner med et link til den aktuelle, og **Revisions**-båndet på hver revision viser dem alle. Lister over SoAW'er — initiativets leverancer, SoAW-fanen, EA Delivery-rapporten — viser den aktuelle revision af hvert dokument og enhver revision under udarbejdelse.
 
@@ -106,7 +115,7 @@ En SoAW har samme diskussion, omtaler og historik som en beslutning: diskussione
 
 - **Hvem der kan skrive.** At skrive, svare, løse og genåbne kræver tilladelsen `soaw.comment`, som medlemmer og administratorer har som standard, og læsere ikke har; læsning af diskussionen følger `soaw.view`. SoAW'ens underskrivere kan altid kommentere den. Alle, der kan redigere SoAW'er (`soaw.manage`), kan slette enhver kommentar.
 - **Sektioner.** En tråd knyttes med en sektionschip til en af SoAW'ens egne sektioner eller til ingen (en generel tråd). En SoAW har mange sektioner, så indtastningsfeltet viser en chip for hver sektion, der allerede er diskuteret, og for den valgte; **Flere…** åbner en søgbar liste over de øvrige. Chipsene øverst i diskussionen filtrerer den efter sektion, som for en beslutning. En tråd knyttet til en brugerdefineret sektion, der siden er fjernet, viser *Fjernet afsnit*. Hver sektion har det samme chatikon ved siden af sin overskrift som en beslutnings, i editoren og forhåndsvisningen, med antallet af åbne tråde, når der er diskussion; klik på det for at åbne diskussionen om den sektion med sektionen allerede valgt til en ny kommentar.
-- **Afvisning.** Enhver underskriver med underskriftstilladelsen (`soaw.sign`) — eller redigeringstilladelsen — kan afvise en SoAW, som for beslutninger; hidtil krævede afvisning redigeringstilladelsen. Begrundelsen åbner en tråd **Begrundelse for afvisning** i diskussionen.
+- **Afvisning og anmodning om ændringer.** Enhver underskriver med underskriftstilladelsen (`soaw.sign`) — eller redigeringstilladelsen — kan anmode om ændringer i en SoAW eller afvise den, som for beslutninger. Begrundelsen åbner en tråd **Changes requested** eller **Begrundelse for afvisning** i diskussionen.
 - **Omtaler.** En SoAW har ingen tilknyttede kort, så når der ikke er skrevet noget efter **@**, vises kortene alfabetisk; i en kommentar kommer SoAW'ens underskrivere først blandt personerne. **Gennemse…** virker som for en beslutning.
 - **Note til underskrift.** **Underskriv** åbner nu en dialog, hvor underskriveren kan tilføje en valgfri note; den vises i diskussionen som en **Note til underskrift** og i historikken.
 - **Historik.** En version indeholder SoAW'ens navn, dens dokumentoplysninger, dens tabel Dokumentets versionshistorik og hver sektion; initiativet er ikke en del af en version. Historikken registrerer, hvad der sker med dokumentet; tabellen Dokumentets versionshistorik i dokumentet indeholder kun det, forfatterne skriver i den. En SoAW med status **Godkendt** kan stadig redigeres, så ligesom for en kladde gemmes dens lagringer som versioner, og en tidligere version kan gendannes i den.
