@@ -555,7 +555,8 @@ describe("SecurityLogAdmin — CSV export", () => {
     expect(created).toHaveLength(1);
     // The export is itself an audit entry, so the list refreshes.
     await waitFor(() => expect(mockApi.callsOf("get", LIST_PATH).length).toBe(before + 1));
-    expect(screen.getByRole("button", { name: named(t("securityLog.export")) })).toBeEnabled();
+    // The button is back once the export has finished rendering, after its request.
+    await waitFor(() => expect(screen.getByRole("button", { name: named(t("securityLog.export")) })).toBeEnabled());
   });
 
   it("uses a default filename and no query string when nothing is filtered", async () => {

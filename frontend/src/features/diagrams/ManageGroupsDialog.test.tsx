@@ -81,8 +81,9 @@ describe("ManageGroupsDialog", () => {
       color: DEFAULT_GROUP_COLOR,
       sort_order: 2,
     });
+    // The field is cleared once the create has answered, after the request.
+    await waitFor(() => expect(input).toHaveValue(""));
     expect(onChanged).toHaveBeenCalledTimes(1);
-    expect(input).toHaveValue("");
   });
 
   it("keeps Add disabled for a blank name and creates on click otherwise", async () => {
@@ -108,9 +109,10 @@ describe("ManageGroupsDialog", () => {
     expect(mockApi.callsOf("patch", "/diagram-groups/g1")[0].body).toEqual({
       name: "Enterprise Architecture",
     });
+    // Back to read mode once the rename has answered: the rename button
+    // returns and the field is gone.
+    await waitFor(() => expect(screen.queryByDisplayValue("Enterprise Architecture")).not.toBeInTheDocument());
     expect(onChanged).toHaveBeenCalledTimes(1);
-    // Back to read mode: the rename button returns and the field is gone.
-    expect(screen.queryByDisplayValue("Enterprise Architecture")).not.toBeInTheDocument();
     expect(within(rowOf("Architecture")).getByTitle("Rename")).toBeInTheDocument();
   });
 
@@ -190,6 +192,8 @@ describe("ManageGroupsDialog", () => {
     const input = screen.getByPlaceholderText("New group name");
     await user.type(input, "Security{Enter}");
     expect(mockApi.callsOf("post", "/diagram-groups")[0].body).toMatchObject({ color: "#ef4444" });
+    // Type the next name once the first create has answered and cleared the field.
+    await waitFor(() => expect(input).toHaveValue(""));
     await user.type(input, "Ops{Enter}");
     expect(mockApi.callsOf("post", "/diagram-groups")[1].body).toMatchObject({
       name: "Ops",

@@ -151,7 +151,9 @@ describe("AiAdmin with Amazon Bedrock selected", () => {
     });
     await user.click(screen.getByRole("button", { name: /test connection/i }));
 
-    await user.click(await screen.findByLabelText("Model"));
+    // The Model field is a text box until the test's answer lists ids; open it
+    // once it has become the picker.
+    await user.click(await screen.findByRole("combobox", { name: "Model" }));
     expect(
       await screen.findByRole("option", {
         name: "eu.anthropic.claude-sonnet-4",

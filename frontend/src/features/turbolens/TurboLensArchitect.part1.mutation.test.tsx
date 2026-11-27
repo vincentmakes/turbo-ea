@@ -670,7 +670,8 @@ describe("TurboLensArchitect — reading the AI's questions", () => {
 
     expect(screen.getAllByRole("button", { name: /Select This Approach/ })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /^Selected$/ })).not.toBeInTheDocument();
-    expect(storedSession()).toMatchObject({ selectedOptionId: null });
+    // The session is stored by an effect, after the render that shows the options.
+    await waitFor(() => expect(storedSession()).toMatchObject({ selectedOptionId: null }));
   });
 });
 

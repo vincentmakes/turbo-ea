@@ -691,7 +691,10 @@ describe("TurboLensArchitect — question rounds (phases 1 and 2)", () => {
 
     await screen.findByText(COPY.optionsIntro);
     expect(bodyOf("post", P.options)).toEqual({ phase: 3, ...CONTEXT, allQA: ALL_QA });
-    expect(storedSession()).toMatchObject({ archPhase: 3, phase2Answers: [{ question: Q_HOSTING, answer: "EU cloud" }] });
+    // The session is stored by an effect, after the render that shows the options.
+    await waitFor(() =>
+      expect(storedSession()).toMatchObject({ archPhase: 3, phase2Answers: [{ question: Q_HOSTING, answer: "EU cloud" }] }),
+    );
   });
 
   it("reads questions from a bare array and from the `text` key", async () => {

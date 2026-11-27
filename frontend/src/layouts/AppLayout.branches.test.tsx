@@ -405,7 +405,8 @@ describe("AppLayout — user menu", () => {
     await waitFor(() => expect(mockApi.callsOf("patch", "/users/u1")).toHaveLength(1));
     expect(mockApi.callsOf("patch", "/users/u1")[0].body).toEqual({ locale: "en" });
     expect(i18n.language).toBe("en");
-    expect(screen.queryByText("Logout")).not.toBeInTheDocument();
+    // The menu closes once the save has answered, after the request.
+    await waitFor(() => expect(screen.queryByText("Logout")).not.toBeInTheDocument());
   });
 
   it("lists enabled custom languages after the built-in ones, by native name", async () => {

@@ -512,11 +512,14 @@ describe("RiskDetailPage — status workflow", () => {
 
     await user.click(button(t("risks.action.analyse")));
     await waitFor(() => expect(lastPatchBody()).toEqual({ status: "analysed" }));
-    const alerts = await screen.findAllByRole("alert");
-    expect(alerts.some((a) => a.textContent === t("risks.status.analysed"))).toBe(true);
+    // The note comes with the write's answer, after the request.
+    const note = await waitFor(() => {
+      const found = screen.getAllByRole("alert").find((a) => a.textContent === t("risks.status.analysed"));
+      expect(found).toBeDefined();
+      return found!;
+    });
     // The next primary step follows the new status, and the success note closes.
     expect(button(t("risks.action.plan_mitigation"))).toBeInTheDocument();
-    const note = alerts.find((a) => a.textContent === t("risks.status.analysed"))!;
     await user.click(within(note).getByRole("button"));
     expect(screen.queryByText(t("risks.status.analysed"), { selector: ".MuiAlert-message" })).not.toBeInTheDocument();
   });

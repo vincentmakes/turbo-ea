@@ -316,7 +316,8 @@ describe("CustomEolProductPanel — cycles", () => {
         },
       },
     ]);
-    expect(screen.queryByTestId("eol-cycle-editor")).toBeNull();
+    // The editor closes once the save has answered, after the request.
+    await waitFor(() => expect(screen.queryByTestId("eol-cycle-editor")).toBeNull());
     expect(row("c2")).toBeInTheDocument();
   });
 
@@ -337,7 +338,8 @@ describe("CustomEolProductPanel — cycles", () => {
     renderPanel();
     await userEvent.click(screen.getByRole("button", { name: "Edit cycle 2" }));
     await userEvent.click(within(editor()).getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByTestId("eol-cycle-editor")).toBeNull();
+    // The editor closes once the save has answered, after the request.
+    await waitFor(() => expect(screen.queryByTestId("eol-cycle-editor")).toBeNull());
     expect(row("c2")).toBeInTheDocument();
     expect(mockApi.callsOf("patch")).toHaveLength(0);
   });
@@ -383,7 +385,8 @@ describe("CustomEolProductPanel — cycles", () => {
         },
       },
     ]);
-    expect(screen.queryByTestId("eol-cycle-editor")).toBeNull();
+    // The editor closes once the save has answered, after the request.
+    await waitFor(() => expect(screen.queryByTestId("eol-cycle-editor")).toBeNull());
     expect(screen.getByRole("button", { name: /Add cycle/ })).toBeInTheDocument();
   });
 

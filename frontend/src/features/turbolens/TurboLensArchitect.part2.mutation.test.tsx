@@ -609,15 +609,18 @@ describe("TurboLensArchitect — re-running a phase", () => {
     await user.click(screen.getByRole("button", { name: /Analyze Capabilities/ }));
 
     await screen.findByText(COPY.optionsIntro);
-    expect(storedSession()).toMatchObject({
-      archPhase: 3,
-      selectedOptionId: null,
-      gapResult: null,
-      selectedRecs: [],
-      depsResult: null,
-      selectedDeps: [],
-      capabilityMapping: null,
-    });
+    // The session is stored by an effect, after the render that shows the phase.
+    await waitFor(() =>
+      expect(storedSession()).toMatchObject({
+        archPhase: 3,
+        selectedOptionId: null,
+        gapResult: null,
+        selectedRecs: [],
+        depsResult: null,
+        selectedDeps: [],
+        capabilityMapping: null,
+      }),
+    );
     expect(stepper()).toEqual([DONE, DONE, DONE, CURRENT, LOCKED, LOCKED, LOCKED]);
   });
 
@@ -627,7 +630,8 @@ describe("TurboLensArchitect — re-running a phase", () => {
     await user.click(screen.getByRole("button", { name: /Analyse Dependencies/ }));
 
     await screen.findByText(COPY.depsIntro);
-    expect(storedSession().capabilityMapping).toBeNull();
+    // The session is stored by an effect, after the render that shows the phase.
+    await waitFor(() => expect(storedSession().capabilityMapping).toBeNull());
     expect(stepper()[6]).toBe(LOCKED);
   });
 

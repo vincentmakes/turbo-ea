@@ -262,8 +262,8 @@ describe("PpmCostTab — budget lines", () => {
       amount: 750,
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    // The list is reloaded after the write.
-    expect(mockApi.callsOf("get", budgetPath)).toHaveLength(2);
+    // The list is reloaded after the write (the dialog can close first).
+    await waitFor(() => expect(mockApi.callsOf("get", budgetPath)).toHaveLength(2));
   });
 
   it("edits a budget line with its own values pre-filled", async () => {
@@ -808,7 +808,8 @@ describe("PpmCostTab — saving once", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(posts).toBe(2);
 
-    await user.click(screen.getByRole("button", { name: /Add Cost Item/ }));
+    // The tab reloads after the save; its buttons are back once that has rendered.
+    await user.click(await screen.findByRole("button", { name: /Add Cost Item/ }));
     const saveCost = within(screen.getByRole("dialog")).getByRole("button", { name: "Save" });
     await user.click(saveCost);
     expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent("offline");

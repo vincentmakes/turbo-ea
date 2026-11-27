@@ -422,6 +422,8 @@ describe("CreateAdrDialog — a link fails after the decision was created", () =
     const { user, onCreated, onClose } = await createWithTwoCards();
     // The decision exists and the first link is done; the second is still out.
     await waitFor(() => expect(linkCalls()).toEqual(["init-1", "card-1"]));
+    // The link request goes out before the render that enables Cancel again.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled());
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCreated).toHaveBeenCalledTimes(1);
@@ -509,6 +511,8 @@ describe("CreateAdrDialog — a link fails after the decision was created", () =
     await user.type(screen.getByLabelText("Decision title"), "Adopt event bus");
     await user.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(() => expect(linkCalls()).toEqual(["init-1"]));
+    // The link request goes out before the render that enables Cancel again.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled());
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCreated).toHaveBeenCalledTimes(1);

@@ -920,14 +920,16 @@ describe("UsersAdmin — bulk actions", () => {
     expect(body.ids).not.toContain(ADMIN_USER.id);
     expect(body.ids).toHaveLength(PAGE_USERS.length - 1);
 
-    const alerts = await screen.findAllByRole("alert");
-    expect(alerts.map((a) => a.textContent)).toEqual(
-      expect.arrayContaining([
-        t("admin:users.bulk.selfSkipped"),
-        t("admin:users.bulk.changeRoleSuccess", { count: PAGE_USERS.length - 1 }),
-      ]),
+    // The self-skip notice can show before the write's answer adds its own.
+    await waitFor(() =>
+      expect(screen.getAllByRole("alert").map((a) => a.textContent)).toEqual(
+        expect.arrayContaining([
+          t("admin:users.bulk.selfSkipped"),
+          t("admin:users.bulk.changeRoleSuccess", { count: PAGE_USERS.length - 1 }),
+        ]),
+      ),
     );
-    expect(rowById(MEMBER_USER.id)?.role).toBe("viewer");
+    await waitFor(() => expect(rowById(MEMBER_USER.id)?.role).toBe("viewer"));
     expect(rowById(ADMIN_USER.id)?.role).toBe("admin");
     // The selection is cleared after the write.
     expect(screen.queryByText(t("admin:users.bulk.selected", { count: PAGE_USERS.length }))).not.toBeInTheDocument();
@@ -1407,8 +1409,9 @@ describe("UsersAdmin — directory-managed roles", () => {
     expect(alerts.map((a) => a.textContent)).toEqual(
       expect.arrayContaining([t("admin:users.bulk.managedSkipped", { count: 1 })]),
     );
+    // The skip notice can show before the write's answer updates the rows.
+    await waitFor(() => expect(rowById(MEMBER_USER.id)?.role).toBe("viewer"));
     expect(rowById(MANAGED_USER.id)?.role).toBe("member");
-    expect(rowById(MEMBER_USER.id)?.role).toBe("viewer");
   });
 
   it("reports both skips together and sends nothing when only skipped rows were selected", async () => {

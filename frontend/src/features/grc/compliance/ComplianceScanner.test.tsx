@@ -472,9 +472,9 @@ describe("ComplianceScanner — overview", () => {
     mockApi.fail("get", "/compliance/overview", 404);
     renderPage();
     await waitFor(() => expect(overviewCalls()).toHaveLength(1));
-    await act(async () => {});
+    // The spinner goes once the 404 has been read, after the request.
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
     expect(screen.queryByText(/failed/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("falls back to an empty register when the bundles cannot be loaded", async () => {
