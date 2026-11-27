@@ -61,10 +61,30 @@ from app.services.ppm_gantt_move import (
     apply_gantt_move,
     assert_no_wbs_cycle,
     next_sort_order,
+    parse_uuid,
+    wbs_of_initiative,
 )
 from app.services.ppm_portfolio_service import build_initiative_rollup
 
 router = APIRouter(prefix="/ppm", tags=["ppm"])
+
+
+_TASK_WBS_NOT_FOUND = "Work package not found in this initiative"
+_PARENT_WBS_NOT_FOUND = "Parent WBS item not found in this initiative"
+
+
+async def _require_user(db: AsyncSession, user_id: str | None, detail: str) -> None:
+    """400 with ``detail`` when ``user_id`` is given but names no user.
+
+    An assignee or owner column is a foreign key to ``users``: without this
+    check an unknown id surfaced as a database error (500). ``None`` clears
+    the field and is always accepted.
+    """
+    if user_id is None:
+        return
+    user_uuid = parse_uuid(user_id)
+    if user_uuid is None or await db.get(User, user_uuid) is None:
+        raise HTTPException(status_code=400, detail=detail)
 
 
 def _id_str(value: uuid.UUID | None) -> str | None:
@@ -648,6 +668,7 @@ async def create_risk(
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
     await _get_initiative_or_404(db, initiative_id, user)
+    await _require_user(db, body.owner_id, "Risk owner not found")
     risk = PpmRisk(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -681,6 +702,7 @@ async def update_risk(
         raise HTTPException(status_code=404, detail="Risk not found")
     await _ensure_initiative_readable(db, user, risk.initiative_id)
     data = body.model_dump(exclude_unset=True)
+    await _require_user(db, data.get("owner_id"), "Risk owner not found")
     for key, val in data.items():
         setattr(risk, key, val)
     # Recompute risk_score if probability or impact changed
@@ -806,6 +828,9 @@ async def create_task(
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
     card = await _get_initiative_or_404(db, initiative_id, user)
+    if body.wbs_id is not None:
+        await wbs_of_initiative(db, card.id, body.wbs_id, detail=_TASK_WBS_NOT_FOUND)
+    await _require_user(db, body.assignee_id, "Assignee not found")
     task = PpmTask(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -866,6 +891,12 @@ async def update_task(
     await _ensure_initiative_readable(db, user, task.initiative_id)
     old_assignee_id = str(task.assignee_id) if task.assignee_id else None
     data = body.model_dump(exclude_unset=True)
+    # Checked only when the work package changes, so a task saved by the
+    # dialog (which always re-sends its package) is never refused for the
+    # package it already sits in.
+    if data.get("wbs_id") is not None and data["wbs_id"] != _id_str(task.wbs_id):
+        await wbs_of_initiative(db, task.initiative_id, data["wbs_id"], detail=_TASK_WBS_NOT_FOUND)
+    await _require_user(db, data.get("assignee_id"), "Assignee not found")
     if "wbs_id" in data and "sort_order" not in data and data["wbs_id"] != _id_str(task.wbs_id):
         data["sort_order"] = await next_sort_order(db, "task", task.initiative_id, data["wbs_id"])
     for key, val in data.items():
@@ -1267,19 +1298,10 @@ async def create_wbs(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id, user)
+    card = await _get_initiative_or_404(db, initiative_id, user)
     if body.parent_id:
-        parent_result = await db.execute(
-            select(PpmWbs).where(
-                PpmWbs.id == body.parent_id,
-                PpmWbs.initiative_id == initiative_id,
-            )
-        )
-        if not parent_result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=400,
-                detail="Parent WBS item not found in this initiative",
-            )
+        await wbs_of_initiative(db, card.id, body.parent_id, detail=_PARENT_WBS_NOT_FOUND)
+    await _require_user(db, body.assignee_id, "Assignee not found")
     wbs = PpmWbs(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -1323,18 +1345,9 @@ async def update_wbs(
         new_parent_id = data["parent_id"]
         if new_parent_id == wbs_id:
             raise HTTPException(status_code=400, detail="WBS item cannot be its own parent")
-        parent_result = await db.execute(
-            select(PpmWbs).where(
-                PpmWbs.id == new_parent_id,
-                PpmWbs.initiative_id == wbs.initiative_id,
-            )
-        )
-        if not parent_result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=400,
-                detail="Parent WBS item not found in this initiative",
-            )
+        await wbs_of_initiative(db, wbs.initiative_id, new_parent_id, detail=_PARENT_WBS_NOT_FOUND)
         await assert_no_wbs_cycle(db, wbs_id, new_parent_id)
+    await _require_user(db, data.get("assignee_id"), "Assignee not found")
     if (
         "parent_id" in data
         and "sort_order" not in data

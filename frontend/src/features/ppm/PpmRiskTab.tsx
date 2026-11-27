@@ -233,7 +233,8 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh, initiativeN
                 fullWidth
                 size="small"
                 multiline
-                rows={2}
+                minRows={2}
+                maxRows={8}
               />
               <Box>
                 <Typography variant="caption" fontWeight={600}>
@@ -281,7 +282,8 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh, initiativeN
                 fullWidth
                 size="small"
                 multiline
-                rows={2}
+                minRows={2}
+                maxRows={8}
               />
               <Autocomplete
                 options={users}
