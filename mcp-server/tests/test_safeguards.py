@@ -259,8 +259,51 @@ def _tool_call(tool: str, n: int, **kw):
         return server.set_card_tags(operations=rows, **kw)
     if tool == "create_tag_groups":
         return server.create_tag_groups(groups=[{"name": f"G{i}"} for i in range(n)], **kw)
+    if tool == "save_ppm_work_packages":
+        rows = [{"title": f"W{i}"} for i in range(n)]
+        return server.save_ppm_work_packages(initiative_id=_PPM_INITIATIVE, items=rows, **kw)
+    if tool == "save_ppm_tasks":
+        rows = [{"title": f"T{i}", "wbs_id": _ppm_id("a", 0)} for i in range(n)]
+        return server.save_ppm_tasks(initiative_id=_PPM_INITIATIVE, items=rows, **kw)
+    if tool == "save_ppm_status_reports":
+        rows = [{"report_date": f"2026-11-{i + 1:02d}"} for i in range(n)]
+        return server.save_ppm_status_reports(initiative_id=_PPM_INITIATIVE, items=rows, **kw)
+    if tool == "save_ppm_risks":
+        rows = [{"title": f"R{i}", "probability": 4} for i in range(n)]
+        return server.save_ppm_risks(initiative_id=_PPM_INITIATIVE, items=rows, **kw)
+    if tool == "set_ppm_dependencies":
+        links = [
+            {
+                "pred_kind": "wbs",
+                "pred_id": _ppm_id("a", i),
+                "succ_kind": "task",
+                "succ_id": _ppm_id("b", i),
+            }
+            for i in range(n)
+        ]
+        return server.set_ppm_dependencies(initiative_id=_PPM_INITIATIVE, add=links, **kw)
     assert tool == "clear_card_logos"
     return server.clear_card_logos(card_ids=[f"c{i}" for i in range(n)], **kw)
+
+
+_PPM_INITIATIVE = "00000000-0000-4000-8000-0000000000f1"
+
+
+def _ppm_id(prefix: str, i: int) -> str:
+    """The id of the i-th canned work package ("a") or task ("b")."""
+    return f"00000000-0000-4000-8000-{prefix}{i:011d}"
+
+
+def _ppm_canned(path: str) -> object:
+    """What ``_Backend`` answers to a PPM read: the module on, ten work
+    packages and ten tasks, and no dependencies, reports, risks or comments."""
+    if path == "/settings/ppm-enabled":
+        return {"enabled": True}
+    if path.endswith("/wbs"):
+        return [{"id": _ppm_id("a", i), "title": f"W{i}", "is_milestone": False} for i in range(10)]
+    if path.endswith("/tasks"):
+        return [{"id": _ppm_id("b", i), "title": f"T{i}"} for i in range(10)]
+    return []
 
 
 # What each preview records on its dry-run batch for 3 rows (``_Backend``
@@ -274,6 +317,11 @@ PREVIEW_SUMMARY = {
     "clear_card_logos": {"rows": 3, "would_clear": 3},
     "set_card_tags": {"rows": 3, "would_update": 0, "failed": 0},
     "create_tag_groups": {"rows": 3, "would_create": {"groups": 3, "tags": 0}},
+    "save_ppm_work_packages": {"rows": 3, "status": "previewed"},
+    "save_ppm_tasks": {"rows": 3, "status": "previewed"},
+    "save_ppm_status_reports": {"rows": 3, "status": "previewed"},
+    "save_ppm_risks": {"rows": 3, "status": "previewed"},
+    "set_ppm_dependencies": {"rows": 3, "status": "previewed"},
 }
 
 # The backend requests a preview makes, each itself a dry run (``dry_run:
@@ -282,6 +330,12 @@ PREVIEW_BACKEND_POSTS = {
     "upsert_relations_bulk": ["/relations/bulk"],
     "set_card_tags": ["/cards/tags/bulk"],
     "create_tag_groups": ["/tag-groups"] * 3,
+    # The PPM previews are built by the MCP server and post nothing.
+    "save_ppm_work_packages": [],
+    "save_ppm_tasks": [],
+    "save_ppm_status_reports": [],
+    "save_ppm_risks": [],
+    "set_ppm_dependencies": [],
 }
 
 NEW_CYCLE_TOOLS = [
@@ -293,6 +347,11 @@ NEW_CYCLE_TOOLS = [
     "clear_card_logos",
     "set_card_tags",
     "create_tag_groups",
+    "save_ppm_work_packages",
+    "save_ppm_tasks",
+    "save_ppm_status_reports",
+    "save_ppm_risks",
+    "set_ppm_dependencies",
 ]
 
 
@@ -325,6 +384,8 @@ class _Backend:
         }
 
     async def get(self, path, params=None):
+        if path == "/settings/ppm-enabled" or path.startswith("/ppm/"):
+            return _ppm_canned(path)
         if path == "/cards" and "query" in (params or {}):
             # save_inventory_view's preview runs the query.
             return {"items": [], "total": 0}
@@ -639,6 +700,11 @@ class TestToolAnnotations:
         assert tool.annotations.readOnlyHint is False
         assert tool.annotations.idempotentHint is True
 
+    def test_set_ppm_dependencies_is_destructive(self):
+        """It removes dependency links, so connectors must warn before it runs."""
+        tool = server.mcp._tool_manager._tools["set_ppm_dependencies"]
+        assert tool.annotations == server._WRITE_DESTRUCTIVE_ANNOT
+
     def test_upsert_relations_bulk_is_destructive(self):
         tool = server.mcp._tool_manager._tools["upsert_relations_bulk"]
         assert tool.annotations is not None
@@ -696,6 +762,7 @@ _NOT_A_BATCH = {"rollback_batch": "the backend records a rollback as its own bat
 _BATCH_TOOLS_EXPECTED = [
     "add_card_comment",
     "add_document_comment",
+    "add_ppm_task_comment",
     "approve_process_flow",
     "archive_cards",
     "assign_stakeholders",
@@ -711,8 +778,13 @@ _BATCH_TOOLS_EXPECTED = [
     "link_process_flow_elements",
     "revise_adr",
     "save_inventory_view",
+    "save_ppm_risks",
+    "save_ppm_status_reports",
+    "save_ppm_tasks",
+    "save_ppm_work_packages",
     "set_card_logos",
     "set_card_tags",
+    "set_ppm_dependencies",
     "sign_adr",
     "start_ai_translation",
     "stop_ai_translation",
@@ -813,6 +885,9 @@ _BATCH_TOOL_CALLS = {
     ),
     "add_card_comment": lambda dry_run: server.add_card_comment(
         card_id="c1", body="hi", dry_run=dry_run
+    ),
+    "add_ppm_task_comment": lambda dry_run: server.add_ppm_task_comment(
+        task_id=_ppm_id("b", 0), content="hi", dry_run=dry_run
     ),
     "add_document_comment": lambda dry_run: server.add_document_comment(
         document_type="adr",

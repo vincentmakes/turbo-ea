@@ -203,6 +203,45 @@ def test_card_updated_restores_every_old_value():
     assert plan("card.updated", None)["fields"] == {}
 
 
+PPM_ROLLUP_DECLINED = (
+    "card.updated is not reversed: the change was calculated from the project's "
+    "PPM work packages, tasks, budgets and costs, which a rollback leaves in "
+    "place; the card keeps following them."
+)
+
+
+def test_the_derived_card_update_sources():
+    assert rs._DERIVED_CARD_UPDATE_SOURCES == frozenset({"ppm_rollup", "ppm_cost_rollup"})
+    assert rs._DERIVED_CARD_UPDATE_REASON == PPM_ROLLUP_DECLINED
+
+
+@pytest.mark.parametrize("source", ["ppm_rollup", "ppm_cost_rollup"])
+def test_card_updated_by_a_ppm_rollup_is_declined(source):
+    # A rollback must not reset an Initiative's calculated fields while the
+    # PPM rows they were calculated from stay.
+    data = {
+        "id": "c-9",
+        "source": source,
+        "changes": {"attributes": {"old": {"costBudget": 1}, "new": {"costBudget": 2}}},
+    }
+    assert plan("card.updated", data) == unsupported("card.updated", PPM_ROLLUP_DECLINED)
+
+
+@pytest.mark.parametrize("source", ["survey", "ppm", "PPM_ROLLUP", "", None])
+def test_card_updated_from_any_other_source_is_still_reversed(source):
+    data = {
+        "id": "c-9",
+        "source": source,
+        "changes": {"attributes": {"old": {"costBudget": 1}, "new": {"costBudget": 2}}},
+    }
+    assert plan("card.updated", data) == {
+        "event_id": str(EID),
+        "op": "restore_card_fields",
+        "card_id": "c-9",
+        "fields": {"attributes": {"costBudget": 1}},
+    }
+
+
 @pytest.mark.parametrize("event_type", ["relation.created", "relation.upserted"])
 def test_relation_events(event_type):
     assert plan(event_type, {"id": "r-1"}) == {

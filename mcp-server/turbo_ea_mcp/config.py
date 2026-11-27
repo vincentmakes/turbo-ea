@@ -105,6 +105,10 @@ MCP_MAX_LOGOS_PER_CALL: int = int(os.environ.get("MCP_MAX_LOGOS_PER_CALL", "50")
 # Each is validated per key by the backend, which takes at most 10 000 per
 # write; a full language is thousands, so the cap is set for throughput.
 MCP_MAX_TRANSLATIONS_PER_CALL: int = int(os.environ.get("MCP_MAX_TRANSLATIONS_PER_CALL", "2000"))
+# Rows one PPM save tool (work packages, tasks, status reports, project risks)
+# or ``set_ppm_dependencies`` (adds + removes) writes in one call. Each row is
+# its own backend request that re-runs the initiative's roll-ups.
+MCP_MAX_PPM_ROWS_PER_CALL: int = int(os.environ.get("MCP_MAX_PPM_ROWS_PER_CALL", "200"))
 
 # Kill switch — set to ``false`` to disable all MCP write tools without a
 # code redeploy. Read tools keep working.

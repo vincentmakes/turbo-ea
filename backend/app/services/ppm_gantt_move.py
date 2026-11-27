@@ -80,15 +80,50 @@ async def next_sort_order(
     return 0 if highest is None else highest + 1
 
 
+def parse_uuid(value: uuid.UUID | str) -> uuid.UUID | None:
+    """``value`` as a UUID, or ``None`` when it is not one.
+
+    The PPM schemas type their ids as plain strings, so a malformed id would
+    otherwise reach the database and come back as a 500.
+    """
+    if isinstance(value, uuid.UUID):
+        return value
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        return None
+
+
+async def wbs_of_initiative(
+    db: AsyncSession,
+    initiative_id: uuid.UUID | str,
+    wbs_id: uuid.UUID | str,
+    *,
+    detail: str,
+) -> PpmWbs:
+    """The work package ``wbs_id`` when it belongs to ``initiative_id``.
+
+    400 with ``detail`` when it does not: a malformed id, an unknown one, or a
+    work package of another initiative. The one check every route that points
+    a row at a work package (a task's package, a package's parent, a Gantt
+    drop) goes through. Writes nothing.
+    """
+    wbs_uuid = parse_uuid(wbs_id)
+    wbs = await db.get(PpmWbs, wbs_uuid) if wbs_uuid is not None else None
+    if wbs is None or wbs.initiative_id != parse_uuid(initiative_id):
+        raise HTTPException(status_code=400, detail=detail)
+    return wbs
+
+
 async def _check_new_parent(
     db: AsyncSession, initiative_id: uuid.UUID, parent_id: uuid.UUID
 ) -> None:
     """400 unless ``parent_id`` is a work package of this initiative that can
     hold items. Checked only when the parent changes, so rows that already sit
     under a milestone can still be reordered there."""
-    parent = await db.get(PpmWbs, parent_id)
-    if parent is None or parent.initiative_id != initiative_id:
-        raise HTTPException(status_code=400, detail="Parent WBS item not found in this initiative")
+    parent = await wbs_of_initiative(
+        db, initiative_id, parent_id, detail="Parent WBS item not found in this initiative"
+    )
     if parent.is_milestone:
         raise HTTPException(status_code=400, detail="A milestone cannot contain items")
 

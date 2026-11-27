@@ -34,7 +34,7 @@ async def ppm_env(db):
     admin = await create_user(db, email="admin@test.com", role="admin")
     viewer = await create_user(db, email="viewer@test.com", role="viewer")
     card = await create_card(db, card_type="Initiative", name="Test Project", user_id=admin.id)
-    return {"admin": admin, "viewer": viewer, "initiative": card}
+    return {"admin": admin, "viewer": viewer, "initiative": card, "db": db}
 
 
 # ── Status Reports ────────────────────────────────────────────────
@@ -1985,3 +1985,379 @@ class TestPermissions:
             headers=auth_headers(ppm_env["viewer"]),
         )
         assert resp.status_code == 403
+
+
+# ── Referenced rows must exist where the route points ─────────────
+
+
+class TestTaskWorkPackageScope:
+    """A task's ``wbs_id`` must be a work package of the task's own initiative.
+
+    Before 2.222.0 only the Gantt move checked it; the task routes stored a
+    work package of another initiative, so the task rolled up into a project
+    it is not part of.
+    """
+
+    async def _other_initiative_wbs(self, client, ppm_env) -> str:
+        other = await create_card(
+            ppm_env["db"],
+            card_type="Initiative",
+            name="Other Project",
+            user_id=ppm_env["admin"].id,
+        )
+        resp = await client.post(
+            f"{BASE}/initiatives/{other.id}/wbs",
+            json={"title": "Foreign package"},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        return resp.json()["id"]
+
+    async def _own_wbs(self, client, ppm_env, **body) -> str:
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json={"title": "Own package", **body},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        return resp.json()["id"]
+
+    async def _tasks(self, client, ppm_env) -> list[dict]:
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.get(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        return resp.json()
+
+    async def test_create_refuses_another_initiatives_work_package(self, client, ppm_env):
+        foreign = await self._other_initiative_wbs(client, ppm_env)
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Stray", "wbs_id": foreign},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Work package not found in this initiative"
+        assert await self._tasks(client, ppm_env) == []
+
+    async def test_create_refuses_unknown_work_package(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Stray", "wbs_id": str(uuid.uuid4())},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Work package not found in this initiative"
+        assert await self._tasks(client, ppm_env) == []
+
+    async def test_create_refuses_malformed_work_package_id(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Stray", "wbs_id": "not-a-uuid"},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Work package not found in this initiative"
+
+    async def test_create_accepts_own_work_package_and_none(self, client, ppm_env):
+        own = await self._own_wbs(client, ppm_env)
+        init_id = str(ppm_env["initiative"].id)
+        inside = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Inside", "wbs_id": own},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert inside.status_code == 200
+        assert inside.json()["wbs_id"] == own
+        loose = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Loose", "wbs_id": None},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert loose.status_code == 200
+        assert loose.json()["wbs_id"] is None
+
+    async def test_create_still_accepts_a_milestone(self, client, ppm_env):
+        # The milestone refusal belongs to the Gantt move alone; the task
+        # dialog's behaviour is unchanged.
+        milestone = await self._own_wbs(client, ppm_env, is_milestone=True)
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "At the milestone", "wbs_id": milestone},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["wbs_id"] == milestone
+
+    async def test_patch_refuses_another_initiatives_work_package(self, client, ppm_env):
+        own = await self._own_wbs(client, ppm_env)
+        foreign = await self._other_initiative_wbs(client, ppm_env)
+        init_id = str(ppm_env["initiative"].id)
+        created = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Settled", "wbs_id": own},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        task_id = created.json()["id"]
+        resp = await client.patch(
+            f"{BASE}/tasks/{task_id}",
+            json={"title": "Renamed", "wbs_id": foreign},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Work package not found in this initiative"
+        [task] = await self._tasks(client, ppm_env)
+        assert task["wbs_id"] == own
+        assert task["title"] == "Settled"
+
+    async def test_patch_refuses_unknown_work_package(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        created = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Loose"},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        task_id = created.json()["id"]
+        resp = await client.patch(
+            f"{BASE}/tasks/{task_id}",
+            json={"wbs_id": str(uuid.uuid4())},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Work package not found in this initiative"
+        [task] = await self._tasks(client, ppm_env)
+        assert task["wbs_id"] is None
+
+    async def test_patch_moves_within_the_initiative_and_out(self, client, ppm_env):
+        first = await self._own_wbs(client, ppm_env)
+        second = await self._own_wbs(client, ppm_env)
+        init_id = str(ppm_env["initiative"].id)
+        created = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Mover", "wbs_id": first},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        task_id = created.json()["id"]
+        moved = await client.patch(
+            f"{BASE}/tasks/{task_id}",
+            json={"wbs_id": second},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert moved.status_code == 200
+        assert moved.json()["wbs_id"] == second
+        # Re-sending the current work package (the dialog always sends it)
+        # is still accepted.
+        same = await client.patch(
+            f"{BASE}/tasks/{task_id}",
+            json={"title": "Mover 2", "wbs_id": second},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert same.status_code == 200
+        assert same.json()["wbs_id"] == second
+        cleared = await client.patch(
+            f"{BASE}/tasks/{task_id}",
+            json={"wbs_id": None},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert cleared.status_code == 200
+        assert cleared.json()["wbs_id"] is None
+
+
+class TestWorkPackageEmptyParent:
+    """An empty-string ``parent_id`` is a 400, not a 500: the routes guarded
+    on truthiness, so ``""`` skipped the check and reached the UUID column.
+    ``null`` still means "no parent" / "move to the root"."""
+
+    async def _wbs_list(self, client, ppm_env) -> list[dict]:
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.get(
+            f"{BASE}/initiatives/{init_id}/wbs", headers=auth_headers(ppm_env["admin"])
+        )
+        return resp.json()
+
+    async def test_create_refuses_an_empty_parent(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json={"title": "Orphan", "parent_id": ""},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Parent WBS item not found in this initiative"
+        assert await self._wbs_list(client, ppm_env) == []
+
+    async def test_create_accepts_a_null_parent(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json={"title": "Root", "parent_id": None},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["parent_id"] is None
+
+    async def test_patch_refuses_an_empty_parent_and_null_moves_to_the_root(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        headers = auth_headers(ppm_env["admin"])
+        parent = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs", json={"title": "Parent"}, headers=headers
+        )
+        parent_id = parent.json()["id"]
+        child = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json={"title": "Child", "parent_id": parent_id},
+            headers=headers,
+        )
+        child_id = child.json()["id"]
+        refused = await client.patch(
+            f"{BASE}/wbs/{child_id}", json={"title": "Renamed", "parent_id": ""}, headers=headers
+        )
+        assert refused.status_code == 400
+        assert refused.json()["detail"] == "Parent WBS item not found in this initiative"
+        stored = {w["id"]: w for w in await self._wbs_list(client, ppm_env)}
+        assert stored[child_id]["parent_id"] == parent_id
+        assert stored[child_id]["title"] == "Child"
+        moved = await client.patch(
+            f"{BASE}/wbs/{child_id}", json={"parent_id": None}, headers=headers
+        )
+        assert moved.status_code == 200
+        assert moved.json()["parent_id"] is None
+
+
+class TestUnknownPersonReferences:
+    """An assignee or risk owner that names no user is refused with 400, not
+    a database error."""
+
+    async def _task_id(self, client, ppm_env) -> str:
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Someone's task"},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        return resp.json()["id"]
+
+    async def _wbs_id(self, client, ppm_env) -> str:
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json={"title": "Someone's package"},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        return resp.json()["id"]
+
+    async def _risk_id(self, client, ppm_env) -> str:
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/risks",
+            json={"title": "Someone's risk"},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        return resp.json()["id"]
+
+    async def test_task_create_unknown_assignee(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Orphan", "assignee_id": str(uuid.uuid4())},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Assignee not found"
+
+    async def test_task_patch_unknown_assignee(self, client, ppm_env):
+        task_id = await self._task_id(client, ppm_env)
+        resp = await client.patch(
+            f"{BASE}/tasks/{task_id}",
+            json={"assignee_id": str(uuid.uuid4())},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Assignee not found"
+
+    async def test_wbs_create_unknown_assignee(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json={"title": "Orphan", "assignee_id": str(uuid.uuid4())},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Assignee not found"
+
+    async def test_wbs_patch_unknown_assignee(self, client, ppm_env):
+        wbs_id = await self._wbs_id(client, ppm_env)
+        resp = await client.patch(
+            f"{BASE}/wbs/{wbs_id}",
+            json={"assignee_id": str(uuid.uuid4())},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Assignee not found"
+
+    async def test_risk_create_unknown_owner(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/risks",
+            json={"title": "Orphan", "owner_id": str(uuid.uuid4())},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Risk owner not found"
+
+    async def test_risk_patch_unknown_owner(self, client, ppm_env):
+        risk_id = await self._risk_id(client, ppm_env)
+        resp = await client.patch(
+            f"{BASE}/risks/{risk_id}",
+            json={"owner_id": str(uuid.uuid4())},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Risk owner not found"
+
+    async def test_malformed_ids_are_refused_the_same_way(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        task = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json={"title": "Orphan", "assignee_id": "nobody"},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert (task.status_code, task.json()["detail"]) == (400, "Assignee not found")
+        risk = await client.post(
+            f"{BASE}/initiatives/{init_id}/risks",
+            json={"title": "Orphan", "owner_id": ""},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert (risk.status_code, risk.json()["detail"]) == (400, "Risk owner not found")
+
+    async def test_known_people_and_clearing_still_work(self, client, ppm_env):
+        admin_id = str(ppm_env["admin"].id)
+        wbs_id = await self._wbs_id(client, ppm_env)
+        assigned = await client.patch(
+            f"{BASE}/wbs/{wbs_id}",
+            json={"assignee_id": admin_id},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert assigned.status_code == 200
+        assert assigned.json()["assignee_id"] == admin_id
+        risk_id = await self._risk_id(client, ppm_env)
+        owned = await client.patch(
+            f"{BASE}/risks/{risk_id}",
+            json={"owner_id": admin_id},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert owned.status_code == 200
+        assert owned.json()["owner_id"] == admin_id
+        cleared = await client.patch(
+            f"{BASE}/risks/{risk_id}",
+            json={"owner_id": None},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert cleared.status_code == 200
+        assert cleared.json()["owner_id"] is None

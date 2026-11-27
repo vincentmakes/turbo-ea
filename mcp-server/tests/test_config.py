@@ -253,6 +253,23 @@ def test_the_translation_cap_defaults_to_2000_and_reads_its_variable(monkeypatch
         importlib.reload(config)
 
 
+def test_the_ppm_row_cap_defaults_to_200_and_reads_its_variable(monkeypatch):
+    """The PPM write tools refuse more rows than this in one call."""
+    import importlib
+
+    monkeypatch.delenv("MCP_MAX_PPM_ROWS_PER_CALL", raising=False)
+    monkeypatch.delenv("MCP_MAX_RELATIONS_PER_CALL", raising=False)
+    try:
+        assert importlib.reload(config).MCP_MAX_PPM_ROWS_PER_CALL == 200
+        monkeypatch.setenv("MCP_MAX_PPM_ROWS_PER_CALL", "12")
+        assert importlib.reload(config).MCP_MAX_PPM_ROWS_PER_CALL == 12
+        # The relation cap is a different variable.
+        assert config.MCP_MAX_RELATIONS_PER_CALL == 500
+    finally:
+        monkeypatch.undo()
+        importlib.reload(config)
+
+
 class TestDerivedKeys:
     """Every key the MCP server uses comes from SECRET_KEY, each under its own
     context string, so no two purposes share a key and the raw secret signs

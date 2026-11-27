@@ -10,7 +10,9 @@ Inverse operations (the ``_INVERSES`` table is the single list):
 
 - ``card.created`` → hard delete the card (and clean up its relations).
 - ``card.updated`` → restore the ``old`` value of every changed field
-  from ``event.data.changes``.
+  from ``event.data.changes`` — except a PPM roll-up (``data["source"]``
+  ``ppm_rollup`` / ``ppm_cost_rollup``), which is declined: those fields are
+  calculated from the project's PPM rows, which no rollback changes.
 - ``card.archived`` / ``card.restored`` → restore / re-archive.
 - ``relation.created`` (``relation.upserted`` on older rows) → delete
   the relation.
@@ -33,7 +35,10 @@ Deliberately NOT reversed, and reported under ``unsupported_events`` so the
 caller sees the coverage before committing: **todos a person created** (a
 todo is a request to a person, and reopening or deleting one behind their
 back is not an undo), **notifications** (already delivered), ``risk.removed`` (no snapshot
-to rebuild from — deletion is a human act), and anything else whose
+to rebuild from — deletion is a human act), **PPM roll-ups of an Initiative
+card** (``card.updated`` with ``source`` ``ppm_rollup`` / ``ppm_cost_rollup``:
+restoring them would reset the project's calculated fields while the work
+packages, tasks, budgets and costs they come from stay), and anything else whose
 handler publishes no structured ``before`` state (comments, documents,
 SoAW, ADR transitions).
 
@@ -127,7 +132,21 @@ def _plan_card_restored(event: Event, data: dict) -> dict[str, Any]:
 _LEGACY_ATTR_PREFIX = "attr_"
 
 
+# ``card.updated`` sources whose change PPM calculated from its own rows
+# (``_publish_initiative_rollup`` in ``api/v1/ppm.py``). PPM rows publish no
+# event a rollback could reverse, so the card has to keep following them.
+_DERIVED_CARD_UPDATE_SOURCES = frozenset({"ppm_rollup", "ppm_cost_rollup"})
+
+_DERIVED_CARD_UPDATE_REASON = (
+    "card.updated is not reversed: the change was calculated from the project's "
+    "PPM work packages, tasks, budgets and costs, which a rollback leaves in "
+    "place; the card keeps following them."
+)
+
+
 def _plan_card_updated(event: Event, data: dict) -> dict[str, Any]:
+    if data.get("source") in _DERIVED_CARD_UPDATE_SOURCES:
+        return _unsupported(event, _DERIVED_CARD_UPDATE_REASON)
     changes = data.get("changes") or {}
     return {
         "op": "restore_card_fields",

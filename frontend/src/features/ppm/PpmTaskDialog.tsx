@@ -208,7 +208,8 @@ export default function PpmTaskDialog({
             onChange={(e) => setDescription(e.target.value)}
             fullWidth
             multiline
-            rows={3}
+            minRows={4}
+            maxRows={16}
           />
 
           <Box

@@ -5,6 +5,9 @@
 !!! note
     PPM-modulet kan slås til eller fra af en administrator i [Indstillinger](../admin/settings.md). Når det er slået fra, skjules PPM-navigation og -funktioner.
 
+!!! tip
+    Et projekts plan (arbejdspakker, milepæle, opgaver og afhængigheder), statusrapporter, risici og opgavekommentarer kan også læses og vedligeholdes fra en AI-assistent via [MCP-serveren](../admin/mcp.md#available-capabilities) med de samme tilladelser, `ppm.view` / `ppm.manage`. Hver ændring vises først som en forhåndsvisning; arbejdspakker, opgaver, rapporter og risici slettes kun her.
+
 ## Portefølje-dashboard
 
 ![PPM Portefølje-dashboard](../assets/img/da/40_ppm_portfolio.png)
@@ -235,6 +238,7 @@ Opgavestyringen understøtter både **Kanban-tavle**- og **liste**-visninger med
 
 Opgaver kan filtreres og grupperes efter Work Breakdown Structure (WBS)-element. Ved gruppering vises hver arbejdspakke som en gruppe — også en, der endnu ikke indeholder opgaver; den viser et hint og en **Tilføj opgave**-knap, som åbner opgavedialogen med den pakke forvalgt. Milepæle vises først, når de indeholder en opgave. Træk og slip kort mellem kolonner for at opdatere status. Hver opgave understøtter:
 
+- En beskrivelse, hvis felt i opgavedialogen vokser, mens du skriver — op til 16 linjer, derefter ruller det
 - Prioritetsniveauer (Critical, High, Medium, Low)
 - Tildelt (med notifikation ved tildeling)
 - Start- og forfaldsdatoer

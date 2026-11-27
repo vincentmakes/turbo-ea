@@ -31,6 +31,7 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 
 from turbo_ea_mcp import oauth
+from turbo_ea_mcp import ppm as _ppm
 from turbo_ea_mcp.api_client import CARD_IDS_CHUNK, TurboEAClient, chunked
 from turbo_ea_mcp.batches import BatchContext, mutation_batch
 from turbo_ea_mcp.config import (
@@ -42,6 +43,7 @@ from turbo_ea_mcp.config import (
     MCP_BATCH_CONFIRMATION_THRESHOLD,
     MCP_MAX_CARDS_PER_CALL,
     MCP_MAX_LOGOS_PER_CALL,
+    MCP_MAX_PPM_ROWS_PER_CALL,
     MCP_MAX_RELATIONS_PER_CALL,
     MCP_MAX_TRANSLATIONS_PER_CALL,
     MCP_PORT,
@@ -227,6 +229,16 @@ mcp = _StrictFastMCP(
         standing="in_force,amended". revise_adr starts a signed decision's
         next revision; replacing or revoking one is a new decision
         (create_adr) with a replaces / revokes link, signed in the web UI.
+
+        Projects (PPM): an Initiative's plan is its work packages,
+        milestones, tasks and dependencies. Read it with get_ppm_plan
+        before changing it, and pass the ids it returns. Save work packages
+        (save_ppm_work_packages) before the tasks that sit in them
+        (save_ppm_tasks); milestones are work packages with is_milestone.
+        Status reports, project risks and task comments have their own
+        tools. Work packages, tasks, reports and risks are deleted in the
+        web app only; a dependency link can be removed with
+        set_ppm_dependencies.
 
         Decisions and SoAWs each have a discussion and a timeline:
         get_document_discussion reads the threads (rejection reasons, change
@@ -7509,6 +7521,760 @@ async def approve_process_flow(
             preview is still recorded as a dry-run batch).
     """
     return await _flow_step("approve", business_process_id, version_id, dry_run)
+
+
+# ── PPM ─────────────────────────────────────────────────────────────────────
+#
+# Project Portfolio Management is a built-in module scoped to Initiative cards
+# (discussion 1457). The tools call its ordinary REST routes with the user's
+# token, so ``ppm.view`` / ``ppm.manage``, the initiative's read scope and every
+# roll-up stay the backend's. The routes do not check the module switch and
+# have no dry run, so every tool asks ``GET /settings/ppm-enabled`` first and
+# every preview is built here (``verified: false``). The pure logic — closed
+# key sets, literals, the old → new diff, payloads, trimming, refusals — is in
+# ``turbo_ea_mcp/ppm.py``. PPM rows publish no event of their own, so
+# ``rollback_batch`` cannot undo a PPM write; deletes stay in the web app,
+# except removing a dependency link.
+
+_PPM_NOT_AUTHENTICATED = "Error: Not authenticated. Please reconnect."
+_PPM_PREVIEW_NOTE = (
+    "Preview built by the MCP server: the PPM routes have no dry run, so the "
+    "initiative's current rows were read and nothing was changed. The backend "
+    "still checks every row on commit. Call again with dry_run=False to save."
+)
+_PPM_NO_ROLLBACK = (
+    "Ask the user to check the result in the web app. rollback_batch cannot "
+    "undo a PPM write: call the tool again with the old values, or delete a "
+    "row in the web app."
+)
+
+
+def _ppm_link(initiative_id: str, tab: str) -> str:
+    return _app_url(_ppm.ppm_path(initiative_id, tab))
+
+
+def _ppm_collection(initiative_id: str, collection: str) -> str:
+    return f"/ppm/initiatives/{initiative_id}/{collection}"
+
+
+def _ppm_refusal(exc: httpx.HTTPStatusError, error: str, **context: object) -> dict | None:
+    """A mapped 4xx from a PPM route with ``context`` added, else None."""
+    answer = _ppm.refusal(exc.response.status_code, _detail(exc), error)
+    return None if answer is None else {**answer, **context}
+
+
+async def _ppm_reads(
+    client: TurboEAClient, paths: dict[str, str], **context: object
+) -> tuple[dict, dict | None]:
+    """``(answers, refusal)``: the module switch, then each of ``paths`` read
+    in order; the first refusal (module off, or a mapped 4xx) stops the reads.
+    Any other error is raised."""
+    if (off := _ppm.disabled_refusal(await client.get("/settings/ppm-enabled"))) is not None:
+        return {}, off
+    answers: dict = {}
+    for name, path in paths.items():
+        try:
+            answers[name] = await client.get(path)
+        except httpx.HTTPStatusError as exc:
+            refusal = _ppm_refusal(exc, "ppm_unavailable", **context)
+            if refusal is None:
+                raise
+            return {}, refusal
+    return answers, None
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def get_ppm_plan(initiative_id: str) -> str:
+    """Read an initiative's project plan: its overall completion, work
+    packages and milestones, tasks and the dependencies between them.
+
+    Milestones are work packages with ``is_milestone: true`` (one date:
+    ``start_date`` = ``end_date``). Each task names the work package it sits
+    in (``wbs_id``); each dependency is finish-to-start, from ``pred`` to
+    ``succ``, with both ends' titles. Read this before saving anything with
+    the PPM write tools: their updates take these ids.
+
+    Requires ``ppm.view`` and the PPM module switched on.
+
+    Args:
+        initiative_id: The Initiative card's UUID (``search_cards`` with
+            ``type='Initiative'``).
+    """
+    token = await _get_current_token()
+    if not token:
+        return _PPM_NOT_AUTHENTICATED
+    ids, refusal = _ppm.normalise_ids({"initiative_id": initiative_id})
+    if refusal is not None:
+        return _fmt(refusal)
+    iid = ids["initiative_id"]
+    reads, refusal = await _ppm_reads(
+        TurboEAClient(token),
+        {
+            name: _ppm_collection(iid, name)
+            for name in ("wbs", "tasks", "dependencies", "completion")
+        },
+        initiative_id=iid,
+    )
+    if refusal is not None:
+        return _fmt(refusal)
+    packages = _ppm.trim_rows(reads["wbs"], _ppm.WORK_PACKAGE_KEYS)
+    tasks = _ppm.trim_rows(reads["tasks"], _ppm.TASK_KEYS)
+    deps = _ppm.trim_rows(reads["dependencies"], _ppm.DEPENDENCY_KEYS)
+    completion = reads["completion"] if isinstance(reads["completion"], dict) else {}
+    return _fmt(
+        {
+            "initiative_id": iid,
+            "completion": completion.get("completion"),
+            "counts": _ppm.plan_counts(packages, tasks),
+            "work_packages": packages,
+            "tasks": tasks,
+            "dependencies": _ppm.label_dependencies(deps, tasks, packages),
+            "gantt_url": _ppm_link(iid, "gantt"),
+            "tasks_url": _ppm_link(iid, "tasks"),
+        }
+    )
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def list_ppm_status_reports(initiative_id: str, limit: int = 10) -> str:
+    """List an initiative's status reports, newest first: report date, the
+    schedule / cost / scope health (onTrack, atRisk, offTrack), summary,
+    accomplishments, next steps and who reported it.
+
+    Requires ``ppm.view`` and the PPM module switched on.
+
+    Args:
+        initiative_id: The Initiative card's UUID.
+        limit: How many reports to return (default 10, clamped to 1..100).
+    """
+    token = await _get_current_token()
+    if not token:
+        return _PPM_NOT_AUTHENTICATED
+    ids, refusal = _ppm.normalise_ids({"initiative_id": initiative_id})
+    if refusal is not None:
+        return _fmt(refusal)
+    iid = ids["initiative_id"]
+    reads, refusal = await _ppm_reads(
+        TurboEAClient(token), {"reports": _ppm_collection(iid, "reports")}, initiative_id=iid
+    )
+    if refusal is not None:
+        return _fmt(refusal)
+    reports = _ppm.newest_first(_ppm.trim_rows(reads["reports"], _ppm.REPORT_KEYS), "report_date")
+    shown = reports[: _ppm.clamp_limit(limit)]
+    return _fmt(
+        {
+            "initiative_id": iid,
+            "total": len(reports),
+            "returned": len(shown),
+            "reports": shown,
+            "url": _ppm_link(iid, "reports"),
+        }
+    )
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def list_ppm_risks(initiative_id: str) -> str:
+    """List an initiative's project risks, highest score first: title,
+    description, probability and impact (1-5), score (probability × impact),
+    mitigation, owner and status (open, mitigating, mitigated, closed,
+    accepted). These are the project's own risks, not the EA Risk Register
+    (``list_risks``).
+
+    Requires ``ppm.view`` and the PPM module switched on.
+
+    Args:
+        initiative_id: The Initiative card's UUID.
+    """
+    token = await _get_current_token()
+    if not token:
+        return _PPM_NOT_AUTHENTICATED
+    ids, refusal = _ppm.normalise_ids({"initiative_id": initiative_id})
+    if refusal is not None:
+        return _fmt(refusal)
+    iid = ids["initiative_id"]
+    reads, refusal = await _ppm_reads(
+        TurboEAClient(token), {"risks": _ppm_collection(iid, "risks")}, initiative_id=iid
+    )
+    if refusal is not None:
+        return _fmt(refusal)
+    risks = _ppm.highest_score_first(_ppm.trim_rows(reads["risks"], _ppm.RISK_KEYS))
+    return _fmt(
+        {"initiative_id": iid, "total": len(risks), "risks": risks, "url": _ppm_link(iid, "risks")}
+    )
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def get_ppm_task_comments(task_id: str) -> str:
+    """Read the comments on a PPM task, oldest first, with each author's
+    display name.
+
+    Requires ``ppm.view`` and the PPM module switched on.
+
+    Args:
+        task_id: The task's UUID (``get_ppm_plan`` lists the tasks).
+    """
+    token = await _get_current_token()
+    if not token:
+        return _PPM_NOT_AUTHENTICATED
+    ids, refusal = _ppm.normalise_ids({"task_id": task_id})
+    if refusal is not None:
+        return _fmt(refusal)
+    tid = ids["task_id"]
+    reads, refusal = await _ppm_reads(
+        TurboEAClient(token), {"comments": f"/ppm/tasks/{tid}/comments"}, task_id=tid
+    )
+    if refusal is not None:
+        return _fmt(refusal)
+    comments = _ppm.oldest_first(_ppm.trim_rows(reads["comments"], _ppm.COMMENT_KEYS), "created_at")
+    return _fmt({"task_id": tid, "total": len(comments), "comments": comments})
+
+
+async def _save_ppm_rows(
+    tool: str,
+    entity: _ppm.Entity,
+    initiative_id: str,
+    items: list[dict],
+    dry_run: bool,
+    confirm_token: str,
+) -> str:
+    """The shared body of the four PPM save tools.
+
+    Kill switch, id and item checks, the cap and the confirmation gate come
+    first, with no backend call. Then the module switch and the initiative's
+    current rows are read, before the batch opens, so an id of another
+    initiative refuses the call before anything is written. On commit, one
+    POST (create) or PATCH (update, changed keys only) per item, in order; a
+    mapped 4xx stops the run and reports what was applied."""
+    token = await _get_current_token()
+    if not token:
+        return _PPM_NOT_AUTHENTICATED
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    ids, refusal = _ppm.normalise_ids({"initiative_id": initiative_id})
+    if refusal is not None:
+        return _fmt(refusal)
+    iid = ids["initiative_id"]
+    rows, errors = _ppm.validate_items(items, entity)
+    if (refusal := _ppm.plan_refusal(errors)) is not None:
+        return _fmt(refusal)
+    if (too_many := _ppm.cap_refusal(len(rows), MCP_MAX_PPM_ROWS_PER_CALL)) is not None:
+        return _fmt(too_many)
+    if not dry_run:
+        gate = _confirmation_required_message(tool, len(rows))
+        if gate is not None and not confirm_token:
+            return gate
+    collection = _ppm_collection(iid, entity.collection)
+    paths = {"rows": collection}
+    if entity is _ppm.TASKS:
+        paths["wbs"] = _ppm_collection(iid, "wbs")
+    reads, refusal = await _ppm_reads(TurboEAClient(token), paths, initiative_id=iid)
+    if refusal is not None:
+        return _fmt(refusal)
+    current = _ppm.index_rows(reads["rows"])
+    errors = _ppm.unknown_id_errors(rows, current, entity)
+    if entity is _ppm.WORK_PACKAGES:
+        errors += _ppm.work_package_errors(rows, current)
+    if entity is _ppm.TASKS:
+        errors += _ppm.task_errors(rows, _ppm.index_rows(reads["wbs"]), current)
+    errors += _ppm.stored_date_errors(
+        rows, current, entity, milestones=entity is _ppm.WORK_PACKAGES
+    )
+    if (refusal := _ppm.plan_refusal(errors)) is not None:
+        return _fmt(refusal)
+    plan = _ppm.plan_saves(rows, current, milestones=entity is _ppm.WORK_PACKAGES)
+    tally = _ppm.plan_tally(plan)
+    url = _ppm_link(iid, entity.tab)
+    async with mutation_batch(
+        token,
+        tool_name=tool,
+        row_count=len(plan),
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
+    ) as batch:
+        if dry_run:
+            batch.summary = {"rows": len(plan), "status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "initiative_id": iid,
+                    "would_save": plan,
+                    "counts": tally,
+                    "note": _PPM_PREVIEW_NOTE,
+                    "verified": False,
+                    "url": url,
+                    **_preview_fields(batch),
+                }
+            )
+        writer = batch.client()
+        saved: list[dict] = []
+        created_refs: dict[str, str] = {}
+        pending = [entry for entry in plan if entry["action"] != "unchanged"]
+        for position, entry in enumerate(pending):
+            body = _ppm.request_body(entry, created_refs)
+            try:
+                if entry["action"] == "create":
+                    answer = await writer.post(collection, json=body)
+                else:
+                    answer = await writer.patch(f"/ppm/{entity.item}/{entry['id']}", json=body)
+            except httpx.HTTPStatusError as exc:
+                refusal = _ppm_refusal(exc, "save_refused", initiative_id=iid)
+                if refusal is None:
+                    raise
+                batch.summary = {
+                    "status": "refused",
+                    "rows": len(plan),
+                    "applied": len(saved),
+                    "error": "save_refused",
+                }
+                return _fmt(
+                    {
+                        **refusal,
+                        "index": entry["index"],
+                        "applied": saved,
+                        "not_applied": [e["index"] for e in pending[position:]],
+                        "url": url,
+                        "batch_id": batch.batch_id,
+                    }
+                )
+            row = _ppm.trim(answer, entity.keys)
+            if "ref" in entry:
+                created_refs[entry["ref"]] = row.get("id")
+            saved.append({"index": entry["index"], "action": entry["action"], **row})
+        batch.summary = {"rows": len(plan), **tally}
+        return _fmt(
+            {
+                "dry_run": False,
+                "initiative_id": iid,
+                "saved": saved,
+                "unchanged": [e["index"] for e in plan if e["action"] == "unchanged"],
+                "url": url,
+                "next_action": _PPM_NO_ROLLBACK,
+                "batch_id": batch.batch_id,
+            }
+        )
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def save_ppm_work_packages(
+    initiative_id: str,
+    items: list[dict],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Create or update an initiative's work packages and milestones.
+
+    Each item takes ``id`` (to update), ``title`` (required to create),
+    ``description``, ``parent_id`` (a work package of this initiative; empty
+    for a top-level one), ``start_date`` / ``end_date`` (YYYY-MM-DD),
+    ``sort_order``, ``is_milestone``, ``completion`` (0-100; only for a work
+    package with no tasks and no sub-packages: the backend calculates the
+    completion of one that has them, so a change to it is refused) and
+    ``assignee_id`` (a user UUID). A milestone (``is_milestone: true``) has
+    one date: give ``start_date``; its ``end_date`` is set to the same day,
+    as the web app does, and an ``end_date`` for a milestone is refused. A
+    milestone holds nothing: a ``parent_id`` / ``parent_ref`` naming one, and
+    ``is_milestone: true`` on a package with tasks or sub-packages, are
+    refused. A ``start_date`` after the ``end_date`` is refused, also when
+    one of them is the stored value.
+
+    To build a hierarchy in one call, give a new item a local ``ref`` and a
+    later item ``parent_ref`` naming it: the parent is created first and its
+    id is used. ``ref`` is never stored. Save work packages before the tasks
+    that sit in them (``save_ppm_tasks``).
+
+    Items without ``id`` are created; items with ``id`` update that work
+    package, which must belong to this initiative (another initiative's id
+    refuses the whole call before anything is written). An update sends only
+    the keys the item carries whose value changes; sending a key as ``null``
+    (or ``""`` for an id) CLEARS it, so leave a key out to keep it. Unknown
+    keys, bad values and an id named twice refuse the call before any
+    backend call.
+
+    Dry-run by default. The preview is built by the MCP server, not verified
+    by the backend (the PPM routes have no dry run: ``"verified": false``):
+    per item ``action`` create, update or unchanged (not sent) and, for an
+    update, ``changes: {field: {old, new}}``. On commit a backend refusal
+    stops the run and lists what was ``applied`` and ``not_applied``.
+    Requires ``ppm.manage``. ``rollback_batch`` cannot undo it (PPM rows
+    publish no event); a work package is deleted in the web app only.
+
+    Args:
+        initiative_id: The Initiative card's UUID.
+        items: The work packages to create or update (1+).
+        dry_run: When True (default), preview without saving.
+        confirm_token: For commits above the confirmation threshold
+            (default 20 items), the token the preview returned.
+    """
+    return await _save_ppm_rows(
+        "save_ppm_work_packages", _ppm.WORK_PACKAGES, initiative_id, items, dry_run, confirm_token
+    )
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def save_ppm_tasks(
+    initiative_id: str,
+    items: list[dict],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Create or update an initiative's tasks.
+
+    Each item takes ``id`` (to update), ``title`` (required to create),
+    ``description``, ``status`` (todo, in_progress, done, blocked),
+    ``priority`` (critical, high, medium, low), ``assignee_id`` (a user UUID;
+    the assignee is notified and gets a to-do), ``start_date`` /
+    ``due_date`` (YYYY-MM-DD), ``sort_order``, ``tags`` (a list of strings)
+    and ``wbs_id``: the work package the task sits in, which must be a work
+    package of this initiative and not a milestone when it changes (re-sending
+    the task's current package is accepted, as the web app's dialog does;
+    ``""`` or ``null`` takes the task out of its work package). Create the
+    work package first with ``save_ppm_work_packages``. A ``start_date``
+    after the ``due_date`` is refused, also when one of them is the stored
+    value.
+
+    Items without ``id`` are created; items with ``id`` update that task,
+    which must belong to this initiative (another initiative's id refuses
+    the whole call before anything is written). An update sends only the
+    keys the item carries whose value changes; sending a key as ``null``
+    CLEARS it, so leave a key out to keep it. Unknown keys, bad values and
+    an id named twice refuse the call before any backend call.
+
+    Dry-run by default. The preview is built by the MCP server, not verified
+    by the backend (``"verified": false``): per item ``action`` create,
+    update or unchanged (not sent) and, for an update, ``changes: {field:
+    {old, new}}``. On commit a backend refusal stops the run and lists what
+    was ``applied`` and ``not_applied``. Requires ``ppm.manage``.
+    ``rollback_batch`` cannot undo it (PPM rows publish no event); a task is
+    deleted in the web app only.
+
+    Args:
+        initiative_id: The Initiative card's UUID.
+        items: The tasks to create or update (1+).
+        dry_run: When True (default), preview without saving.
+        confirm_token: For commits above the confirmation threshold
+            (default 20 items), the token the preview returned.
+    """
+    return await _save_ppm_rows(
+        "save_ppm_tasks", _ppm.TASKS, initiative_id, items, dry_run, confirm_token
+    )
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def save_ppm_status_reports(
+    initiative_id: str,
+    items: list[dict],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Create or update an initiative's status reports.
+
+    Each item takes ``id`` (to update), ``report_date`` (YYYY-MM-DD,
+    required to create), ``schedule_health`` / ``cost_health`` /
+    ``scope_health`` (onTrack, atRisk, offTrack; onTrack when left out of a
+    new report), ``summary``, ``accomplishments`` and ``next_steps``. The
+    reporter of a new report is always the signed-in user.
+
+    Items without ``id`` are created; items with ``id`` update that report,
+    which must belong to this initiative (another initiative's id refuses
+    the whole call before anything is written). An update sends only the
+    keys the item carries whose value changes; sending a text key as
+    ``null`` CLEARS it, so leave a key out to keep it. Unknown keys, bad
+    values and an id named twice refuse the call before any backend call.
+
+    Dry-run by default. The preview is built by the MCP server, not verified
+    by the backend (``"verified": false``): per item ``action`` create,
+    update or unchanged (not sent) and, for an update, ``changes: {field:
+    {old, new}}``. On commit a backend refusal stops the run and lists what
+    was ``applied`` and ``not_applied``. Requires ``ppm.manage``.
+    ``rollback_batch`` cannot undo it (PPM rows publish no event); a report
+    is deleted in the web app only.
+
+    Args:
+        initiative_id: The Initiative card's UUID.
+        items: The status reports to create or update (1+).
+        dry_run: When True (default), preview without saving.
+        confirm_token: For commits above the confirmation threshold
+            (default 20 items), the token the preview returned.
+    """
+    return await _save_ppm_rows(
+        "save_ppm_status_reports",
+        _ppm.STATUS_REPORTS,
+        initiative_id,
+        items,
+        dry_run,
+        confirm_token,
+    )
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def save_ppm_risks(
+    initiative_id: str,
+    items: list[dict],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Create or update an initiative's project risks (not the EA Risk
+    Register, which is ``create_risks`` / ``update_risks``).
+
+    Each item takes ``id`` (to update), ``title`` (required to create),
+    ``description``, ``probability`` and ``impact`` (integers 1-5; 3 when
+    left out of a new risk), ``mitigation``, ``owner_id`` (a user UUID) and
+    ``status`` (open, mitigating, mitigated, closed, accepted). The score is
+    the backend's: probability × impact.
+
+    Items without ``id`` are created; items with ``id`` update that risk,
+    which must belong to this initiative (another initiative's id refuses
+    the whole call before anything is written). An update sends only the
+    keys the item carries whose value changes; sending a key as ``null``
+    CLEARS it, so leave a key out to keep it. Unknown keys, bad values and
+    an id named twice refuse the call before any backend call.
+
+    Dry-run by default. The preview is built by the MCP server, not verified
+    by the backend (``"verified": false``): per item ``action`` create,
+    update or unchanged (not sent) and, for an update, ``changes: {field:
+    {old, new}}``. On commit a backend refusal stops the run and lists what
+    was ``applied`` and ``not_applied``. Requires ``ppm.manage``.
+    ``rollback_batch`` cannot undo it (PPM rows publish no event); a risk is
+    deleted in the web app only.
+
+    Args:
+        initiative_id: The Initiative card's UUID.
+        items: The risks to create or update (1+).
+        dry_run: When True (default), preview without saving.
+        confirm_token: For commits above the confirmation threshold
+            (default 20 items), the token the preview returned.
+    """
+    return await _save_ppm_rows(
+        "save_ppm_risks", _ppm.RISKS, initiative_id, items, dry_run, confirm_token
+    )
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def add_ppm_task_comment(task_id: str, content: str, dry_run: bool = True) -> str:
+    """Post a comment on a PPM task, as the signed-in user.
+
+    ``content`` is plain text, 1 to 10 000 characters, not blank. The task
+    is read first, so a task that does not exist or that the user may not
+    see is refused before anything is written.
+
+    Dry-run by default. The preview is built by the MCP server, not verified
+    by the backend (the route has no dry run: ``"verified": false``).
+    Requires ``ppm.manage``. ``rollback_batch`` cannot undo it: a posted
+    comment is edited or deleted in the task's dialog in the web app.
+
+    Args:
+        task_id: The task's UUID (``get_ppm_plan`` lists the tasks).
+        content: The comment text.
+        dry_run: When True (default), preview without posting.
+    """
+    token = await _get_current_token()
+    if not token:
+        return _PPM_NOT_AUTHENTICATED
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    ids, refusal = _ppm.normalise_ids({"task_id": task_id})
+    if refusal is not None:
+        return _fmt(refusal)
+    tid = ids["task_id"]
+    content, refusal = _ppm.check_comment(content)
+    if refusal is not None:
+        return _fmt(refusal)
+    path = f"/ppm/tasks/{tid}/comments"
+    reads, refusal = await _ppm_reads(TurboEAClient(token), {"comments": path}, task_id=tid)
+    if refusal is not None:
+        return _fmt(refusal)
+    existing = len(_ppm.trim_rows(reads["comments"], _ppm.COMMENT_KEYS))
+    async with mutation_batch(
+        token, tool_name="add_ppm_task_comment", row_count=1, dry_run=dry_run
+    ) as batch:
+        if dry_run:
+            batch.summary = {"rows": 1, "status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "task_id": tid,
+                    "would_post": {"content": content},
+                    "existing_comments": existing,
+                    "note": _PPM_PREVIEW_NOTE,
+                    "verified": False,
+                    **_preview_fields(batch),
+                }
+            )
+        try:
+            answer = await batch.client().post(path, json={"content": content})
+        except httpx.HTTPStatusError as exc:
+            refusal = _ppm_refusal(exc, "comment_refused", task_id=tid)
+            if refusal is None:
+                raise
+            batch.summary = {"status": "refused", "rows": 1, "error": "comment_refused"}
+            return _fmt({**refusal, "batch_id": batch.batch_id})
+        batch.summary = {"rows": 1, "posted": 1}
+        return _fmt(
+            {
+                "dry_run": False,
+                "task_id": tid,
+                "comment": _ppm.trim(answer, _ppm.COMMENT_KEYS),
+                "batch_id": batch.batch_id,
+            }
+        )
+
+
+@mcp.tool(annotations=_WRITE_DESTRUCTIVE_ANNOT)
+async def set_ppm_dependencies(
+    initiative_id: str,
+    add: list[dict] | None = None,
+    remove: list[str] | None = None,
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Add or remove finish-to-start dependency links between an
+    initiative's tasks and work packages (the Gantt chart's arrows).
+
+    ``add`` entries are ``{"pred_kind": "task" | "wbs", "pred_id": <UUID>,
+    "succ_kind": "task" | "wbs", "succ_id": <UUID>}``: the successor starts
+    after the predecessor finishes. Both ends must be rows of this
+    initiative (``get_ppm_plan``). ``remove`` is a list of dependency ids
+    of this initiative. Give at least one of the two. A row depending on
+    itself, a link named twice and an unknown id refuse the call before
+    anything is written; a link that already exists is reported ``exists``
+    and not sent again. Removes run before adds. The backend refuses a link
+    that would close a cycle.
+
+    Destructive because it removes links. Dry-run by default: the preview
+    is built by the MCP server, not verified by the backend (``"verified":
+    false``). On commit a backend refusal stops the run and lists what was
+    ``applied`` and ``not_applied``. Requires ``ppm.manage``.
+    ``rollback_batch`` cannot undo it: add a removed link again, or remove
+    an added one, with this tool.
+
+    Args:
+        initiative_id: The Initiative card's UUID.
+        add: Links to add.
+        remove: Dependency ids to remove.
+        dry_run: When True (default), preview without saving.
+        confirm_token: For commits above the confirmation threshold
+            (default 20 links added + removed), the token the preview
+            returned.
+    """
+    token = await _get_current_token()
+    if not token:
+        return _PPM_NOT_AUTHENTICATED
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    ids, refusal = _ppm.normalise_ids({"initiative_id": initiative_id})
+    if refusal is not None:
+        return _fmt(refusal)
+    iid = ids["initiative_id"]
+    adds, removes, errors = _ppm.dependency_changes(add, remove)
+    if (refusal := _ppm.plan_refusal(errors)) is not None:
+        return _fmt(refusal)
+    row_count = len(adds) + len(removes)
+    if (too_many := _ppm.cap_refusal(row_count, MCP_MAX_PPM_ROWS_PER_CALL)) is not None:
+        return _fmt(too_many)
+    if not dry_run:
+        gate = _confirmation_required_message("set_ppm_dependencies", row_count)
+        if gate is not None and not confirm_token:
+            return gate
+    collection = _ppm_collection(iid, "dependencies")
+    reads, refusal = await _ppm_reads(
+        TurboEAClient(token),
+        {
+            "dependencies": collection,
+            "tasks": _ppm_collection(iid, "tasks"),
+            "wbs": _ppm_collection(iid, "wbs"),
+        },
+        initiative_id=iid,
+    )
+    if refusal is not None:
+        return _fmt(refusal)
+    add_plan, remove_plan, errors = _ppm.dependency_plan(
+        adds,
+        removes,
+        _ppm.index_rows(reads["dependencies"]),
+        _ppm.index_rows(reads["tasks"]),
+        _ppm.index_rows(reads["wbs"]),
+    )
+    if (refusal := _ppm.plan_refusal(errors)) is not None:
+        return _fmt(refusal)
+    url = _ppm_link(iid, "gantt")
+    async with mutation_batch(
+        token,
+        tool_name="set_ppm_dependencies",
+        row_count=row_count,
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
+    ) as batch:
+        if dry_run:
+            batch.summary = {"rows": row_count, "status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "initiative_id": iid,
+                    "would_remove": remove_plan,
+                    "would_add": add_plan,
+                    "note": _PPM_PREVIEW_NOTE,
+                    "verified": False,
+                    "url": url,
+                    **_preview_fields(batch),
+                }
+            )
+        writer = batch.client()
+        steps = [("remove", entry) for entry in remove_plan] + [
+            ("add", entry) for entry in add_plan if entry["action"] == "add"
+        ]
+        applied: list[dict] = []
+        for position, (kind, entry) in enumerate(steps):
+            try:
+                if kind == "remove":
+                    await writer.delete(f"/ppm/dependencies/{entry['id']}")
+                    applied.append({"list": "remove", "index": entry["index"], "id": entry["id"]})
+                else:
+                    body = {key: entry[key] for key in _ppm.DEPENDENCY_KEYS[1:5]}
+                    answer = await writer.post(
+                        collection, json={**body, "kind": _ppm.DEPENDENCY_TYPE}
+                    )
+                    applied.append(
+                        {
+                            "list": "add",
+                            "index": entry["index"],
+                            **_ppm.trim(answer, _ppm.DEPENDENCY_KEYS),
+                        }
+                    )
+            except httpx.HTTPStatusError as exc:
+                refusal = _ppm_refusal(exc, "dependency_refused", initiative_id=iid)
+                if refusal is None:
+                    raise
+                batch.summary = {
+                    "status": "refused",
+                    "rows": row_count,
+                    "applied": len(applied),
+                    "error": "dependency_refused",
+                }
+                return _fmt(
+                    {
+                        **refusal,
+                        "list": kind,
+                        "index": entry["index"],
+                        "applied": applied,
+                        "not_applied": [
+                            {"list": k, "index": e["index"]} for k, e in steps[position:]
+                        ],
+                        "url": url,
+                        "batch_id": batch.batch_id,
+                    }
+                )
+        batch.summary = {"rows": row_count, "applied": len(applied)}
+        return _fmt(
+            {
+                "dry_run": False,
+                "initiative_id": iid,
+                "applied": applied,
+                "exists": [e["index"] for e in add_plan if e["action"] == "exists"],
+                "url": url,
+                "next_action": _PPM_NO_ROLLBACK,
+                "batch_id": batch.batch_id,
+            }
+        )
 
 
 # ── Extension operations ────────────────────────────────────────────────────

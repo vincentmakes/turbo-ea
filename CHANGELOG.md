@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.222.0] - 2026-11-27
+
+### Added
+- **PPM through an AI assistant**: the MCP server reads a project's plan (work packages, milestones, tasks and dependencies), status reports, project risks and task comments, creates and updates work packages, milestones, tasks, status reports and risks, comments on a task, and adds or removes dependency links — each change previewed first, and only while the PPM module is switched on ([#1457](https://github.com/vincentmakes/turbo-ea/discussions/1457)).
+- An MCP server setting, `MCP_MAX_PPM_ROWS_PER_CALL` (default 200), caps how many PPM rows or dependency links one AI assistant call may change (#1457).
+
+### Changed
+- The Description field of a PPM task, and the other long text fields in the PPM dialogs, grow with their content instead of showing a fixed few lines (#1457).
+
+### Fixed
+- A PPM task can no longer be placed in a work package of another project through the API.
+- An unknown assignee or risk owner sent to the PPM API is refused with a clear message instead of a server error.
+- Rolling back an AI assistant's change no longer resets a project's calculated fields (its budget, actual costs and calculated progress fields) while its PPM rows stay as they are.
+
 ## [2.221.0] - 2026-11-27
 
 ### Added

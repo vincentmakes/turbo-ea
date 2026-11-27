@@ -119,3 +119,21 @@ describe("PpmWbsDialog completion slider", () => {
     expect(screen.getByRole("slider")).not.toBeDisabled();
   });
 });
+
+describe("PpmWbsDialog description", () => {
+  it("grows with its content instead of sitting at three fixed rows", () => {
+    const text = Array.from({ length: 20 }, (_, i) => `Scope item ${i + 1}`).join("\n");
+    renderDialog({ wbs: wbs({ description: text }) });
+
+    const field = screen.getByRole("textbox", { name: "Description" });
+    expect(field.tagName).toBe("TEXTAREA");
+    expect(field).toHaveValue(text);
+    // minRows/maxRows render MUI's autosizing textarea (no fixed `rows`,
+    // plus a hidden read-only twin it measures the text in).
+    expect(field).not.toHaveAttribute("rows");
+    const shadow = field.parentElement?.querySelector('textarea[aria-hidden="true"]');
+    expect(shadow).not.toBeNull();
+    expect(shadow).toHaveAttribute("readonly");
+    expect(shadow).not.toBe(field);
+  });
+});

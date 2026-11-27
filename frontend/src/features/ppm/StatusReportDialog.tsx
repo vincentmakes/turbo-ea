@@ -189,7 +189,8 @@ export default function StatusReportDialog({
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
             multiline
-            rows={3}
+            minRows={3}
+            maxRows={12}
             fullWidth
           />
 
@@ -198,7 +199,8 @@ export default function StatusReportDialog({
             value={accomplishments}
             onChange={(e) => setAccomplishments(e.target.value)}
             multiline
-            rows={3}
+            minRows={3}
+            maxRows={12}
             fullWidth
           />
 
@@ -207,7 +209,8 @@ export default function StatusReportDialog({
             value={nextSteps}
             onChange={(e) => setNextSteps(e.target.value)}
             multiline
-            rows={3}
+            minRows={3}
+            maxRows={12}
             fullWidth
           />
         </Box>

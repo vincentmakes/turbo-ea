@@ -5,6 +5,9 @@ Il modulo **PPM** fornisce una soluzione completa di gestione del portafoglio pr
 !!! note
     Il modulo PPM può essere abilitato o disabilitato da un amministratore nelle [Impostazioni](../admin/settings.md). Quando disabilitato, la navigazione e le funzionalità PPM sono nascoste.
 
+!!! tip
+    Il piano di un progetto (pacchetti di lavoro, milestone, attività e dipendenze), i report di stato, i rischi e i commenti alle attività possono anche essere letti e mantenuti da un assistente IA tramite il [server MCP](../admin/mcp.md#available-capabilities), con gli stessi permessi `ppm.view` / `ppm.manage`. Ogni modifica viene prima mostrata in anteprima; pacchetti di lavoro, attività, report e rischi si eliminano solo qui.
+
 ## Dashboard del Portafoglio
 
 ![Dashboard del Portafoglio PPM](../assets/img/it/40_ppm_portafoglio.png)
@@ -233,7 +236,14 @@ Il gestore delle attività supporta le viste **board Kanban** e **lista** con qu
 - **Completato** — Attività completate
 - **Bloccato** — Attività che non possono procedere
 
-Le attività possono essere filtrate e raggruppate per elemento della Struttura di Scomposizione del Lavoro (WBS). Quando sono raggruppate, ogni pacchetto di lavoro compare come gruppo — compreso uno che non contiene ancora attività, che mostra un suggerimento e un pulsante **Aggiungi attività** che apre la finestra di dialogo dell'attività con quel pacchetto preselezionato. Le milestone compaiono solo quando contengono un'attività. Trascina le card tra le colonne per aggiornare lo stato.
+Le attività possono essere filtrate e raggruppate per elemento della Struttura di Scomposizione del Lavoro (WBS). Quando sono raggruppate, ogni pacchetto di lavoro compare come gruppo — compreso uno che non contiene ancora attività, che mostra un suggerimento e un pulsante **Aggiungi attività** che apre la finestra di dialogo dell'attività con quel pacchetto preselezionato. Le milestone compaiono solo quando contengono un'attività. Trascina le card tra le colonne per aggiornare lo stato. Ogni attività supporta:
+
+- Una descrizione, il cui campo nella finestra di dialogo dell'attività cresce mentre si digita — fino a 16 righe, poi scorre
+- Livelli di priorità (Critica, Alta, Media, Bassa)
+- Assegnatario (con notifica all'assegnazione)
+- Date di inizio e di scadenza
+- Tag per la categorizzazione
+- Commenti per la discussione
 
 I filtri di visualizzazione (modalità vista, filtro WBS, interruttore raggruppamento) vengono mantenuti nell'URL tra gli aggiornamenti della pagina.
 
