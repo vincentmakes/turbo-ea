@@ -106,6 +106,9 @@ Le panneau ne propose aucune action. Les entrées ne peuvent être ni modifiées
 | `auth.password.changed` | un utilisateur connecté modifie son propre mot de passe |
 | `auth.impersonation.started` | un administrateur démarre **Voir en tant que rôle…**. La cible est le rôle choisi |
 | `auth.impersonation.stopped` | l'administrateur revient à son propre rôle |
+| `auth.mcp.connected` | une personne se connecte au serveur MCP depuis un outil d'IA, ce qui ouvre une connexion. La cible est le nom de l'outil d'IA |
+| `auth.mcp.revoked` | une connexion est terminée depuis le tableau [Connexions actives](mcp.md#active-connections), par son propriétaire ou un administrateur. Le sujet est la personne à qui appartenait la connexion |
+| `auth.mcp.replay_detected` | un jeton d'actualisation déjà remplacé est présenté de nouveau, ce qui met fin à la connexion. Enregistré comme un échec : quelqu'un détient peut-être une copie du jeton |
 
 **Codes de motif** de `auth.login.failed` :
 
@@ -172,7 +175,7 @@ Chaque fois que des données quittent l'instance en masse, une entrée `access` 
 
 ## Ce qui n'est pas enregistré
 
-- **Le renouvellement du jeton.** L'application web renouvelle sa session à intervalle régulier : chaque onglet ouvert ajouterait des entrées, sans qu'aucune ne signifie quoi que ce soit.
+- **Le renouvellement du jeton.** L'application web renouvelle sa session à intervalle régulier : chaque onglet ouvert ajouterait des entrées, sans qu'aucune ne signifie quoi que ce soit. Il en va de même pour un outil d'IA qui renouvelle sa connexion MCP toutes les heures ; seul un jeton d'actualisation réutilisé est enregistré (`auth.mcp.replay_detected`).
 - **Les requêtes refusées pour un jeton de session expiré ou invalide.** Elles se produisent chaque fois qu'une session se termine normalement.
 - **Les lectures de flux OData.** Excel et Power BI interrogent le flux OData d'une vue sauvegardée selon un calendrier ; chaque actualisation ajouterait une entrée.
 - **Les classeurs et présentations construits dans le navigateur.** Les téléchargements Excel et PowerPoint de l'inventaire et des rapports sont produits à partir des données que la page a déjà chargées : ce sont des lectures, pas des exports depuis le serveur.

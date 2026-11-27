@@ -27,8 +27,8 @@ PostgreSQL
 
 1. Un utente aggiunge l'URL del server MCP al proprio strumento IA.
 2. Alla prima connessione, lo strumento IA apre una finestra del browser per l'autenticazione SSO.
-3. Dopo il login, il server MCP emette il proprio token di accesso (supportato dal JWT Turbo EA dell'utente).
-4. Lo strumento IA utilizza questo token per tutte le richieste successive. I token si rinnovano automaticamente.
+3. Dopo l'accesso, il backend apre una **connessione** duratura per quella persona e quello strumento di IA, e il server MCP consegna allo strumento di IA un token di accesso e un token di aggiornamento.
+4. Lo strumento di IA usa il token di accesso per tutte le richieste successive e lo rinnova automaticamente con il token di aggiornamento. La connessione sopravvive ai riavvii e agli aggiornamenti del container MCP; vedere [Quanto dura una connessione](#connection-lifetime).
 5. Ogni query passa attraverso il normale sistema di permessi di Turbo EA — gli utenti vedono solo i dati a cui hanno accesso.
 
 ---
@@ -68,9 +68,16 @@ MCP_PUBLIC_URL=https://il-tuo-dominio.esempio.com/mcp
 | `TURBO_EA_PUBLIC_URL` | l'origine di `MCP_PUBLIC_URL`, altrimenti `http://localhost:8920` | L'URL pubblico dell'istanza Turbo EA. Ogni link restituito da uno strumento MCP (una bozza nell'editor, una vista di inventario salvata) è costruito su di esso. Se non è impostato, o è impostato su un indirizzo locale (`localhost`, `127.0.0.1` o `[::1]`, qualsiasi porta — `.env.example` fornisce `http://localhost`) mentre `MCP_PUBLIC_URL` indica un host reale, il server MCP usa invece lo schema e l'host di `MCP_PUBLIC_URL` (`https://ea.example.com/mcp` dà `https://ea.example.com`), il che è corretto ogni volta che MCP è servito sotto `/mcp` sull'host stesso dell'applicazione. Un valore su un host reale viene sempre usato; impostarne uno quando l'applicazione si trova altrove |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | L'URL pubblico del server MCP (usato negli URI di reindirizzamento OAuth). Quando il container viene eseguito in modalità standalone, il valore predefinito nel codice è `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Porta interna del container MCP (raramente necessita di modifica) |
-| `SECRET_KEY` | *(nessuno)* | Impostarla al valore del backend. Firma gli identificativi client OAuth emessi dal server MCP, così un client registrato una volta continua a funzionare dopo un riavvio; senza di essa il server firma con una chiave che scompare con il processo e registra un avviso. Docker Compose, il chart Helm e i modelli cloud la passano automaticamente |
+| `SECRET_KEY` | *(nessuno)* | Impostarla sul valore del backend. Firma gli identificatori client OAuth e sigilla i token di accesso che il server MCP rilascia, e dimostra al backend che i rinnovi provengono dal server MCP di questa istanza. Con essa, un client registrato e una connessione attiva continuano a funzionare dopo i riavvii e si rinnovano da sole. Senza, l'accesso funziona comunque, ma la connessione non riceve un token di aggiornamento, termina alla scadenza del token di accesso (1 ora) e non sopravvive a un riavvio; il server registra un avviso all'avvio. Docker Compose, il chart Helm e i template cloud la passano automaticamente |
 | `MCP_ALLOWED_ORIGINS` | *(vuoto)* | Origini aggiuntive, separate da virgole, le cui richieste del browser l'endpoint MCP accetta. Le richieste senza intestazione `Origin` sono sempre accettate |
 | `MCP_ALLOWED_HOSTS` | *(vuoto)* | Nomi host aggiuntivi, separati da virgole, che l'endpoint MCP accetta nell'intestazione `Host`, oltre agli host di `TURBO_EA_PUBLIC_URL` e `MCP_PUBLIC_URL`. Necessario solo quando un proxy inoltra un nome host diverso; vedere [Dietro un proxy che cambia il nome host](#proxy-host-name) |
+
+Due impostazioni del servizio **backend** (non del container MCP) decidono quanto dura una connessione. Entrambe sono facoltative; Docker Compose le trasmette da `.env`:
+
+| Variabile | Predefinito | Descrizione |
+|-----------|------------|-------------|
+| `MCP_SESSION_IDLE_DAYS` | `30` | Una connessione si rinnova finché viene usata almeno una volta in questo numero di giorni. Se resta inutilizzata più a lungo, termina e la persona accede di nuovo dallo strumento di IA |
+| `MCP_SESSION_MAX_DAYS` | `180` | Una connessione termina questo numero di giorni dopo l'accesso che l'ha creata, indipendentemente da quanto spesso viene usata, e la persona accede di nuovo tramite SSO. È ciò che alla fine intercetta un account rimosso presso il provider di identità ma ancora attivo in Turbo EA. `0` disattiva questa scadenza (resta valida quella per inattività) |
 
 ### Passaggio 3: Aggiungere l'URI di reindirizzamento OAuth all'app SSO
 
@@ -93,6 +100,12 @@ Questo è necessario per il flusso OAuth che autentica gli utenti quando si conn
 
 !!! warning
     L'interruttore è disabilitato se l'SSO non è configurato. Configurare prima l'SSO.
+
+### Connessioni attive { #active-connections }
+
+Sotto l'interruttore, la tabella **Connessioni attive** elenca tutti gli strumenti di IA connessi al server MCP, di tutti gli utenti: la persona, lo strumento di IA (il nome con cui si è registrato, ad esempio *Claude* o *Copilot Studio*), quando si è connesso, quando è stato usato l'ultima volta e quando termina se non viene più usato. La vedono solo i ruoli con il permesso `admin.mcp`.
+
+**Revoca** termina subito una connessione, dopo una conferma: la richiesta successiva dello strumento di IA viene rifiutata e la persona accede di nuovo dallo strumento di IA per riconnettersi. Usatela quando un portatile viene smarrito, una persona lascia l'azienda o una connessione non dovrebbe esistere. Connessione, revoca e rilevamento di un riutilizzo di token vengono registrati nel [Registro di sicurezza e amministrazione](audit-log.md) (categoria *Autenticazione*).
 
 ---
 
@@ -133,7 +146,7 @@ Copilot Studio si connette ai server MCP dal cloud di Microsoft, non dal compute
 3. In **Autenticazione**, scegli **OAuth 2.0**, poi **Individuazione dinamica** (Dynamic discovery).
 4. Crea la connessione e accedi con il tuo account SSO quando richiesto.
 
-Copilot Studio si registra una sola volta e conserva l'identificativo client ricevuto. Quell'identificativo contiene i propri URI di reindirizzamento, firmati con la `SECRET_KEY` dell'istanza, perciò la connessione continua a funzionare quando il container MCP viene riavviato o aggiornato. Cambiare `SECRET_KEY` invalida tutti i client registrati: ricrea poi lo strumento in Copilot Studio.
+Copilot Studio si registra una sola volta e conserva l'identificatore client ricevuto. Quell'identificatore contiene i propri URI di reindirizzamento, firmati con il `SECRET_KEY` dell'istanza, e dalla versione 2.219.0 la connessione attiva stessa è memorizzata dal backend, quindi continua a funzionare quando il container MCP viene riavviato o aggiornato e si rinnova mentre l'agente è in uso. Modificare `SECRET_KEY` invalida ogni client registrato e ogni connessione: ricreare poi la connessione in Copilot Studio.
 
 ### Dietro un proxy che cambia il nome host { #proxy-host-name }
 
@@ -554,8 +567,20 @@ L'accesso ai dati tramite MCP — in lettura o in scrittura — segue lo stesso 
 - **Esecuzione di prova predefinita sulle scritture**: Gli strumenti di scrittura propongono per impostazione predefinita un'anteprima valida-e-annulla. Lo strumento di IA deve richiamare esplicitamente con `dry_run=false` prima che qualunque dato venga persistito, e ogni modifica è registrata sotto l'identità dell'utente.
 - **Ogni record indica che è passato da MCP**: ogni card, diagramma, rischio, decisione, SoAW, commento e versione di flusso BPM creati da un agente riporta `created_via: mcp` accanto alla persona che ha eseguito l'agente, e una modifica successiva di un agente imposta `updated_via: mcp`. L'interfaccia web lo mostra come chip **MCP** sul record, e il filtro **Origine** dell'Inventario elenca tutto ciò che un agente ha creato.
 - **Nessuna analisi di file in MCP**: Il server MCP in sé non accetta PDF, file Excel, immagini o altri artefatti binari. Lo strumento di IA chiamante li analizza nel proprio contesto e invia righe strutturate. Questo mantiene la superficie di attacco ridotta ed evita di esporre il server a input binari malformati.
-- **Rotazione dei token**: I token di accesso scadono dopo 1 ora. I token di rinnovo durano 30 giorni. I codici di autorizzazione sono monouso e scadono dopo 10 minuti.
+- **Rotazione dei token**: i token di accesso scadono dopo 1 ora e vengono rinnovati automaticamente. Il token di aggiornamento viene sostituito a ogni rinnovo; se un token di aggiornamento già sostituito viene presentato di nuovo — segno di un token copiato —, la connessione termina subito e l'evento viene registrato nel registro di sicurezza e amministrazione. I codici di autorizzazione sono monouso e scadono dopo 10 minuti.
+- **Nessun token nel database**: il backend memorizza una riga per connessione con un contatore di rinnovi, mai un token né il suo hash. Un token di aggiornamento viene accettato solo tramite il server MCP di questa istanza.
+- **Connessioni revocabili**: un amministratore può terminare qualsiasi connessione dalla tabella [Connessioni attive](#active-connections); un account disabilitato o scaduto non può rinnovare le proprie connessioni e i suoi token di accesso smettono subito di funzionare.
 - **Porta solo interna**: Il container MCP espone la porta 8001 solo sulla rete Docker interna. Tutto l'accesso esterno passa attraverso il reverse proxy Nginx.
+
+### Quanto dura una connessione { #connection-lifetime }
+
+Una connessione continua a funzionare, senza nuovo accesso, finché viene usata almeno una volta ogni 30 giorni (`MCP_SESSION_IDLE_DAYS`), fino a 180 giorni dopo l'accesso che l'ha creata (`MCP_SESSION_MAX_DAYS`). Sopravvive ai riavvii e agli aggiornamenti del container MCP. Termina:
+
+- dopo 30 giorni senza utilizzo o 180 giorni dopo l'accesso, a seconda di quale evento si verifica per primo;
+- subito quando viene revocata nella tabella Connessioni attive;
+- subito quando l'account della persona viene disabilitato o scade;
+- quando un token di aggiornamento già sostituito viene presentato di nuovo;
+- quando cambia il `SECRET_KEY` dell'istanza.
 
 ---
 
@@ -570,7 +595,9 @@ L'accesso ai dati tramite MCP — in lettura o in scrittura — segue lo stesso 
 | I link restituiti da uno strumento IA aprono `http://localhost:8920` | Il container MCP non conosce l'indirizzo con cui gli utenti raggiungono l'applicazione. Impostare `TURBO_EA_PUBLIC_URL` (o `MCP_PUBLIC_URL`, al cui host ricorre in mancanza) sull'URL pubblico e riavviare il container MCP. |
 | Una chiamata a uno strumento fallisce con `Unknown argument(s): …` | Lo strumento IA ha passato un parametro che lo strumento non accetta; l'errore elenca quelli validi e non è stato fatto nulla. Per i collegamenti dei passi di un flusso di processo, usare `link_process_flow_elements` anziché `import_bpmn`. |
 | L'utente ottiene risultati vuoti | MCP rispetta i permessi RBAC. Se un utente ha accesso limitato, vedrà solo le card consentite dal suo ruolo. |
-| La connessione si interrompe dopo 1 ora | Lo strumento IA dovrebbe gestire il rinnovo dei token automaticamente. In caso contrario, riconnettersi. |
+| La connessione cade dopo 1 ora | Il container MCP non ha `SECRET_KEY`, quindi non è stato rilasciato alcun token di aggiornamento (il log MCP lo segnala con un avviso all'avvio). Impostalo sul valore del backend, riavvia il container MCP e riconnettiti una volta. |
+| Una connessione creata prima della 2.219.0 ha smesso di funzionare dopo l'aggiornamento | Fino alla 2.219.0 le connessioni erano conservate nella memoria del server MCP. Riconnetti ogni strumento di IA una volta (in Copilot Studio, ricrea la connessione); da allora le connessioni sopravvivono a riavvii e aggiornamenti. |
+| Uno strumento di IA deve accedere di nuovo anche se prima funzionava | La connessione è terminata: inutilizzata per più di `MCP_SESSION_IDLE_DAYS`, più vecchia di `MCP_SESSION_MAX_DAYS`, revocata, account disabilitato o token di aggiornamento riutilizzato. Il registro di sicurezza e amministrazione mostra *Connessione dello strumento di IA revocata* o *Token di aggiornamento MCP riutilizzato* negli ultimi casi. Accedi di nuovo dallo strumento di IA. |
 | `400` con *Invalid HTTP request received* dagli endpoint MCP dietro un proxy di accesso (ad esempio l'autenticazione di Azure App Service) | Il proxy aggiunge a ogni richiesta grandi intestazioni di token e cookie, più di quanto il server MCP accettasse. Aggiorna alla versione 2.217.1 o successiva. |
 | Copilot Studio segnala «Connection creation failed» | Copilot Studio chiama dal cloud di Microsoft. Verificare che `https://il-tuo-dominio.esempio.com/mcp` sia raggiungibile da internet con un certificato pubblicamente attendibile e che `MCP_PUBLIC_URL` sia quell'indirizzo pubblico. Il log di Nginx durante un tentativo mostra l'ultima richiesta arrivata; se non ne arriva nessuna, l'istanza non è raggiungibile. |
 | Uno strumento di Copilot Studio ha smesso di funzionare dopo l'aggiornamento a 2.175.2 | Gli strumenti creati prima della 2.175.2 hanno un identificativo client che non sopravviveva a un riavvio. Eliminare lo strumento e aggiungerlo di nuovo una volta; il nuovo identificativo sopravvive ai riavvii successivi. |

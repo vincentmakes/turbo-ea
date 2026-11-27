@@ -27,8 +27,8 @@ PostgreSQL
 
 1. En bruger tilføjer MCP-server-URL'en til sit AI-værktøj.
 2. Ved første forbindelse åbner AI-værktøjet et browservindue til SSO-autentificering.
-3. Efter login udsteder MCP-serveren sit eget access-token (understøttet af brugerens Turbo EA JWT).
-4. AI-værktøjet bruger dette token til alle efterfølgende anmodninger. Tokens fornyes automatisk.
+3. Efter login åbner backend en varig **forbindelse** for den pågældende person og det pågældende AI-værktøj, og MCP-serveren giver AI-værktøjet et adgangstoken og et opdateringstoken.
+4. AI-værktøjet bruger adgangstokenet til alle efterfølgende forespørgsler og fornyer det automatisk med opdateringstokenet. Forbindelsen overlever genstarter og opgraderinger af MCP-containeren; se [Hvor længe en forbindelse varer](#connection-lifetime).
 5. Hver forespørgsel går gennem det normale Turbo EA-tilladelsessystem — brugere ser kun data, de har adgang til.
 
 ---
@@ -68,9 +68,16 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `TURBO_EA_PUBLIC_URL` | oprindelsen (origin) af `MCP_PUBLIC_URL`, ellers `http://localhost:8920` | Den offentlige URL til din Turbo EA-instans. Hvert link, et MCP-værktøj returnerer (en kladde i editoren, en gemt inventarvisning), bygges på den. Er den ikke sat, eller er den sat til en lokal adresse (`localhost`, `127.0.0.1` eller `[::1]`, enhver port — `.env.example` leveres med `http://localhost`), mens `MCP_PUBLIC_URL` angiver en rigtig vært, bruger MCP-serveren i stedet skema og vært fra `MCP_PUBLIC_URL` (`https://ea.example.com/mcp` giver `https://ea.example.com`), hvilket er korrekt, når MCP serveres under `/mcp` på appens egen vært. En værdi på en rigtig vært bruges altid; sæt en, når appen ligger et andet sted |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | Den offentlige URL til MCP-serveren (bruges i OAuth-redirect-URI'er). Når containeren køres selvstændigt, er kode-standarden `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Intern port for MCP-containeren (sjældent behov for at ændre) |
-| `SECRET_KEY` | *(ingen)* | Sæt den til backends værdi. Signerer de OAuth-klient-id'er, MCP-serveren udsteder, så en klient, der er registreret én gang, fortsat virker efter en genstart; uden den signerer serveren med en nøgle, der forsvinder med processen, og logger en advarsel. Docker Compose, Helm-chartet og cloud-skabelonerne sender den automatisk med |
+| `SECRET_KEY` | *(ingen)* | Sæt den til backendens værdi. Den signerer de OAuth-klient-id'er, MCP-serveren udleverer, forsegler adgangstokens og beviser over for backend, at fornyelser kommer fra denne instans' egen MCP-server. Med den fortsætter en registreret klient og en oprettet forbindelse med at virke efter genstarter og fornyer sig selv. Uden den virker login stadig, men forbindelsen får intet opdateringstoken, slutter, når adgangstokenet udløber (1 time), og overlever ikke en genstart; serveren logger en advarsel ved start. Docker Compose, Helm-chartet og cloudskabelonerne sender den automatisk med |
 | `MCP_ALLOWED_ORIGINS` | *(tom)* | Kommaseparerede ekstra origins, hvis browserforespørgsler MCP-endpointet accepterer. Forespørgsler uden `Origin`-header accepteres altid |
 | `MCP_ALLOWED_HOSTS` | *(tom)* | Kommaseparerede ekstra værtsnavne, som MCP-endpointet accepterer i `Host`-headeren ud over værterne i `TURBO_EA_PUBLIC_URL` og `MCP_PUBLIC_URL`. Kun nødvendig, når en proxy videresender et andet værtsnavn; se [Bag en proxy, der ændrer værtsnavnet](#proxy-host-name) |
+
+To indstillinger på **backend**-tjenesten (ikke MCP-containeren) afgør, hvor længe en forbindelse varer. Begge er valgfrie; Docker Compose sender dem videre fra `.env`:
+
+| Variabel | Standard | Beskrivelse |
+|----------|---------|-------------|
+| `MCP_SESSION_IDLE_DAYS` | `30` | En forbindelse fornyes, så længe den bruges mindst én gang inden for dette antal dage. Er den ubrugt længere, slutter den, og personen logger ind igen fra AI-værktøjet |
+| `MCP_SESSION_MAX_DAYS` | `180` | En forbindelse slutter dette antal dage efter det login, der oprettede den, uanset hvor ofte den bruges, så personen logger ind via SSO igen. Det er dette, der til sidst fanger en konto, der er fjernet hos identitetsudbyderen, men stadig er aktiv i Turbo EA. `0` slår denne afslutning fra (afslutningen ved manglende brug gælder stadig) |
 
 ### Trin 3: Tilføj OAuth-redirect-URI'en til din SSO-app
 
@@ -93,6 +100,12 @@ Dette kræves for OAuth-flowet, der autentificerer brugere, når de forbinder fr
 
 !!! warning
     Kontakten er deaktiveret, hvis SSO ikke er konfigureret. Opsæt SSO først.
+
+### Aktive forbindelser { #active-connections }
+
+Under kontakten viser tabellen **Aktive forbindelser** alle AI-værktøjer, der er logget ind på MCP-serveren, på tværs af alle brugere: personen, AI-værktøjet (det navn, det registrerede sig med, for eksempel *Claude* eller *Copilot Studio*), hvornår det blev forbundet, hvornår det sidst blev brugt, og hvornår det slutter, hvis det ikke bruges igen. Kun roller med tilladelsen `admin.mcp` kan se den.
+
+**Tilbagekald** afslutter en forbindelse med det samme efter en bekræftelse: AI-værktøjets næste forespørgsel afvises, og personen logger ind igen fra AI-værktøjet for at forbinde igen. Brug det, når en bærbar er mistet, en person stopper, eller en forbindelse ikke bør findes. Forbindelse, tilbagekaldelse og et opdaget token-genbrug registreres i [Sikkerheds- og administrationsloggen](audit-log.md) (kategorien *Godkendelse*).
 
 ---
 
@@ -133,7 +146,7 @@ Copilot Studio forbinder til MCP-servere fra Microsofts cloud, ikke fra brugeren
 3. Vælg **OAuth 2.0** under **Godkendelse** og derefter **Dynamisk registrering** (Dynamic discovery).
 4. Opret forbindelsen, og log ind med din SSO-konto, når du bliver bedt om det.
 
-Copilot Studio registrerer sig én gang og beholder det klient-id, den får. Id'et bærer sine egne redirect-URI'er, signeret med instansens `SECRET_KEY`, så forbindelsen fortsat virker, når MCP-containeren genstartes eller opgraderes. Ændres `SECRET_KEY`, bliver alle registrerede klienter ugyldige: opret derefter værktøjet igen i Copilot Studio.
+Copilot Studio registrerer sig én gang og beholder det klient-id, det modtager. Dette id bærer sine egne omdirigerings-URI'er, signeret med instansens `SECRET_KEY`, og siden 2.219.0 gemmer backend selve den oprettede forbindelse, så den fortsætter med at virke, når MCP-containeren genstartes eller opgraderes, og fornyer sig, mens agenten bruges. Ændres `SECRET_KEY`, ugyldiggøres alle registrerede klienter og alle forbindelser: opret derefter forbindelsen igen i Copilot Studio.
 
 ### Bag en proxy, der ændrer værtsnavnet { #proxy-host-name }
 
@@ -554,8 +567,20 @@ Dataadgang gennem MCP — læse eller skrive — følger den samme RBAC-model so
 - **Dry-run som standard på skrivninger**: Skriveværktøjer har som standard en valider-og-tilbageruk-forhåndsvisning. AI-værktøjet skal eksplicit kalde igen med `dry_run=false`, før noget persisteres, og hver ændring revideres under brugerens identitet.
 - **Hver post siger, at den kom via MCP**: hvert kort, diagram, risiko, beslutning, SoAW, kommentar og BPM-flowversion, en agent opretter, bærer `created_via: mcp` ved siden af den person, der kørte agenten, og en agents senere redigering sætter `updated_via: mcp`. Webgrænsefladen viser det som en **MCP**-chip på posten, og Lagerets filter **Oprindelse** viser alt, en agent har oprettet.
 - **Ingen filparsing i MCP**: MCP-serveren selv accepterer ikke PDF'er, Excel-filer, billeder eller andre binære artefakter. Det kaldende AI-værktøj parser dem i sin egen kontekst og sender strukturerede rækker. Dette holder angrebsfladen smal og undgår at eksponere serveren for misformet binær input.
-- **Token-rotation**: Access-tokens udløber efter 1 time. Refresh-tokens varer 30 dage. Autorisationskoder er engangsbrug og udløber efter 10 minutter.
+- **Token-rotation**: Adgangstokens udløber efter 1 time og fornyes automatisk. Opdateringstokenet erstattes ved hver fornyelse; hvis et allerede erstattet opdateringstoken fremvises igen — tegn på et kopieret token — slutter forbindelsen med det samme, og hændelsen registreres i sikkerheds- og administrationsloggen. Autorisationskoder kan kun bruges én gang og udløber efter 10 minutter.
+- **Ingen tokens i databasen**: Backend gemmer én række pr. forbindelse med en fornyelsestæller, aldrig et token eller en hash af et. Et opdateringstoken accepteres kun gennem denne instans' egen MCP-server.
+- **Forbindelser kan tilbagekaldes**: En administrator kan afslutte enhver forbindelse fra tabellen [Aktive forbindelser](#active-connections); en deaktiveret eller udløbet konto kan ikke fornye sine forbindelser, og dens adgangstokens holder straks op med at virke.
 - **Kun intern port**: MCP-containeren eksponerer port 8001 kun på det interne Docker-netværk. Al ekstern adgang går gennem Nginx reverse proxy.
+
+### Hvor længe en forbindelse varer { #connection-lifetime }
+
+En forbindelse bliver ved med at virke uden nyt login, så længe den bruges mindst én gang hver 30. dag (`MCP_SESSION_IDLE_DAYS`), op til 180 dage efter det login, der oprettede den (`MCP_SESSION_MAX_DAYS`). Den overlever genstarter og opgraderinger af MCP-containeren. Den slutter:
+
+- efter 30 dage uden brug eller 180 dage efter login, alt efter hvad der indtræffer først;
+- med det samme, når den tilbagekaldes i tabellen Aktive forbindelser;
+- med det samme, når personens konto deaktiveres eller udløber;
+- når et opdateringstoken, der allerede er erstattet, fremvises igen;
+- når instansens `SECRET_KEY` ændres.
 
 ---
 
@@ -570,7 +595,9 @@ Dataadgang gennem MCP — læse eller skrive — følger den samme RBAC-model so
 | Links, som et AI-værktøj returnerer, åbner `http://localhost:8920` | MCP-containeren kender ikke den adresse, brugerne når appen på. Sæt `TURBO_EA_PUBLIC_URL` (eller `MCP_PUBLIC_URL`, hvis vært den falder tilbage til) til den offentlige URL, og genstart MCP-containeren. |
 | Et værktøjskald fejler med `Unknown argument(s): …` | AI-værktøjet sendte en parameter, som værktøjet ikke tager; fejlen lister de gyldige, og intet blev udført. Til trinlinks på et procesflow skal du bruge `link_process_flow_elements` i stedet for `import_bpmn`. |
 | Brugeren får tomme resultater | MCP respekterer RBAC-tilladelser. Hvis en bruger har begrænset adgang, vil de kun se de kort, deres rolle tillader. |
-| Forbindelse droppes efter 1 time | AI-værktøjet bør håndtere token-fornyelse automatisk. Hvis ikke, genopret forbindelse. |
+| Forbindelsen afbrydes efter 1 time | MCP-containeren har ingen `SECRET_KEY`, så der blev ikke udstedt noget opdateringstoken (MCP-loggen advarer om det ved start). Sæt den til backendens værdi, genstart MCP-containeren, og forbind igen én gang. |
+| En forbindelse oprettet før 2.219.0 holdt op med at virke efter opgraderingen | Indtil 2.219.0 blev forbindelser opbevaret i MCP-serverens hukommelse. Forbind hvert AI-værktøj igen én gang (i Copilot Studio: opret forbindelsen igen); herefter overlever forbindelser genstarter og opgraderinger. |
+| Et AI-værktøj skal logge ind igen, selvom det virkede før | Forbindelsen er afsluttet: ubrugt i mere end `MCP_SESSION_IDLE_DAYS`, ældre end `MCP_SESSION_MAX_DAYS`, tilbagekaldt, kontoen deaktiveret eller et genbrugt opdateringstoken. Sikkerheds- og administrationsloggen viser *AI-værktøjsforbindelse tilbagekaldt* eller *Genbrugt MCP-opdateringstoken* i de sidste tilfælde. Log ind igen fra AI-værktøjet. |
 | `400` med *Invalid HTTP request received* fra MCP-endpoints bag en login-proxy (for eksempel Azure App Service-godkendelse) | Proxyen tilføjer store token-headere og cookies til hver anmodning, mere end MCP-serveren accepterede. Opgrader til 2.217.1 eller nyere. |
 | `400` med *Invalid HTTP request received* fra MCP-endpoints bag en login-proxy (for eksempel Azure App Service-godkendelse) | Proxyen tilføjer store token-headere og cookies til hver anmodning, mere end MCP-serveren accepterede. Opgrader til 2.217.1 eller nyere. |
 | Copilot Studio melder "Connection creation failed" | Copilot Studio kalder fra Microsofts cloud. Tjek, at `https://your-domain.example.com/mcp` kan nås fra internettet med et offentligt betroet certifikat, og at `MCP_PUBLIC_URL` er netop den offentlige adresse. Nginx-loggen under et forsøg viser den sidste forespørgsel, der nåede frem; når der slet ingen kommer, kan instansen ikke nås. |
