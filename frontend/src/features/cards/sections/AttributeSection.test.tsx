@@ -601,6 +601,36 @@ describe("AttributeSection — required fields (#1451)", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 
+  it("does not block Save when a calculation fills a required field mid-edit", async () => {
+    // Saving another section re-runs calculations and replaces the card while
+    // this section keeps its draft (#843): the calculated field now has a saved
+    // value the draft lacks, which must not read as the user emptying it.
+    const calcSection: SectionDef & { columns?: 1 | 2 } = {
+      section: "Scores",
+      columns: 1,
+      fields: [
+        { key: "score", label: "Score", type: "number", required: true },
+        { key: "notes", label: "Notes", type: "text" },
+      ],
+    };
+    const onSave = vi.fn(async (_u: Record<string, unknown>) => {});
+    const props = { section: calcSection, onSave, canEdit: true, calculatedFieldKeys: ["score"] };
+    const { container, rerender } = render(
+      <AttributeSection {...props} card={{ ...card, attributes: {} } as unknown as Card} />,
+    );
+    const root = container.firstElementChild as HTMLElement & { scrollIntoView: () => void };
+    root.scrollIntoView = vi.fn();
+    fireEvent.click(screen.getByText("edit"));
+    rerender(
+      <AttributeSection {...props} card={{ ...card, attributes: { score: 5 } } as unknown as Card} />,
+    );
+    expect(screen.queryByText(i18n.t("validation:requiredCleared"))).toBeNull();
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  });
+
   it("neither flags nor blocks a required field that is filled", () => {
     renderEditing({ owner: "Jane", contact: "jane@example.com" });
     expect(screen.queryByTestId("field-hint-owner")).toBeNull();

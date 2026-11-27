@@ -332,6 +332,32 @@ describe("DescriptionSection — required extra fields (#1451)", () => {
     });
   });
 
+  it("does not block Save when a calculation fills a required field mid-edit", () => {
+    // Another section's save re-runs calculations and replaces the card while
+    // this draft is kept (#843); the calculated value must not read as cleared.
+    const onSave = vi.fn(async (_u: Record<string, unknown>) => {});
+    const props = {
+      onSave,
+      extraFields: [{ ...progress, required: true }],
+      calculatedFieldKeys: ["progress"],
+    };
+    const { rerender } = render(
+      <DescriptionSection {...props} card={{ ...card, attributes: {} } as unknown as Card} />,
+    );
+    enterEdit();
+    rerender(
+      <DescriptionSection
+        {...props}
+        card={{ ...card, attributes: { progress: 60 } } as unknown as Card}
+      />,
+    );
+    expect(screen.queryByText(i18n.t("validation:requiredCleared"))).toBeNull();
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
   it("blocks Save when a required field that had a value is emptied", () => {
     const { onSave, input } = renderEditing({ owner: "Jane" });
     fireEvent.change(input("owner"), { target: { value: "" } });
