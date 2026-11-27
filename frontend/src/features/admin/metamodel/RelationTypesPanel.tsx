@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useId, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -184,6 +184,7 @@ export default function RelationTypesPanel({
   // Failures from the inline visible/mandatory switches, which fire with no
   // dialog open. Kept apart from `relError` so one message never renders twice.
   const [flagError, setFlagError] = useState<string | null>(null);
+  const lifecycleHintId = useId();
   // True once the admin edits the key by hand. The suggestion tracks the types
   // and verb until then; after that the key is theirs and a later type change
   // must not silently wipe it.
@@ -359,17 +360,10 @@ export default function RelationTypesPanel({
   };
 
   /**
-   * Flip one side's `visible` / `mandatory`. The field name is built from the
-   * side passed in, never from a comparison against the card type, so the two
-   * rows of a self-pair write different columns.
+   * PATCH one flag of a relation type straight from the list. A failure lands
+   * in the list's own alert (no dialog is open); success refetches.
    */
-  const toggleSideFlag = async (
-    rt: RType,
-    isSource: boolean,
-    which: "visible" | "mandatory",
-    value: boolean,
-  ) => {
-    const field = `${isSource ? "source" : "target"}_${which}`;
+  const patchFlag = async (rt: RType, field: string, value: boolean) => {
     try {
       setFlagError(null);
       await api.patch(`/metamodel/relation-types/${rt.key}`, { [field]: value });
@@ -378,6 +372,46 @@ export default function RelationTypesPanel({
       setFlagError(e instanceof Error ? e.message : t("common:errors.generic"));
     }
   };
+
+  /**
+   * Flip one side's `visible` / `mandatory`. The field name is built from the
+   * side passed in, never from a comparison against the card type, so the two
+   * rows of a self-pair write different columns.
+   */
+  const toggleSideFlag = (
+    rt: RType,
+    isSource: boolean,
+    which: "visible" | "mandatory",
+    value: boolean,
+  ) => patchFlag(rt, `${isSource ? "source" : "target"}_${which}`, value);
+
+  /** Track lifecycle is one flag for the whole type, so both rows of a
+   *  self-pair write — and show — the same value. */
+  const toggleLifecycle = (rt: RType, value: boolean) =>
+    patchFlag(rt, "lifecycle_enabled", value);
+
+  /**
+   * The Track lifecycle switch, on the row itself so an admin can date a
+   * relation type's relations without opening its edit dialog. Pushed to the
+   * row's end so the side flags keep their place (and their order).
+   */
+  const renderLifecycleFlag = (rt: RType) => (
+    <Box sx={{ marginInlineStart: "auto" }}>
+      <Tooltip title={t("metamodel.trackLifecycleHint")} describeChild>
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={!!rt.lifecycle_enabled}
+              onChange={(_, v) => toggleLifecycle(rt, v)}
+              inputProps={{ "aria-describedby": lifecycleHintId }}
+            />
+          }
+          label={<Typography variant="caption">{t("metamodel.trackLifecycle")}</Typography>}
+        />
+      </Tooltip>
+    </Box>
+  );
 
   /** The two switches for one side, labelled with the type they apply to. */
   const renderSideFlags = (rt: RType, isSource: boolean, withTypeLabel: boolean) => {
@@ -453,6 +487,13 @@ export default function RelationTypesPanel({
           {t("metamodel.newRelation")}
         </Button>
       </Box>
+
+      {/* The Track lifecycle hint, once for every row's switch: a hidden node
+          still names what `aria-describedby` points at, and sighted users get
+          it from the switch's tooltip. */}
+      <span id={lifecycleHintId} hidden>
+        {t("metamodel.trackLifecycleHint")}
+      </span>
 
       {flagError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setFlagError(null)}>
@@ -535,18 +576,6 @@ export default function RelationTypesPanel({
                   </Tooltip>
                 )}
 
-                {rt.lifecycle_enabled && (
-                  <Tooltip title={t("metamodel.trackLifecycleHint")} describeChild>
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      icon={<MaterialSymbol icon="schedule" size={13} color="inherit" />}
-                      label={t("metamodel.lifecycleChip")}
-                      sx={{ height: 22, fontSize: 11 }}
-                    />
-                  </Tooltip>
-                )}
-
                 {rt.is_hidden ? (
                   <Tooltip title={t("common:actions.restore")}>
                     <IconButton size="small" onClick={() => handleRestoreRelation(rt.key)}>
@@ -584,7 +613,9 @@ export default function RelationTypesPanel({
               {/* Per-side visibility / mandatory. Scoped shows the side under
                   view; unscoped shows both, each labelled with its endpoint —
                   the general tab could not reach these at all before. */}
-              <Box sx={{ mt: 1 }}>
+              <Box
+                sx={{ mt: 1, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}
+              >
                 {scoped ? (
                   renderSideFlags(rt, isSource, false)
                 ) : (
@@ -593,6 +624,7 @@ export default function RelationTypesPanel({
                     {renderSideFlags(rt, false, true)}
                   </Box>
                 )}
+                {renderLifecycleFlag(rt)}
               </Box>
             </CardContent>
           </Card>

@@ -133,7 +133,6 @@
   "metamodel.relKeyExcelHint": "في Excel، هذا المفتاح هو عنوان العمود rel:{{key}} في ورقة نوع البطاقة المصدر، وهو قيمة relation_type في ورقة Relations.",
   "metamodel.trackLifecycle": "تتبّع دورة الحياة",
   "metamodel.trackLifecycleHint": "يمنح كل علاقة من هذا النوع دورة حياة خاصة بها — بالمراحل نفسها التي للبطاقة — بحيث يمكن أن تكون العلاقة مخطّطة أو فعّالة أو منتهية بشكل مستقل عن البطاقتين اللتين تربط بينهما.",
-  "metamodel.lifecycleChip": "دورة الحياة",
   "metamodel.deleteRelationType": "حذف نوع العلاقة؟",
   "metamodel.deleteRelHasInstances": "يحتوي نوع العلاقة هذا على <strong>{{count}}</strong> مثيل علاقة يربط البطاقات معًا. سيؤدي حذفه إلى إزالتها جميعًا نهائيًا.",
   "metamodel.deleteRelBuiltInHidden": "سيتم إخفاء نوع العلاقة المدمج هذا ويمكن استعادته لاحقًا.",

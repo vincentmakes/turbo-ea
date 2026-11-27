@@ -131,7 +131,6 @@
   "metamodel.relKeyExcelHint": "В Excel этот ключ — заголовок столбца rel:{{key}} на листе исходного типа карточки и значение relation_type на листе Relations.",
   "metamodel.trackLifecycle": "Отслеживать жизненный цикл",
   "metamodel.trackLifecycleHint": "Даёт каждой связи этого типа собственный жизненный цикл — те же фазы, что и у карточки, — чтобы связь могла быть запланирована, действовать или быть завершена независимо от связанных ею карточек.",
-  "metamodel.lifecycleChip": "Жизненный цикл",
   "metamodel.deleteRelationType": "Удалить тип связи?",
   "metamodel.deleteRelHasInstances": "Этот тип связи имеет <strong>{{count}}</strong> экземпляр(ов), связывающих карточки. Удаление навсегда удалит все из них.",
   "metamodel.deleteRelBuiltInHidden": "Этот встроенный тип связи будет скрыт и может быть восстановлен позже.",
