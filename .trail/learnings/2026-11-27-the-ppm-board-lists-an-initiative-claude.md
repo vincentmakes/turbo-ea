@@ -3,7 +3,7 @@ title: "The PPM board lists an initiative under every card of the grouping type 
 author: Claude
 date: 2026-11-27
 branch: claude/sharp-brown-5ugtqk
-cost: { minutes: 32, tokens: 317698 }
+cost: { minutes: 45, tokens: 436698 }
 id: l-33cff3d6
 scope: repo
 status: active
@@ -29,6 +29,8 @@ touches:
 - A tree parent's collapse state is per group (`rowCollapseId(groupId, itemId)` = `group>item`, read back per group with `collapsedRowsIn`), because the same initiative is now two rows and folding one must not fold the other.
 - A row renderer that is also used outside the tree takes one optional `childToggle: string | null` (the row's collapse id in its group; null = nothing beneath it) instead of `hasChildren = false` plus an id. Outside the hierarchy those values are never read, so boolean / string defaults there are mutants no test can kill; a `null` default and a number default give Stryker nothing to mutate.
 - Group anchors (header-only initiatives) exist only under a subtype grouping, where every row is in exactly one group, so `filterItems` keeps reading the single `group_id` even though rows now carry `groups` (#1452).
+- PR #1454's backend mutation job passed (84% vs the 60% diff floor, no module floor on ppm_portfolio_service.py) with 15 survivors. Asked whether the tests written to kill them were essential, the owner kept only the one that pins user-visible behaviour (a PPM-only reader, without inventory.view, still sees an initiative's group cards because the board reads them in module mode) and dropped two edge-case ordering tests. Their two mutants are listed with reasons in the PR description instead.
+- Removing code no test can reach (the "Unknown" group-name fallback: relation ends are foreign keys) was kept, since it is a simplification, not a test.
 
 ## Watch out
 - `itemGroups` falls back to `group_id` / `group_name` when `groups` is absent: most frontend test fixtures only set those.
@@ -38,6 +40,10 @@ In the code:
 - backend/app/services/ppm_portfolio_service.py (build_group_map, build_gantt_items, the public projection)
 - backend/app/schemas/ppm.py (PpmGroupRef), ppm_public.py (PpmPublicGroup)
 - frontend/src/features/ppm/ppmPortfolioModel.ts (itemGroups, groupItems, filterItems, rowCollapseId, collapsedRowsIn), PpmPortfolioView.tsx (renderChildToggle toggleId)
+- When the gate is green, ask before adding tests whose only purpose is to kill a mutant; say which ones pin behaviour a user would notice and which only pin an ordering or tie-break.
+
+- backend/tests/api/test_ppm_reports.py (TestPpmGanttEveryGroup::test_a_reader_without_inventory_view_still_sees_the_groups)
+- backend/app/services/ppm_portfolio_service.py (build_group_map return block)
 
 ## Tried and ruled out
 - Checking every one of a row's `groups` when deciding which anchors to keep: `some` vs `every` could only differ on a board that cannot occur, so the mutant survived and the 98% module floor failed.
