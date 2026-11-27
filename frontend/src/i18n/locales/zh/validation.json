@@ -1,6 +1,7 @@
 {
   "required": "此字段为必填项",
-  "requiredEmpty": "此字段为必填项——填写后才能保存。",
+  "requiredCleared": "此字段为必填项——不能清空。",
+  "requiredStillEmpty": "必填——您现在可以保存，稍后再填写。",
 
   "key.mustStartWithLetter": "必须以字母开头",
   "key.noUnderscores": "不允许使用下划线 \u2014 请使用驼峰命名法",

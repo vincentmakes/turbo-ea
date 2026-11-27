@@ -69,7 +69,7 @@ Felder definieren die benutzerdefinierten Attribute, die auf Karten dieses Typs 
 | **Datenqualität** | Der Beitrag jedes Felds zum Wert wird im Bereich **Datenqualität** verwaltet (siehe unten) |
 | **Nur lesen** | Verhindert manuelle Bearbeitung (nützlich für berechnete Felder) |
 
-**So werden Pflichtfelder durchgesetzt.** Beim Erstellen einer Karte sind diese Felder nie erforderlich — Karten können schnell angelegt und später vervollständigt werden. Solange ein Pflichtfeld leer ist, bleibt die Datenqualitätsbewertung der Karte bei **0**, und die Kartendetailseite zeigt ein Warnbanner mit den auszufüllenden Feldern. Beim Bearbeiten eines Kartenbereichs kann dieser erst gespeichert werden, wenn seine Pflichtfelder ausgefüllt sind, und die API lehnt das Leeren eines bereits gefüllten Pflichtfelds ab. Boolesche und schreibgeschützte (berechnete) Felder sind ausgenommen.
+**So werden Pflichtfelder durchgesetzt.** Beim Erstellen einer Karte sind diese Felder nie erforderlich — Karten können schnell angelegt und später vervollständigt werden. Solange ein Pflichtfeld leer ist, bleibt die Datenqualitätsbewertung der Karte bei **0**, und die Kartendetailseite zeigt ein Warnbanner mit den auszufüllenden Feldern. Beim Bearbeiten eines Kartenbereichs wird ein noch leeres Pflichtfeld mit einem Hinweis markiert, verhindert aber nicht das Speichern des Bereichs, sodass eine Karte Feld für Feld vervollständigt werden kann; das Leeren eines Pflichtfelds, das bereits einen Wert hat, wird sowohl im Editor als auch von der API abgelehnt. Boolesche und schreibgeschützte (berechnete) Felder sind ausgenommen.
 
 Klicken Sie auf **+ Feld hinzufügen**, um ein neues Feld zu erstellen, oder klicken Sie auf ein bestehendes Feld, um es im **Feldeditor-Dialog** zu bearbeiten.
 

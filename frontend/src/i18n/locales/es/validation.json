@@ -1,6 +1,7 @@
 {
   "required": "Este campo es obligatorio",
-  "requiredEmpty": "Este campo es obligatorio: complétalo para guardar.",
+  "requiredCleared": "Este campo es obligatorio: no se puede vaciar.",
+  "requiredStillEmpty": "Obligatorio: puedes guardar ahora y completarlo más tarde.",
 
   "key.mustStartWithLetter": "Debe comenzar con una letra",
   "key.noUnderscores": "No se permiten guiones bajos \u2014 use camelCase",

@@ -22,6 +22,7 @@ import {
   isEnforcedRequiredField,
   isWriteLockedField,
   missingRequiredFields,
+  requiredFieldState,
   NO_SUBTYPE_KEY,
   shouldGroupBySubtype,
 } from "./cardDetailUtils";
@@ -685,5 +686,65 @@ describe("isWriteLockedField", () => {
     expect(isWriteLockedField({ readonly: false, ext_locked: false })).toBe(false);
     expect(isWriteLockedField({ readonly: true })).toBe(true);
     expect(isWriteLockedField({ ext_locked: true })).toBe(true);
+  });
+});
+
+describe("requiredFieldState (#1451)", () => {
+  const req: FieldDef = { key: "owner", label: "Owner", type: "text", required: true };
+
+  it("is 'cleared' when a saved value is emptied", () => {
+    expect(requiredFieldState(req, "Jane", "")).toBe("cleared");
+    expect(requiredFieldState(req, "Jane", undefined)).toBe("cleared");
+    expect(requiredFieldState({ ...req, type: "multiple_select" }, ["a"], [])).toBe("cleared");
+  });
+
+  it("is 'missing' when it was empty and still is", () => {
+    expect(requiredFieldState(req, undefined, undefined)).toBe("missing");
+    expect(requiredFieldState(req, "", null)).toBe("missing");
+  });
+
+  it("is null once the draft has a value, whatever was saved", () => {
+    expect(requiredFieldState(req, undefined, "Jane")).toBeNull();
+    expect(requiredFieldState(req, "Jane", "Joe")).toBeNull();
+  });
+
+  it("is null for a field the editor does not hold the user to", () => {
+    expect(requiredFieldState({ ...req, required: false }, "Jane", "")).toBeNull();
+    expect(requiredFieldState({ ...req, type: "boolean" }, true, null)).toBeNull();
+    expect(requiredFieldState({ ...req, readonly: true }, "Jane", "")).toBeNull();
+    expect(requiredFieldState({ ...req, ext_locked: true }, "Jane", "")).toBeNull();
+  });
+});
+
+describe("FieldEditor hint", () => {
+  const field: FieldDef = { key: "owner", label: "Owner", type: "text", required: true };
+
+  it("shows the hint under the control when there is no error", () => {
+    render(<FieldEditor field={field} value="" onChange={() => {}} hint="Fill me later" />);
+    expect(screen.getByTestId("field-hint-owner")).toHaveTextContent("Fill me later");
+  });
+
+  it("lets an error take the hint's place", () => {
+    render(
+      <FieldEditor field={field} value="" onChange={() => {}} hint="Fill me later" error="Broken" />,
+    );
+    expect(screen.queryByTestId("field-hint-owner")).toBeNull();
+    expect(screen.getByText("Broken")).toBeInTheDocument();
+  });
+
+  it("shows the hint under an extension's own editor too", () => {
+    resetExtensionHost();
+    registerRating();
+    render(
+      <FieldEditor
+        field={{ ...ratingField, required: true }}
+        value={undefined}
+        onChange={() => {}}
+        hint="Fill me later"
+      />,
+    );
+    expect(screen.getByText("editor-undefined")).toBeInTheDocument();
+    expect(screen.getByTestId("field-hint-score")).toHaveTextContent("Fill me later");
+    resetExtensionHost();
   });
 });

@@ -175,6 +175,23 @@ export function isEnforcedRequiredField(field: FieldDef): boolean {
   return !!field.required && field.type !== "boolean" && !isWriteLockedField(field);
 }
 
+/** What a section's Save makes of a required field in its draft — the same
+ * rule as the API's `_check_required_not_cleared`:
+ * - `"cleared"`: it had a saved value and the draft empties it. Save is
+ *   blocked; the API would reject it with `required_field_empty`.
+ * - `"missing"`: it was already empty and still is. Save stays allowed so an
+ *   incomplete card can be filled one field at a time (#1451); the field only
+ *   carries a hint, and the data-quality score stays at 0 until it is filled.
+ * - `null`: not an enforced required field, or it has a value. */
+export function requiredFieldState(
+  field: FieldDef,
+  savedValue: unknown,
+  draftValue: unknown,
+): "cleared" | "missing" | null {
+  if (!isEnforcedRequiredField(field) || !isEmptyAttrValue(draftValue)) return null;
+  return isEmptyAttrValue(savedValue) ? "missing" : "cleared";
+}
+
 /** All visible, enforced-required fields of `typeConfig` (respecting the
  * subtype's hidden fields) whose value on `attributes` is empty. */
 export function missingRequiredFields(
@@ -446,6 +463,7 @@ export function FieldEditor({
   onChange,
   currencySymbol,
   error,
+  hint,
   canViewCosts = true,
 }: {
   field: FieldDef;
@@ -453,6 +471,9 @@ export function FieldEditor({
   onChange: (v: unknown) => void;
   currencySymbol?: string;
   error?: string;
+  /** A non-blocking note under the control, shown only when there is no
+   * `error` (e.g. a required field that may stay empty for now). */
+  hint?: string;
   canViewCosts?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
@@ -747,13 +768,23 @@ export function FieldEditor({
     }
   })();
 
+  const hintNode =
+    hint && !error ? (
+      <FormHelperText data-testid={`field-hint-${field.key}`} sx={{ mx: 1.75 }}>
+        {hint}
+      </FormHelperText>
+    ) : null;
+
   // Core controls carry the help icon in their floating label (above). An
   // extension's own editor takes a string label, so its icon sits beside the
   // control, centred on a 40 px input's first line ((40 - 14) / 2 = 13 px).
   if (custom?.contribution.editor) {
     return (
       <Box sx={{ display: "flex", alignItems: "flex-start" }}>
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>{control}</Box>
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+          {control}
+          {hintNode}
+        </Box>
         {help && (
           <Box sx={{ pt: "13px", flexShrink: 0, lineHeight: 0 }}>
             <HelpTip text={help} />
@@ -762,5 +793,10 @@ export function FieldEditor({
       </Box>
     );
   }
-  return <Box sx={{ display: "flex", flexDirection: "column" }}>{control}</Box>;
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column" }}>
+      {control}
+      {hintNode}
+    </Box>
+  );
 }
