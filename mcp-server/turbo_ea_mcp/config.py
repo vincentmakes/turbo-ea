@@ -223,6 +223,9 @@ _CLIENT_ID_KEY_CONTEXT = b"turbo-ea-mcp/oauth-client-id/v1"
 # the two packages share no code, so a known-answer test on each side pins it.
 _SERVICE_AUTH_KEY_CONTEXT = b"turbo-ea-mcp/service-auth/v1"
 _ACCESS_TOKEN_KEY_CONTEXT = b"turbo-ea-mcp/oauth-access-token/v1"
+# Mirrors ``REFRESH_KEY_CONTEXT`` in the backend (app/services/mcp_session_service.py),
+# which signs the refresh tokens; pinned by a known-answer test like the service key.
+_REFRESH_TOKEN_KEY_CONTEXT = b"turbo-ea/mcp-refresh-token/v1"
 
 
 def _derive_key(secret: str, context: bytes) -> bytes | None:
@@ -260,7 +263,16 @@ def oauth_token_key(secret: str) -> bytes | None:
     return _derive_key(secret, _ACCESS_TOKEN_KEY_CONTEXT)
 
 
+def refresh_token_key(secret: str) -> bytes | None:
+    """The key the backend signs MCP refresh tokens with; ``None`` without a
+    secret. This server only verifies with it: a token whose signature does
+    not hold is refused here, so junk never spends the backend's rate limit
+    for this container's address and starves the real renewals behind it."""
+    return _derive_key(secret, _REFRESH_TOKEN_KEY_CONTEXT)
+
+
 _SECRET_KEY = os.environ.get("SECRET_KEY", "")
 MCP_OAUTH_CLIENT_KEY: bytes | None = oauth_client_key(_SECRET_KEY)
 MCP_SERVICE_AUTH_KEY: bytes | None = service_auth_key(_SECRET_KEY)
 MCP_OAUTH_TOKEN_KEY: bytes | None = oauth_token_key(_SECRET_KEY)
+MCP_REFRESH_TOKEN_KEY: bytes | None = refresh_token_key(_SECRET_KEY)

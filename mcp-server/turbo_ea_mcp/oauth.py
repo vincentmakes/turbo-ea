@@ -21,13 +21,14 @@ Nothing about a connection is kept in this process, so it survives a restart:
 - the **access token** is the session's Turbo EA JWT sealed with Fernet under
   a key derived from SECRET_KEY (``tea1a.`` + the Fernet token), carrying its
   own expiry; ``resolve_token`` opens it without asking the backend;
-- the **refresh token** is the backend's own (``tea1r.…``), relayed unchanged.
+- the **refresh token** is the backend's own (``tea1r.…``): its signature is
+  checked here (the key derives from SECRET_KEY too), then it is relayed unchanged.
   The backend rotates it on every use and ends the session when a replaced one
   comes back, and only this server can present it (its service proof).
 
 Without SECRET_KEY, or against a backend that cannot open a session, sign-in
 still works with the SSO JWT sealed as the access token and no refresh token:
-the connection ends when that JWT does.
+the connection ends when that JWT does, after an hour at most.
 """
 
 from __future__ import annotations
@@ -54,6 +55,7 @@ from turbo_ea_mcp.config import (
     MCP_OAUTH_CLIENT_KEY,
     MCP_OAUTH_TOKEN_KEY,
     MCP_PUBLIC_URL,
+    MCP_REFRESH_TOKEN_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,6 +64,11 @@ logger = logging.getLogger(__name__)
 # tokens' lifetimes are the backend's: an access token lasts as long as the
 # Turbo EA JWT it seals, a refresh token as long as its backend session.
 AUTH_CODE_TTL = 600  # 10 minutes
+
+# The longest a degraded connection's access token lasts (seconds). With no
+# session behind it, the SSO JWT it seals cannot be revoked and would otherwise
+# live as long as that JWT does (24 h by default), so it is cut to an hour.
+DEGRADED_ACCESS_TOKEN_SECONDS = 3600
 
 DEFAULT_CLIENT_NAME = "MCP Client"
 
@@ -75,8 +82,13 @@ MAX_REDIRECT_URIS = 10
 MAX_REDIRECT_URI_LENGTH = 1024
 MAX_CLIENT_ID_LENGTH = 2048
 MAX_CLIENT_NAME_LENGTH = 200
-# Registrations kept in memory. Only ``client_name`` is lost when one falls
-# out — the id itself still authorizes — so the cache is bounded rather than
+# The part of ``client_name`` a client id carries, so the name survives a
+# restart (the admin table and the audit log tell tools apart by it) without
+# making the id long.
+MAX_CLIENT_ID_NAME_LENGTH = 100
+# Registrations kept in memory. Only a ``client_name`` past its first 100
+# characters is lost when one falls out — the id itself carries the rest and
+# still authorizes — so the cache is bounded rather than
 # letting open registration grow memory without limit.
 MAX_CACHED_CLIENTS = 1000
 
@@ -187,12 +199,20 @@ def _client_id_signature(payload: str) -> str:
     return _b64encode(digest)
 
 
-def mint_client_id(redirect_uris: list[str]) -> str:
-    """A client id that names its own redirect URIs under a signature.
+def mint_client_id(redirect_uris: list[str], client_name: str = DEFAULT_CLIENT_NAME) -> str:
+    """A client id that names its own redirect URIs and client name (its first
+    100 characters) under a signature.
 
-    The nonce keeps two registrations of the same URIs apart."""
-    claims = {"r": redirect_uris, "n": secrets.token_urlsafe(8)}
-    payload = _b64encode(json.dumps(claims, separators=(",", ":")).encode())
+    The nonce keeps two registrations of the same URIs apart. The name is
+    written as UTF-8 rather than as JSON escapes, so a non-ASCII one does not
+    balloon the id."""
+    claims = {
+        "r": redirect_uris,
+        "c": client_name[:MAX_CLIENT_ID_NAME_LENGTH],
+        "n": secrets.token_urlsafe(8),
+    }
+    encoded = json.dumps(claims, separators=(",", ":"), ensure_ascii=False).encode()
+    payload = _b64encode(encoded)
     return f"{_CLIENT_ID_PREFIX}{payload}.{_client_id_signature(payload)}"
 
 
@@ -212,7 +232,11 @@ def client_from_id(client_id: str) -> RegisteredClient | None:
     uris = claims.get("r") if isinstance(claims, dict) else None
     if not _valid_redirect_uris(uris):
         return None
-    return RegisteredClient(client_id=client_id, redirect_uris=list(uris))
+    # An id minted before the name was signed into it carries none.
+    name = claims.get("c")
+    if not isinstance(name, str) or not name.strip():
+        name = DEFAULT_CLIENT_NAME
+    return RegisteredClient(client_id=client_id, redirect_uris=list(uris), client_name=name)
 
 
 def _lookup_client(client_id: str) -> RegisteredClient | None:
@@ -232,6 +256,8 @@ _ACCESS_TOKEN_PREFIX = "tea1a."
 # Mirrors the backend's ``REFRESH_PREFIX`` (app/services/mcp_session_service.py);
 # anything else is refused before the backend is asked.
 _REFRESH_TOKEN_PREFIX = "tea1r."
+# Mirrors the backend's ``MAX_REFRESH_TOKEN_LENGTH``: nothing longer is one.
+MAX_REFRESH_TOKEN_LENGTH = 200
 _ACCESS_TOKEN_TYPE = "access"
 
 # Without SECRET_KEY the sealing key dies with the process, like the client-id
@@ -265,6 +291,32 @@ def _open_access_token(access_token: str) -> str | None:
     if not isinstance(expires_at, (int, float)) or expires_at <= time.time():
         return None
     return turbo_jwt
+
+
+# The backend's refresh-token key (``config.refresh_token_key``): a refresh
+# token is checked here before it is relayed, so a flood of junk tokens on
+# /oauth/token never reaches the backend, whose per-address rate limit would
+# count it against this container and turn real renewals away with it.
+_refresh_token_key: bytes | None = MCP_REFRESH_TOKEN_KEY
+
+
+def _refresh_token_signed(token: object) -> bool:
+    """Whether ``token`` is a refresh token the backend signed: the check of
+    ``parse_refresh_token`` (app/services/mcp_session_service.py) — at most
+    200 characters, ``tea1r.<session>.<generation>.<signature>`` with the
+    signature base64url(HMAC-SHA256(key, "<session>.<generation>")), no
+    padding. Never ``True`` without SECRET_KEY: there is no key to check with,
+    and no refresh token was issued."""
+    if _refresh_token_key is None:
+        return False
+    if not isinstance(token, str) or len(token) > MAX_REFRESH_TOKEN_LENGTH:
+        return False
+    # Every token the backend signs is ASCII; a lone surrogate would not encode.
+    if not token.isascii() or not token.startswith(_REFRESH_TOKEN_PREFIX):
+        return False
+    body, _, signature = token[len(_REFRESH_TOKEN_PREFIX) :].rpartition(".")
+    expected = _b64encode(hmac.new(_refresh_token_key, body.encode(), hashlib.sha256).digest())
+    return hmac.compare_digest(expected.encode(), signature.encode())
 
 
 def _valid_redirect_uris(uris: object) -> bool:
@@ -382,7 +434,7 @@ async def register_client(request: Request) -> Response:
         )
 
     issued_at = time.time()
-    client_id = mint_client_id(list(redirect_uris))
+    client_id = mint_client_id(list(redirect_uris), client_name)
     if len(client_id) > MAX_CLIENT_ID_LENGTH:
         return JSONResponse(
             {
@@ -737,9 +789,11 @@ async def _handle_code_exchange(body: dict) -> Response:
     # A concurrent exchange may already have dropped the code.
     store.codes.pop(code, None)
     if session is None:
-        # Degraded: the SSO JWT itself, no refresh token. The connection ends
-        # with that JWT and the person signs in again.
-        return _token_response(auth_code.turbo_jwt, auth_code.scope)
+        # Degraded: the SSO JWT itself, no refresh token, for at most an hour —
+        # nothing can revoke it. The person then signs in again.
+        return _token_response(
+            auth_code.turbo_jwt, auth_code.scope, lifetime=DEGRADED_ACCESS_TOKEN_SECONDS
+        )
     return _token_response(
         session.access_token,
         session.scope,
@@ -789,7 +843,8 @@ async def _handle_refresh(body: dict) -> Response:
     """Renew a connection through its backend session: a new sealed access
     token and the rotated refresh token."""
     refresh_token = body.get("refresh_token")
-    if not isinstance(refresh_token, str) or not refresh_token.startswith(_REFRESH_TOKEN_PREFIX):
+    # Checked here, not only by the backend: see ``_refresh_token_key``.
+    if not _refresh_token_signed(refresh_token):
         return JSONResponse(
             {"error": "invalid_grant", "error_description": "Unknown refresh token"},
             status_code=400,

@@ -19,10 +19,13 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from tests.refresh_tokens import signed_refresh
 from turbo_ea_mcp import config, oauth
 from turbo_ea_mcp.oauth import (
+    DEFAULT_CLIENT_NAME,
     MAX_CACHED_CLIENTS,
     MAX_CLIENT_ID_LENGTH,
+    MAX_CLIENT_ID_NAME_LENGTH,
     MAX_CLIENT_NAME_LENGTH,
     MAX_REDIRECT_URI_LENGTH,
     MAX_REDIRECT_URIS,
@@ -107,6 +110,59 @@ class TestSurvivesARestart:
         client = client_from_id(mint_client_id(uris))
         assert client.redirect_uris == uris
         assert client.client_id.startswith("tea1.")
+
+
+class TestTheClientNameSurvivesARestart:
+    """The id signs the registered name too, so after a restart the admin
+    table and the audit log still tell one AI tool from another (#1449)."""
+
+    def test_a_registered_name_comes_back_from_the_id_alone(self, app, store):
+        cid = app.post(
+            "/oauth/register", json={"client_name": "Claude", "redirect_uris": [CB]}
+        ).json()["client_id"]
+        store.clients.clear()
+        assert client_from_id(cid).client_name == "Claude"
+        assert authorize(app, cid).status_code == 302
+        (pending,) = store.pending.values()
+        assert pending.client_name == "Claude"
+
+    def test_a_non_ascii_name_round_trips_as_utf8_not_escapes(self):
+        name = "Clàude 名前"
+        cid = mint_client_id([CB], name)
+        raw = base64.urlsafe_b64decode(cid.split(".")[1] + "==")
+        assert name.encode() in raw
+        assert b"\\u" not in raw
+        assert client_from_id(cid).client_name == name
+
+    def test_the_id_carries_the_first_100_characters(self):
+        assert MAX_CLIENT_ID_NAME_LENGTH == 100
+        assert client_from_id(mint_client_id([CB], "n" * 150)).client_name == "n" * 100
+        assert client_from_id(mint_client_id([CB], "m" * 100)).client_name == "m" * 100
+
+    def test_the_store_keeps_the_longer_name_until_a_restart(self, app, store):
+        name = "n" * MAX_CLIENT_NAME_LENGTH
+        cid = app.post("/oauth/register", json={"client_name": name, "redirect_uris": [CB]}).json()[
+            "client_id"
+        ]
+        assert oauth._lookup_client(cid).client_name == name
+        store.clients.clear()
+        assert oauth._lookup_client(cid).client_name == name[:100]
+
+    def test_an_id_minted_without_a_name_takes_the_default(self):
+        assert client_from_id(mint_client_id([CB])).client_name == DEFAULT_CLIENT_NAME
+
+    def test_an_id_minted_before_names_were_signed_still_works(self):
+        client = client_from_id(resign("", {"r": [CB], "n": "abcdefghijk"}))
+        assert client.redirect_uris == [CB]
+        assert client.client_name == DEFAULT_CLIENT_NAME
+
+    @pytest.mark.parametrize("name", ["", "   ", "\t", None, 7, ["Claude"], {"n": "x"}])
+    def test_a_blank_or_non_text_name_takes_the_default(self, name):
+        client = client_from_id(resign("", {"r": [CB], "c": name}))
+        assert client.client_name == DEFAULT_CLIENT_NAME
+
+    def test_a_name_with_surrounding_blanks_is_kept_as_signed(self):
+        assert client_from_id(resign("", {"r": [CB], "c": " Claude "})).client_name == " Claude "
 
 
 class TestForgedIds:
@@ -346,7 +402,7 @@ class TestTokenEndpoint:
 
     def test_a_refreshed_token_response_is_never_cached(self, app, store):
         resp = app.post(
-            "/oauth/token", data={"grant_type": "refresh_token", "refresh_token": "tea1r.s.1.sig"}
+            "/oauth/token", data={"grant_type": "refresh_token", "refresh_token": signed_refresh()}
         )
         assert resp.status_code == 200
         assert resp.headers["cache-control"] == "no-store"

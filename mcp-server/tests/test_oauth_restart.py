@@ -20,11 +20,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from tests.refresh_tokens import signed_refresh
 from turbo_ea_mcp import api_client, config, oauth
 from turbo_ea_mcp.api_client import McpSessionTokens
 
 CB = "http://127.0.0.1:5000/cb"
 VERIFIER = "restart-verifier"
+# What the backend would sign under the SECRET_KEY these "processes" boot with.
+SESSION = "c3" * 16
+REFRESH_1 = signed_refresh(SESSION, 1, key=config.refresh_token_key("s3cret"))
+REFRESH_2 = signed_refresh(SESSION, 2, key=config.refresh_token_key("s3cret"))
 
 
 def jwt_with(payload: dict) -> str:
@@ -72,9 +77,9 @@ def boot():
 def backend(monkeypatch):
     session_jwt = jwt_with({"exp": time.time() + 3600, "msid": "s1"})
     tokens = McpSessionTokens(
-        access_token=session_jwt, refresh_token="tea1r.s1.1.sig", expires_in=3600, scope="mcp:read"
+        access_token=session_jwt, refresh_token=REFRESH_1, expires_in=3600, scope="mcp:read"
     )
-    renewed = tokens.model_copy(update={"refresh_token": "tea1r.s1.2.sig"})
+    renewed = tokens.model_copy(update={"refresh_token": REFRESH_2})
     create = AsyncMock(return_value=tokens)
     refresh = AsyncMock(return_value=renewed)
     monkeypatch.setattr(api_client, "create_mcp_session", create)
@@ -115,9 +120,20 @@ class TestRestart:
         resp = await fresh._handle_refresh({"refresh_token": tokens["refresh_token"]})
         assert resp.status_code == 200
         renewed = json.loads(resp.body)
-        refresh.assert_awaited_once_with("tea1r.s1.1.sig")
-        assert renewed["refresh_token"] == "tea1r.s1.2.sig"
+        refresh.assert_awaited_once_with(REFRESH_1)
+        assert renewed["refresh_token"] == REFRESH_2
         assert await fresh.resolve_token(renewed["access_token"]) == session_jwt
+
+    async def test_a_process_with_another_secret_key_refuses_the_refresh_token_unasked(
+        self, boot, backend
+    ):
+        _, _, refresh = backend
+        tokens = await sign_in(boot("s3cret"))
+        for other in (boot("another-secret"), boot(None)):
+            resp = await other._handle_refresh({"refresh_token": tokens["refresh_token"]})
+            assert resp.status_code == 400
+            assert json.loads(resp.body)["error_description"] == "Unknown refresh token"
+        refresh.assert_not_awaited()
 
     async def test_another_secret_key_opens_nothing(self, boot, backend):
         tokens = await sign_in(boot("s3cret"))
@@ -157,5 +173,6 @@ class TestDegradedMode:
         tokens = await sign_in(module, sso_jwt)
         assert "refresh_token" not in tokens
         assert set(tokens) == {"access_token", "token_type", "expires_in", "scope"}
-        assert 86_390 <= tokens["expires_in"] <= 86_400
+        # Nothing can revoke the SSO JWT, so the connection lasts an hour at most.
+        assert 3590 <= tokens["expires_in"] <= 3600
         assert await module.resolve_token(tokens["access_token"]) == sso_jwt

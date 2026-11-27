@@ -26,7 +26,9 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from turbo_ea_mcp import api_client, oauth
+from tests.refresh_tokens import KEY as REFRESH_KEY
+from tests.refresh_tokens import signed_refresh
+from turbo_ea_mcp import api_client, config, oauth
 from turbo_ea_mcp.api_client import McpSessionTokens, RefreshUnavailableError
 from turbo_ea_mcp.oauth import (
     AUTH_CODE_TTL,
@@ -526,8 +528,10 @@ def frozen(monkeypatch):
 # The SSO JWT a sign-in gets, and the one a backend session is bound to.
 SSO_JWT = jwt_with({"exp": NOW + 86_400})
 SESSION_JWT = jwt_with({"exp": NOW + 3600, "msid": "s1"})
-REFRESH_1 = "tea1r.s1.1.sig"
-REFRESH_2 = "tea1r.s1.2.sig"
+# Signed with the key ``tests/conftest.py`` gives the process, as the backend
+# signs them: the refresh grant checks the signature before it relays one.
+REFRESH_1 = signed_refresh("a1" * 16, 1)
+REFRESH_2 = signed_refresh("a1" * 16, 2)
 
 
 def session(**overrides) -> McpSessionTokens:
@@ -689,9 +693,36 @@ class TestCodeExchange:
         assert resp.headers["cache-control"] == "no-store"
         data = body(resp)
         access = data.pop("access_token")
-        assert data == {"token_type": "Bearer", "expires_in": 86_400, "scope": "mcp:custom"}
+        # The SSO JWT lives 24 h, but nothing can revoke it: an hour at most.
+        assert data == {"token_type": "Bearer", "expires_in": 3600, "scope": "mcp:custom"}
         assert await resolve_token(access) == SSO_JWT
         assert store.codes == {}
+
+    def test_a_degraded_connection_lasts_an_hour_at_most(self):
+        assert oauth.DEGRADED_ACCESS_TOKEN_SECONDS == 3600
+
+    @pytest.mark.asyncio
+    async def test_a_degraded_token_for_a_long_jwt_closes_after_an_hour(
+        self, store, backend, frozen, monkeypatch
+    ):
+        backend.create.return_value = None
+        seed_code(store)
+        data = body(await _handle_code_exchange(exchange_body()))
+        assert data["expires_in"] == 3600
+        assert await opens_at(NOW + 3599, data["access_token"], monkeypatch) == SSO_JWT
+        assert await opens_at(NOW + 3600, data["access_token"], monkeypatch) is None
+
+    @pytest.mark.asyncio
+    async def test_a_degraded_token_for_a_short_jwt_closes_with_it(
+        self, store, backend, frozen, monkeypatch
+    ):
+        backend.create.return_value = None
+        short = jwt_with({"exp": NOW + 1200})
+        seed_code(store, turbo_jwt=short)
+        data = body(await _handle_code_exchange(exchange_body()))
+        assert data["expires_in"] == 1200
+        assert await opens_at(NOW + 1199, data["access_token"], monkeypatch) == short
+        assert await opens_at(NOW + 1200, data["access_token"], monkeypatch) is None
 
     @pytest.mark.asyncio
     async def test_an_outage_answers_503_and_keeps_the_code_for_the_retry(
@@ -856,10 +887,12 @@ class TestRefresh:
             "TEA1R.s1.1.sig",
             "tea1.s1.1.sig",
             "tea1a.s1.1.sig",
-            " tea1r.s1.1.sig",
+            " " + REFRESH_1,
+            REFRESH_1 + " ",
             None,
             123,
-            ["tea1r.s1.1.sig"],
+            [REFRESH_1],
+            {"refresh_token": REFRESH_1},
         ],
     )
     @pytest.mark.asyncio
@@ -885,6 +918,101 @@ class TestRefresh:
         resp = await _handle_refresh({"refresh_token": access})
         assert body(resp)["error_description"] == "Unknown refresh token"
         backend.refresh.assert_not_awaited()
+
+
+class TestRefreshTokenSignatureIsCheckedHere:
+    """A refresh token is verified with the backend's key before it is relayed:
+    a flood of junk tokens on /oauth/token never reaches the backend, whose
+    per-address rate limit would count it against this container and turn
+    the real renewals away with it (#1449)."""
+
+    @staticmethod
+    async def refused(backend, token) -> None:
+        resp = await _handle_refresh({"refresh_token": token})
+        assert resp.status_code == 400
+        assert body(resp) == {
+            "error": "invalid_grant",
+            "error_description": "Unknown refresh token",
+        }
+        backend.refresh.assert_not_awaited()
+
+    def test_the_key_is_the_backends(self):
+        # The same derivation as ``REFRESH_KEY_CONTEXT`` in the backend's
+        # mcp_session_service.py; the known-answer vector is in test_config.py.
+        assert REFRESH_KEY == config.refresh_token_key("known-answer-secret")
+        assert oauth._refresh_token_key == REFRESH_KEY
+
+    @pytest.mark.asyncio
+    async def test_a_signed_token_is_relayed_unchanged(self, backend):
+        token = signed_refresh("0f" * 16, 7)
+        assert (await _handle_refresh({"refresh_token": token})).status_code == 200
+        backend.refresh.assert_awaited_once_with(token)
+
+    @pytest.mark.asyncio
+    async def test_a_token_signed_with_another_key_is_refused(self, backend):
+        other = config.refresh_token_key("another-secret")
+        await self.refused(backend, signed_refresh("a1" * 16, 1, key=other))
+
+    @pytest.mark.asyncio
+    async def test_a_junk_token_with_the_prefix_is_refused(self, backend):
+        await self.refused(backend, "tea1r.x")
+
+    @pytest.mark.asyncio
+    async def test_a_tampered_signature_is_refused(self, backend):
+        flipped = REFRESH_1[:-1] + ("A" if REFRESH_1[-1] != "A" else "B")
+        await self.refused(backend, flipped)
+
+    @pytest.mark.asyncio
+    async def test_a_signature_moved_to_another_generation_is_refused(self, backend):
+        signature = REFRESH_1.rpartition(".")[2]
+        await self.refused(backend, f"tea1r.{'a1' * 16}.2.{signature}")
+
+    @pytest.mark.asyncio
+    async def test_a_padded_signature_is_refused(self, backend):
+        await self.refused(backend, REFRESH_1 + "=")
+
+    @pytest.mark.asyncio
+    async def test_a_signed_body_under_another_prefix_is_refused(self, backend):
+        await self.refused(backend, "tea1a." + REFRESH_1[len("tea1r.") :])
+
+    @pytest.mark.asyncio
+    async def test_a_token_of_exactly_200_characters_is_relayed(self, backend):
+        token = signed_refresh("b" * 148, 1)
+        assert len(token) == oauth.MAX_REFRESH_TOKEN_LENGTH == 200
+        assert (await _handle_refresh({"refresh_token": token})).status_code == 200
+        backend.refresh.assert_awaited_once_with(token)
+
+    @pytest.mark.asyncio
+    async def test_a_signed_token_over_200_characters_is_refused(self, backend):
+        token = signed_refresh("b" * 149, 1)
+        assert len(token) == 201
+        await self.refused(backend, token)
+
+    @pytest.mark.asyncio
+    async def test_a_signed_non_ascii_token_is_refused(self, backend):
+        await self.refused(backend, signed_refresh("é" * 32, 1))
+
+    @pytest.mark.parametrize("token", ["tea1r.\ud800.1.sig", "tea1r.é.1.ü", "tea1r.名前"])
+    @pytest.mark.asyncio
+    async def test_non_ascii_junk_is_refused_without_raising(self, backend, token):
+        await self.refused(backend, token)
+
+    @pytest.mark.asyncio
+    async def test_without_secret_key_even_a_signed_token_is_refused(self, backend, monkeypatch):
+        monkeypatch.setattr(oauth, "_refresh_token_key", None)
+        await self.refused(backend, REFRESH_1)
+
+    def test_the_comparison_is_constant_time(self, monkeypatch):
+        compared = []
+
+        def compare(a, b):
+            compared.append((a, b))
+            return False
+
+        monkeypatch.setattr(oauth.hmac, "compare_digest", compare)
+        assert oauth._refresh_token_signed(REFRESH_1) is False
+        signature = REFRESH_1.rpartition(".")[2].encode()
+        assert compared == [(signature, signature)]
 
 
 class TestSealAccessToken:

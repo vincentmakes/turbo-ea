@@ -428,13 +428,22 @@ async def create_mcp_session(
     return _session_tokens(resp)
 
 
+# The only answers to a refresh that end the connection: 400 (the token is
+# unknown, ended, expired or replayed), 403 (the account may no longer sign
+# in) and 422 (the backend refused the request itself).
+_REFRESH_REFUSED_STATUSES = frozenset({400, 403, 422})
+
+
 async def refresh_mcp_session(refresh_token: str) -> McpSessionTokens | None:
     """Renew a session: a new access token and the next refresh token.
 
-    ``None`` is a refusal (the token is unknown, ended, expired or replayed,
-    or the account may no longer sign in): the person has to sign in again.
-    Raises ``RefreshUnavailableError`` when the backend could not answer, the
-    same contract as ``TurboEAClient.refresh_token``."""
+    ``None`` is a refusal (400 / 403 / 422: the token is unknown, ended,
+    expired or replayed, or the account may no longer sign in): the person has
+    to sign in again. Every other failure raises ``RefreshUnavailableError`` —
+    unreachable, 5xx, 429, a refused service proof (401: clock drift, another
+    SECRET_KEY), a backend older than this server (404 / 405, as during a
+    rolling upgrade), any other non-2xx — because none of them says anything
+    about the session, and the client keeps its refresh token to retry."""
     proof = service_token()
     if proof is None:
         return None
@@ -443,6 +452,8 @@ async def refresh_mcp_session(refresh_token: str) -> McpSessionTokens | None:
         {_SERVICE_HEADER: proof},
         {"refresh_token": refresh_token},
     )
-    if not resp.is_success:
+    if resp.status_code in _REFRESH_REFUSED_STATUSES:
         return None
+    if not resp.is_success:
+        raise RefreshUnavailableError(f"backend answered {resp.status_code}")
     return _session_tokens(resp)

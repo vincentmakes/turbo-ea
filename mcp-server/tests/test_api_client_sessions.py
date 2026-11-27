@@ -242,11 +242,25 @@ class TestRefreshMcpSession:
         assert await refresh_mcp_session("tea1r.s1.0.sig") is None
         assert wire.requests == []
 
-    @pytest.mark.parametrize("status", [400, 401, 403, 404, 422, 428, 430, 499])
+    @pytest.mark.parametrize("status", [400, 403, 422])
     @pytest.mark.asyncio
-    async def test_a_4xx_is_a_refusal(self, wire, status):
+    async def test_only_400_403_and_422_are_a_refusal(self, wire, status):
         wire.reply = lambda request: httpx.Response(status, json={"detail": "invalid_grant"})
         assert await refresh_mcp_session("tea1r.s1.0.sig") is None
+
+    # 401: the proof was refused (clock drift, another SECRET_KEY); 404 / 405: a
+    # backend older than this server, as mid rolling upgrade; the rest say
+    # nothing about the session either. None of them may end the connection.
+    @pytest.mark.parametrize("status", [302, 401, 402, 404, 405, 409, 410, 421, 428, 499])
+    @pytest.mark.asyncio
+    async def test_any_other_non_2xx_is_an_outage_not_a_refusal(self, wire, status):
+        wire.reply = lambda request: httpx.Response(status, json={"detail": "nope"})
+        with pytest.raises(RefreshUnavailableError) as excinfo:
+            await refresh_mcp_session("tea1r.s1.0.sig")
+        assert str(excinfo.value) == f"backend answered {status}"
+
+    def test_the_refusals_are_exactly_these(self):
+        assert api_client._REFRESH_REFUSED_STATUSES == frozenset({400, 403, 422})
 
     @pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
     @pytest.mark.asyncio

@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from tests.refresh_tokens import signed_refresh
 from turbo_ea_mcp import api_client, oauth, server
 from turbo_ea_mcp.api_client import RefreshUnavailableError
 from turbo_ea_mcp.oauth import _handle_refresh, resolve_token
@@ -39,14 +40,15 @@ class TestResolveDuringAnOutage:
 class TestRefreshGrantDuringAnOutage:
     @pytest.mark.asyncio
     async def test_answers_503_so_the_client_retries(self, down):
-        resp = await _handle_refresh({"refresh_token": "tea1r.s.1.sig"})
+        token = signed_refresh()
+        resp = await _handle_refresh({"refresh_token": token})
         assert resp.status_code == 503
         assert resp.headers["retry-after"] == "5"
         assert resp.body == (
             b'{"error":"temporarily_unavailable",'
             b'"error_description":"Turbo EA is not reachable, retry shortly"}'
         )
-        down.assert_awaited_once_with("tea1r.s.1.sig")
+        down.assert_awaited_once_with(token)
 
 
 class TestEphemeralKeyWarning:

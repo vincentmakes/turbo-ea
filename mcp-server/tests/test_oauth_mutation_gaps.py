@@ -19,6 +19,7 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from tests.refresh_tokens import signed_refresh
 from turbo_ea_mcp import api_client, oauth, server
 from turbo_ea_mcp.api_client import RefreshUnavailableError, TurboEAClient
 from turbo_ea_mcp.oauth import (
@@ -72,14 +73,15 @@ class TestEncoding:
     def test_base64url_without_padding(self, data, encoded):
         assert _b64encode(data) == encoded
 
-    def test_a_minted_id_carries_exactly_the_uris_and_a_nonce(self):
+    def test_a_minted_id_carries_exactly_the_uris_the_name_and_a_nonce(self):
         cid = mint_client_id([CB])
         prefix, payload, signature = cid.split(".")
         raw = base64.urlsafe_b64decode(payload + "==")
         assert b", " not in raw and b": " not in raw  # compact JSON
         claims = json.loads(raw)
-        assert set(claims) == {"r", "n"}
+        assert set(claims) == {"r", "c", "n"}
         assert claims["r"] == [CB]
+        assert claims["c"] == "MCP Client"
         assert len(claims["n"]) == 11  # secrets.token_urlsafe(8)
         assert (prefix, signature) == ("tea1", _client_id_signature(payload))
 
@@ -162,7 +164,7 @@ class TestOutageLogging:
             AsyncMock(side_effect=RefreshUnavailableError("backend answered 502")),
         )
         with caplog.at_level(logging.WARNING, logger=oauth.logger.name):
-            await _handle_refresh({"refresh_token": "tea1r.s.1.sig"})
+            await _handle_refresh({"refresh_token": signed_refresh()})
         (record,) = [r for r in caplog.records if r.name == oauth.logger.name]
         assert record.getMessage() == "Turbo EA backend unavailable during token refresh"
         assert record.exc_info is not None and record.exc_info[0] is RefreshUnavailableError
