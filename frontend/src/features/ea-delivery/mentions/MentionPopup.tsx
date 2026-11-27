@@ -244,7 +244,8 @@ export default function MentionPopup({ store, kinds, context, hidden = false }: 
   // The rows are the items and a last "Browse…" row at index `flat.length`.
   const [highlight, setHighlight] = useState<MentionHighlight>(null);
   // The highlight the last arrow key asked for, until the render showing it
-  // scrolls it into view (`undefined`: no key is waiting for its scroll).
+  // scrolls it into view (`undefined`: no key is waiting for its scroll; a
+  // highlight is never `undefined`, so it can never match a request then).
   const scrollRequest = useRef<MentionHighlight | undefined>(undefined);
   useEffect(() => {
     scrollRequest.current = undefined;
@@ -266,9 +267,10 @@ export default function MentionPopup({ store, kinds, context, hidden = false }: 
   // runs next: a key can land between a commit and its passive effects (see
   // the key handler below), and that commit's pending effect must not take the
   // scroll for the row it showed (nightly run 69 scrolled the first card row
-  // when ArrowUp had picked Browse).
+  // when ArrowUp had picked Browse). With no key waiting the request is
+  // `undefined`, which no highlight equals, so nothing scrolls.
   useEffect(() => {
-    if (scrollRequest.current === undefined || highlight !== scrollRequest.current || !activeId) return;
+    if (highlight !== scrollRequest.current || !activeId) return;
     scrollRequest.current = undefined;
     const row = document.getElementById(activeId);
     // jsdom has no layout, hence no scrollIntoView.

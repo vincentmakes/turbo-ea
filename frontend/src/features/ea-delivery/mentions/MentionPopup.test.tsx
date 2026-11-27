@@ -628,6 +628,20 @@ describe("MentionPopup review fixes", () => {
     }
   });
 
+  it("highlights Browse when the mouse enters its row", async () => {
+    mockApi();
+    const { start, key, onBrowse, command } = setup(["card"]);
+    start();
+    const first = await screen.findByRole("option", { name: /SAP ERP/ });
+    expect(first).toHaveAttribute("aria-selected", "true");
+    fireEvent.mouseEnter(screen.getByTestId("mention-browse"));
+    expect(screen.getByTestId("mention-browse")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("option", { name: /SAP ERP/ })).toHaveAttribute("aria-selected", "false");
+    expect(key("Enter")).toBe(true);
+    expect(onBrowse).toHaveBeenCalledTimes(1);
+    expect(command).not.toHaveBeenCalled();
+  });
+
   it("keeps Browse highlighted when rows arrive under it", async () => {
     let release = () => {};
     const hold = new Promise<void>((r) => (release = r));

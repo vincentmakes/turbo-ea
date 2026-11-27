@@ -9,6 +9,7 @@ import { createRef } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18n from "@/i18n";
 import StakeholderRolePanel, { type StakeholderRolePanelHandle } from "./StakeholderRolePanel";
 
 const apiMock = vi.hoisted(() => ({
@@ -126,6 +127,52 @@ describe("StakeholderRolePanel — a parent re-render", () => {
     rerender(<StakeholderRolePanel typeKey="Application" onError={last} />);
     await waitFor(() => expect(last).toHaveBeenCalledWith("schema down"));
     expect(first).not.toHaveBeenCalled();
+  });
+
+  it("loads and shows the roles of the new type when the parent switches typeKey", async () => {
+    const PROCESS_ROLES = [{ ...ROLES[0], id: "9", card_type_key: "BusinessProcess", key: "processOwner", label: "Process Owner" }];
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes("permissions-schema")) return Promise.resolve({ "card.view": "View card" });
+      if (path.startsWith("/metamodel/types/BusinessProcess/")) return Promise.resolve(PROCESS_ROLES);
+      return Promise.resolve(ROLES);
+    });
+    const { rerender } = render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+    await screen.findByText("Typo Role");
+
+    rerender(<StakeholderRolePanel typeKey="BusinessProcess" onError={() => {}} />);
+    expect(await screen.findByText("Process Owner")).toBeInTheDocument();
+    expect(screen.queryByText("Typo Role")).not.toBeInTheDocument();
+    expect(apiMock.get).toHaveBeenCalledWith(
+      "/metamodel/types/BusinessProcess/stakeholder-roles?include_archived=true",
+    );
+  });
+});
+
+describe("StakeholderRolePanel — a load rejected with something other than an Error", () => {
+  it("reports the translated roles fallback when the roles read rejects with a plain value", async () => {
+    apiMock.get.mockImplementation((path: string) =>
+      String(path).includes("permissions-schema")
+        ? Promise.resolve({ "card.view": "View card" })
+        : Promise.reject("roles down"),
+    );
+    const onError = vi.fn();
+    render(<StakeholderRolePanel typeKey="Application" onError={onError} />);
+    await waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(i18n.t("admin:metamodel.stakeholderPanel.failedToFetchRoles")),
+    );
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports the translated schema fallback when the schema read rejects with a plain value", async () => {
+    apiMock.get.mockImplementation((path: string) =>
+      String(path).includes("permissions-schema") ? Promise.reject({ status: 500 }) : Promise.resolve(ROLES),
+    );
+    const onError = vi.fn();
+    render(<StakeholderRolePanel typeKey="Application" onError={onError} />);
+    await waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(i18n.t("admin:metamodel.stakeholderPanel.failedToFetchSchema")),
+    );
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 });
 

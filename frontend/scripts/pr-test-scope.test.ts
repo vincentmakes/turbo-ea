@@ -475,6 +475,12 @@ describe("main", () => {
     expect(await readFile(output, "utf8")).toBe("mode=full\nreason=frontend/package.json changed\npaths=0\ntests=3\n");
   });
 
+  it("writes one changed test per line, each ending in a newline, with nothing between them", async () => {
+    const root = await fixture("M\tfrontend/src/lib/a.test.ts\nA\tfrontend/src/scan.test.ts\n");
+    await main(["--event", "pull_request", "--diff", "diff.txt", "--changed-tests", "race.txt"], { root, env: {}, log: () => {} });
+    expect(await readFile(path.join(root, "race.txt"), "utf8")).toBe("src/lib/a.test.ts\nsrc/scan.test.ts\n");
+  });
+
   it("writes an empty changed-tests file when the diff changes no test", async () => {
     const root = await fixture("M\tfrontend/src/lib/a.ts\n");
     await main(["--event", "pull_request", "--diff", "diff.txt", "--changed-tests", "race.txt"], { root, env: {}, log: () => {} });
