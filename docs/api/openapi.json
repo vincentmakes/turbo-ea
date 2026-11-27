@@ -24086,7 +24086,7 @@
     },
     "/api/v1/auth/mcp/sessions/refresh": {
       "post": {
-        "description": "Renew a connection: a new access token and the next refresh token. MCP server only.\n\n400 ``invalid_grant`` for a token that is unknown, ended or expired, and for\na replaced token that comes back, which also ends the connection and is\nrecorded. 403 when the account may no longer hold a session.",
+        "description": "Renew a connection: a new access token and the next refresh token. MCP server only.\n\n400 ``invalid_grant`` for a token that is unknown, ended or expired, and for\na replaced token that comes back, which also ends the connection and is\nrecorded. 403 when the account may no longer hold a session, which also\nends the connection and is recorded.",
         "operationId": "refresh_mcp_session_api_v1_auth_mcp_sessions_refresh_post",
         "requestBody": {
           "content": {
