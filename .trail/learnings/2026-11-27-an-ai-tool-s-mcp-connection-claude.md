@@ -3,7 +3,7 @@ title: "An AI tool's MCP connection is a durable record in the database, renewed
 author: Claude
 date: 2026-11-27
 branch: claude/zealous-gates-a140hx
-cost: { minutes: 22, tokens: 321518 }
+cost: { minutes: 23, tokens: 323383 }
 id: l-6a76cc7a
 scope: repo
 status: active
@@ -15,6 +15,8 @@ touches:
   - mcp-server/turbo_ea_mcp/oauth.py
   - mcp-server/turbo_ea_mcp/server.py
   - backend/app/api/v1/auth.py
+  - backend/tests/core/test_security.py
+  - backend/tests/api/test_mcp_token_exchange.py
 ---
 
 ## Decided
@@ -25,6 +27,8 @@ touches:
 - The MCP server proves itself to the backend with a one-minute token signed by a key derived from SECRET_KEY, so a refresh token is useless anywhere but through the instance's own MCP server.
 - The Turbo EA token minted for a connection carries the connection id and lasts one hour; user resolution refuses it as soon as the connection is ended, so revoking is immediate.
 - The sign-in endpoint for SSO was left untouched: opening a connection is its own endpoint that takes the freshly issued user token plus the MCP server's proof.
+- An endpoint that mints a new session from the caller's current token refuses a token bound to an MCP connection (its `msid` claim). Otherwise the hour-long, revocable token could be swapped for an ordinary 24-hour one that survives revoking the connection. The plain refresh and both impersonation endpoints refuse it, and any new endpoint of that kind needs the same refusal.
+- The MCP server's one-minute service proof is checked with 30 seconds of clock leeway, so drift between the backend and MCP containers cannot refuse a renewal.
 
 ## Tried and ruled out
 - Sealed, self-contained tokens (encrypt the Turbo EA token into the refresh token, no state): survives a restart, but cannot detect a replayed token or revoke a connection, which RFC 9700 and the MCP authorization spec require of public clients. Dropped once the owner said security comes first.
@@ -32,6 +36,8 @@ touches:
 - Storing a hash of each refresh token: more material in the database than a counter, and a retry inside the grace window could not be answered with the same token.
 - A fallback path for an MCP server without SECRET_KEY or a backend older than the MCP server: it would be a second token scheme to test and secure. Instead sign-in still works and no refresh token is issued.
 - Letting the MCP server mint user tokens itself because it holds SECRET_KEY: it would make the MCP server an identity issuer.
+- Re-minting the token with its connection id kept, instead of refusing: no caller needs it. Only stdio mode uses the plain refresh, and with a password-login token.
+- Boundary tests at ±25 / ±35 seconds on the real clock: they leave the leeway constant's ±1 mutants alive, and tests at exactly ±30 seconds on the real clock flake when a second ticks over.
 
 ## Watch out
 - The service-proof key context string exists twice, once in the backend and once in the MCP server, because the two packages share no code. A known-answer test on each side pins the same vector; change both together.
@@ -40,3 +46,6 @@ touches:
 - Connections made before this change live only in the old MCP server's memory and need one last reconnect after the upgrade.
 
 In the code: backend/app/services/mcp_session_service.py, backend/app/api/v1/mcp_sessions.py, backend/app/core/security.py (verify_mcp_service_token, derive_key), backend/app/api/deps.py (msid check), backend/alembic/versions/181_mcp_sessions.py, backend settings MCP_SESSION_IDLE_DAYS / MCP_SESSION_MAX_DAYS, mcp-server/turbo_ea_mcp/oauth.py.
+- PyJWT reads the time through `datetime.now(tz=timezone.utc)` inside `jwt.api_jwt`. Monkeypatch `jwt.api_jwt.datetime` with a subclass whose `now` returns a fixed moment, then use integer iat/exp. Expiry fails when `exp <= now - leeway`; issued-at fails when `iat > now + leeway`.
+
+In the code: backend/app/api/v1/auth.py (_presented_claims, _refuse_mcp_connection_token, MCP_TOKEN_NOT_EXCHANGEABLE), backend/app/core/security.py (MCP_SERVICE_CLOCK_LEEWAY_SECONDS), backend/tests/core/test_security.py::TestMcpServiceTokenClockDrift, backend/tests/api/test_mcp_token_exchange.py.
