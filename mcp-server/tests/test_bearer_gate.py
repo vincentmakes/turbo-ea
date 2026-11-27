@@ -3,8 +3,8 @@
 Without it an anonymous POST to ``/mcp`` is accepted and handed a session id,
 and the client never learns it must authenticate. A bearer token that does not
 resolve gets the same challenge with ``error="invalid_token"``, so a client
-holding a token lost in a restart refreshes instead of calling tools that can
-only answer "Not authenticated". The gate covers ``/mcp``
+holding an expired token — or one sealed under another SECRET_KEY — refreshes
+instead of calling tools that can only answer "Not authenticated". The gate covers ``/mcp``
 and everything under it, nothing else: the OAuth and well-known routes have
 to stay public, or a client could never fetch the metadata that the 401
 points it to.
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 
 import pytest
 
@@ -148,7 +149,7 @@ def test_the_header_without_a_token_is_never_resolved():
     assert resolver.asked == []
 
 
-def test_the_default_resolver_is_the_oauth_store():
+def test_the_default_resolver_is_the_oauth_module():
     gate = RequireBearerForMcp(lambda *a: None, resource_metadata_url=METADATA)
     assert gate.resolve is oauth.resolve_token
 
@@ -208,3 +209,31 @@ def test_a_protocol_request_with_no_headers_key_is_challenged():
     reached, sent = run_raw({"type": "http", "path": "/mcp", "method": "POST"})
     assert not reached
     assert response_of(sent)[0] == 401
+
+
+class TestWithTheRealResolver:
+    """The gate in front of ``oauth.resolve_token`` itself: a sealed token
+    passes, an expired one or a refresh token is challenged (#1449)."""
+
+    @staticmethod
+    def call_real(token: str):
+        return call(auth=f"Bearer {token}".encode(), resolver=oauth.resolve_token)
+
+    def test_a_sealed_access_token_passes(self):
+        reached, sent = self.call_real(oauth.seal_access_token("jwt", time.time() + 60))
+        assert reached and sent == []
+
+    @pytest.mark.parametrize(
+        "token",
+        [
+            oauth.seal_access_token("jwt", time.time() - 1),
+            "tea1r.s1.1.sig",
+            "h.e30.s",
+        ],
+    )
+    def test_anything_else_gets_the_invalid_token_challenge(self, token):
+        reached, sent = self.call_real(token)
+        assert not reached
+        status, headers, _ = response_of(sent)
+        assert status == 401
+        assert headers["www-authenticate"].startswith('Bearer error="invalid_token"')

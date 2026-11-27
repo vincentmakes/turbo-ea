@@ -19,7 +19,6 @@ from turbo_ea_mcp.oauth import (
     OAuthStore,
     PendingAuth,
     RegisteredClient,
-    TokenEntry,
     _estimate_jwt_expiry,
     _handle_code_exchange,
     _redirect_uri_registered,
@@ -132,19 +131,9 @@ class TestOAuthStore:
         store.codes["test-code"] = code
         assert store.codes["test-code"].turbo_jwt == "fake-jwt"
 
-    def test_store_token_entry(self):
-        """Can store and retrieve token entry."""
-        store = OAuthStore()
-        entry = TokenEntry(
-            turbo_jwt="fake-jwt",
-            turbo_jwt_exp=time.time() + 3600,
-            refresh_token="refresh-123",
-            scope="mcp:read",
-        )
-        store.tokens["access-123"] = entry
-        store.refresh_tokens["refresh-123"] = "access-123"
-        assert store.tokens["access-123"].turbo_jwt == "fake-jwt"
-        assert store.refresh_tokens["refresh-123"] == "access-123"
+    def test_the_store_keeps_no_issued_tokens(self):
+        """Issued tokens are sealed, not remembered (#1449)."""
+        assert set(vars(OAuthStore())) == {"clients", "pending", "codes"}
 
     def test_cleanup_expired_pending(self):
         """Cleanup removes expired pending auths."""
@@ -288,7 +277,8 @@ class TestCodeExchange:
         )
 
     @pytest.mark.asyncio
-    async def test_happy_path(self, fresh_store):
+    async def test_happy_path(self, fresh_store, monkeypatch):
+        monkeypatch.setattr(oauth.api_client, "create_mcp_session", AsyncMock(return_value=None))
         verifier, _ = _pkce_pair_from("verifier-happy")
         self._seed_code(fresh_store, verifier, "http://127.0.0.1:5000/cb")
         resp = await _handle_code_exchange(
@@ -304,7 +294,9 @@ class TestCodeExchange:
 
         data = json.loads(resp.body)
         assert data["token_type"] == "Bearer"
-        assert data["access_token"]
+        assert await oauth.resolve_token(data["access_token"]) == (
+            "header.eyJleHAiOjk5OTk5OTk5OTl9.sig"
+        )
 
     @pytest.mark.asyncio
     async def test_rejects_mismatched_redirect_uri(self, fresh_store):

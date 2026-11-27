@@ -8585,11 +8585,13 @@ class RequireBearerForMcp:
     where to discover the OAuth metadata and initiate the flow.
 
     A bearer token that is unknown or expired gets the same 401, carrying
-    ``error="invalid_token"`` (RFC 6750 §3.1). Tokens live in this process's
-    memory, so every restart invalidates them; before this check such a token
-    reached the tools, which answered "Not authenticated" as a *result*, and a
-    client that only refreshes on a 401 — Copilot Studio's token broker — was
-    left with a dead connection it never tried to renew.
+    ``error="invalid_token"`` (RFC 6750 §3.1): an expired access token, one
+    sealed under another SECRET_KEY, or one that is not ours at all. Without
+    this check such a token reached the tools, which answered "Not
+    authenticated" as a *result*, and a client that only refreshes on a 401 —
+    Copilot Studio's token broker — was left with a dead connection it never
+    tried to renew. Access tokens are sealed, not kept in memory (see
+    ``oauth.py``), so a restart of this process does not invalidate them.
 
     The OAuth and well-known routes themselves remain public — the gate
     only fires for the protocol endpoint at ``/mcp``.
@@ -8689,8 +8691,9 @@ def create_app() -> Starlette:
     if oauth.CLIENT_KEY_IS_EPHEMERAL:
         logger.warning(
             "SECRET_KEY is not set for the MCP server: dynamically registered "
-            "OAuth clients will not survive a restart. Pass the instance's "
-            "SECRET_KEY to the mcp-server container."
+            "OAuth clients and AI tool connections will not survive a restart, "
+            "and connections will not renew. Pass the instance's SECRET_KEY to "
+            "the mcp-server container."
         )
     app = mcp.streamable_http_app()
     app.router.routes.extend(oauth_routes)

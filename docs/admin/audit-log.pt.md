@@ -106,6 +106,9 @@ O painel não oferece ações. As entradas não podem ser editadas nem excluída
 | `auth.password.changed` | um usuário conectado altera a própria senha |
 | `auth.impersonation.started` | um administrador inicia **Ver como papel…**. O alvo é o papel escolhido |
 | `auth.impersonation.stopped` | o administrador volta ao próprio papel |
+| `auth.mcp.connected` | uma pessoa inicia sessão no servidor MCP a partir de uma ferramenta de IA, abrindo uma ligação. O alvo é o nome da ferramenta de IA |
+| `auth.mcp.revoked` | uma ligação é terminada a partir da tabela [Ligações ativas](mcp.md#active-connections), pelo seu proprietário ou por um administrador. O sujeito é a pessoa a quem a ligação pertencia |
+| `auth.mcp.replay_detected` | um token de atualização que já foi substituído é apresentado de novo, pelo que a ligação termina. Registado como falha: alguém pode ter uma cópia do token |
 
 **Códigos de motivo** de `auth.login.failed`:
 
@@ -172,7 +175,7 @@ Toda vez que dados saem da instância em massa, uma entrada `access` registra qu
 
 ## O que não é registrado
 
-- **A renovação do token.** O aplicativo web renova a sessão periodicamente, então cada aba aberta acrescentaria entradas e nenhuma significaria nada.
+- **A renovação do token.** O aplicativo web renova a sessão periodicamente, então cada aba aberta acrescentaria entradas e nenhuma significaria nada. O mesmo se aplica a uma ferramenta de IA que renova a sua ligação MCP a cada hora; apenas um token de atualização reutilizado é registado (`auth.mcp.replay_detected`).
 - **Requisições recusadas por um token de sessão expirado ou inválido.** Elas acontecem toda vez que uma sessão termina normalmente.
 - **Leituras de feeds OData.** O Excel e o Power BI consultam o feed OData de uma visualização salva de forma agendada, então cada atualização acrescentaria uma entrada.
 - **Planilhas e apresentações geradas no navegador.** Os downloads em Excel e PowerPoint do inventário e dos relatórios são montados com dados que a página já carregou, então são leituras, não exportações do servidor.

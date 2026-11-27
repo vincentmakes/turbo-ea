@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import json as _json
+import logging
+import time
 from collections.abc import Iterable, Sequence
 from typing import TypeVar
 
 import httpx
+import jwt
+from pydantic import BaseModel, Field, ValidationError
 
-from turbo_ea_mcp.config import TURBO_EA_URL
+from turbo_ea_mcp.config import MCP_SERVICE_PROOF_KEY, TURBO_EA_URL
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -310,3 +316,139 @@ async def exchange_sso_code(code: str, redirect_uri: str) -> dict:
         )
         resp.raise_for_status()
         return resp.json()
+
+
+# ── MCP sessions (the durable connection behind an AI tool's tokens) ──────
+#
+# The backend keeps one row per AI tool connection and rotates its refresh
+# token on every use (backend/app/api/v1/mcp_sessions.py). Both calls carry a
+# one-minute proof that this is the instance's own MCP server, signed with a
+# key both sides derive from SECRET_KEY, so a refresh token is worth nothing
+# presented anywhere else.
+
+# The header the backend reads the proof from (``SERVICE_HEADER`` in mcp_sessions.py).
+_SERVICE_HEADER = "X-Turbo-EA-Service"
+# The claims the backend's ``verify_mcp_service_token`` requires.
+_SERVICE_ISSUER = "turbo-ea-mcp"
+_SERVICE_AUDIENCE = "turbo-ea-backend"
+SERVICE_TOKEN_TTL = 60  # seconds
+# The backend refuses a longer ``client_name`` or ``scope`` with a 422.
+MAX_SESSION_FIELD_LENGTH = 200
+_SESSIONS_PATH = "/api/v1/auth/mcp/sessions"
+
+
+class McpSessionTokens(BaseModel):
+    """What the backend answers when it opens or renews an MCP session."""
+
+    access_token: str = Field(min_length=1)
+    refresh_token: str = Field(min_length=1)
+    expires_in: int
+    scope: str
+
+
+def service_token() -> str | None:
+    """A proof, valid for a minute, that the caller is this instance's MCP
+    server; ``None`` when no SECRET_KEY reached this process."""
+    if MCP_SERVICE_PROOF_KEY is None:
+        return None
+    now = int(time.time())
+    claims = {
+        "iss": _SERVICE_ISSUER,
+        "aud": _SERVICE_AUDIENCE,
+        "iat": now,
+        "exp": now + SERVICE_TOKEN_TTL,
+    }
+    # Positional: HS256 is PyJWT's default, so a dropped keyword would sign the same.
+    return jwt.encode(claims, MCP_SERVICE_PROOF_KEY, "HS256")
+
+
+def _session_tokens(resp: httpx.Response) -> McpSessionTokens:
+    try:
+        return McpSessionTokens.model_validate_json(resp.content)
+    except ValidationError as exc:
+        raise RefreshUnavailableError("backend sent an unreadable MCP session") from exc
+
+
+async def _post_session(path: str, headers: dict[str, str], body: dict) -> httpx.Response:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.post(f"{TURBO_EA_URL}{path}", headers=headers, json=body)
+        except httpx.HTTPError as exc:
+            raise RefreshUnavailableError(str(exc)) from exc
+    # A 5xx or a 429 says nothing about the session: each caller raises
+    # RefreshUnavailableError for every status it does not read as an answer.
+    return resp
+
+
+# Statuses on which the backend cannot open a session for this server: 401 is
+# a refused proof (another SECRET_KEY), 404 / 405 a backend older than this server.
+_NO_SESSION_STATUSES = frozenset({401, 404, 405})
+
+
+async def create_mcp_session(
+    turbo_jwt: str, client_name: str, scope: str
+) -> McpSessionTokens | None:
+    """Open a durable session for the person behind ``turbo_jwt``.
+
+    ``None`` when this server cannot open one — no SECRET_KEY here, a proof
+    the backend refuses, or a backend older than this server — and the caller
+    then hands out a connection that will not renew. Raises
+    ``RefreshUnavailableError`` when the backend could not answer (unreachable,
+    5xx, 429) or answered something else, so the sign-in can be retried."""
+    proof = service_token()
+    if proof is None:
+        logger.warning(
+            "SECRET_KEY is not set for the MCP server: AI tool connections will "
+            "not renew. Pass the instance's SECRET_KEY to the mcp-server container."
+        )
+        return None
+    resp = await _post_session(
+        _SESSIONS_PATH,
+        {"Authorization": f"Bearer {turbo_jwt}", _SERVICE_HEADER: proof},
+        {
+            "client_name": client_name[:MAX_SESSION_FIELD_LENGTH],
+            "scope": scope[:MAX_SESSION_FIELD_LENGTH],
+        },
+    )
+    if resp.status_code in _NO_SESSION_STATUSES:
+        logger.warning(
+            "Turbo EA did not open an MCP session (HTTP %s): AI tool connections "
+            "will not renew until the MCP server's SECRET_KEY matches the "
+            "backend's and the backend is upgraded to this MCP server's version.",
+            resp.status_code,
+        )
+        return None
+    if not resp.is_success:
+        raise RefreshUnavailableError(f"backend answered {resp.status_code}")
+    return _session_tokens(resp)
+
+
+# The only answers to a refresh that end the connection: 400 (the token is
+# unknown, ended, expired or replayed), 403 (the account may no longer sign
+# in) and 422 (the backend refused the request itself).
+_REFRESH_REFUSED_STATUSES = frozenset({400, 403, 422})
+
+
+async def refresh_mcp_session(refresh_token: str) -> McpSessionTokens | None:
+    """Renew a session: a new access token and the next refresh token.
+
+    ``None`` is a refusal (400 / 403 / 422: the token is unknown, ended,
+    expired or replayed, or the account may no longer sign in): the person has
+    to sign in again. Every other failure raises ``RefreshUnavailableError`` —
+    unreachable, 5xx, 429, a refused service proof (401: clock drift, another
+    SECRET_KEY), a backend older than this server (404 / 405, as during a
+    rolling upgrade), any other non-2xx — because none of them says anything
+    about the session, and the client keeps its refresh token to retry."""
+    proof = service_token()
+    if proof is None:
+        return None
+    resp = await _post_session(
+        f"{_SESSIONS_PATH}/refresh",
+        {_SERVICE_HEADER: proof},
+        {"refresh_token": refresh_token},
+    )
+    if resp.status_code in _REFRESH_REFUSED_STATUSES:
+        return None
+    if not resp.is_success:
+        raise RefreshUnavailableError(f"backend answered {resp.status_code}")
+    return _session_tokens(resp)

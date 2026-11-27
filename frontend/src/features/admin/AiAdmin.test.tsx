@@ -42,6 +42,7 @@ function mockLoad(overrides: Partial<typeof AI_DEFAULTS> = {}) {
     if (path === "/settings/ai") {
       return Promise.resolve({ ...AI_DEFAULTS, ...overrides });
     }
+    if (path === "/auth/mcp/sessions?everyone=true") return Promise.resolve([]);
     return Promise.resolve({ enabled: false, sso_configured: false });
   });
 }
@@ -259,5 +260,29 @@ describe("AiAdmin keeps the other providers working", () => {
     await user.type(screen.getByLabelText("Provider URL"), "/openai/v1/");
 
     expect(screen.getByLabelText("API Version")).toBeDisabled();
+  });
+});
+
+describe("AiAdmin MCP connections", () => {
+  it("shows the Active connections table once the MCP settings could be read", async () => {
+    await renderLoaded();
+    expect(await screen.findByTestId("mcp-connections")).toBeInTheDocument();
+    expect(screen.getByText("Active connections")).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith("/auth/mcp/sessions?everyone=true", expect.anything());
+  });
+
+  it("leaves the table out, and never lists everyone's, without access to the MCP settings", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === "/settings/ai") return Promise.resolve({ ...AI_DEFAULTS });
+      if (path === "/settings/mcp") return Promise.reject(new Error("403"));
+      return Promise.resolve({});
+    });
+    render(<AiAdmin />);
+    await waitFor(() => expect(screen.getByLabelText("AI Provider")).toBeInTheDocument());
+    expect(screen.queryByTestId("mcp-connections")).not.toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalledWith(
+      "/auth/mcp/sessions?everyone=true",
+      expect.anything(),
+    );
   });
 });

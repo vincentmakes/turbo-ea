@@ -1,8 +1,9 @@
 """OAuth server edges ``test_oauth_flow.py`` leaves open.
 
 A token request whose PKCE verifier is not ASCII, the exact expiry a JWT
-without ``exp`` gets, the log lines an operator debugging a sign-in reads, and
-a refresh racing another request for the same session.
+without ``exp`` gets, and the log lines an operator debugging a sign-in reads.
+A refresh racing another request for the same session is the backend's to
+settle now (its rotation grace window): this process keeps no session.
 """
 
 from __future__ import annotations
@@ -11,7 +12,6 @@ import base64
 import hashlib
 import json
 import logging
-import time
 from unittest.mock import AsyncMock
 
 import pytest
@@ -24,12 +24,9 @@ from turbo_ea_mcp.oauth import (
     AuthCode,
     OAuthStore,
     PendingAuth,
-    TokenEntry,
     _estimate_jwt_expiry,
     _handle_code_exchange,
-    _handle_refresh,
     _verify_pkce,
-    resolve_token,
 )
 
 CB = "http://127.0.0.1:5000/cb"
@@ -161,69 +158,3 @@ class TestSsoCallbackLogs:
             "Failed to exchange SSO code with Turbo EA backend",
         )
         assert record.exc_info[1].args == ("backend down",)
-
-
-class _RacingClient:
-    """A Turbo EA client whose refresh lets another request act mid-call."""
-
-    def __init__(self, store, result, during):
-        self.store, self.result, self.during = store, result, during
-
-    def __call__(self, token):
-        return self
-
-    async def refresh_token(self):
-        self.during(self.store)
-        return self.result
-
-
-def _forget(access, refresh):
-    def during(store):
-        store.tokens.pop(access, None)
-        store.refresh_tokens.pop(refresh, None)
-
-    return during
-
-
-@pytest.mark.asyncio
-class TestRefreshRaces:
-    """The backend call is the one ``await`` in these handlers, so a second
-    request for the same session can revoke or rotate it in the meantime.
-    The handler must still answer, not raise ``KeyError``."""
-
-    def _seed(self, store, exp=None):
-        exp = time.time() + 99999 if exp is None else exp
-        store.tokens["old"] = TokenEntry("old-jwt", exp, "r1", "mcp:read")
-        store.refresh_tokens["r1"] = "old"
-
-    async def test_a_failed_refresh_after_the_session_went(self, store, monkeypatch):
-        self._seed(store)
-        monkeypatch.setattr(
-            api_client, "TurboEAClient", _RacingClient(store, None, _forget("old", "r1"))
-        )
-        resp = await _handle_refresh({"refresh_token": "r1"})
-        assert resp.status_code == 400
-        assert json.loads(resp.body)["error_description"] == "Session expired, re-authenticate"
-        assert store.tokens == {}
-        assert store.refresh_tokens == {}
-
-    async def test_a_rotation_after_the_session_went(self, store, monkeypatch):
-        self._seed(store)
-        new_jwt = f"h.{_payload({'exp': 4102444800})}.s"
-        monkeypatch.setattr(
-            api_client, "TurboEAClient", _RacingClient(store, new_jwt, _forget("old", "r1"))
-        )
-        resp = await _handle_refresh({"refresh_token": "r1"})
-        assert resp.status_code == 200
-        data = json.loads(resp.body)
-        assert store.refresh_tokens == {data["refresh_token"]: data["access_token"]}
-        assert store.tokens[data["access_token"]].turbo_jwt == new_jwt
-
-    async def test_a_lapsed_jwt_whose_entry_went_mid_refresh(self, store, monkeypatch):
-        self._seed(store, exp=time.time() + 10)  # inside the refresh buffer
-        monkeypatch.setattr(
-            api_client, "TurboEAClient", _RacingClient(store, None, _forget("old", "r1"))
-        )
-        assert await resolve_token("old") is None
-        assert store.tokens == {}
-        assert store.refresh_tokens == {}

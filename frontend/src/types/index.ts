@@ -3824,3 +3824,17 @@ export interface CommunityInstallResult extends CustomLocaleWriteResult {
   kept_manual: number;
   locale: CustomLocale;
 }
+
+// ── MCP connections ─────────────────────────────────────────────
+
+/** One AI tool's live connection to the MCP server (`GET /auth/mcp/sessions`). */
+export interface McpConnection {
+  id: string;
+  client_name: string;
+  created_at: string;
+  last_used_at: string;
+  /** When it ends if it is not used again: the earlier of the idle and the absolute end. */
+  expires_at: string;
+  /** Present on `?everyone=true` (admin.mcp): who signed in, never more. */
+  user?: { id: string; display_name: string };
+}

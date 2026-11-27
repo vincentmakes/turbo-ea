@@ -106,6 +106,9 @@ Die Leiste bietet keine Aktionen. Einträge können weder bearbeitet noch gelös
 | `auth.password.changed` | ein angemeldeter Benutzer sein eigenes Passwort ändert |
 | `auth.impersonation.started` | eine Administratorin **Als Rolle anzeigen…** startet. Ziel ist die gewählte Rolle |
 | `auth.impersonation.stopped` | die Administratorin zu ihrer eigenen Rolle zurückkehrt |
+| `auth.mcp.connected` | sich eine Person von einem KI-Werkzeug aus am MCP-Server anmeldet und damit eine Verbindung öffnet. Ziel ist der Name des KI-Werkzeugs |
+| `auth.mcp.revoked` | eine Verbindung in der Tabelle [Aktive Verbindungen](mcp.md#active-connections) von ihrem Besitzer oder einer Administratorin beendet wird. Betreff ist die Person, der die Verbindung gehörte |
+| `auth.mcp.replay_detected` | ein bereits ersetztes Erneuerungstoken erneut vorgelegt wird und die Verbindung daher beendet wird. Als Fehlschlag erfasst: Möglicherweise besitzt jemand eine Kopie des Tokens |
 
 **Grundcodes** bei `auth.login.failed`:
 
@@ -172,7 +175,7 @@ Jedes Mal, wenn Daten die Instanz in großem Umfang verlassen, hält ein `access
 
 ## Was nicht aufgezeichnet wird
 
-- **Token-Erneuerung.** Die Web-App erneuert ihre Sitzung zeitgesteuert, sodass jede offene Registerkarte Einträge erzeugen würde, von denen keiner etwas bedeutet.
+- **Token-Erneuerung.** Die Web-App erneuert ihre Sitzung zeitgesteuert, sodass jede offene Registerkarte Einträge erzeugen würde, von denen keiner etwas bedeutet. Dasselbe gilt für ein KI-Werkzeug, das seine MCP-Verbindung stündlich erneuert; nur ein wiederverwendetes Erneuerungstoken wird erfasst (`auth.mcp.replay_detected`).
 - **Anfragen, die wegen eines abgelaufenen oder ungültigen Sitzungstokens abgewiesen werden.** Sie entstehen jedes Mal, wenn eine Sitzung regulär endet.
 - **Abrufe von OData-Feeds.** Excel und Power BI fragen den OData-Feed einer gespeicherten Ansicht zeitgesteuert ab, sodass jede Aktualisierung einen Eintrag erzeugen würde.
 - **Im Browser erstellte Tabellen und Präsentationen.** Die Excel- und PowerPoint-Downloads des Inventars und der Berichte entstehen aus Daten, die die Seite bereits geladen hat; sie sind Lesezugriffe, keine Exporte vom Server.

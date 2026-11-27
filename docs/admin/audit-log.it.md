@@ -106,6 +106,9 @@ Il pannello non offre azioni. Le voci non possono essere modificate né eliminat
 | `auth.password.changed` | un utente connesso cambia la propria password |
 | `auth.impersonation.started` | un amministratore avvia **Visualizza come ruolo…**. La destinazione è il ruolo scelto |
 | `auth.impersonation.stopped` | l'amministratore torna al proprio ruolo |
+| `auth.mcp.connected` | una persona accede al server MCP da uno strumento di IA, aprendo una connessione. La destinazione è il nome dello strumento di IA |
+| `auth.mcp.revoked` | una connessione viene terminata dalla tabella [Connessioni attive](mcp.md#active-connections), dal suo proprietario o da un amministratore. Il soggetto è la persona a cui apparteneva la connessione |
+| `auth.mcp.replay_detected` | un token di aggiornamento già sostituito viene presentato di nuovo, quindi la connessione termina. Registrato come errore: qualcuno potrebbe avere una copia del token |
 
 **Codici di motivo** di `auth.login.failed`:
 
@@ -172,7 +175,7 @@ Ogni volta che i dati lasciano l'istanza in blocco, una voce `access` registra c
 
 ## Che cosa non viene registrato
 
-- **Il rinnovo del token.** L'app web rinnova la sessione a intervalli regolari, quindi ogni scheda aperta aggiungerebbe voci e nessuna avrebbe significato.
+- **Il rinnovo del token.** L'app web rinnova la sessione a intervalli regolari, quindi ogni scheda aperta aggiungerebbe voci e nessuna avrebbe significato. Lo stesso vale per uno strumento di IA che rinnova ogni ora la propria connessione MCP; viene registrato solo un token di aggiornamento riutilizzato (`auth.mcp.replay_detected`).
 - **Le richieste rifiutate per un token di sessione scaduto o non valido.** Si verificano ogni volta che una sessione termina normalmente.
 - **Le letture dei feed OData.** Excel e Power BI interrogano il feed OData di una vista salvata secondo una pianificazione, quindi ogni aggiornamento aggiungerebbe una voce.
 - **Fogli di calcolo e presentazioni generati nel browser.** I download Excel e PowerPoint dell'inventario e dei report sono costruiti con dati che la pagina ha già caricato, quindi sono letture, non esportazioni dal server.

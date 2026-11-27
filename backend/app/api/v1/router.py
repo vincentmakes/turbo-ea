@@ -28,6 +28,7 @@ from app.api.v1 import (
     extensions,
     favorites,
     file_attachments,
+    mcp_sessions,
     mentions,
     metamodel,
     migration,
@@ -79,6 +80,7 @@ api_router.include_router(soaw.router)
 api_router.include_router(eol.router)
 api_router.include_router(events.router)
 api_router.include_router(mutation_batches.router)
+api_router.include_router(mcp_sessions.router)
 api_router.include_router(audit_log.router)
 api_router.include_router(users.router)
 api_router.include_router(notifications.router)

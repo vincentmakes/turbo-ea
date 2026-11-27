@@ -27,8 +27,8 @@ PostgreSQL
 
 1. A user adds the MCP server URL to their AI tool.
 2. On first connection, the AI tool opens a browser window for SSO authentication.
-3. After login, the MCP server issues its own access token (backed by the user's Turbo EA JWT).
-4. The AI tool uses this token for all subsequent requests. Tokens refresh automatically.
+3. After login, the backend opens a durable **connection** for that person and AI tool, and the MCP server hands the AI tool an access token and a refresh token.
+4. The AI tool uses the access token for all subsequent requests and renews it automatically with the refresh token. The connection survives MCP container restarts and upgrades; see [How long a connection lasts](#connection-lifetime).
 5. Every query goes through the normal Turbo EA permission system — users only see data they have access to.
 
 ---
@@ -68,9 +68,16 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `TURBO_EA_PUBLIC_URL` | the origin of `MCP_PUBLIC_URL`, else `http://localhost:8920` | The public URL of your Turbo EA instance. Every link an MCP tool returns (a draft in the editor, a saved inventory view) is built on it. Left unset, or set to a local address (`localhost`, `127.0.0.1` or `[::1]`, any port — `.env.example` ships `http://localhost`) while `MCP_PUBLIC_URL` names a real host, the MCP server uses the scheme and host of `MCP_PUBLIC_URL` instead (`https://ea.example.com/mcp` gives `https://ea.example.com`), which is right whenever MCP is served under `/mcp` on the app's own host. A value on a real host is always used; set one when the app lives elsewhere |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | The public URL of the MCP server (used in OAuth redirect URIs). When running the container standalone, the code default is `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Internal port for the MCP container (rarely needs changing) |
-| `SECRET_KEY` | *(none)* | Set it to the backend's value. Signs the OAuth client ids the MCP server hands out, so a client that registered once keeps working after a restart; without it the server signs with a key that dies with the process and logs a warning. Docker compose, the Helm chart and the cloud templates pass it in automatically |
+| `SECRET_KEY` | *(none)* | Set it to the backend's value. It signs the OAuth client ids and seals the access tokens the MCP server hands out, and proves to the backend that renewals come from this instance's own MCP server. With it, a registered client and a signed-in connection keep working across restarts and renew themselves. Without it, sign-in still works, but the connection gets no refresh token, ends when its access token expires (1 hour) and does not survive a restart; the server logs a warning at startup. Docker compose, the Helm chart and the cloud templates pass it in automatically |
 | `MCP_ALLOWED_ORIGINS` | *(empty)* | Comma-separated extra origins whose browser requests the MCP endpoint accepts. Requests without an `Origin` header are always accepted |
 | `MCP_ALLOWED_HOSTS` | *(empty)* | Comma-separated extra host names the MCP endpoint accepts in the `Host` header, beyond the hosts of `TURBO_EA_PUBLIC_URL` and `MCP_PUBLIC_URL`. Needed only when a proxy forwards a different host name; see [Behind a proxy that changes the host name](#proxy-host-name) |
+
+Two settings on the **backend** service (not the MCP container) decide how long a connection lasts. Both are optional; Docker compose passes them through from `.env`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_SESSION_IDLE_DAYS` | `30` | A connection renews itself while it is used at least once in this many days. Left unused for longer, it ends and the person signs in again from the AI tool |
+| `MCP_SESSION_MAX_DAYS` | `180` | A connection ends this many days after the sign-in that created it, however often it is used, so the person signs in through SSO again. This is what eventually catches an account removed at the identity provider but still active in Turbo EA. `0` turns this end off (the idle end still applies) |
 
 ### Step 3: Add the OAuth redirect URI to your SSO app
 
@@ -93,6 +100,12 @@ This is required for the OAuth flow that authenticates users when they connect f
 
 !!! warning
     The toggle is disabled if SSO is not configured. Set up SSO first.
+
+### Active connections { #active-connections }
+
+Below the switch, the **Active connections** table lists every AI tool that is signed in to the MCP server, across all users: the person, the AI tool (the name it registered with, for example *Claude* or *Copilot Studio*), when it connected, when it was last used, and when it ends if it is not used again. Only roles with the `admin.mcp` permission see it.
+
+**Revoke** ends a connection at once, after a confirmation: the AI tool's next request is refused, and the person signs in again from the AI tool to reconnect. Use it when a laptop is lost, a person leaves, or a connection should not exist. Connecting, revoking and a detected token replay are recorded in the [Security & admin log](audit-log.md) (category *Authentication*).
 
 ---
 
@@ -133,7 +146,7 @@ Copilot Studio connects to MCP servers from Microsoft's cloud, not from the user
 3. Under **Authentication**, choose **OAuth 2.0**, then **Dynamic discovery**.
 4. Create the connection and sign in with your SSO account when prompted.
 
-Copilot Studio registers itself once and keeps the client id it receives. That id carries its own redirect URIs, signed with the instance's `SECRET_KEY`, so the connection keeps working when the MCP container restarts or is upgraded. Changing `SECRET_KEY` invalidates every registered client: recreate the tool in Copilot Studio afterwards.
+Copilot Studio registers itself once and keeps the client id it receives. That id carries its own redirect URIs, signed with the instance's `SECRET_KEY`, and since 2.219.0 the signed-in connection itself is stored by the backend, so the connection keeps working when the MCP container restarts or is upgraded and renews itself while the agent is used. Changing `SECRET_KEY` invalidates every registered client and every connection: recreate the connection in Copilot Studio afterwards.
 
 ### Behind a proxy that changes the host name { #proxy-host-name }
 
@@ -554,8 +567,20 @@ Data access through MCP — read or write — follows the same RBAC model as the
 - **Dry-run by default on writes**: Write tools default to a validate-and-rollback preview. The AI tool must explicitly call again with `dry_run=false` before anything is persisted, and every change is audited under the user's identity.
 - **Every record says it came through MCP**: every card, diagram, risk, decision, SoAW, comment and BPM flow version an agent creates carries `created_via: mcp` next to the person who ran the agent, and an agent's later edit sets `updated_via: mcp`. The web interface shows it as an **MCP** chip on the record, and the Inventory's **Origin** filter lists everything an agent created.
 - **No file parsing in MCP**: The MCP server itself does not accept PDFs, Excel files, images or other binary artifacts. The calling AI tool parses them in its own context and sends structured rows. This keeps the attack surface narrow and avoids exposing the server to malformed binary input.
-- **Token rotation**: Access tokens expire after 1 hour. Refresh tokens last 30 days. Authorization codes are single-use and expire after 10 minutes.
+- **Token rotation**: Access tokens expire after 1 hour and are renewed automatically. The refresh token is replaced on every renewal; if a replaced refresh token is presented again — the sign of a copied token — the connection ends at once and the event is recorded in the Security & admin log. Authorization codes are single-use and expire after 10 minutes.
+- **No tokens in the database**: The backend stores one row per connection with a renewal counter, never a token or a hash of one. A refresh token is only accepted through this instance's own MCP server.
+- **Revocable connections**: An admin can end any connection from the [Active connections](#active-connections) table; a disabled or expired account cannot renew its connections, and its access tokens stop working at once.
 - **Internal-only port**: The MCP container exposes port 8001 only on the internal Docker network. All external access goes through the Nginx reverse proxy.
+
+### How long a connection lasts { #connection-lifetime }
+
+A connection keeps working, without signing in again, while it is used at least once every 30 days (`MCP_SESSION_IDLE_DAYS`), up to 180 days after the sign-in that created it (`MCP_SESSION_MAX_DAYS`). It survives restarts and upgrades of the MCP container. It ends:
+
+- after 30 days without use, or 180 days after sign-in, whichever comes first;
+- at once when it is revoked in the Active connections table;
+- at once when the person's account is disabled or expires;
+- when a refresh token that was already replaced is presented again;
+- when the instance's `SECRET_KEY` changes.
 
 ---
 
@@ -570,7 +595,9 @@ Data access through MCP — read or write — follows the same RBAC model as the
 | Links an AI tool returns open `http://localhost:8920` | The MCP container does not know the address users reach the app at. Set `TURBO_EA_PUBLIC_URL` (or `MCP_PUBLIC_URL`, whose host it falls back to) to the public URL and restart the MCP container. |
 | A tool call fails with `Unknown argument(s): …` | The AI tool passed a parameter the tool does not take; the error lists the valid ones and nothing was done. For step links on a process flow, use `link_process_flow_elements` rather than `import_bpmn`. |
 | User gets empty results | MCP respects RBAC permissions. If a user has restricted access, they will only see the cards their role allows. |
-| Connection drops after 1 hour | The AI tool should handle token refresh automatically. If not, reconnect. |
+| Connection drops after 1 hour | The MCP container has no `SECRET_KEY`, or a different one from the backend's, so no refresh token was issued (the MCP log warns about it). Set it to the backend's value, restart the MCP container and reconnect once. |
+| A connection made before 2.219.0 stopped working after upgrading | Connections were kept in the MCP server's memory until 2.219.0. Reconnect each AI tool once (in Copilot Studio, recreate the connection); from then on connections survive restarts and upgrades. |
+| An AI tool has to sign in again although it worked before | The connection ended: unused for more than `MCP_SESSION_IDLE_DAYS`, older than `MCP_SESSION_MAX_DAYS`, revoked, the account disabled, or a reused refresh token. The Security & admin log shows *AI tool connection revoked* or *Reused MCP refresh token* when one of the last applies. Sign in again from the AI tool. |
 | `400` with *Invalid HTTP request received* from the MCP endpoints behind a sign-in proxy (for example Azure App Service authentication) | The proxy adds large token headers and cookies to every request, more than the MCP server accepted. Upgrade to 2.217.1 or later. |
 | Copilot Studio reports "Connection creation failed" | Copilot Studio calls from Microsoft's cloud. Check that `https://your-domain.example.com/mcp` is reachable from the internet with a publicly trusted certificate, and that `MCP_PUBLIC_URL` is that public address. The Nginx log during an attempt shows the last request that arrived; no request at all means the instance is not reachable. |
 | A Copilot Studio tool stopped working after upgrading to 2.175.2 | Tools created before 2.175.2 hold a client id that did not survive a restart. Delete the tool and add it again once; the new id survives later restarts. |
