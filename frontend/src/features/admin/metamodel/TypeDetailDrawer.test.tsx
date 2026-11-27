@@ -512,8 +512,8 @@ describe("TypeDetailDrawer — subtypes", () => {
         { key: "saas", label: "SaaS", hidden_fields: [] },
       ],
     });
-    // The inline form closes again.
-    expect(screen.getByRole("button", { name: endsWith(ta("metamodel.typeDrawer.addSubtype")) })).toBeInTheDocument();
+    // The inline form closes again, once the save has answered.
+    expect(await screen.findByRole("button", { name: endsWith(ta("metamodel.typeDrawer.addSubtype")) })).toBeInTheDocument();
   });
 
   it("keeps Add disabled on an invalid key and cancels the inline form", async () => {

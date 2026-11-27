@@ -133,6 +133,8 @@ GROUPS: tuple[Group, ...] = (
         "frontend-e2e",
     ),
     _one("frontend-mutation", ("frontend", "mutation")),
+    # The race probe runs the tests the PR reaches under vitest.race.config.ts.
+    _one("frontend-race", ("frontend",)),
     _one("mcp-test", ("mcp",)),
     Group("mcp-mutation", ("mcp", "mutation"), ("mcp-mutation",), "mcp-mutation-verdict"),
 )

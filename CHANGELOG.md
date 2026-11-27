@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.222.1] - 2026-11-27
+
+### Fixed
+- In the **@** mention list of a decision or SoAW, the row picked with the arrow keys is scrolled into view even when the key is pressed just as the results appear, instead of the first card row.
+- In a process's **Process Flow** element tables (published and draft), a cell opened while another cell's change is still saving stays open when that save finishes.
+- Applying a saved inventory view keeps the view's column order when it is applied while the card type's fields are still loading.
+- The **Stakeholder Roles** tab of a card type no longer reloads, and briefly hides the role being edited, each time the drawer around it updates, for example to show a failed save's error.
+
 ## [2.222.0] - 2026-11-27
 
 ### Added

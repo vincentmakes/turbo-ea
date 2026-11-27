@@ -261,7 +261,8 @@ describe("CustomEolContributeTab", () => {
       expect(onError).toHaveBeenCalledWith("PATCH /eol/custom-products/acme-erp failed"),
     );
     expect(onChanged).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    // onError is called before the Save button it re-enables has rendered.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
   });
 
   it("Cancel puts the saved values back", async () => {

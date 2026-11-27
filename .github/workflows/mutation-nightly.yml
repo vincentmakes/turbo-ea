@@ -485,10 +485,14 @@ jobs:
           path: harness
       # First, so the section tops the summary: a chunk such a test failed
       # measured nothing, and that is the morning's first job, not the score.
+      # The commit and the repository's address (the runner's own variables)
+      # let the section say what a re-run would test: this same commit, never
+      # a fix merged since (harness.py, `rerun_note`).
       - name: Name the tests that failed on unmutated code
         run: >-
           python3 scripts/mutation/harness.py report --dir harness
           --summary "$GITHUB_STEP_SUMMARY" --output harness.md
+          --sha "$GITHUB_SHA" --repo-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
       - name: The previous night's baseline
         if: env.SAVE_CACHE == 'true'
         run: |

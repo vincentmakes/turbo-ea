@@ -243,9 +243,18 @@ export default function MentionPopup({ store, kinds, context, hidden = false }: 
   // The highlighted row by identity (null: the default, the first item).
   // The rows are the items and a last "Browse…" row at index `flat.length`.
   const [highlight, setHighlight] = useState<MentionHighlight>(null);
+  // The highlight the last arrow key asked for, until the render showing it
+  // scrolls it into view (`undefined`: no key is waiting for its scroll; a
+  // highlight is never `undefined`, so it can never match a request then).
+  const scrollRequest = useRef<MentionHighlight | undefined>(undefined);
   useEffect(() => {
+    scrollRequest.current = undefined;
     setHighlight(null);
   }, [query, open]);
+  const hover = (next: MentionHighlight) => {
+    scrollRequest.current = undefined;
+    setHighlight(next);
+  };
   const keys = flat.map(mentionItemKey);
   const activeIndex = resolveActive(highlight, keys);
   const browseIndex = flat.length;
@@ -254,10 +263,15 @@ export default function MentionPopup({ store, kinds, context, hidden = false }: 
   const listId = useId();
   const optionId = (i: number) => `${listId}-option-${i}`;
   const activeId = activeIndex >= 0 ? optionId(activeIndex) : null;
-  const scrollOnKey = useRef(false);
+  // The scroll belongs to the render the key caused, not to whichever effect
+  // runs next: a key can land between a commit and its passive effects (see
+  // the key handler below), and that commit's pending effect must not take the
+  // scroll for the row it showed (nightly run 69 scrolled the first card row
+  // when ArrowUp had picked Browse). With no key waiting the request is
+  // `undefined`, which no highlight equals, so nothing scrolls.
   useEffect(() => {
-    if (!scrollOnKey.current || !activeId) return;
-    scrollOnKey.current = false;
+    if (highlight !== scrollRequest.current || !activeId) return;
+    scrollRequest.current = undefined;
     const row = document.getElementById(activeId);
     // jsdom has no layout, hence no scrollIntoView.
     if (typeof row?.scrollIntoView === "function") row.scrollIntoView({ block: "nearest" });
@@ -274,8 +288,9 @@ export default function MentionPopup({ store, kinds, context, hidden = false }: 
     store.setKeyHandler((event) => {
       if (!open) return false;
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        scrollOnKey.current = true;
-        setHighlight(highlightAfterKey(highlight, keys, event.key));
+        const next = highlightAfterKey(highlight, keys, event.key);
+        scrollRequest.current = next;
+        setHighlight(next);
         return true;
       }
       if (event.key === "Enter" || event.key === "Tab") {
@@ -348,7 +363,7 @@ export default function MentionPopup({ store, kinds, context, hidden = false }: 
                           selected={i === activeIndex}
                           // Keep the caret in the editor: picking must not blur it.
                           onMouseDown={(e) => e.preventDefault()}
-                          onMouseEnter={() => setHighlight(key)}
+                          onMouseEnter={() => hover(key)}
                           onClick={() => pick(item)}
                         >
                           <MentionRow item={item} />
@@ -379,7 +394,7 @@ export default function MentionPopup({ store, kinds, context, hidden = false }: 
             selected={activeIndex === browseIndex}
             sx={{ flexShrink: 0, borderTop: 1, borderColor: "divider" }}
             onMouseDown={(e) => e.preventDefault()}
-            onMouseEnter={() => setHighlight(BROWSE_HIGHLIGHT)}
+            onMouseEnter={() => hover(BROWSE_HIGHLIGHT)}
             onClick={() => store.browse()}
             data-testid="mention-browse"
           >

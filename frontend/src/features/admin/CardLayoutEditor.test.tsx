@@ -663,8 +663,8 @@ describe("CardLayoutEditor — add and delete sections", () => {
       "custom:2",
     ]);
     expect(body.section_config?.eol).toEqual({ hidden: true });
-    // The input closes after the save.
-    expect(screen.queryByPlaceholderText("Section name")).not.toBeInTheDocument();
+    // The input closes once the save has answered, after the request.
+    await waitFor(() => expect(screen.queryByPlaceholderText("Section name")).not.toBeInTheDocument());
   });
 
   it("adds a section with the Add button, which stays disabled while the name is empty", async () => {

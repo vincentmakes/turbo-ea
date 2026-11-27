@@ -312,9 +312,10 @@ describe("PpmRiskImportDialog", () => {
     ).toBeInTheDocument();
     await user.upload(fileInput(), workbookFile(MIXED));
     await screen.findByText("risks.xlsx");
+    // The file's name shows before its read has rendered the (empty) preview.
+    expect(await screen.findByRole("button", { name: /Import 0 changes$/ })).toBeDisabled();
     expect(screen.queryByText("1 to create")).not.toBeInTheDocument();
     expect(screen.queryByText("Reading file…")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Import 0 changes$/ })).toBeDisabled();
   });
 
   it("shows that it is waiting for the users before previewing", async () => {

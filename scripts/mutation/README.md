@@ -313,6 +313,55 @@ Each of these was found the hard way while wiring it up; keep them.
   test that simulates a blur right after `focus()` must first wait for
   `editor.isFocused`, or the late focus lands after the blur and undoes it
   (RichTextEditor, nightly run 61).
+- **One kind of those races, a test that reads too early, the race probe
+  reproduces in seconds.** Its shape is a `waitFor` whose condition is
+  already true on its first check — `expect(api.get).toHaveBeenCalled()`,
+  which proves the request was *sent* — followed by a synchronous query for
+  what the *answer* renders. Testing Library then lets one zero-delay timer
+  pass before the test continues, and React's scheduler posts its work
+  through `setImmediate`: on a quick run React usually wins, under Stryker it
+  loses about one time in twenty, and the nightly runs the suite some 130
+  times. Run 68 was this (`RelationsSection.lifecycle.test.tsx`, fixed by
+  `1407ad7`). `frontend/src/test/raceProbe.ts`, loaded first by
+  `frontend/vitest.race.config.ts`, holds every `setImmediate` callback back
+  2 ms on the real clock, so every React commit lands after that timer: a
+  correct test passes as before, and that test fails 5 runs of 5.
+  `cd frontend && npm run test:race -- <file>` reproduces it without
+  Stryker; the `Frontend Race Probe` job runs it on every pull request's own
+  tests, so a new one is caught before it merges. A wait on a mock call
+  proves the request was sent, not that its answer rendered: wait for the
+  element the assertion reads (`findBy*`), or put the assertion inside the
+  `waitFor`. **What it does not force:** a wait that turns true later (an
+  `onError` called before the `finally` that re-enables a button; run 60's
+  callback asserted unwaited after the commit whose effect calls it, which
+  fails under the probe 3 runs of 5), and timing that goes through
+  `requestAnimationFrame` (run 61, TipTap's late focus, above).
+- **The sweep is the nightly's view of the suite, in about half an hour.**
+  `cd frontend && npm run test:race:sweep` (`vitest.race-sweep.config.ts`)
+  holds React's work back 60 ms — above `waitFor`'s 50 ms poll, which a wait
+  that turns true later needs — with what Stryker's dry run loads: the
+  sandbox's 5 s wait and `MUTATION_SANDBOX=1`. A wait that only ran out of
+  the suite's 1 s budget passes there, so what fails is a wrong order, as in
+  the nightly. It is a diagnosis tool, run by hand, not a CI gate. A
+  whole-suite run at 60 ms (the earlier probe, the 1 s wait) failed 83 tests
+  in 35 files, 71 in 29 when re-run in sweep mode; the next night, run 69
+  went red on one of them (`MentionPopup`'s scroll on a key, a race in the
+  product). That list was re-swept file by file until it passed 3 runs of 3;
+  the whole suite has not been swept clean in one run. Each failure is one of three things: an early read, fixed
+  in the test; a race in the product, fixed with a regression test that
+  fails on the old code at any speed when it is small and clear, reported
+  otherwise; or an artifact of the delay, left alone with the reason
+  written down. The probe itself was one: it delayed every `setImmediate`
+  user, so fake timers' async ticks ran out of their 15 s; it now holds back
+  only React's scheduler. For a test the nightly names, run the sweep on
+  its file (`npm run test:race:sweep -- <file>`) before touching it.
+- **A re-run re-tests the same commit.** A scheduled run takes its snapshot
+  when it starts, and "Re-run failed jobs" tests that snapshot again: run 68
+  failed on a test fixed on `main` an hour after the snapshot, and its re-run
+  failed the same way. When the fix is already on `main`, start a new run
+  (Actions → *Mutation nightly* → *Run workflow* on `main`) instead; the
+  harness section of the report names the run's commit and links what `main`
+  has gained since.
 - **A test that fails on unmutated code is named, and the shard stays red.**
   Every red nightly of October 2026 was one such test — Stryker's initial
   run of a chunk, or mutmut's clean test of a shard — and its name sat

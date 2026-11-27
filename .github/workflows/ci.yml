@@ -66,6 +66,8 @@ jobs:
       key_frontend_e2e: ${{ steps.verdicts.outputs.key_frontend_e2e }}
       done_frontend_mutation: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_frontend_mutation == 'true' }}
       key_frontend_mutation: ${{ steps.verdicts.outputs.key_frontend_mutation }}
+      done_frontend_race: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_frontend_race == 'true' }}
+      key_frontend_race: ${{ steps.verdicts.outputs.key_frontend_race }}
       done_mcp_test: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_mcp_test == 'true' }}
       key_mcp_test: ${{ steps.verdicts.outputs.key_mcp_test }}
       done_mcp_mutation: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_mcp_mutation == 'true' }}
@@ -971,6 +973,124 @@ jobs:
         with:
           path: .verdict
           key: ${{ needs.changes.outputs.key_frontend_tests }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  # The race probe (frontend/vitest.race.config.ts, src/test/raceProbe.ts):
+  # the tests this pull request reaches, with every React commit held back a
+  # couple of milliseconds behind Testing Library's zero-delay timer. A test
+  # that reads what a response renders straight after a `waitFor` that was
+  # already true on its first check (`expect(api.get).toHaveBeenCalled()`:
+  # the request was SENT) passes `vitest run` nearly every time and fails here
+  # every time. Before this job only the mutation nightly, which runs the
+  # suite some 130 times on slow instrumented code, found such a test, after
+  # it merged (run 68). A wait that turns true later is not forced (run 60's
+  # test fails here 3 runs of 5), nor `requestAnimationFrame` timing (run 61).
+  # The scope is frontend-test-shards' (scripts/pr-test-scope.mjs): `related`
+  # runs `vitest related` on its paths; `full` runs the test files the diff
+  # adds or modifies (none: nothing to judge), and the whole suite when the
+  # diff could not be read or listed no change at all (the job only runs on a
+  # change under frontend/, so an empty diff is one of the two fallbacks below
+  # saying "could not tell"). Pull requests only. A blocking test job: no
+  # continue-on-error, no retry.
+  frontend-race:
+    name: Frontend Race Probe
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true' && needs.changes.outputs.done_frontend_race != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2 # the PR merge commit and its base side, for the scope below
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      # The same scope step as frontend-test-shards, plus --changed-tests: the
+      # test files the diff adds or modifies, for a `full` scope. That file is
+      # written only when the diff could be read and lists a change, so both
+      # fallbacks below (no merge commit, a failed diff) run every test file.
+      - name: Pick the tests this pull request can reach
+        id: scope
+        run: |
+          diff="$RUNNER_TEMP/pr-diff.txt"
+          if git rev-parse -q --verify 'HEAD^2' > /dev/null; then
+            git -c core.quotePath=false diff --name-status HEAD^1 HEAD > "$diff" || : > "$diff"
+          else
+            echo "HEAD is not a pull request merge commit; running every test file."
+            : > "$diff"
+          fi
+          node scripts/pr-test-scope.mjs --event "$GITHUB_EVENT_NAME" --diff "$diff" \
+            --out pr-test-scope.txt --changed-tests race-tests.txt || {
+            echo "::warning title=Frontend race probe scope::the scope script failed; running every test file."
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+          }
+        working-directory: frontend
+      # The paths are file names the PR controls: they reach vitest as array
+      # elements, never re-parsed, and the mode arrives as an env var.
+      - name: Run the tests this pull request reaches under the race probe
+        id: race
+        env:
+          SCOPE_MODE: ${{ steps.scope.outputs.mode }}
+        run: |
+          probe=(--config vitest.race.config.ts --reporter=default --reporter=json
+            --outputFile.json=race-report.json)
+          if [ "$SCOPE_MODE" = "related" ]; then
+            mapfile -t paths < pr-test-scope.txt
+            npx vitest related --run "${paths[@]}" --passWithNoTests "${probe[@]}"
+          elif [ ! -f race-tests.txt ]; then
+            echo "The diff could not be read or listed no change; running every test file under the probe."
+            npx vitest run "${probe[@]}"
+          else
+            mapfile -t tests < race-tests.txt
+            if [ "${#tests[@]}" -eq 0 ]; then
+              echo "No test file under frontend/src changed: nothing for the race probe to run." \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            npx vitest run "${tests[@]}" "${probe[@]}"
+          fi
+        working-directory: frontend
+      - name: Name the tests that failed under the race probe
+        if: failure() && steps.race.outcome == 'failure'
+        run: |
+          {
+            echo "## Frontend Race Probe"
+            echo
+            echo "These tests failed with React's work held back a couple of milliseconds (src/test/raceProbe.ts)."
+            echo "Each one reads the page before React committed what it waits for — typically a \`waitFor\` on a mock call (the request was sent), then a synchronous query for what the answer renders. It passes \`vitest run\` nearly always and fails the mutation nightly's slow runs."
+            echo "Fix it in the test: wait for the element the assertion reads (\`findBy*\`), or put the assertion inside \`waitFor\`. Never a longer timeout, a retry or a skip."
+            echo
+            if [ -f race-report.json ]; then
+              echo "| File | Test | First line of the message |"
+              echo "|---|---|---|"
+              jq -r '.testResults[] | . as $f | ($f.name | sub("^.*/frontend/"; "")) as $file
+                | (if ($f.assertionResults | length) == 0 and $f.status == "failed"
+                   then [{fullName: "(the file failed to run)", failureMessages: [$f.message // ""]}]
+                   else [$f.assertionResults[] | select(.status == "failed")] end)[]
+                | "| `\($file)` | \(.fullName | gsub("\\|"; "\\|")) | \((.failureMessages[0] // "") | gsub("\u001b\\[[0-9;]*m"; "") | split("\n")[0] | .[0:200] | gsub("\\|"; "\\|")) |"' \
+                race-report.json
+              echo
+              echo "Reproduce with \`cd frontend && npm run test:race -- <file>\`."
+            else
+              echo "No report was written; the step log has the failure."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+        working-directory: frontend
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `frontend-race` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_race != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_race != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_frontend_race }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # ── MCP Server ───────────────────────────────────────────────────────
   # The browser smoke suite: the diagram editor, the BPMN modeler, the Gantt,

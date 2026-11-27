@@ -85,7 +85,8 @@ describe("useCustomLocales", () => {
     const b = renderHook(() => hook.useCustomLocales());
     reply.resolve({ custom_locales: [THAI] });
     await waitFor(() => expect(a.result.current.customLocales).toEqual([THAI]));
-    expect(b.result.current.customLocales).toEqual([THAI]);
+    // Two roots, two commits: the second can land after the first.
+    await waitFor(() => expect(b.result.current.customLocales).toEqual([THAI]));
     expect(api.get).toHaveBeenCalledTimes(1);
 
     // A later consumer takes the cached list without a request.

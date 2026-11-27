@@ -2240,9 +2240,10 @@ describe("InventoryPage — end of life", () => {
     await waitFor(() => expect(eolPaths()).toContain("/eol/card-status?type=ITComponent"));
     await waitFor(() => expect(col("core_eol")).toBeDefined());
     // The cell VALUE is the date, so sorting and the Excel export work on a
-    // date rather than on a status word.
-    expect(col("core_eol")?.valueGetter?.({ data: ITC_CARDS.items[0] as never })).toBe(
-      "2020-01-01",
+    // date rather than on a status word. The column can exist before the
+    // statuses' answer has filled it.
+    await waitFor(() =>
+      expect(col("core_eol")?.valueGetter?.({ data: ITC_CARDS.items[0] as never })).toBe("2020-01-01"),
     );
     expect(col("core_eol")?.valueGetter?.({ data: ITC_CARDS.items[1] as never })).toBe("");
   });

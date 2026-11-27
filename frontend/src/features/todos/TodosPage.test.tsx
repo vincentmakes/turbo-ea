@@ -492,6 +492,9 @@ describe("TodosPage — tabs, status filters and preferences", () => {
     expect(screen.getByLabelText("Sort")).toHaveTextContent("Due date");
     await user.click(screen.getByLabelText("Sort"));
     await user.click(screen.getByRole("option", { name: "Newest first" }));
+    // Until its closing menu is unmounted, the (already hidden) menu is
+    // labelled "Sort" as well.
+    await waitFor(() => expect(screen.queryByRole("listbox", { hidden: true })).not.toBeInTheDocument());
     expect(screen.getByLabelText("Sort")).toHaveTextContent("Newest first");
     const prefs = JSON.parse(localStorage.getItem("turboea.todos.prefs") ?? "{}");
     expect(prefs.sort).toBe("created");

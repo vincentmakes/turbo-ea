@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -128,6 +128,15 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
   const [roles, setRoles] = useState<StakeholderRoleDefinitionFull[]>([]);
   const [permissionsSchema, setPermissionsSchema] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  // The loads report through the onError the parent passed LAST, and never
+  // depend on its identity: TypeDetailDrawer passes an inline arrow, a new
+  // function on each of its renders, and a load keyed on it re-ran (spinner
+  // in place of the form, both lists fetched again) on every parent render —
+  // the drawer showing a failed save's error included.
+  const onErrorRef = useRef(onError);
+  useLayoutEffect(() => {
+    onErrorRef.current = onError;
+  });
   const [showArchived, setShowArchived] = useState(false);
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
 
@@ -183,9 +192,9 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
       );
       setRoles(data);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToFetchRoles"));
+      onErrorRef.current(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToFetchRoles"));
     }
-  }, [typeKey, onError]);
+  }, [typeKey]);
 
   const fetchUsage = useCallback(
     (roleKey: string) =>
@@ -202,9 +211,9 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
       const data = await api.get<Record<string, string>>("/stakeholder-roles/permissions-schema");
       setPermissionsSchema(data);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToFetchSchema"));
+      onErrorRef.current(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToFetchSchema"));
     }
-  }, [onError]);
+  }, []);
 
   useEffect(() => {
     setLoading(true);

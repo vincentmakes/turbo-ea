@@ -762,6 +762,9 @@ describe("CardDetailSidePanel — AI suggestions", () => {
     }));
     mount();
     await suggestAndApply();
+    // The suggestion panel shows the same text until it closes: wait for it to
+    // close, then read the description the save wrote.
+    await waitFor(() => expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument());
     expect(await screen.findByText("An ERP suite.")).toBeInTheDocument();
     expect(api.post).toHaveBeenCalledWith("/ai/suggest", {
       type_key: "Application",
@@ -1025,10 +1028,11 @@ describe("CardDetailSidePanel — the AI panel's states", () => {
     await userEvent.click(await suggestButton());
     expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    // As above: the panel shows the same text until it closes.
+    await waitFor(() => expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument());
     expect(await screen.findByText("An ERP suite.")).toBeInTheDocument();
     expect(vi.mocked(api.patch).mock.calls).toEqual([
       ["/cards/c1", { description: "An ERP suite.", attributes: { shared: true } }],
     ]);
-    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
   });
 });

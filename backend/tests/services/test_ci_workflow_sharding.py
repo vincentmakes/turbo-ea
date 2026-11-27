@@ -326,3 +326,73 @@ def test_the_frontend_aggregate_zeroes_the_floors_only_in_related_mode():
     assert "SCOPE_MODE: ${{ needs.frontend-test-shards.outputs.mode }}" in summary
     assert "**Mode: related**" in summary and "**Mode: full**" in summary
     assert "jq -r '.testResults | length' vitest-results.json" in summary
+
+
+def test_the_race_probe_runs_the_pull_requests_own_tests_and_blocks():
+    """Frontend Race Probe: the tests a pull request reaches, under
+    vitest.race.config.ts, on the same scope as the unit shards. The nightly
+    found three read-too-early tests after merge before it existed."""
+    race = jobs()["frontend-race"]
+    assert "    name: Frontend Race Probe\n" in race
+    assert (
+        "    if: github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true'"
+        " && needs.changes.outputs.done_frontend_race != 'true'\n"
+    ) in race
+    # a blocking test job: no continue-on-error anywhere, no retry, no matrix
+    assert "continue-on-error:" not in race
+    assert "--retry" not in race and "/retry@" not in race
+    assert "strategy:" not in race
+    assert "fetch-depth: 2" in race
+
+    # the unit shards' scope step, plus the changed-test list for `full`
+    scope = _step(race, "Pick the tests this pull request can reach")
+    shard_scope = _step(
+        jobs()["frontend-test-shards"], "Pick the tests this pull request can reach"
+    )
+    assert "id: scope\n" in scope
+    for line in (
+        "git -c core.quotePath=false diff --name-status HEAD^1 HEAD",
+        "git rev-parse -q --verify 'HEAD^2'",
+        'node scripts/pr-test-scope.mjs --event "$GITHUB_EVENT_NAME" --diff "$diff"',
+        'echo "mode=full" >> "$GITHUB_OUTPUT"',
+    ):
+        assert line in scope and line in shard_scope, line
+    assert "--out pr-test-scope.txt --changed-tests race-tests.txt" in scope
+
+    run = _step(race, "Run the tests this pull request reaches under the race probe")
+    assert "id: race\n" in run
+    # the mode arrives as an env var; no expression is interpolated into the script
+    assert "SCOPE_MODE: ${{ steps.scope.outputs.mode }}\n" in run
+    script = run.split("run: |\n", 1)[1]
+    assert "${{" not in script
+    assert "--config vitest.race.config.ts" in script
+    assert (
+        'npx vitest related --run "${paths[@]}" --passWithNoTests "${probe[@]}"' in script
+        and "--changed" not in script.replace("--changed-tests", "")
+    )
+    assert "mapfile -t tests < race-tests.txt" in script
+    assert 'npx vitest run "${tests[@]}" "${probe[@]}"' in script
+    # A diff the script could not read, or an empty one (what both fallbacks of
+    # the scope step write: no merge commit, a failed `git diff`), leaves no
+    # race-tests.txt (pr-test-scope.test.ts pins that), and no file runs every
+    # test file under the probe, never none.
+    assert scope.count(': > "$diff"') == 2
+    unknown = script[script.index("elif [ ! -f race-tests.txt ]") :]
+    assert unknown.index('npx vitest run "${probe[@]}"') < unknown.index("else")
+    # no changed test: a notice in the summary and a pass
+    assert 'tee -a "$GITHUB_STEP_SUMMARY"' in script
+
+    summary = _step(race, "Name the tests that failed under the race probe")
+    assert "if: failure() && steps.race.outcome == 'failure'\n" in summary
+    assert "--outputFile.json=race-report.json" in script and "race-report.json" in summary
+    assert "npm run test:race -- <file>" in summary
+    assert "Never a longer timeout, a retry or a skip." in summary
+    assert '>> "$GITHUB_STEP_SUMMARY"' in summary
+
+
+def test_the_race_probe_script_exists_with_its_config():
+    frontend = CI.parents[2] / "frontend"
+    package = (frontend / "package.json").read_text()
+    assert '"test:race": "vitest run --config vitest.race.config.ts"' in package
+    assert (frontend / "vitest.race.config.ts").is_file()
+    assert (frontend / "src" / "test" / "raceProbe.ts").is_file()

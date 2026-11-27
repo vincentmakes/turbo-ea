@@ -10,6 +10,7 @@ import {
   READS_FILES,
   SELF,
   alwaysRun,
+  changedTests,
   decideScope,
   isFullRunTrigger,
   main,
@@ -329,6 +330,65 @@ describe("the setup file", () => {
   });
 });
 
+describe("changedTests", () => {
+  it("lists the tests a diff adds, modifies, renames or copies into place under frontend/src", () => {
+    const changes = parseNameStatus(
+      [
+        "M\tfrontend/src/b/B.test.tsx",
+        "A\tfrontend/src/a/a.test.ts",
+        "R087\tfrontend/src/old.test.tsx\tfrontend/src/moved/new.test.tsx",
+        "C100\tfrontend/src/a/a.test.ts\tfrontend/src/c/copy.test.ts",
+        "M\tfrontend/src/b/B.test.tsx",
+      ].join("\n"),
+    );
+    expect(changedTests(changes)).toEqual([
+      "src/a/a.test.ts",
+      "src/b/B.test.tsx",
+      "src/c/copy.test.ts",
+      "src/moved/new.test.tsx",
+    ]);
+  });
+
+  it("leaves out deletions, sources, other directories and quoted paths", () => {
+    const changes = parseNameStatus(
+      [
+        "D\tfrontend/src/gone.test.tsx",
+        "R100\tfrontend/src/a.test.ts\tfrontend/src/a.ts",
+        "M\tfrontend/src/lib/a.ts",
+        "M\tfrontend/src/lib/a.test.tsx.snap",
+        "M\tfrontend/scripts/pr-test-scope.test.ts",
+        "M\tfrontend/e2e/login.test.ts",
+        "M\tbackend/src/x.test.ts",
+        "A\tsrc/frontend/src/x.test.ts",
+        'A\t"frontend/src/\\303\\251.test.ts"',
+        "T\tfrontend/src/type.test.ts",
+        "X\tfrontend/src/odd.test.ts",
+      ].join("\n"),
+    );
+    expect(changedTests(changes)).toEqual([]);
+  });
+
+  it("reads the status exactly: A or M alone take the path, R… or C… take the new one", () => {
+    const both = (status: string) => ({ status, paths: ["frontend/src/old.test.ts", "frontend/src/new.test.ts"] });
+    // Not a status git emits for one path, so nothing is read off it.
+    for (const status of ["AM", "MA", "XA", "XM", "D", "T", "U", "X", "", "a", "m"]) {
+      expect(changedTests([both(status)])).toEqual([]);
+    }
+    // A rename or copy, scored or not, takes its second path.
+    for (const status of ["R", "C", "R100", "C075", "RX", "R100X"]) {
+      expect(changedTests([both(status)])).toEqual(["src/new.test.ts"]);
+    }
+    // Only at the start: an R or C later in the status is not a rename.
+    for (const status of ["XR", "DC", "MR"]) {
+      expect(changedTests([both(status)])).toEqual([]);
+    }
+    // An add or modify takes the first path, not the second.
+    for (const status of ["A", "M"]) {
+      expect(changedTests([both(status)])).toEqual(["src/old.test.ts"]);
+    }
+  });
+});
+
 describe("parseArgs", () => {
   it("reads the three options and defaults the output", () => {
     expect(parseArgs(["--event", "pull_request", "--diff", "d.txt"])).toEqual({
@@ -345,6 +405,17 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["--diff"])).toThrow(/--diff needs a value/);
     expect(() => parseArgs(["--event", "push"])).toThrow(/--diff is required/);
     expect(() => parseArgs(["--toString", "x", "--diff", "d"])).toThrow(/unknown option/);
+  });
+
+  it("reads --changed-tests only when it is given", () => {
+    expect(parseArgs(["--diff", "d", "--changed-tests", "race.txt"])).toEqual({
+      event: "",
+      diff: "d",
+      out: "pr-test-scope.txt",
+      "changed-tests": "race.txt",
+    });
+    expect(parseArgs(["--diff", "d"])).not.toHaveProperty("changed-tests");
+    expect(() => parseArgs(["--diff", "d", "--changed-tests"])).toThrow(/--changed-tests needs a value/);
   });
 });
 
@@ -389,6 +460,54 @@ describe("main", () => {
     expect(await readFile(path.join(root, "pr-test-scope.txt"), "utf8")).toBe("");
     expect(await readFile(output, "utf8")).toBe("mode=full\nreason=frontend/package.json changed\npaths=0\ntests=3\n");
     expect(logs).toEqual(["Frontend test scope: full (frontend/package.json changed)"]);
+  });
+
+  it("writes the changed tests beside the scope, in full mode too", async () => {
+    const root = await fixture("M\tfrontend/package.json\nA\tfrontend/src/lib/a.test.ts\nM\tfrontend/src/lib/a.ts\n");
+    const output = path.join(root, "github-output");
+    const d = await main(
+      ["--event", "pull_request", "--diff", "diff.txt", "--changed-tests", "race.txt"],
+      { root, env: { GITHUB_OUTPUT: output }, log: () => {} },
+    );
+    expect(d.mode).toBe("full");
+    expect(await readFile(path.join(root, "race.txt"), "utf8")).toBe("src/lib/a.test.ts\n");
+    // the step outputs are the same with or without the option
+    expect(await readFile(output, "utf8")).toBe("mode=full\nreason=frontend/package.json changed\npaths=0\ntests=3\n");
+  });
+
+  it("writes one changed test per line, each ending in a newline, with nothing between them", async () => {
+    const root = await fixture("M\tfrontend/src/lib/a.test.ts\nA\tfrontend/src/scan.test.ts\n");
+    await main(["--event", "pull_request", "--diff", "diff.txt", "--changed-tests", "race.txt"], { root, env: {}, log: () => {} });
+    expect(await readFile(path.join(root, "race.txt"), "utf8")).toBe("src/lib/a.test.ts\nsrc/scan.test.ts\n");
+  });
+
+  it("writes an empty changed-tests file when the diff changes no test", async () => {
+    const root = await fixture("M\tfrontend/src/lib/a.ts\n");
+    await main(["--event", "pull_request", "--diff", "diff.txt", "--changed-tests", "race.txt"], { root, env: {}, log: () => {} });
+    expect(await readFile(path.join(root, "race.txt"), "utf8")).toBe("");
+  });
+
+  it("writes no changed-tests file for an empty diff: the workflow's fallbacks could not tell", async () => {
+    // `HEAD is not a merge commit` and a failed `git diff` both leave an empty
+    // diff; the race probe must then run every test file, never none.
+    const root = await fixture("");
+    const d = await main(["--event", "pull_request", "--diff", "diff.txt", "--changed-tests", "race.txt"], { root, env: {}, log: () => {} });
+    expect(d.mode).toBe("full");
+    await expect(readFile(path.join(root, "race.txt"), "utf8")).rejects.toThrow(/ENOENT/);
+    // one change is enough to tell
+    await writeFile(path.join(root, "diff.txt"), "M\tbackend/app/x.py\n");
+    await main(["--event", "pull_request", "--diff", "diff.txt", "--changed-tests", "race.txt"], { root, env: {}, log: () => {} });
+    expect(await readFile(path.join(root, "race.txt"), "utf8")).toBe("");
+  });
+
+  it("writes no changed-tests file when the diff cannot be read, so its absence means unknown", async () => {
+    const root = await fixture("garbage line\n");
+    const d = await main(["--event", "pull_request", "--diff", "diff.txt", "--changed-tests", "race.txt"], { root, env: {}, log: () => {} });
+    expect(d.mode).toBe("full");
+    await expect(readFile(path.join(root, "race.txt"), "utf8")).rejects.toThrow(/ENOENT/);
+    // and none is written without the option
+    await main(["--event", "pull_request", "--diff", "diff.txt"], { root, env: {}, log: () => {} });
+    await expect(readFile(path.join(root, "race.txt"), "utf8")).rejects.toThrow(/ENOENT/);
   });
 
   it("turns any error into a full run with a warning, and never throws", async () => {

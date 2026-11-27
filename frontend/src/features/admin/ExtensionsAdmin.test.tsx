@@ -873,7 +873,8 @@ describe("ExtensionsAdmin", () => {
     );
 
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("slow.teax")).toBeInTheDocument();
+    // The dialog opens before the upload's answer names the run.
+    expect(await within(dialog).findByText("slow.teax")).toBeInTheDocument();
     // Nothing to apply yet, and no "Close" — the run has not finished.
     expect(
       within(dialog).queryByText("Install extension", { selector: "button" }),
@@ -912,7 +913,8 @@ describe("ExtensionsAdmin", () => {
     );
 
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/not a zip archive/)).toBeInTheDocument();
+    // The dialog opens before the refused upload's error is shown in it.
+    expect(await within(dialog).findByText(/not a zip archive/)).toBeInTheDocument();
     // No upload exists to discard, so the way out is Close — a dialog with
     // no visible dismissal would be a dead end.
     expect(
@@ -1565,7 +1567,8 @@ describe("ExtensionsAdmin", () => {
     );
     // …and the pipeline is in the dialog, over the tab that started it.
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("sample.teax")).toBeInTheDocument();
+    // The chip reports progress before the run's answer names its file here.
+    expect(await within(dialog).findByText("sample.teax")).toBeInTheDocument();
     // hidden: true — the open modal marks the page behind it aria-hidden.
     expect(
       screen.getByRole("tab", { name: "Installed", hidden: true }),

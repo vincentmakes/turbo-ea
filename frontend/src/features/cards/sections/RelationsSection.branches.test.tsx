@@ -313,7 +313,8 @@ describe("RelationsSection — attribute popover", () => {
     });
     expect(screen.getByText("Owner")).toBeInTheDocument();
     // The flag's tooltip is its label alone; the select's is "field: value".
-    expect(screen.getByRole("button", { name: "Usage Type: Owner, Critical" })).toBeInTheDocument();
+    // It is the saved relation's, so it shows once the save's answer renders.
+    expect(await screen.findByRole("button", { name: "Usage Type: Owner, Critical" })).toBeInTheDocument();
   });
 
   it("keeps the popover open with the error, and cancels without saving", async () => {

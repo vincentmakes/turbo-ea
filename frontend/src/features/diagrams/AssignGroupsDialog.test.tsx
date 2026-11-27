@@ -105,8 +105,9 @@ describe("AssignGroupsDialog", () => {
       name: "Security",
       sort_order: 2,
     });
+    // The field is cleared once the create has answered, after the request.
+    await waitFor(() => expect(input).toHaveValue(""));
     expect(onGroupsChanged).toHaveBeenCalledTimes(1);
-    expect(input).toHaveValue("");
     // The new group is part of the selection even before the parent refetches.
     await user.click(saveButton());
     expect(onSaved).toHaveBeenCalledWith(["g1", "g3"]);

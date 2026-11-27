@@ -433,11 +433,11 @@ describe("AddRelationsDialog hierarchy (#1050)", () => {
     await waitFor(() => expect(api.post).toHaveBeenCalled());
 
     // Still there, at its own level, marked — not vanished from under the
-    // cursor taking its branch's layout with it.
+    // cursor taking its branch's layout with it. The mark comes with the
+    // write's answer, after the request.
+    await waitFor(() => expect(rowFor("Quoting").textContent).toContain("added"));
     expect(rowNames().length).toBe(CAPS.length);
-    const row = rowFor("Quoting");
-    expect(row).toHaveAttribute("aria-disabled", "true");
-    expect(row.textContent).toContain("added");
+    expect(rowFor("Quoting")).toHaveAttribute("aria-disabled", "true");
   });
 
   it("keeps a descendant of a just-added card pickable", async () => {
@@ -455,7 +455,9 @@ describe("AddRelationsDialog hierarchy (#1050)", () => {
     await waitFor(() => expect(api.post).toHaveBeenCalled());
 
     // Each pick is its own relation, so a child is never "implied" by its
-    // parent the way it is in the scope pickers (`impliedRows: false`).
+    // parent the way it is in the scope pickers (`impliedRows: false`). Read
+    // once the write's answer has marked the parent: the rows wait on it.
+    await waitFor(() => expect(rowFor("Lead Management").textContent).toContain("added"));
     expect(rowFor("Lead Scoring")).not.toHaveAttribute("aria-disabled", "true");
   });
 

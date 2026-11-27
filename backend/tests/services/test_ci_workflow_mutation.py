@@ -268,6 +268,17 @@ def test_every_shard_names_the_tests_that_failed_on_unmutated_code(job, harness,
     assert "harness.md" in report[report.index("name: mutation-survivors") :]
 
 
+def test_the_harness_report_says_which_commit_a_rerun_would_test():
+    """The report names the run's commit and links it to main, so a red night
+    whose fix has merged since is answered with a new run, not a re-run. Both
+    values come from the runner's own variables, never `${{ }}` in the script."""
+    report = jobs(NIGHTLY)["report"]
+    step = report[report.index("- name: Name the tests that failed on unmutated code") :]
+    step = step[: step.index("- name:", 1)]
+    assert '--sha "$GITHUB_SHA" --repo-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"' in step
+    assert "${{" not in step[step.index("run:") :]
+
+
 def test_the_budget_is_the_only_limit_on_a_shard():
     """More budget on a dispatched run must not run into the job timeout."""
     for job in ("backend", "frontend"):

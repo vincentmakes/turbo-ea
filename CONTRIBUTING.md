@@ -421,7 +421,7 @@ to `main` via **Settings > Branches > Branch protection rules**:
 | Rule | Setting | Why |
 |------|---------|-----|
 | **Require pull request reviews** | 1 approval minimum | Prevents unreviewed code from landing |
-| **Require status checks to pass** | Backend Lint, Backend Unit Tests, Backend Integration Tests, Backend Mutation Tests, Backend Security Scan, Frontend Lint, Frontend Build, Frontend Tests, Frontend Mutation Tests, Frontend E2E, Frontend Security Scan, MCP Server Tests, MCP Mutation Tests, Secret Scan, Docs Build, Guard Ratchet | Prevents broken code, docs, a vulnerable dependency or a leaked credential from merging |
+| **Require status checks to pass** | Backend Lint, Backend Unit Tests, Backend Integration Tests, Backend Mutation Tests, Backend Security Scan, Frontend Lint, Frontend Build, Frontend Tests, Frontend Mutation Tests, Frontend E2E, Frontend Race Probe, Frontend Security Scan, MCP Server Tests, MCP Mutation Tests, Secret Scan, Docs Build, Guard Ratchet | Prevents broken code, docs, a vulnerable dependency or a leaked credential from merging |
 | **Require branches to be up to date** | Enabled | Ensures CI ran against the latest `main` |
 | **Require conversation resolution** | Enabled | Review comments must be addressed |
 | **Restrict force pushes** | Block everyone | Protects commit history |
@@ -464,6 +464,22 @@ narrowed mode the suite-wide floors (`coverage.thresholds`, the merged-lines
 floor) are not checked, because a subset cannot meet them; the 80% diff gate
 still is. Every push to `main` runs the whole suite and enforces the floors.
 The `Frontend Tests` job summary says which mode ran.
+
+`Frontend Race Probe` runs, on a pull request only, the frontend tests the
+pull request reaches (the same scope as the `Frontend Tests` shards) with every
+React commit held back 2 ms (`npm run test:race`,
+`frontend/vitest.race.config.ts`). A test that waits on a mock call that has
+already happened and then reads, synchronously, what the answer renders passes
+`Frontend Tests` nearly always and fails here every time; before this job only
+the mutation nightly found such tests, after they merged. It does not force a
+wait that turns true later (a callback called before the state beside it
+commits), nor timing that goes through `requestAnimationFrame`. When the scope
+is `full` (a setup file, configuration, a rename …), it runs the test files the
+diff adds or modifies, none when there are none, and every test file when the
+diff could not be read. It blocks like every test job (no `continue-on-error`,
+no retry); the job summary names each failing test and how to reproduce it. It
+is listed in the rule above; until the maintainer adds it to branch
+protection, it blocks only by being red on the pull request.
 
 The three mutation jobs (`Backend Mutation Tests`, `Frontend Mutation Tests`,
 `MCP Mutation Tests`) are pull-request-only and run whenever their suite

@@ -1404,8 +1404,11 @@ describe("InventoryPage mass edit — relations", () => {
     // A browse page that is deliberately not the whole set, so "more" exists.
     mockApi.on("get", /^\/cards\?page=/, (path) => {
       const q = new URLSearchParams(path.slice(path.indexOf("?") + 1));
-      return q.get("page") === "2"
-        ? cardPage([], { total: 10, page: 2 })
+      if (q.get("page") === "2") return cardPage([], { total: 10, page: 2 });
+      // The search narrows the first page, as the server does, so the test
+      // can tell its answer from the browse page's.
+      return q.get("search") === "Post"
+        ? cardPage([POSTGRES], { total: 10 })
         : cardPage([POSTGRES, LINUX], { total: 10 });
     });
     const { user } = renderInventory("/inventory?type=Application");
@@ -1418,7 +1421,12 @@ describe("InventoryPage mass edit — relations", () => {
       expect(mockApi.callsOf("get", /^\/cards\?page=.*search=Post/).length).toBeGreaterThan(0),
     );
 
-    const listbox = await screen.findByRole("listbox");
+    // Scroll once the search's answer is listed: its request goes out before
+    // the answer lands, and the list ignores a scroll while it is loading.
+    await waitFor(() =>
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([POSTGRES.name]),
+    );
+    const listbox = screen.getByRole("listbox");
     Object.defineProperty(listbox, "scrollHeight", { value: 600, configurable: true });
     Object.defineProperty(listbox, "clientHeight", { value: 300, configurable: true });
     listbox.scrollTop = 300;
@@ -2884,9 +2892,12 @@ describe("InventoryPage grid handlers", () => {
     ];
     await user.click(screen.getByTestId("apply-column-state"));
     await waitFor(() => expect(gridStub.colDef("core_name").pinned).toBe("left"));
-    const ids = gridStub.colDefs().map((c) => c.colId ?? c.field);
-    expect(ids[0]).toBe("core_name");
-    expect(ids.indexOf("core_name")).toBeLessThan(ids.indexOf("core_type"));
+    // The order can land in a later commit than the pin.
+    await waitFor(() => {
+      const ids = gridStub.colDefs().map((c) => c.colId ?? c.field);
+      expect(ids[0]).toBe("core_name");
+      expect(ids.indexOf("core_name")).toBeLessThan(ids.indexOf("core_type"));
+    });
     expect(prefs().frozenColumns).toEqual(["core_name"]);
     // The stored order is self-healing: every present column is folded in,
     // around the two the view named.

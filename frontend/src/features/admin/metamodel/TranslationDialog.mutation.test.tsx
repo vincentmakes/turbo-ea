@@ -362,10 +362,12 @@ describe("TranslationDialog — completion counts", () => {
         return "A business application";
       },
     });
+    // One role, so the roles' answer shows: it changes what the counts read,
+    // and must have rendered before the baseline is taken, not during it.
+    vi.mocked(api.get).mockResolvedValue([{ key: "owner", label: "Owner" }]);
     const { rerender } = renderDialog(watched);
     expect(await screen.findByPlaceholderText("Application.description")).toBeInTheDocument();
-    await waitFor(() => expect(api.get).toHaveBeenCalled());
-    await act(async () => {});
+    expect(await screen.findByText("Stakeholder Roles")).toBeInTheDocument();
 
     const before = reads;
     rerender({});

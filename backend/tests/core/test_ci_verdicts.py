@@ -60,6 +60,14 @@ def test_every_group_names_filters_the_workflow_has():
         verdicts.matcher(filters, group.filters)
 
 
+def test_the_race_probe_is_a_group_of_its_own_on_the_frontend_filter():
+    group = GROUP["frontend-race"]
+    assert group.jobs == ("frontend-race",)
+    assert group.recorder == "frontend-race"
+    assert group.filters == ("frontend",)
+    assert group.ident == "frontend_race"
+
+
 BLOCK = """\
       - uses: x
         with:

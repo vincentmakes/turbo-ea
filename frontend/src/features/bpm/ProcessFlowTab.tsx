@@ -231,7 +231,15 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   // ── Card linking for element editing (see CardPicker for browse + search) ──
 
+  // A save closes the cell that was open when it started, once it has
+  // answered, and only if that same cell object is still the open one: a cell
+  // opened since (the next step's, while this write was still out) stays open,
+  // and a reopened cell is a new object, so it is not matched either.
+  const closeCellAfterSave = (saving: typeof editingCell) =>
+    setEditingCell((current) => (current === saving ? null : current));
+
   const handleElementUpdate = async (elementId: string, updates: Record<string, unknown>) => {
+    const saving = editingCell;
     try {
       await api.put(`/bpm/processes/${processId}/elements/${elementId}`, updates);
       try {
@@ -244,7 +252,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     } catch {
       setSnack(t("flowTab.elementUpdateFailed"));
     }
-    setEditingCell(null);
+    closeCellAfterSave(saving);
   };
 
   // ── Actions ──────────────────────────────────────────────────────────
@@ -386,6 +394,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   };
 
   const handleDraftElementUpdate = async (draftId: string, bpmnElementId: string, updates: Record<string, unknown>) => {
+    const saving = editingCell;
     try {
       await api.put(
         `/bpm/processes/${processId}/flow/versions/${draftId}/draft-elements/${encodeURIComponent(bpmnElementId)}`,
@@ -406,7 +415,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     } catch {
       setSnack(t("flowTab.draftElementLinkFailed"));
     }
-    setEditingCell(null);
+    closeCellAfterSave(saving);
   };
 
   const toggleDraftPreview = async (draftId: string) => {

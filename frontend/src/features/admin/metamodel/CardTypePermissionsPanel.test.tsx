@@ -209,8 +209,9 @@ describe("CardTypePermissionsPanel", () => {
     await user.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith("nope"));
-    // Still dirty, so the user can retry rather than losing the change.
-    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+    // Still dirty, so the user can retry rather than losing the change. onError
+    // is called before the Save button it brings back has rendered.
+    await waitFor(() => expect(screen.getByRole("button", { name: /save/i })).toBeEnabled());
   });
 
   it("calls onSaved so the drawer can refresh the metamodel", async () => {
