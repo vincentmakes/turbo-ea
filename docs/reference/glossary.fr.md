@@ -3,6 +3,8 @@
 | Terme | Définition |
 |-------|------------|
 | **ADR (Architecture Decision Record)** | Un document formel qui enregistre une décision d'architecture importante, incluant le contexte, la justification, les conséquences et les alternatives envisagées. Les ADR supportent un processus de signature et une chaîne de révisions |
+| **Résultat de revue d'un ADR** | La manière dont la dernière revue d'une décision ou d'un SoAW s'est terminée sans signature : **Modifications demandées** (renvoyé en brouillon modifiable), **Rejeté** ou **Retiré** (les deux closent le document, verrouillé jusqu'à sa réouverture). Affiché à la place de *Brouillon* dans le statut. L'ensemble est fixe et non configurable |
+| **Clos (décision ou SoAW)** | Un brouillon rejeté ou retiré : conservé, verrouillé comme un document en revue, masqué du registre des décisions tant que **Afficher les décisions closes** n'est pas activé, et redevenu un simple brouillon avec **Rouvrir** |
 | **Année fiscale** | La période de 12 mois utilisée pour la budgétisation et les rapports financiers. Configurable via Admin > Paramètres — le mois de début (janvier à décembre) détermine le regroupement des lignes budgétaires PPM |
 | **Statut d'approbation** | L'état de révision d'une fiche : Brouillon, Approuvé, Cassé ou Rejeté. Les fiches approuvées passent à Cassé lorsqu'elles sont modifiées |
 | **Signet / Vue sauvegardée** | Une configuration sauvegardée de filtres, colonnes et tri dans l'Inventaire qui peut être rechargée en un clic |

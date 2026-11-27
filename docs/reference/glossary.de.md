@@ -3,6 +3,8 @@
 | Begriff | Definition |
 |---------|------------|
 | **ADR (Architecture Decision Record)** | Ein formales Dokument, das eine wichtige Architekturentscheidung erfasst, einschließlich Kontext, Entscheidungsgrundlage, Konsequenzen und betrachteter Alternativen. ADRs unterstützen einen Unterschrifts-Workflow und eine Revisionskette |
+| **Prüfergebnis eines ADR** | Wie die letzte Prüfung einer Entscheidung oder eines SoAW ohne Unterschrift endete: **Änderungen angefordert** (zurück auf einen bearbeitbaren Entwurf), **Abgelehnt** oder **Zurückgezogen** (beide schließen das Dokument, gesperrt bis zur Wiedereröffnung). Wird im Status anstelle von *Entwurf* angezeigt. Die Menge ist fest vorgegeben und nicht konfigurierbar |
+| **Geschlossen (Entscheidung oder SoAW)** | Ein abgelehnter oder zurückgezogener Entwurf: bleibt gespeichert, ist wie ein Dokument in Überprüfung gesperrt, wird im Entscheidungsregister ausgeblendet, bis **Geschlossene anzeigen** aktiviert ist, und wird mit **Wieder öffnen** wieder zu einem normalen Entwurf |
 | **Genehmigungsstatus** | Der Überprüfungsstatus einer Karte: Entwurf, Genehmigt, Ungültig oder Abgelehnt. Genehmigte Karten wechseln zu Ungültig, wenn sie bearbeitet werden |
 | **Lesezeichen / Gespeicherte Ansicht** | Eine gespeicherte Filter-, Spalten- und Sortierkonfiguration im Inventar, die mit einem Klick geladen werden kann |
 | **BPM** | Business Process Management — die Disziplin der Modellierung, Analyse und Verbesserung von Geschäftsprozessen |

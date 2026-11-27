@@ -3,6 +3,8 @@
 | Termine | Definizione |
 |---------|------------|
 | **ADR (Architecture Decision Record)** | Un documento formale che registra una decisione architetturale importante, includendo contesto, motivazioni, conseguenze e alternative considerate. Gli ADR supportano un flusso di firma e una catena di revisioni |
+| **Esito della revisione di un ADR** | Come si è conclusa senza firma l'ultima revisione di una decisione o di un SoAW: **Modifiche richieste** (riportato a una bozza modificabile), **Rifiutato** o **Ritirato** (entrambi chiudono il documento, bloccato finché non viene riaperto). Mostrato al posto di *Bozza* nello stato. L'insieme è fisso e non configurabile |
+| **Chiuso (decisione o SoAW)** | Una bozza rifiutata o ritirata: resta registrata, è bloccata come una in revisione, è nascosta dal registro delle decisioni finché non si attiva **Mostra chiuse**, e torna una semplice bozza con **Riaprire** |
 | **Anno fiscale** | Il periodo di 12 mesi utilizzato per il budget e la rendicontazione finanziaria. Configurabile tramite Admin > Impostazioni — il mese di inizio (da gennaio a dicembre) determina come vengono raggruppate le linee di budget PPM |
 | **Stato di approvazione** | Lo stato di revisione di una card: Draft, Approved, Broken o Rejected. Le card approvate cambiano in Broken quando vengono modificate |
 | **Segnalibro / Vista salvata** | Una configurazione salvata di filtri, colonne e ordinamento nell'Inventario che può essere ricaricata con un clic |

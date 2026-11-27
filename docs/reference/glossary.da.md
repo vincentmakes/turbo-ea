@@ -3,6 +3,8 @@
 | Begreb | Definition |
 |--------|------------|
 | **ADR (Architecture Decision Record)** | Et formelt dokument, der fanger en vigtig arkitekturbeslutning, herunder konteksten, beslutningens begrundelse, konsekvenser og overvejede alternativer. ADR'er understøtter en sign-off-arbejdsproces og en revisionskæde |
+| **ADR-gennemgangsudfald** | Hvordan den seneste gennemgang af en beslutning eller en SoAW sluttede uden underskrift: **Changes requested** (sendt tilbage til en redigerbar kladde), **Rejected** eller **Withdrawn** (begge lukker dokumentet, låst indtil det genåbnes). Vises i stedet for *Draft* i status. Sættet er fast og kan ikke konfigureres |
+| **Lukket (beslutning eller SoAW)** | En afvist eller tilbagetrukket kladde: bevares, låst som en under gennemgang, skjult fra beslutningsregisteret, indtil **Show closed** er slået til, og gjort til en almindelig kladde igen med **Reopen** |
 | **Godkendelsesstatus** | Et korts gennemgangstilstand: Kladde, Godkendt, Brudt eller Afvist. Godkendte kort skifter til Brudt, når de redigeres |
 | **Bogmærke / Gemt visning** | En gemt filter-, kolonne- og sorteringskonfiguration i lageret, der kan genindlæses med ét klik |
 | **BPM** | Business Process Management — disciplinen at modellere, analysere og forbedre forretningsprocesser |

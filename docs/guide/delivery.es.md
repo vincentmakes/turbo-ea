@@ -92,11 +92,20 @@ Las tablas aparecen en la vista previa, en la copia PDF / impresa (ajustadas a l
 
 A partir de un SoAW en borrador o aprobado, puede solicitar firmas de las partes interesadas. Haga clic en **Solicitar Firmas** y use el campo de búsqueda para encontrar y agregar firmantes por nombre o correo electrónico. El sistema rastrea quién ha firmado y envía notificaciones a los firmantes pendientes.
 
-Un SoAW en revisión está **bloqueado**, para que los firmantes firmen exactamente lo que se les envió: solo su iniciativa puede cambiar todavía. Para editar el contenido, haga clic en **Retirar firmas**, lo que lo devuelve a borrador. Un firmante que hace clic en **Rechazar** también lo devuelve a borrador, con el mismo número de revisión. Solo un SoAW en borrador se puede eliminar.
+Un SoAW en revisión está **bloqueado**, para que los firmantes firmen exactamente lo que se les envió: solo su iniciativa puede cambiar todavía. Para editar el contenido, haga clic en **Retirar firmas**, lo que lo devuelve a borrador.
+
+Los resultados de la revisión son los mismos que los de una decisión (véase [Flujo de firma](grc.md#sign-off-workflow) en la guía GRC), cada uno con un motivo:
+
+- **Solicitar cambios** (un firmante) devuelve el SoAW a un borrador editable con el mismo número de revisión, marcado como **Cambios solicitados** hasta que se vuelvan a solicitar firmas. Hasta la versión 2.221.0 esto era lo que hacía **Rechazar**.
+- **Rechazar** (un firmante) cierra el SoAW, marcado como **Rechazado**.
+- **Retirar** (quien tiene `soaw.manage`, sobre un borrador guardado o un SoAW en revisión) cancela las solicitudes de firma pendientes y cierra el SoAW, marcado como **Retirado**.
+- **Reabrir** (quien tiene `soaw.manage`) convierte un SoAW cerrado de nuevo en un borrador normal.
+
+Un SoAW **cerrado** se conserva, pero queda bloqueado como uno en revisión: solo su iniciativa puede cambiar todavía, y no se puede enviar a revisión, restaurar ni eliminar hasta que se reabra. El chip de estado muestra el resultado en lugar de *Borrador*, y un banner indica quién, cuándo y por qué. Solo se puede eliminar un SoAW en borrador que no esté cerrado. El ciclo de vida es fijo y no se puede configurar.
 
 ### Revisiones
 
-Un SoAW firmado es de solo lectura. Haga clic en **Nueva Revisión** para iniciar un nuevo borrador a partir de él, con el mismo nombre y el siguiente número de revisión. Solo hay una revisión abierta a la vez: mientras se redacta una revisión, el SoAW firmado lo indica y ofrece **Abrir la revisión** en lugar de iniciar otra. Solo se puede revisar la última revisión, y un rechazo no cambia el número de revisión.
+Un SoAW firmado es de solo lectura. Haga clic en **Nueva Revisión** para iniciar un nuevo borrador a partir de él, con el mismo nombre y el siguiente número de revisión. Solo hay una revisión abierta a la vez: mientras se redacta una revisión, el SoAW firmado lo indica y ofrece **Abrir la revisión** en lugar de iniciar otra. Solo se puede revisar la última revisión, y un rechazo no cambia el número de revisión. Una revisión rechazada o retirada sigue siendo la revisión abierta: ábrala y haga clic en **Reabrir** para volver a intentarlo.
 
 Una revisión anterior muestra un banner con un enlace a la actual, y la franja **Revisiones** de cada revisión las enumera todas. Las listas de SoAW — los entregables de la iniciativa, la pestaña SoAW, el informe de Entrega EA — muestran la revisión actual de cada documento y cualquier revisión en redacción.
 
@@ -106,7 +115,7 @@ Un SoAW tiene la misma discusión, las mismas menciones y el mismo historial que
 
 - **Quién puede publicar.** Publicar, responder, resolver y reabrir requieren el permiso `soaw.comment`, que los miembros y administradores tienen por defecto y los visores no; la lectura de la discusión sigue a `soaw.view`. Los firmantes del SoAW siempre pueden comentarlo. Cualquiera que pueda editar SoAW (`soaw.manage`) puede eliminar cualquier comentario.
 - **Secciones.** Un hilo se asocia a una de las secciones propias del SoAW con una etiqueta de sección, o a ninguna (un hilo general). Un SoAW tiene muchas secciones, así que el cuadro de redacción muestra una etiqueta para cada sección ya discutida y para la elegida; **Más…** abre una lista con búsqueda de las demás. Las etiquetas de la parte superior de la discusión la filtran por sección, como en una decisión. Un hilo asociado a una sección personalizada que se ha eliminado después muestra *Sección eliminada*. Cada sección lleva junto a su encabezado el mismo icono de chat que la de una decisión, en el editor y en la vista previa, con el número de hilos abiertos cuando hay discusión; haga clic en él para abrir la discusión sobre esa sección con la sección ya seleccionada para un nuevo comentario.
-- **Rechazo.** Cualquier firmante que tenga el permiso de firma (`soaw.sign`) —o el permiso de edición— puede rechazar un SoAW, como ocurre con las decisiones; hasta ahora, rechazar requería el permiso de edición. El motivo abre un hilo **Motivo del rechazo** en la discusión.
+- **Rechazo y solicitud de cambios.** Cualquier firmante que tenga el permiso de firma (`soaw.sign`) —o el permiso de edición— puede solicitar cambios en un SoAW o rechazarlo, como ocurre con las decisiones. El motivo abre un hilo **Cambios solicitados** o **Motivo del rechazo** en la discusión.
 - **Menciones.** Un SoAW no tiene fichas vinculadas, así que, si no se escribe nada después de **@**, las fichas se listan por orden alfabético; en un comentario, los firmantes del SoAW aparecen primero entre las personas. **Examinar…** funciona como en una decisión.
 - **Nota de firma.** **Firmar** abre ahora un cuadro de diálogo en el que el firmante puede añadir una nota opcional; aparece en la discusión como **Nota de firma** y en el Historial.
 - **Historial.** Una versión contiene el nombre del SoAW, su información de documento, su tabla Historial de Versiones del Documento y todas las secciones; la iniciativa no forma parte de una versión. El Historial registra lo que le ocurre al documento; la tabla Historial de Versiones del Documento, dentro del documento, solo registra lo que sus autores escriben en ella. Un SoAW en estado **Aprobado** todavía puede editarse, así que, igual que con un borrador, sus guardados se conservan como versiones y se puede restaurar en él una versión anterior.
