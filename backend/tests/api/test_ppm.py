@@ -2169,6 +2169,67 @@ class TestTaskWorkPackageScope:
         assert cleared.json()["wbs_id"] is None
 
 
+class TestWorkPackageEmptyParent:
+    """An empty-string ``parent_id`` is a 400, not a 500: the routes guarded
+    on truthiness, so ``""`` skipped the check and reached the UUID column.
+    ``null`` still means "no parent" / "move to the root"."""
+
+    async def _wbs_list(self, client, ppm_env) -> list[dict]:
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.get(
+            f"{BASE}/initiatives/{init_id}/wbs", headers=auth_headers(ppm_env["admin"])
+        )
+        return resp.json()
+
+    async def test_create_refuses_an_empty_parent(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json={"title": "Orphan", "parent_id": ""},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Parent WBS item not found in this initiative"
+        assert await self._wbs_list(client, ppm_env) == []
+
+    async def test_create_accepts_a_null_parent(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json={"title": "Root", "parent_id": None},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["parent_id"] is None
+
+    async def test_patch_refuses_an_empty_parent_and_null_moves_to_the_root(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        headers = auth_headers(ppm_env["admin"])
+        parent = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs", json={"title": "Parent"}, headers=headers
+        )
+        parent_id = parent.json()["id"]
+        child = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json={"title": "Child", "parent_id": parent_id},
+            headers=headers,
+        )
+        child_id = child.json()["id"]
+        refused = await client.patch(
+            f"{BASE}/wbs/{child_id}", json={"title": "Renamed", "parent_id": ""}, headers=headers
+        )
+        assert refused.status_code == 400
+        assert refused.json()["detail"] == "Parent WBS item not found in this initiative"
+        stored = {w["id"]: w for w in await self._wbs_list(client, ppm_env)}
+        assert stored[child_id]["parent_id"] == parent_id
+        assert stored[child_id]["title"] == "Child"
+        moved = await client.patch(
+            f"{BASE}/wbs/{child_id}", json={"parent_id": None}, headers=headers
+        )
+        assert moved.status_code == 200
+        assert moved.json()["parent_id"] is None
+
+
 class TestUnknownPersonReferences:
     """An assignee or risk owner that names no user is refused with 400, not
     a database error."""

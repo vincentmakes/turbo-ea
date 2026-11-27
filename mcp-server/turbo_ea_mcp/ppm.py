@@ -555,16 +555,21 @@ def validate_item(item: object, index: int, entity: Entity) -> tuple[dict, list[
             )
         )
     if entity.dates is not None:
-        start, end = (row["fields"].get(key) for key in entity.dates)
-        if start and end and start > end:
-            errors.append(
-                _row_error(
-                    "invalid_row",
-                    index,
-                    f"{entity.dates[0]} ({start}) is after {entity.dates[1]} ({end}).",
-                )
-            )
+        inverted = _inverted_dates(row["fields"], index, entity.dates)
+        if inverted is not None:
+            errors.append(inverted)
     return row, errors
+
+
+def _inverted_dates(fields: dict, index: int, dates: tuple[str, str]) -> dict | None:
+    """The ``invalid_row`` error for a start date after its end date, else
+    None; a missing or cleared end makes the pair valid."""
+    start, end = (fields.get(key) for key in dates)
+    if start and end and start > end:
+        return _row_error(
+            "invalid_row", index, f"{dates[0]} ({start}) is after {dates[1]} ({end})."
+        )
+    return None
 
 
 def validate_items(items: object, entity: Entity) -> tuple[list[dict], list[dict]]:
@@ -651,12 +656,34 @@ def unknown_id_errors(rows: list[dict], current: dict[str, dict], entity: Entity
     ]
 
 
+def holding_packages(rows: list[dict], packages: dict[str, dict]) -> set[str]:
+    """The ids of the stored work packages that hold something: a task
+    (``task_count`` above 0), a stored child package, or an item of this call
+    that parents under it."""
+    holding = {
+        wid
+        for wid, row in packages.items()
+        if isinstance(row.get("task_count"), int) and row["task_count"] > 0
+    }
+    holding |= {_comparable(row.get("parent_id")) for row in packages.values()}
+    holding |= {row["fields"].get("parent_id") for row in rows}
+    return holding & set(packages)
+
+
 def work_package_errors(rows: list[dict], packages: dict[str, dict]) -> list[dict]:
-    """A ``parent_id`` that is not a work package of this initiative, or the
-    row itself; an ``end_date`` for a row that is a milestone after the call."""
+    """A ``parent_id`` that is not a work package of this initiative, the row
+    itself, or — when the parent changes — a milestone; a ``parent_ref`` to an
+    item created as a milestone; an ``end_date`` for a row that is a milestone
+    after the call; ``is_milestone: true`` on a package that holds tasks or
+    packages; a ``completion`` change the backend's roll-up would overwrite."""
     errors: list[dict] = []
+    holding = holding_packages(rows, packages)
+    milestone_refs = {
+        row["ref"] for row in rows if "ref" in row and row["fields"].get("is_milestone") is True
+    }
     for row in rows:
         fields = row["fields"]
+        current = packages.get(row.get("id") or "", {})
         parent = fields.get("parent_id")
         if parent is not None and parent == row.get("id"):
             errors.append(
@@ -674,7 +701,57 @@ def work_package_errors(rows: list[dict], packages: dict[str, dict]) -> list[dic
                     value=parent,
                 )
             )
-        current = packages.get(row.get("id") or "", {})
+        elif (
+            parent is not None
+            and packages[parent].get("is_milestone") is True
+            and parent != _comparable(current.get("parent_id"))
+        ):
+            errors.append(
+                _row_error(
+                    "invalid_value",
+                    row["index"],
+                    "parent_id is a milestone; a milestone holds no work packages.",
+                    field="parent_id",
+                    value=parent,
+                )
+            )
+        if row.get("parent_ref") in milestone_refs:
+            errors.append(
+                _row_error(
+                    "invalid_value",
+                    row["index"],
+                    "parent_ref names a milestone; a milestone holds no work packages.",
+                    field="parent_ref",
+                    value=row["parent_ref"],
+                )
+            )
+        rid = row.get("id")
+        if (
+            rid in holding
+            and fields.get("is_milestone") is True
+            and current.get("is_milestone") is not True
+        ):
+            errors.append(
+                _row_error(
+                    "invalid_value",
+                    row["index"],
+                    "This work package holds tasks or work packages; a milestone holds none.",
+                    field="is_milestone",
+                )
+            )
+        if (
+            rid in holding
+            and "completion" in fields
+            and _comparable(fields["completion"]) != _comparable(current.get("completion"))
+        ):
+            errors.append(
+                _row_error(
+                    "invalid_value",
+                    row["index"],
+                    "completion is calculated for a work package that has tasks or sub-packages.",
+                    field="completion",
+                )
+            )
         milestone = fields.get("is_milestone", current.get("is_milestone") is True)
         if milestone and "end_date" in fields and "is_milestone" not in fields:
             errors.append(
@@ -688,13 +765,21 @@ def work_package_errors(rows: list[dict], packages: dict[str, dict]) -> list[dic
     return errors
 
 
-def task_errors(rows: list[dict], packages: dict[str, dict]) -> list[dict]:
+def task_errors(
+    rows: list[dict], packages: dict[str, dict], tasks: dict[str, dict] | None = None
+) -> list[dict]:
     """A ``wbs_id`` that is not a work package of this initiative, or is a
-    milestone (a milestone holds no tasks)."""
+    milestone (a milestone holds no tasks). Checked only when it changes, as
+    the backend's ``update_task`` does: an update re-sending the package its
+    stored task (``tasks``) already sits in is never refused for it."""
+    stored = tasks or {}
     errors: list[dict] = []
     for row in rows:
         wbs_id = row["fields"].get("wbs_id")
         if wbs_id is None:
+            continue
+        current = stored.get(row.get("id") or "")
+        if current is not None and _comparable(current.get("wbs_id")) == wbs_id:
             continue
         package = packages.get(wbs_id)
         if package is None:
@@ -718,6 +803,29 @@ def task_errors(rows: list[dict], packages: dict[str, dict]) -> list[dict]:
                     value=wbs_id,
                 )
             )
+    return errors
+
+
+def stored_date_errors(
+    rows: list[dict], current: dict[str, dict], entity: Entity, *, milestones: bool = False
+) -> list[dict]:
+    """The start-after-end refusal for an update whose dates, merged over the
+    stored row, invert (the PATCH routes do not check it). Only an update
+    naming one of the two dates is checked, so a stored pair already inverted
+    and left alone is never refused; ``milestones`` applies the milestone date
+    rule first, as the commit will."""
+    if entity.dates is None:
+        return []
+    errors: list[dict] = []
+    for row in rows:
+        stored = current.get(row.get("id") or "")
+        if stored is None or not any(key in row["fields"] for key in entity.dates):
+            continue
+        fields = milestone_fields(row["fields"], stored) if milestones else row["fields"]
+        merged = {key: fields.get(key, stored.get(key)) for key in entity.dates}
+        inverted = _inverted_dates(merged, row["index"], entity.dates)
+        if inverted is not None:
+            errors.append(inverted)
     return errors
 
 

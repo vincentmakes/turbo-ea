@@ -7775,7 +7775,10 @@ async def _save_ppm_rows(
     if entity is _ppm.WORK_PACKAGES:
         errors += _ppm.work_package_errors(rows, current)
     if entity is _ppm.TASKS:
-        errors += _ppm.task_errors(rows, _ppm.index_rows(reads["wbs"]))
+        errors += _ppm.task_errors(rows, _ppm.index_rows(reads["wbs"]), current)
+    errors += _ppm.stored_date_errors(
+        rows, current, entity, milestones=entity is _ppm.WORK_PACKAGES
+    )
     if (refusal := _ppm.plan_refusal(errors)) is not None:
         return _fmt(refusal)
     plan = _ppm.plan_saves(rows, current, milestones=entity is _ppm.WORK_PACKAGES)
@@ -7863,11 +7866,16 @@ async def save_ppm_work_packages(
     Each item takes ``id`` (to update), ``title`` (required to create),
     ``description``, ``parent_id`` (a work package of this initiative; empty
     for a top-level one), ``start_date`` / ``end_date`` (YYYY-MM-DD),
-    ``sort_order``, ``is_milestone``, ``completion`` (0-100; a work package
-    with tasks has its completion rolled up from them) and ``assignee_id``
-    (a user UUID). A milestone (``is_milestone: true``) has one date: give
-    ``start_date``; its ``end_date`` is set to the same day, as the web app
-    does, and an ``end_date`` for a milestone is refused.
+    ``sort_order``, ``is_milestone``, ``completion`` (0-100; only for a work
+    package with no tasks and no sub-packages: the backend calculates the
+    completion of one that has them, so a change to it is refused) and
+    ``assignee_id`` (a user UUID). A milestone (``is_milestone: true``) has
+    one date: give ``start_date``; its ``end_date`` is set to the same day,
+    as the web app does, and an ``end_date`` for a milestone is refused. A
+    milestone holds nothing: a ``parent_id`` / ``parent_ref`` naming one, and
+    ``is_milestone: true`` on a package with tasks or sub-packages, are
+    refused. A ``start_date`` after the ``end_date`` is refused, also when
+    one of them is the stored value.
 
     To build a hierarchy in one call, give a new item a local ``ref`` and a
     later item ``parent_ref`` naming it: the parent is created first and its
@@ -7917,9 +7925,12 @@ async def save_ppm_tasks(
     the assignee is notified and gets a to-do), ``start_date`` /
     ``due_date`` (YYYY-MM-DD), ``sort_order``, ``tags`` (a list of strings)
     and ``wbs_id``: the work package the task sits in, which must be a work
-    package of this initiative and not a milestone (``""`` or ``null``
-    takes the task out of its work package). Create the work package first
-    with ``save_ppm_work_packages``.
+    package of this initiative and not a milestone when it changes (re-sending
+    the task's current package is accepted, as the web app's dialog does;
+    ``""`` or ``null`` takes the task out of its work package). Create the
+    work package first with ``save_ppm_work_packages``. A ``start_date``
+    after the ``due_date`` is refused, also when one of them is the stored
+    value.
 
     Items without ``id`` are created; items with ``id`` update that task,
     which must belong to this initiative (another initiative's id refuses

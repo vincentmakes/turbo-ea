@@ -1299,7 +1299,9 @@ async def create_wbs(
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
     card = await _get_initiative_or_404(db, initiative_id, user)
-    if body.parent_id:
+    # ``is not None``, not truthiness: ``""`` must reach the check (400), not
+    # ``next_sort_order`` and the UUID column (500). ``null`` is "no parent".
+    if body.parent_id is not None:
         await wbs_of_initiative(db, card.id, body.parent_id, detail=_PARENT_WBS_NOT_FOUND)
     await _require_user(db, body.assignee_id, "Assignee not found")
     wbs = PpmWbs(
@@ -1340,8 +1342,9 @@ async def update_wbs(
         raise HTTPException(status_code=404, detail="WBS item not found")
     await _ensure_initiative_readable(db, user, wbs.initiative_id)
     data = body.model_dump(exclude_unset=True)
-    # Validate parent_id to prevent cycles
-    if "parent_id" in data and data["parent_id"]:
+    # Validate parent_id to prevent cycles. ``null`` moves the package to the
+    # root; ``""`` is checked (and refused), never treated as "no parent".
+    if data.get("parent_id") is not None:
         new_parent_id = data["parent_id"]
         if new_parent_id == wbs_id:
             raise HTTPException(status_code=400, detail="WBS item cannot be its own parent")

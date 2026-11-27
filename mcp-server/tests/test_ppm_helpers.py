@@ -750,6 +750,273 @@ class TestAgainstTheCurrentRows:
         ]
 
 
+_TASK_DATES = "start_date (2026-06-01) is after due_date (2026-05-01)."
+
+
+class TestStoredDates:
+    """An update's dates merged over the stored row (fix: a partial update
+    inverted a stored pair and no route checked it)."""
+
+    STORED = {
+        U1: {"start_date": "2026-06-01", "due_date": "2026-07-01"},
+        U2: {"start_date": "2026-08-01", "due_date": "2026-01-01"},
+    }
+
+    def test_a_due_date_before_the_stored_start(self):
+        rows = [{"index": 3, "id": U1, "fields": {"due_date": "2026-05-01"}}]
+        assert ppm.stored_date_errors(rows, self.STORED, ppm.TASKS) == [
+            {"error": "invalid_row", "index": 3, "message": _TASK_DATES}
+        ]
+
+    def test_a_start_after_the_stored_due_date(self):
+        rows = [{"index": 0, "id": U1, "fields": {"start_date": "2026-07-02"}}]
+        assert ppm.stored_date_errors(rows, self.STORED, ppm.TASKS) == [
+            {
+                "error": "invalid_row",
+                "index": 0,
+                "message": "start_date (2026-07-02) is after due_date (2026-07-01).",
+            }
+        ]
+
+    def test_equal_dates_and_a_valid_move(self):
+        rows = [
+            {"index": 0, "id": U1, "fields": {"due_date": "2026-06-01"}},
+            {"index": 1, "id": U1, "fields": {"start_date": "2026-07-01"}},
+            {"index": 2, "id": U1, "fields": {"due_date": "2026-09-01"}},
+        ]
+        assert ppm.stored_date_errors(rows, self.STORED, ppm.TASKS) == []
+
+    def test_a_cleared_end_makes_the_pair_valid(self):
+        rows = [
+            {"index": 0, "id": U2, "fields": {"due_date": None}},
+            {"index": 1, "id": U2, "fields": {"start_date": None}},
+        ]
+        assert ppm.stored_date_errors(rows, self.STORED, ppm.TASKS) == []
+
+    def test_a_stored_inverted_pair_left_alone_is_not_refused(self):
+        rows = [{"index": 0, "id": U2, "fields": {"title": "t"}}]
+        assert ppm.stored_date_errors(rows, self.STORED, ppm.TASKS) == []
+
+    def test_naming_one_date_of_an_inverted_stored_pair_is_checked(self):
+        rows = [{"index": 0, "id": U2, "fields": {"start_date": "2026-03-01"}}]
+        assert ppm.stored_date_errors(rows, self.STORED, ppm.TASKS) == [
+            {
+                "error": "invalid_row",
+                "index": 0,
+                "message": "start_date (2026-03-01) is after due_date (2026-01-01).",
+            }
+        ]
+
+    def test_creates_and_unknown_ids_are_not_checked_here(self):
+        rows = [
+            {"index": 0, "id": None, "fields": {"due_date": "2000-01-01"}},
+            {"index": 1, "id": U3, "fields": {"due_date": "2000-01-01"}},
+        ]
+        assert ppm.stored_date_errors(rows, self.STORED, ppm.TASKS) == []
+
+    def test_work_packages_use_end_date(self):
+        stored = {U1: {"start_date": "2026-06-01", "end_date": "2026-07-01"}}
+        rows = [{"index": 0, "id": U1, "fields": {"end_date": "2026-05-31"}}]
+        assert ppm.stored_date_errors(rows, stored, ppm.WORK_PACKAGES, milestones=True) == [
+            {
+                "error": "invalid_row",
+                "index": 0,
+                "message": "start_date (2026-06-01) is after end_date (2026-05-31).",
+            }
+        ]
+
+    def test_moving_a_milestone_later_is_not_inverted(self):
+        stored = {U1: {"is_milestone": True, "start_date": "2026-06-01", "end_date": "2026-06-01"}}
+        rows = [{"index": 0, "id": U1, "fields": {"start_date": "2026-07-01"}}]
+        assert ppm.stored_date_errors(rows, stored, ppm.WORK_PACKAGES, milestones=True) == []
+        # Without the milestone rule the same move reads as inverted.
+        assert ppm.stored_date_errors(rows, stored, ppm.WORK_PACKAGES) == [
+            {
+                "error": "invalid_row",
+                "index": 0,
+                "message": "start_date (2026-07-01) is after end_date (2026-06-01).",
+            }
+        ]
+
+    def test_an_entity_without_dates(self):
+        rows = [{"index": 0, "id": U1, "fields": {"report_date": "2026-01-01"}}]
+        assert ppm.stored_date_errors(rows, {U1: {}}, ppm.STATUS_REPORTS) == []
+
+
+_MILESTONE_PARENT = "parent_id is a milestone; a milestone holds no work packages."
+_HOLDS = "This work package holds tasks or work packages; a milestone holds none."
+_COMPLETION = "completion is calculated for a work package that has tasks or sub-packages."
+
+
+class TestMilestonesHoldNothing:
+    def test_a_parent_that_is_a_milestone_only_when_it_changes(self):
+        packages = {
+            U1: {"is_milestone": True},
+            U2: {"is_milestone": False, "parent_id": U1.upper()},
+            U3: {"is_milestone": False, "parent_id": None},
+        }
+        rows = [
+            {"index": 0, "id": None, "fields": {"parent_id": U1}},
+            {"index": 1, "id": U3, "fields": {"parent_id": U1}},
+            {"index": 2, "id": U2, "fields": {"parent_id": U1, "title": "kept"}},
+        ]
+        assert ppm.work_package_errors(rows, packages) == [
+            {
+                "error": "invalid_value",
+                "index": 0,
+                "field": "parent_id",
+                "value": U1,
+                "message": _MILESTONE_PARENT,
+            },
+            {
+                "error": "invalid_value",
+                "index": 1,
+                "field": "parent_id",
+                "value": U1,
+                "message": _MILESTONE_PARENT,
+            },
+        ]
+
+    def test_a_parent_ref_to_an_item_created_as_a_milestone(self):
+        rows = [
+            {"index": 0, "id": None, "fields": {"is_milestone": True}, "ref": "m"},
+            {"index": 1, "id": None, "fields": {"is_milestone": False}, "ref": "p"},
+            {"index": 2, "id": None, "fields": {}, "parent_ref": "m"},
+            {"index": 3, "id": None, "fields": {}, "parent_ref": "p"},
+        ]
+        assert ppm.work_package_errors(rows, {}) == [
+            {
+                "error": "invalid_value",
+                "index": 2,
+                "field": "parent_ref",
+                "value": "m",
+                "message": "parent_ref names a milestone; a milestone holds no work packages.",
+            }
+        ]
+
+    @pytest.mark.parametrize("task_count, refused", [(0, False), (1, True), (None, False)])
+    def test_becoming_a_milestone_with_tasks(self, task_count, refused):
+        packages = {U1: {"is_milestone": False, "task_count": task_count}}
+        rows = [{"index": 0, "id": U1, "fields": {"is_milestone": True}}]
+        expected = [
+            {"error": "invalid_value", "index": 0, "field": "is_milestone", "message": _HOLDS}
+        ]
+        assert ppm.work_package_errors(rows, packages) == (expected if refused else [])
+
+    def test_becoming_a_milestone_with_a_stored_child(self):
+        packages = {U1: {"is_milestone": False}, U2: {"parent_id": U1}}
+        rows = [{"index": 0, "id": U1, "fields": {"is_milestone": True}}]
+        assert ppm.work_package_errors(rows, packages) == [
+            {"error": "invalid_value", "index": 0, "field": "is_milestone", "message": _HOLDS}
+        ]
+
+    def test_becoming_a_milestone_with_a_child_named_in_the_call(self):
+        packages = {U1: {"is_milestone": False}}
+        rows = [
+            {"index": 0, "id": U1, "fields": {"is_milestone": True}},
+            {"index": 1, "id": None, "fields": {"parent_id": U1}},
+        ]
+        # The child is refused through its parent: the parent is not a
+        # milestone yet, so item 1 alone would be accepted.
+        assert ppm.work_package_errors(rows, packages) == [
+            {"error": "invalid_value", "index": 0, "field": "is_milestone", "message": _HOLDS}
+        ]
+        assert ppm.work_package_errors(rows[1:], packages) == []
+
+    def test_an_empty_package_may_become_a_milestone_and_back(self):
+        packages = {U1: {"is_milestone": False, "task_count": 0}, U2: {"is_milestone": True}}
+        rows = [
+            {"index": 0, "id": U1, "fields": {"is_milestone": True}},
+            {"index": 1, "id": U2, "fields": {"is_milestone": False}},
+        ]
+        assert ppm.work_package_errors(rows, packages) == []
+
+    def test_a_stored_milestone_re_sent_is_not_refused(self):
+        packages = {U1: {"is_milestone": True, "task_count": 1}}
+        rows = [{"index": 0, "id": U1, "fields": {"is_milestone": True}}]
+        assert ppm.work_package_errors(rows, packages) == []
+
+    def test_holding_packages(self):
+        packages = {
+            U1: {"task_count": 1},
+            U2: {"task_count": 0, "parent_id": U3.upper()},
+            U3: {"task_count": 0},
+            UPPER.lower(): {"task_count": 0},
+        }
+        rows = [{"index": 0, "id": None, "fields": {"parent_id": UPPER.lower()}}]
+        assert ppm.holding_packages(rows, packages) == {U1, U3, UPPER.lower()}
+        assert ppm.holding_packages([], {U2: {"parent_id": "gone"}}) == set()
+
+
+class TestCalculatedCompletion:
+    @pytest.mark.parametrize("task_count, refused", [(0, False), (1, True)])
+    def test_a_package_with_tasks(self, task_count, refused):
+        packages = {U1: {"task_count": task_count, "completion": 10.0}}
+        rows = [{"index": 0, "id": U1, "fields": {"completion": 80}}]
+        expected = [
+            {"error": "invalid_value", "index": 0, "field": "completion", "message": _COMPLETION}
+        ]
+        assert ppm.work_package_errors(rows, packages) == (expected if refused else [])
+
+    def test_a_package_with_a_sub_package(self):
+        packages = {U1: {"completion": 10.0}, U2: {"parent_id": U1, "completion": 0.0}}
+        rows = [
+            {"index": 0, "id": U1, "fields": {"completion": 80}},
+            {"index": 1, "id": U2, "fields": {"completion": 30}},
+        ]
+        assert ppm.work_package_errors(rows, packages) == [
+            {"error": "invalid_value", "index": 0, "field": "completion", "message": _COMPLETION}
+        ]
+
+    def test_an_unchanged_completion_is_not_refused(self):
+        packages = {U1: {"task_count": 2, "completion": 50.0}}
+        rows = [{"index": 0, "id": U1, "fields": {"completion": 50, "title": "t"}}]
+        assert ppm.work_package_errors(rows, packages) == []
+
+    def test_a_new_package_keeps_its_completion(self):
+        rows = [{"index": 0, "id": None, "fields": {"completion": 40}}]
+        assert ppm.work_package_errors(rows, {U1: {"task_count": 3}}) == []
+
+
+class TestTaskWorkPackageOnlyWhenItChanges:
+    PACKAGES = {U1: {"is_milestone": False}, U2: {"is_milestone": True}}
+
+    def test_an_unchanged_milestone_package_is_accepted(self):
+        tasks = {U3: {"wbs_id": U2.upper()}}
+        rows = [{"index": 0, "id": U3, "fields": {"wbs_id": U2, "title": "t"}}]
+        assert ppm.task_errors(rows, self.PACKAGES, tasks) == []
+
+    def test_an_unchanged_unknown_package_is_accepted(self):
+        gone = "00000000-0000-4000-8000-0000000000ee"
+        rows = [{"index": 0, "id": U3, "fields": {"wbs_id": gone}}]
+        assert ppm.task_errors(rows, self.PACKAGES, {U3: {"wbs_id": gone}}) == []
+
+    def test_a_changed_package_is_checked(self):
+        tasks = {U3: {"wbs_id": U1}}
+        rows = [{"index": 0, "id": U3, "fields": {"wbs_id": U2}}]
+        assert ppm.task_errors(rows, self.PACKAGES, tasks) == [
+            {
+                "error": "invalid_value",
+                "index": 0,
+                "field": "wbs_id",
+                "value": U2,
+                "message": "wbs_id is a milestone; a task sits in a work package.",
+            }
+        ]
+
+    def test_a_create_is_always_checked(self):
+        rows = [{"index": 0, "id": None, "fields": {"wbs_id": U2}}]
+        assert ppm.task_errors(rows, self.PACKAGES, {U3: {"wbs_id": U2}}) == [
+            {
+                "error": "invalid_value",
+                "index": 0,
+                "field": "wbs_id",
+                "value": U2,
+                "message": "wbs_id is a milestone; a task sits in a work package.",
+            }
+        ]
+
+
 class TestMilestoneFields:
     def test_a_new_milestone_ends_on_its_start(self):
         fields = {"is_milestone": True, "start_date": "2026-05-01"}

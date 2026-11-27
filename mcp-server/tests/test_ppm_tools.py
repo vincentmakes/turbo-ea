@@ -767,6 +767,133 @@ class TestWorkPackages:
         assert backend.batch_calls() == []
 
 
+def _refused(data: dict, errors: list[dict]) -> None:
+    assert data == {
+        "error": "invalid_items",
+        "errors": errors,
+        "message": "Nothing was saved. Fix the items listed and call again.",
+    }
+
+
+class TestChecksAgainstTheStoredRows:
+    """What only the stored rows can tell: refused before the batch opens,
+    with nothing written."""
+
+    @pytest.mark.asyncio
+    async def test_a_due_date_before_the_stored_start_is_refused(self, fake_token):
+        tasks = [{**_TASKS[0], "start_date": "2026-06-01", "due_date": "2026-06-10"}, _TASKS[1]]
+        backend = _Backend(reads=_reads(**{f"{BASE}/tasks": tasks}))
+        data = await backend.run(_tasks([{"id": T1, "due_date": "2026-05-01"}], dry_run=False))
+        _refused(
+            data,
+            [
+                {
+                    "error": "invalid_row",
+                    "index": 0,
+                    "message": "start_date (2026-06-01) is after due_date (2026-05-01).",
+                }
+            ],
+        )
+        assert backend.batch_calls() == []
+        assert backend.ppm_writes() == []
+
+    @pytest.mark.asyncio
+    async def test_a_work_package_end_before_its_stored_start_is_refused(self, fake_token):
+        backend = _Backend()
+        data = await backend.run(_wbs([{"id": W1, "end_date": "2025-12-31"}], dry_run=False))
+        _refused(
+            data,
+            [
+                {
+                    "error": "invalid_row",
+                    "index": 0,
+                    "message": "start_date (2026-01-01) is after end_date (2025-12-31).",
+                }
+            ],
+        )
+        assert backend.batch_calls() == []
+        assert backend.ppm_writes() == []
+
+    @pytest.mark.asyncio
+    async def test_a_work_package_moved_into_a_milestone_is_refused(self, fake_token):
+        backend = _Backend()
+        items = [{"id": W2, "parent_id": MS}, {"id": W1, "is_milestone": True}]
+        data = await backend.run(_wbs(items, dry_run=False))
+        _refused(
+            data,
+            [
+                {
+                    "error": "invalid_value",
+                    "index": 0,
+                    "field": "parent_id",
+                    "value": MS,
+                    "message": "parent_id is a milestone; a milestone holds no work packages.",
+                },
+                {
+                    "error": "invalid_value",
+                    "index": 1,
+                    "field": "is_milestone",
+                    "message": (
+                        "This work package holds tasks or work packages; a milestone holds none."
+                    ),
+                },
+            ],
+        )
+        assert backend.batch_calls() == []
+        assert backend.ppm_writes() == []
+
+    @pytest.mark.asyncio
+    async def test_a_new_package_under_a_new_milestone_is_refused(self, fake_token):
+        backend = _Backend()
+        items = [
+            {"title": "Gate", "is_milestone": True, "ref": "gate"},
+            {"title": "Inside", "parent_ref": "gate"},
+        ]
+        data = await backend.run(_wbs(items, dry_run=False))
+        assert data["error"] == "invalid_items"
+        assert [(e["index"], e["field"]) for e in data["errors"]] == [(1, "parent_ref")]
+        assert backend.batch_calls() == []
+        assert backend.ppm_writes() == []
+
+    @pytest.mark.asyncio
+    async def test_a_calculated_completion_is_refused(self, fake_token):
+        backend = _Backend()
+        data = await backend.run(_wbs([{"id": W1, "completion": 90}], dry_run=False))
+        _refused(
+            data,
+            [
+                {
+                    "error": "invalid_value",
+                    "index": 0,
+                    "field": "completion",
+                    "message": (
+                        "completion is calculated for a work package that has tasks or "
+                        "sub-packages."
+                    ),
+                }
+            ],
+        )
+        assert backend.batch_calls() == []
+        assert backend.ppm_writes() == []
+
+    @pytest.mark.asyncio
+    async def test_a_leaf_package_keeps_a_typed_completion(self, fake_token):
+        backend = _Backend()
+        await backend.run(_wbs([{"id": W2, "completion": 30}], dry_run=False))
+        assert backend.ppm_writes() == [("patch", f"/ppm/wbs/{W2}", {"completion": 30})]
+
+    @pytest.mark.asyncio
+    async def test_a_task_re_sending_its_milestone_package_is_accepted(self, fake_token):
+        tasks = [_TASKS[0], {**_TASKS[1], "wbs_id": MS}]
+        backend = _Backend(reads=_reads(**{f"{BASE}/tasks": tasks}))
+        data = await backend.run(
+            _tasks([{"id": T2, "wbs_id": MS, "title": "Code 2"}], dry_run=False)
+        )
+        assert backend.ppm_writes() == [("patch", f"/ppm/tasks/{T2}", {"title": "Code 2"})]
+        assert data["dry_run"] is False
+        assert [(s["index"], s["action"]) for s in data["saved"]] == [(0, "update")]
+
+
 class TestReportsAndRisks:
     @pytest.mark.asyncio
     async def test_reports(self, fake_token):
