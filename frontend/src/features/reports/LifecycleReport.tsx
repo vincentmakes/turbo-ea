@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { useTheme, type SxProps, type Theme } from "@mui/material/styles";
+import type { SxProps, Theme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -20,6 +20,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import LifecyclePhaseBar from "@/components/LifecyclePhaseBar";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
@@ -71,7 +72,6 @@ import { api } from "@/api/client";
 import {
   EOL_WARNING_COLOR,
   LIFECYCLE_PHASE_COLORS,
-  STATUS_CHIP_COLORS,
   STATUS_COLORS,
   UNSET_VALUE_COLOR,
 } from "@/theme/tokens";
@@ -158,7 +158,6 @@ const phaseChipSx =
 /* ------------------------------------------------------------------ */
 
 export default function LifecycleReport() {
-  const theme = useTheme();
   const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
   // Report type pickers offer only the types the user may see.
@@ -443,6 +442,7 @@ export default function LifecycleReport() {
 
   // Year tick marks across the full range
   const totalMax = totalMin + totalRange;
+  const barAxis = useMemo(() => ({ min: totalMin, range: totalRange }), [totalMin, totalRange]);
   const ticks = useMemo(() => {
     if (!totalRange) return [];
     const out: { label: string; pct: number }[] = [];
@@ -594,6 +594,8 @@ export default function LifecycleReport() {
   };
   // One order for the timeline rows and the table alike.
   const sorted = sortLifecycleItems(items, effectiveSortK, sortD, sortCtx);
+
+  const phaseLabel = (phase: string) => t(PHASES[phaseRank(phase)].labelKey);
 
   function getCustomBucket(item: RoadmapItem): FacetBucket {
     const fd = selectFields.find((f) => f.key === customColorBy);
@@ -855,53 +857,18 @@ export default function LifecycleReport() {
                     }
 
                     // Standard lifecycle phases mode
-                    const segments: { left: number; width: number; color: string; label: string; phaseKey: string }[] = [];
-                    let eolPct: number | null = null;
-                    for (let i = 0; i < PHASES.length; i++) {
-                      const start = parseDate(item.lifecycle[PHASES[i].key]);
-                      if (!start) continue;
-                      if (PHASES[i].key === "endOfLife") {
-                        eolPct = ((start - totalMin) / totalRange) * 100;
-                        continue;
-                      }
-                      const nextPhaseStart = PHASES.slice(i + 1).map((p) => parseDate(item.lifecycle[p.key])).find((d) => d != null);
-                      const end = nextPhaseStart ?? totalMax;
-                      const left = ((start - totalMin) / totalRange) * 100;
-                      const width = Math.max(((end - start) / totalRange) * 100, 0.5);
-                      segments.push({ left, width, color: PHASES[i].color, label: t(PHASES[i].labelKey), phaseKey: PHASES[i].key });
-                    }
                     return (
                       <Box
                         key={item.id}
                         sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                         onClick={() => setSidePanelCardId(item.id)}
                       >
-                        <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
-                          {segments.map((s, i) => (
-                            <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[s.phaseKey])}`}>
-                              <Box
-                                sx={{
-                                  position: "absolute",
-                                  left: `${s.left}%`,
-                                  width: `${s.width}%`,
-                                  height: "100%",
-                                  bgcolor: s.color,
-                                  borderRadius: i === 0 ? "3px 0 0 3px" : i === segments.length - 1 ? "0 3px 3px 0" : 0,
-                                }}
-                              />
-                            </Tooltip>
-                          ))}
-                          {eolPct != null && (
-                            <Tooltip title={`${t("lifecycle.phaseEndOfLife")}: ${fmtDate(item.lifecycle.endOfLife)}`}>
-                              <Box sx={{ position: "absolute", left: `${eolPct}%`, top: -2, transform: "translateX(-50%)", zIndex: 2, lineHeight: 0 }}>
-                                <svg width="20" height="20" viewBox="0 0 20 20">
-                                  <circle cx="10" cy="10" r="9" fill={STATUS_COLORS.error} stroke={STATUS_CHIP_COLORS.error.text} strokeWidth="1" />
-                                  <rect x="4" y="8" width="12" height="4" rx="1" fill={theme.palette.common.white} />
-                                </svg>
-                              </Box>
-                            </Tooltip>
-                          )}
-                        </Box>
+                        <LifecyclePhaseBar
+                          lifecycle={item.lifecycle}
+                          axis={barAxis}
+                          phaseLabel={phaseLabel}
+                          formatDate={fmtDate}
+                        />
                       </Box>
                     );
                   })}
