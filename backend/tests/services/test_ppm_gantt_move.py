@@ -9,7 +9,12 @@ from fastapi import HTTPException
 
 from app.models.ppm_task import PpmTask
 from app.models.ppm_wbs import PpmWbs
-from app.services.ppm_gantt_move import parse_uuid, place_in_order, wbs_of_initiative
+from app.services.ppm_gantt_move import (
+    _check_new_parent,
+    parse_uuid,
+    place_in_order,
+    wbs_of_initiative,
+)
 
 
 def _rows(*titles: str) -> list[PpmTask]:
@@ -119,3 +124,37 @@ class TestWbsOfInitiative:
             await wbs_of_initiative(db, self.INIT, "not-a-uuid", detail="bad")
         assert (exc.value.status_code, exc.value.detail) == (400, "bad")
         assert db.asked == []
+
+
+class TestCheckNewParent:
+    INIT = uuid.UUID("00000000-0000-0000-0000-00000000a001")
+    OTHER = uuid.UUID("00000000-0000-0000-0000-00000000a002")
+    WBS = uuid.UUID("00000000-0000-0000-0000-00000000b001")
+    NOT_FOUND = "Parent WBS item not found in this initiative"
+
+    def _db(self, initiative_id, *, is_milestone=False):
+        row = PpmWbs(id=self.WBS, initiative_id=initiative_id, is_milestone=is_milestone)
+        return _FakeSession({self.WBS: row})
+
+    async def test_an_unknown_parent_is_400_with_its_message(self):
+        with pytest.raises(HTTPException) as exc:
+            await _check_new_parent(self._db(self.INIT), self.INIT, uuid.uuid4())
+        assert (exc.value.status_code, exc.value.detail) == (400, self.NOT_FOUND)
+
+    async def test_another_initiatives_parent_is_400_with_its_message(self):
+        with pytest.raises(HTTPException) as exc:
+            await _check_new_parent(self._db(self.OTHER), self.INIT, self.WBS)
+        assert (exc.value.status_code, exc.value.detail) == (400, self.NOT_FOUND)
+
+    async def test_a_milestone_parent_is_400(self):
+        with pytest.raises(HTTPException) as exc:
+            await _check_new_parent(self._db(self.INIT, is_milestone=True), self.INIT, self.WBS)
+        assert (exc.value.status_code, exc.value.detail) == (
+            400,
+            "A milestone cannot contain items",
+        )
+
+    async def test_a_work_package_of_this_initiative_is_accepted(self):
+        db = self._db(self.INIT)
+        assert await _check_new_parent(db, self.INIT, self.WBS) is None
+        assert db.asked == [(PpmWbs, self.WBS)]

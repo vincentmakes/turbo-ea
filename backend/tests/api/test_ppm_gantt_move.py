@@ -282,6 +282,7 @@ class TestRejected:
         task = await create_task(db, initiative_id=env["initiative"].id, title="T")
         resp = await _move(client, env, kind="task", item=task, parent=foreign)
         assert resp.status_code == 400
+        assert resp.json()["detail"] == "Parent WBS item not found in this initiative"
         assert task.wbs_id is None
 
     async def test_an_unknown_parent_is_refused(self, client, db, env):
@@ -297,6 +298,7 @@ class TestRejected:
             headers=auth_headers(env["admin"]),
         )
         assert resp.status_code == 400
+        assert resp.json()["detail"] == "Parent WBS item not found in this initiative"
 
     async def test_an_item_of_another_initiative_is_404(self, client, db, env):
         other = await create_card(db, card_type="Initiative", name="Other")
