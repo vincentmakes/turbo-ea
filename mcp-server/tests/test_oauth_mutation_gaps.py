@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -24,14 +25,12 @@ from turbo_ea_mcp.oauth import (
     MAX_CLIENT_ID_LENGTH,
     OAuthStore,
     RegisteredClient,
-    TokenEntry,
     _b64encode,
     _client_id_signature,
     _handle_refresh,
     _lookup_client,
     client_from_id,
     mint_client_id,
-    resolve_token,
 )
 
 CB = "https://global.consent.azure-apim.net/redirect/connector-1"
@@ -152,32 +151,18 @@ class TestTokenBodyWithoutContentType:
         assert resp.json() == {"error": "unsupported_grant_type"}
 
 
-class Down:
-    def __init__(self, token: str) -> None:
-        pass
-
-    async def refresh_token(self):
-        raise RefreshUnavailableError("backend answered 502")
-
-
-class TestOutageBoundaries:
-    @pytest.mark.asyncio
-    async def test_a_jwt_expiring_this_instant_counts_as_expired(self, store, monkeypatch):
-        monkeypatch.setattr(api_client, "TurboEAClient", Down)
-        monkeypatch.setattr(oauth.time, "time", lambda: 5_000.0)
-        store.tokens["acc"] = TokenEntry("jwt", 5_000.0, "ref", "mcp:read")
-        with pytest.raises(RefreshUnavailableError):
-            await resolve_token("acc")
-
+class TestOutageLogging:
     @pytest.mark.asyncio
     async def test_the_refresh_grant_logs_the_outage_with_its_cause(
         self, store, monkeypatch, caplog
     ):
-        monkeypatch.setattr(api_client, "TurboEAClient", Down)
-        store.tokens["acc"] = TokenEntry("jwt", 0.0, "ref", "mcp:read")
-        store.refresh_tokens["ref"] = "acc"
+        monkeypatch.setattr(
+            api_client,
+            "refresh_mcp_session",
+            AsyncMock(side_effect=RefreshUnavailableError("backend answered 502")),
+        )
         with caplog.at_level(logging.WARNING, logger=oauth.logger.name):
-            await _handle_refresh({"refresh_token": "ref"})
+            await _handle_refresh({"refresh_token": "tea1r.s.1.sig"})
         (record,) = [r for r in caplog.records if r.name == oauth.logger.name]
         assert record.getMessage() == "Turbo EA backend unavailable during token refresh"
         assert record.exc_info is not None and record.exc_info[0] is RefreshUnavailableError
@@ -225,8 +210,9 @@ class TestEphemeralKeyMessage:
         assert messages == [
             (
                 "SECRET_KEY is not set for the MCP server: dynamically registered "
-                "OAuth clients will not survive a restart. Pass the instance's "
-                "SECRET_KEY to the mcp-server container."
+                "OAuth clients and AI tool connections will not survive a restart, "
+                "and connections will not renew. Pass the instance's SECRET_KEY to "
+                "the mcp-server container."
             )
         ]
 

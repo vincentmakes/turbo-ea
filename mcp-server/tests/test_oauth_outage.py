@@ -1,102 +1,52 @@
-"""A Turbo EA outage must not end MCP sessions (review of #1307).
+"""A Turbo EA outage must not end MCP sessions (review of #1307, #1449).
 
-``resolve_token`` and the refresh grant renew the Turbo EA JWT behind an MCP
-token. When the backend answered anything but 200 — a 502 while it restarts
-included — both used to drop the session, so every user had to sign in again
-after a backend restart. Now only a refusal ends a session; an outage keeps
-the tokens, serves a JWT that is still valid, and otherwise asks the client to
-retry.
+Only a refusal ends a connection. While the backend is down an access token
+still opens (it is sealed, so resolving it asks nobody), and the refresh grant
+and the code exchange answer ``temporarily_unavailable`` so the client retries
+rather than signing in again.
 """
 
 from __future__ import annotations
 
 import logging
 import time
+from unittest.mock import AsyncMock
 
 import pytest
 
 from turbo_ea_mcp import api_client, oauth, server
 from turbo_ea_mcp.api_client import RefreshUnavailableError
-from turbo_ea_mcp.oauth import (
-    TURBO_JWT_REFRESH_BUFFER,
-    OAuthStore,
-    TokenEntry,
-    _handle_refresh,
-    resolve_token,
-)
-
-
-class Down:
-    """A ``TurboEAClient`` whose backend is unreachable."""
-
-    calls = 0
-
-    def __init__(self, token: str) -> None:
-        pass
-
-    async def refresh_token(self):
-        Down.calls += 1
-        raise RefreshUnavailableError("backend answered 502")
+from turbo_ea_mcp.oauth import _handle_refresh, resolve_token
 
 
 @pytest.fixture
-def store(monkeypatch):
-    fresh = OAuthStore()
-    monkeypatch.setattr(oauth, "store", fresh)
-    monkeypatch.setattr(api_client, "TurboEAClient", Down)
-    Down.calls = 0
-    return fresh
-
-
-def seed(store, jwt_exp: float) -> None:
-    store.tokens["acc"] = TokenEntry("jwt", jwt_exp, "ref", "mcp:read")
-    store.refresh_tokens["ref"] = "acc"
+def down(monkeypatch):
+    """Every backend session call fails as an outage would."""
+    failing = AsyncMock(side_effect=RefreshUnavailableError("backend answered 502"))
+    monkeypatch.setattr(api_client, "create_mcp_session", failing)
+    monkeypatch.setattr(api_client, "refresh_mcp_session", failing)
+    return failing
 
 
 class TestResolveDuringAnOutage:
     @pytest.mark.asyncio
-    async def test_a_jwt_still_valid_is_served_and_the_session_kept(self, store):
-        seed(store, time.time() + TURBO_JWT_REFRESH_BUFFER / 2)
-        assert await resolve_token("acc") == "jwt"
-        assert Down.calls == 1
-        assert set(store.tokens) == {"acc"}
-        assert store.refresh_tokens == {"ref": "acc"}
-
-    @pytest.mark.asyncio
-    async def test_a_refresh_is_tried_again_on_the_next_call(self, store):
-        seed(store, time.time() + 60)
-        await resolve_token("acc")
-        await resolve_token("acc")
-        assert Down.calls == 2
-
-    @pytest.mark.asyncio
-    async def test_an_expired_jwt_raises_and_the_session_is_kept(self, store):
-        seed(store, time.time() - 1)
-        with pytest.raises(RefreshUnavailableError):
-            await resolve_token("acc")
-        assert set(store.tokens) == {"acc"}
-        assert store.refresh_tokens == {"ref": "acc"}
-
-    @pytest.mark.asyncio
-    async def test_a_jwt_far_from_expiry_never_asks_the_backend(self, store):
-        seed(store, time.time() + TURBO_JWT_REFRESH_BUFFER * 2)
-        assert await resolve_token("acc") == "jwt"
-        assert Down.calls == 0
+    async def test_an_unexpired_access_token_still_opens(self, down):
+        token = oauth.seal_access_token("jwt", time.time() + 60)
+        assert await resolve_token(token) == "jwt"
+        down.assert_not_awaited()
 
 
 class TestRefreshGrantDuringAnOutage:
     @pytest.mark.asyncio
-    async def test_answers_503_and_keeps_both_tokens(self, store):
-        seed(store, time.time() - 1)
-        resp = await _handle_refresh({"refresh_token": "ref"})
+    async def test_answers_503_so_the_client_retries(self, down):
+        resp = await _handle_refresh({"refresh_token": "tea1r.s.1.sig"})
         assert resp.status_code == 503
         assert resp.headers["retry-after"] == "5"
         assert resp.body == (
             b'{"error":"temporarily_unavailable",'
             b'"error_description":"Turbo EA is not reachable, retry shortly"}'
         )
-        assert set(store.tokens) == {"acc"}
-        assert store.refresh_tokens == {"ref": "acc"}
+        down.assert_awaited_once_with("tea1r.s.1.sig")
 
 
 class TestEphemeralKeyWarning:

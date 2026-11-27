@@ -11,8 +11,23 @@ Flow:
 4. We redirect to SSO provider (Entra ID / Google / Okta / OIDC)
 5. User authenticates, SSO redirects back to ``GET /oauth/callback``
 6. We exchange the SSO code via Turbo EA backend → get Turbo EA JWT
-7. We issue an opaque access_token + refresh_token to the AI tool
-8. AI tool uses the access_token on MCP requests
+7. At the token exchange we open a durable MCP session in the backend
+   (``POST /auth/mcp/sessions``) and hand the AI tool its tokens
+8. AI tool uses the access_token on MCP requests, and the refresh_token to
+   renew it (``POST /auth/mcp/sessions/refresh``)
+
+Nothing about a connection is kept in this process, so it survives a restart:
+
+- the **access token** is the session's Turbo EA JWT sealed with Fernet under
+  a key derived from SECRET_KEY (``tea1a.`` + the Fernet token), carrying its
+  own expiry; ``resolve_token`` opens it without asking the backend;
+- the **refresh token** is the backend's own (``tea1r.…``), relayed unchanged.
+  The backend rotates it on every use and ends the session when a replaced one
+  comes back, and only this server can present it (its service proof).
+
+Without SECRET_KEY, or against a backend that cannot open a session, sign-in
+still works with the SSO JWT sealed as the access token and no refresh token:
+the connection ends when that JWT does.
 """
 
 from __future__ import annotations
@@ -28,6 +43,7 @@ import time
 from dataclasses import dataclass, field
 from urllib.parse import urlencode
 
+from cryptography.fernet import Fernet, InvalidToken
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
@@ -36,17 +52,18 @@ from turbo_ea_mcp.api_client import RefreshUnavailableError
 from turbo_ea_mcp.config import (
     MCP_OAUTH_ALLOWED_REDIRECT_URIS,
     MCP_OAUTH_CLIENT_KEY,
+    MCP_OAUTH_TOKEN_KEY,
     MCP_PUBLIC_URL,
 )
 
 logger = logging.getLogger(__name__)
 
-# Token lifetimes (seconds)
-ACCESS_TOKEN_TTL = 3600  # 1 hour
-REFRESH_TOKEN_TTL = 30 * 24 * 3600  # 30 days
+# Lifetime of an authorization code and of a sign-in in flight (seconds). The
+# tokens' lifetimes are the backend's: an access token lasts as long as the
+# Turbo EA JWT it seals, a refresh token as long as its backend session.
 AUTH_CODE_TTL = 600  # 10 minutes
-# Proactive refresh: renew the Turbo EA JWT when less than this much TTL remains
-TURBO_JWT_REFRESH_BUFFER = 3600  # 1 hour
+
+DEFAULT_CLIENT_NAME = "MCP Client"
 
 # Registration bounds. A client id carries its redirect URIs (see
 # ``mint_client_id``), and it travels in the /oauth/authorize query string
@@ -81,7 +98,7 @@ class RegisteredClient:
 
     client_id: str
     redirect_uris: list[str]
-    client_name: str = "MCP Client"
+    client_name: str = DEFAULT_CLIENT_NAME
     created_at: float = field(default_factory=time.time)
 
 
@@ -96,6 +113,7 @@ class PendingAuth:
     code_challenge: str
     code_challenge_method: str
     created_at: float = field(default_factory=time.time)
+    client_name: str = DEFAULT_CLIENT_NAME
 
 
 @dataclass
@@ -110,29 +128,22 @@ class AuthCode:
     turbo_jwt: str
     created_at: float = field(default_factory=time.time)
     used: bool = False
-
-
-@dataclass
-class TokenEntry:
-    """Issued access_token → Turbo EA JWT mapping."""
-
-    turbo_jwt: str
-    turbo_jwt_exp: float
-    refresh_token: str
-    scope: str
-    created_at: float = field(default_factory=time.time)
+    client_name: str = DEFAULT_CLIENT_NAME
 
 
 class OAuthStore:
-    """In-memory store for OAuth state.  Suitable for a single-instance
-    deployment — tokens are lost on restart (users simply re-authenticate)."""
+    """In-memory store for the OAuth state of sign-ins in flight.
+
+    Issued tokens are not kept here (see the module docstring): they survive
+    a restart. A sign-in in flight — ``pending`` and ``codes``, a few seconds
+    to minutes — is lost with this process, so a restart mid-sign-in fails
+    that attempt, and several replicas need sticky routing. ``clients`` is a
+    cache: a client id carries its own registration."""
 
     def __init__(self) -> None:
         self.clients: dict[str, RegisteredClient] = {}  # keyed by client_id
         self.pending: dict[str, PendingAuth] = {}  # keyed by our internal state
         self.codes: dict[str, AuthCode] = {}  # keyed by code
-        self.tokens: dict[str, TokenEntry] = {}  # keyed by access_token
-        self.refresh_tokens: dict[str, str] = {}  # refresh_token → access_token
 
     def cleanup_expired(self) -> None:
         now = time.time()
@@ -160,7 +171,9 @@ store = OAuthStore()
 _CLIENT_ID_PREFIX = "tea1."
 
 # True when no SECRET_KEY reached this process: ids are then signed with a
-# key that dies with it. ``create_app`` warns; stdio mode never registers.
+# key that dies with it — and so are access tokens sealed, and no session can
+# be opened. Every key here comes from the one SECRET_KEY, so this one flag
+# says it for all of them. ``create_app`` warns; stdio mode never registers.
 CLIENT_KEY_IS_EPHEMERAL = MCP_OAUTH_CLIENT_KEY is None
 _client_id_key: bytes = MCP_OAUTH_CLIENT_KEY or secrets.token_bytes(32)
 
@@ -206,6 +219,52 @@ def _lookup_client(client_id: str) -> RegisteredClient | None:
     """The registration behind ``client_id``: this process's record first,
     else the one the id itself carries."""
     return store.clients.get(client_id) or client_from_id(client_id)
+
+
+# ── Sealed access tokens ───────────────────────────────────────────────────
+#
+# The access token an AI tool holds is the Turbo EA JWT behind its session,
+# sealed, so any process given the same SECRET_KEY can open it and none has to
+# remember it. The refresh token is the backend's and is never sealed here: a
+# ``tea1r.`` token cannot open as an access token.
+
+_ACCESS_TOKEN_PREFIX = "tea1a."
+# Mirrors the backend's ``REFRESH_PREFIX`` (app/services/mcp_session_service.py);
+# anything else is refused before the backend is asked.
+_REFRESH_TOKEN_PREFIX = "tea1r."
+_ACCESS_TOKEN_TYPE = "access"
+
+# Without SECRET_KEY the sealing key dies with the process, like the client-id
+# key: tokens issued before a restart no longer open after it.
+_token_fernet = Fernet(base64.urlsafe_b64encode(MCP_OAUTH_TOKEN_KEY or secrets.token_bytes(32)))
+
+
+def seal_access_token(turbo_jwt: str, expires_at: float) -> str:
+    """The access token handed to an AI tool for ``turbo_jwt``, valid until
+    ``expires_at`` (a Unix time)."""
+    claims = {"typ": _ACCESS_TOKEN_TYPE, "jwt": turbo_jwt, "exp": expires_at}
+    sealed = _token_fernet.encrypt(json.dumps(claims, separators=(",", ":")).encode())
+    return _ACCESS_TOKEN_PREFIX + sealed.decode()
+
+
+def _open_access_token(access_token: str) -> str | None:
+    """The Turbo EA JWT an unexpired access token seals; ``None`` for anything
+    else — another prefix, a token sealed with another key, a refresh token,
+    an expired or malformed one."""
+    if not access_token.startswith(_ACCESS_TOKEN_PREFIX):
+        return None
+    try:
+        claims = json.loads(_token_fernet.decrypt(access_token[len(_ACCESS_TOKEN_PREFIX) :]))
+    except (InvalidToken, ValueError):
+        return None
+    if not isinstance(claims, dict) or claims.get("typ") != _ACCESS_TOKEN_TYPE:
+        return None
+    turbo_jwt, expires_at = claims.get("jwt"), claims.get("exp")
+    if not isinstance(turbo_jwt, str) or not turbo_jwt:
+        return None
+    if not isinstance(expires_at, (int, float)) or expires_at <= time.time():
+        return None
+    return turbo_jwt
 
 
 def _valid_redirect_uris(uris: object) -> bool:
@@ -284,7 +343,7 @@ async def register_client(request: Request) -> Response:
 
     client_name = body.get("client_name")
     if not isinstance(client_name, str) or not client_name.strip():
-        client_name = "MCP Client"
+        client_name = DEFAULT_CLIENT_NAME
     client_name = client_name[:MAX_CLIENT_NAME_LENGTH]
     redirect_uris = body.get("redirect_uris", [])
 
@@ -426,6 +485,7 @@ async def authorize(request: Request) -> Response:
         state=state,
         code_challenge=code_challenge,
         code_challenge_method=code_challenge_method,
+        client_name=client.client_name if client is not None else DEFAULT_CLIENT_NAME,
     )
 
     # Build SSO authorization URL (provider-agnostic — the backend provides
@@ -529,6 +589,7 @@ async def sso_callback(request: Request) -> Response:
         scope=pending.scope,
         code_challenge=pending.code_challenge,
         turbo_jwt=turbo_jwt,
+        client_name=pending.client_name,
     )
 
     # Redirect back to the AI tool with the authorization code. Safe because
@@ -603,7 +664,8 @@ async def token_endpoint(request: Request) -> Response:
 
 
 async def _handle_code_exchange(body: dict) -> Response:
-    """Exchange authorization code for access + refresh tokens."""
+    """Exchange an authorization code for an access token and, when the
+    backend opened a session for it, a refresh token."""
     code = body.get("code", "")
     code_verifier = body.get("code_verifier")
     redirect_uri = body.get("redirect_uri", "")
@@ -616,7 +678,8 @@ async def _handle_code_exchange(body: dict) -> Response:
         )
 
     if auth_code.used:
-        # Code replay — revoke any tokens issued from this code
+        # Code replay (or a second exchange racing the first): refuse it and
+        # drop the code.
         del store.codes[code]
         return JSONResponse(
             {"error": "invalid_grant", "error_description": "Code already used"},
@@ -660,79 +723,89 @@ async def _handle_code_exchange(body: dict) -> Response:
             status_code=400,
         )
 
-    # Clean up the code
-    del store.codes[code]
+    # Open the durable session behind the tokens. An outage leaves the code
+    # usable, so the client's retry can still sign in.
+    try:
+        session = await api_client.create_mcp_session(
+            auth_code.turbo_jwt, auth_code.client_name, auth_code.scope
+        )
+    except RefreshUnavailableError:
+        logger.warning("Turbo EA backend unavailable while opening an MCP session", exc_info=True)
+        auth_code.used = False
+        return _temporarily_unavailable()
 
-    # Issue our tokens
-    access_token = secrets.token_urlsafe(48)
-    refresh_token = secrets.token_urlsafe(48)
-
-    store.tokens[access_token] = TokenEntry(
-        turbo_jwt=auth_code.turbo_jwt,
-        turbo_jwt_exp=_estimate_jwt_expiry(auth_code.turbo_jwt),
-        refresh_token=refresh_token,
-        scope=auth_code.scope,
+    # A concurrent exchange may already have dropped the code.
+    store.codes.pop(code, None)
+    if session is None:
+        # Degraded: the SSO JWT itself, no refresh token. The connection ends
+        # with that JWT and the person signs in again.
+        return _token_response(auth_code.turbo_jwt, auth_code.scope)
+    return _token_response(
+        session.access_token,
+        session.scope,
+        lifetime=session.expires_in,
+        refresh_token=session.refresh_token,
     )
-    store.refresh_tokens[refresh_token] = access_token
 
+
+def _temporarily_unavailable() -> Response:
+    """The backend could not answer; the client should retry shortly."""
     return JSONResponse(
         {
-            "access_token": access_token,
-            "token_type": "Bearer",
-            "expires_in": ACCESS_TOKEN_TTL,
-            "refresh_token": refresh_token,
-            "scope": auth_code.scope,
+            "error": "temporarily_unavailable",
+            "error_description": "Turbo EA is not reachable, retry shortly",
         },
-        headers=_TOKEN_RESPONSE_HEADERS,
+        status_code=503,
+        headers={RETRY_AFTER: "5"},
     )
+
+
+def _token_response(
+    turbo_jwt: str,
+    scope: str,
+    *,
+    lifetime: int | None = None,
+    refresh_token: str | None = None,
+) -> Response:
+    """A token response sealing ``turbo_jwt``. The access token never outlives
+    the JWT, nor ``lifetime`` seconds when the backend gave one; the
+    ``refresh_token`` field is left out when there is none to give."""
+    now = time.time()
+    expires_at = _estimate_jwt_expiry(turbo_jwt)
+    if lifetime is not None:
+        expires_at = min(expires_at, now + lifetime)
+    payload: dict = {
+        "access_token": seal_access_token(turbo_jwt, expires_at),
+        "token_type": "Bearer",
+        "expires_in": int(expires_at - now),
+    }
+    if refresh_token is not None:
+        payload["refresh_token"] = refresh_token
+    payload["scope"] = scope
+    return JSONResponse(payload, headers=_TOKEN_RESPONSE_HEADERS)
 
 
 async def _handle_refresh(body: dict) -> Response:
-    """Use a refresh token to get a new access token with a refreshed JWT."""
-    refresh_token = body.get("refresh_token", "")
-
-    old_access = store.refresh_tokens.get(refresh_token)
-    if not old_access:
+    """Renew a connection through its backend session: a new sealed access
+    token and the rotated refresh token."""
+    refresh_token = body.get("refresh_token")
+    if not isinstance(refresh_token, str) or not refresh_token.startswith(_REFRESH_TOKEN_PREFIX):
         return JSONResponse(
             {"error": "invalid_grant", "error_description": "Unknown refresh token"},
             status_code=400,
         )
 
-    old_entry = store.tokens.get(old_access)
-    if not old_entry:
-        del store.refresh_tokens[refresh_token]
-        return JSONResponse(
-            {"error": "invalid_grant", "error_description": "Token entry not found"},
-            status_code=400,
-        )
-
-    # Attempt to refresh the underlying Turbo EA JWT
-    from turbo_ea_mcp.api_client import TurboEAClient
-
-    client = TurboEAClient(old_entry.turbo_jwt)
     try:
-        new_jwt = await client.refresh_token()
+        session = await api_client.refresh_mcp_session(refresh_token)
     except RefreshUnavailableError:
-        # The backend could not answer; the session is fine. Keep both tokens
-        # so the client's retry can succeed once the backend is back.
+        # The backend could not answer; the session is fine and the refresh
+        # token still good, so the client's retry can succeed once it is back.
         logger.warning("Turbo EA backend unavailable during token refresh", exc_info=True)
-        return JSONResponse(
-            {
-                "error": "temporarily_unavailable",
-                "error_description": "Turbo EA is not reachable, retry shortly",
-            },
-            status_code=503,
-            headers={RETRY_AFTER: "5"},
-        )
+        return _temporarily_unavailable()
 
-    if new_jwt:
-        turbo_jwt = new_jwt
-        turbo_jwt_exp = _estimate_jwt_expiry(new_jwt)
-    else:
-        # Refresh failed — the Turbo EA JWT is expired and can't be renewed.
-        # The user needs to re-authenticate.
-        store.tokens.pop(old_access, None)
-        store.refresh_tokens.pop(refresh_token, None)
+    if session is None:
+        # Unknown, ended, expired or replayed, or the account may no longer
+        # sign in: the person has to sign in again.
         return JSONResponse(
             {
                 "error": "invalid_grant",
@@ -741,30 +814,11 @@ async def _handle_refresh(body: dict) -> Response:
             status_code=400,
         )
 
-    # Rotate tokens
-    store.tokens.pop(old_access, None)
-    store.refresh_tokens.pop(refresh_token, None)
-
-    new_access = secrets.token_urlsafe(48)
-    new_refresh = secrets.token_urlsafe(48)
-
-    store.tokens[new_access] = TokenEntry(
-        turbo_jwt=turbo_jwt,
-        turbo_jwt_exp=turbo_jwt_exp,
-        refresh_token=new_refresh,
-        scope=old_entry.scope,
-    )
-    store.refresh_tokens[new_refresh] = new_access
-
-    return JSONResponse(
-        {
-            "access_token": new_access,
-            "token_type": "Bearer",
-            "expires_in": ACCESS_TOKEN_TTL,
-            "refresh_token": new_refresh,
-            "scope": old_entry.scope,
-        },
-        headers=_TOKEN_RESPONSE_HEADERS,
+    return _token_response(
+        session.access_token,
+        session.scope,
+        lifetime=session.expires_in,
+        refresh_token=session.refresh_token,
     )
 
 
@@ -772,38 +826,10 @@ async def _handle_refresh(body: dict) -> Response:
 
 
 async def resolve_token(access_token: str) -> str | None:
-    """Resolve an MCP access token to a Turbo EA JWT.  Proactively
-    refreshes the JWT if it's close to expiry.
+    """Resolve an MCP access token to the Turbo EA JWT it seals.
 
-    ``None`` means the token is unknown or its session was refused. When the
-    backend cannot be reached the session is kept: a JWT that is still valid
-    is returned as is (the refresh is retried on the next call), and an
-    expired one raises ``RefreshUnavailableError`` so the caller can answer
-    "try again" rather than "sign in again"."""
-    entry = store.tokens.get(access_token)
-    if not entry:
-        return None
-
-    now = time.time()
-
-    # Proactive refresh: if the Turbo EA JWT is within the buffer of expiry
-    if entry.turbo_jwt_exp - now < TURBO_JWT_REFRESH_BUFFER:
-        from turbo_ea_mcp.api_client import TurboEAClient
-
-        client = TurboEAClient(entry.turbo_jwt)
-        try:
-            new_jwt = await client.refresh_token()
-        except RefreshUnavailableError:
-            if entry.turbo_jwt_exp > now:
-                return entry.turbo_jwt
-            raise
-        if new_jwt:
-            entry.turbo_jwt = new_jwt
-            entry.turbo_jwt_exp = _estimate_jwt_expiry(new_jwt)
-        else:
-            # JWT expired and can't be refreshed — token is invalid
-            store.tokens.pop(access_token, None)
-            store.refresh_tokens.pop(entry.refresh_token, None)
-            return None
-
-    return entry.turbo_jwt
+    ``None`` means the token is not one of ours, was sealed under another key,
+    or has expired; the gate then answers 401 ``invalid_token`` and the client
+    renews it with its refresh token. No backend call is made: the backend
+    checks the JWT, and the session it is bound to, on every request."""
+    return _open_access_token(access_token)

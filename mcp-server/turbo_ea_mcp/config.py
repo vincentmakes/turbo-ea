@@ -215,10 +215,22 @@ def parse_hosts(raw: str) -> list[str]:
 
 MCP_ALLOWED_HOSTS: list[str] = parse_hosts(os.environ.get("MCP_ALLOWED_HOSTS", ""))
 
-# The context string that separates the client-id signing key from every
-# other use of SECRET_KEY (the backend signs JWTs and derives its Fernet key
-# from the same secret): the raw secret never signs anything here.
+# The context strings that separate each key derived here from every other use
+# of SECRET_KEY (the backend signs JWTs and derives its Fernet key from the same
+# secret): the raw secret never signs or seals anything here.
 _CLIENT_ID_KEY_CONTEXT = b"turbo-ea-mcp/oauth-client-id/v1"
+# Mirrored in the backend (``MCP_SERVICE_KEY_CONTEXT``, app/core/security.py):
+# the two packages share no code, so a known-answer test on each side pins it.
+_SERVICE_AUTH_KEY_CONTEXT = b"turbo-ea-mcp/service-auth/v1"
+_ACCESS_TOKEN_KEY_CONTEXT = b"turbo-ea-mcp/oauth-access-token/v1"
+
+
+def _derive_key(secret: str, context: bytes) -> bytes | None:
+    """A 32-byte key for one purpose, ``HMAC-SHA256(secret, context)``;
+    ``None`` when there is no secret to derive from."""
+    if not secret:
+        return None
+    return hmac.new(secret.encode(), context, hashlib.sha256).digest()
 
 
 def oauth_client_key(secret: str) -> bytes | None:
@@ -229,9 +241,26 @@ def oauth_client_key(secret: str) -> bytes | None:
     clients such as Copilot Studio register once and keep the id for good. So
     the id carries its own redirect URIs under a signature, and the key must
     be the same on every boot — which SECRET_KEY already is."""
-    if not secret:
-        return None
-    return hmac.new(secret.encode(), _CLIENT_ID_KEY_CONTEXT, hashlib.sha256).digest()
+    return _derive_key(secret, _CLIENT_ID_KEY_CONTEXT)
 
 
-MCP_OAUTH_CLIENT_KEY: bytes | None = oauth_client_key(os.environ.get("SECRET_KEY", ""))
+def service_auth_key(secret: str) -> bytes | None:
+    """The key that signs the short-lived proof this server shows the backend
+    when it opens or renews an MCP session; ``None`` without a secret.
+
+    The backend derives the same key from its own SECRET_KEY, so the proof is
+    accepted only when both containers were given the same secret."""
+    return _derive_key(secret, _SERVICE_AUTH_KEY_CONTEXT)
+
+
+def oauth_token_key(secret: str) -> bytes | None:
+    """The key that seals the access tokens handed to AI tools; ``None``
+    without a secret. The same on every boot, so an access token issued before
+    a restart still opens after it."""
+    return _derive_key(secret, _ACCESS_TOKEN_KEY_CONTEXT)
+
+
+_SECRET_KEY = os.environ.get("SECRET_KEY", "")
+MCP_OAUTH_CLIENT_KEY: bytes | None = oauth_client_key(_SECRET_KEY)
+MCP_SERVICE_AUTH_KEY: bytes | None = service_auth_key(_SECRET_KEY)
+MCP_OAUTH_TOKEN_KEY: bytes | None = oauth_token_key(_SECRET_KEY)

@@ -307,10 +307,21 @@ class TestTokenEndpoint:
             "client_id": "cid",
         }
 
-    def test_a_json_body_is_read_as_json(self, app, store):
+    @pytest.fixture(autouse=True)
+    def _backend(self, monkeypatch):
+        from turbo_ea_mcp.api_client import McpSessionTokens
+
+        tokens = McpSessionTokens(
+            access_token="h.e30.s", refresh_token="tea1r.s.2.sig", expires_in=3600, scope="mcp:read"
+        )
+        monkeypatch.setattr(oauth.api_client, "create_mcp_session", AsyncMock(return_value=None))
+        monkeypatch.setattr(oauth.api_client, "refresh_mcp_session", AsyncMock(return_value=tokens))
+
+    @pytest.mark.asyncio
+    async def test_a_json_body_is_read_as_json(self, app, store):
         resp = app.post("/oauth/token", json=self._seed(store))
         assert resp.status_code == 200
-        assert resp.json()["access_token"] in store.tokens
+        assert await oauth.resolve_token(resp.json()["access_token"]) == "h.e30.s"
 
     def test_a_json_media_type_with_parameters_is_read_as_json(self, app, store):
         resp = app.post(
@@ -333,17 +344,10 @@ class TestTokenEndpoint:
         assert resp.headers["cache-control"] == "no-store"
         assert resp.headers["pragma"] == "no-cache"
 
-    def test_a_refreshed_token_response_is_never_cached(self, app, store, monkeypatch):
-        import time
-
-        from turbo_ea_mcp.api_client import TurboEAClient
-
-        store.tokens["old"] = oauth.TokenEntry("jwt", time.time() + 99999, "r1", "mcp:read")
-        store.refresh_tokens["r1"] = "old"
-        monkeypatch.setattr(
-            TurboEAClient, "refresh_token", AsyncMock(return_value="h.eyJleHAiOjV9.s")
+    def test_a_refreshed_token_response_is_never_cached(self, app, store):
+        resp = app.post(
+            "/oauth/token", data={"grant_type": "refresh_token", "refresh_token": "tea1r.s.1.sig"}
         )
-        resp = app.post("/oauth/token", data={"grant_type": "refresh_token", "refresh_token": "r1"})
         assert resp.status_code == 200
         assert resp.headers["cache-control"] == "no-store"
         assert resp.headers["pragma"] == "no-cache"

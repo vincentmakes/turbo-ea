@@ -2,8 +2,10 @@
 
 ``test_oauth.py`` pins the redirect-URI fix (1.64.4) and the data shapes. This
 file pins every branch the flow takes — exact error bodies, the parameters the
-SSO redirect carries, what each failure removes from the store, token rotation
-and the proactive JWT refresh — so that a mutation of any of them fails a test.
+SSO redirect carries, what each failure removes from the store, the tokens the
+token endpoint issues from a backend session (and without one), their rotation
+and how a sealed access token opens — so that a mutation of any of them fails a
+test.
 Nothing here talks to a network: the backend is replaced at ``api_client``.
 """
 
@@ -12,27 +14,27 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import time
-from typing import ClassVar
-from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from urllib.parse import parse_qsl, urlsplit
 
 import pytest
+from cryptography.fernet import Fernet
 from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from turbo_ea_mcp import api_client, oauth
+from turbo_ea_mcp.api_client import McpSessionTokens, RefreshUnavailableError
 from turbo_ea_mcp.oauth import (
-    ACCESS_TOKEN_TTL,
     AUTH_CODE_TTL,
-    REFRESH_TOKEN_TTL,
-    TURBO_JWT_REFRESH_BUFFER,
+    DEFAULT_CLIENT_NAME,
     AuthCode,
     OAuthStore,
     PendingAuth,
     RegisteredClient,
-    TokenEntry,
     _estimate_jwt_expiry,
     _handle_code_exchange,
     _handle_refresh,
@@ -84,10 +86,11 @@ def body(resp) -> dict:
 
 
 def test_lifetimes():
-    assert ACCESS_TOKEN_TTL == 3600
-    assert REFRESH_TOKEN_TTL == 30 * 24 * 3600
     assert AUTH_CODE_TTL == 600
-    assert TURBO_JWT_REFRESH_BUFFER == 3600
+
+
+def test_the_default_client_name():
+    assert DEFAULT_CLIENT_NAME == "MCP Client"
 
 
 # ── Metadata ────────────────────────────────────────────────────────────────
@@ -345,6 +348,18 @@ class TestAuthorize:
             pending.code_challenge_method,
         ) == ("good", CB, "mcp:read", "client-state", "chal", "S256")
 
+    def test_the_request_remembers_the_registered_client_name(self, app, store):
+        store.clients["good"].client_name = "Copilot Studio"
+        self.get(app)
+        [pending] = store.pending.values()
+        assert pending.client_name == "Copilot Studio"
+
+    def test_a_client_known_only_to_the_allowlist_gets_the_default_name(self, app, monkeypatch):
+        monkeypatch.setattr(oauth, "MCP_OAUTH_ALLOWED_REDIRECT_URIS", ["https://fixed/cb"])
+        self.get(app, client_id="unregistered", redirect_uri="https://fixed/cb")
+        [pending] = oauth.store.pending.values()
+        assert pending.client_name == "MCP Client"
+
     def test_the_idp_is_asked_for_the_configured_scopes(self, app, store):
         """The backend's ``/auth/sso/config`` scopes, extra scopes included, so an MCP
         sign-in carries the same groups claim as the app's own login."""
@@ -389,6 +404,7 @@ class TestSsoCallback:
             state="client-state",
             code_challenge="chal",
             code_challenge_method="S256",
+            client_name="Claude",
         )
         self.exchange = AsyncMock(return_value={"access_token": "turbo.jwt.value"})
         monkeypatch.setattr(api_client, "exchange_sso_code", self.exchange)
@@ -466,7 +482,8 @@ class TestSsoCallback:
             issued.code_challenge,
             issued.turbo_jwt,
             issued.used,
-        ) == (code, "good", CB, "mcp:read", "chal", "turbo.jwt.value", False)
+            issued.client_name,
+        ) == (code, "good", CB, "mcp:read", "chal", "turbo.jwt.value", False, "Claude")
         assert store.pending == {}
         # The state is single-use.
         again = self.get(app, code="idp-code", state="st8")
@@ -497,16 +514,75 @@ class TestEstimateExpiry:
 
 # ── Token endpoint ──────────────────────────────────────────────────────────
 
+NOW = 1_700_000_000.0
 
-def seed_code(store, *, verifier="v-123", client_id="good", used=False, code="code1"):
+
+@pytest.fixture
+def frozen(monkeypatch):
+    monkeypatch.setattr(oauth.time, "time", lambda: NOW)
+    return NOW
+
+
+# The SSO JWT a sign-in gets, and the one a backend session is bound to.
+SSO_JWT = jwt_with({"exp": NOW + 86_400})
+SESSION_JWT = jwt_with({"exp": NOW + 3600, "msid": "s1"})
+REFRESH_1 = "tea1r.s1.1.sig"
+REFRESH_2 = "tea1r.s1.2.sig"
+
+
+def session(**overrides) -> McpSessionTokens:
+    data = {
+        "access_token": SESSION_JWT,
+        "refresh_token": REFRESH_1,
+        "expires_in": 3600,
+        "scope": "mcp:read",
+    }
+    data.update(overrides)
+    return McpSessionTokens(**data)
+
+
+@pytest.fixture
+def backend(monkeypatch):
+    """The two backend session calls, replaced: nothing reaches a network."""
+    calls = SimpleNamespace(
+        create=AsyncMock(return_value=session()),
+        refresh=AsyncMock(return_value=session(refresh_token=REFRESH_2)),
+    )
+    monkeypatch.setattr(api_client, "create_mcp_session", calls.create)
+    monkeypatch.setattr(api_client, "refresh_mcp_session", calls.refresh)
+    return calls
+
+
+def seal(claims) -> str:
+    """An access token sealed with this process's key around ``claims``."""
+    return "tea1a." + oauth._token_fernet.encrypt(json.dumps(claims).encode()).decode()
+
+
+async def opens_at(moment: float, token: str, monkeypatch) -> str | None:
+    monkeypatch.setattr(oauth.time, "time", lambda: moment)
+    return await resolve_token(token)
+
+
+def seed_code(
+    store,
+    *,
+    verifier="v-123",
+    client_id="good",
+    used=False,
+    code="code1",
+    scope="mcp:read",
+    turbo_jwt=SSO_JWT,
+    client_name="Claude",
+):
     store.codes[code] = AuthCode(
         code=code,
         client_id=client_id,
         redirect_uri=CB,
-        scope="mcp:read",
+        scope=scope,
         code_challenge=challenge_of(verifier),
-        turbo_jwt=jwt_with({"exp": 4102444800}),
+        turbo_jwt=turbo_jwt,
         used=used,
+        client_name=client_name,
     )
 
 
@@ -521,67 +597,153 @@ def exchange_body(**overrides) -> dict:
     return {k: v for k, v in data.items() if v is not None}
 
 
+UNAVAILABLE = (
+    b'{"error":"temporarily_unavailable",'
+    b'"error_description":"Turbo EA is not reachable, retry shortly"}'
+)
+
+
 class TestTokenEndpointRoute:
     def test_unsupported_grant(self, app):
         resp = app.post("/oauth/token", data={"grant_type": "password"})
         assert resp.status_code == 400
         assert resp.json() == {"error": "unsupported_grant_type"}
 
-    def test_the_form_code_grant_issues_tokens(self, app, store):
+    @pytest.mark.asyncio
+    async def test_the_form_code_grant_issues_tokens(self, app, store, backend, frozen):
         seed_code(store)
         resp = app.post("/oauth/token", data=exchange_body())
         assert resp.status_code == 200
-        assert resp.json()["access_token"] in store.tokens
+        assert await resolve_token(resp.json()["access_token"]) == SESSION_JWT
 
-    def test_the_form_refresh_grant_rotates(self, app, store):
-        store.tokens["old"] = TokenEntry("jwt", time.time() + 99999, "r1", "mcp:read")
-        store.refresh_tokens["r1"] = "old"
-        with patch.object(
-            api_client.TurboEAClient, "refresh_token", AsyncMock(return_value=jwt_with({"exp": 5}))
-        ):
-            resp = app.post(
-                "/oauth/token", data={"grant_type": "refresh_token", "refresh_token": "r1"}
-            )
+    @pytest.mark.asyncio
+    async def test_the_form_refresh_grant_rotates(self, app, backend):
+        resp = app.post(
+            "/oauth/token", data={"grant_type": "refresh_token", "refresh_token": REFRESH_1}
+        )
         assert resp.status_code == 200
-        assert "old" not in store.tokens
+        assert resp.json()["refresh_token"] == REFRESH_2
+        backend.refresh.assert_awaited_once_with(REFRESH_1)
 
 
 class TestCodeExchange:
     @pytest.mark.asyncio
-    async def test_issues_tokens_and_consumes_the_code(self, store):
+    async def test_opens_a_session_and_issues_its_tokens(self, store, backend, frozen):
         seed_code(store)
         resp = await _handle_code_exchange(exchange_body(client_id="good"))
         assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "no-store"
+        assert resp.headers["pragma"] == "no-cache"
         data = body(resp)
-        access, refresh = data.pop("access_token"), data.pop("refresh_token")
-        assert data == {"token_type": "Bearer", "expires_in": 3600, "scope": "mcp:read"}
-        assert len(access) == len(refresh) == 64
-        assert access != refresh
-        entry = store.tokens[access]
-        assert entry.turbo_jwt == jwt_with({"exp": 4102444800})
-        assert entry.turbo_jwt_exp == 4102444800.0
-        assert entry.refresh_token == refresh
-        assert entry.scope == "mcp:read"
-        assert store.refresh_tokens == {refresh: access}
+        access = data.pop("access_token")
+        assert data == {
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "refresh_token": REFRESH_1,
+            "scope": "mcp:read",
+        }
+        assert access.startswith("tea1a.")
+        assert await resolve_token(access) == SESSION_JWT
+        backend.create.assert_awaited_once_with(SSO_JWT, "Claude", "mcp:read")
         assert store.codes == {}
 
     @pytest.mark.asyncio
-    async def test_unknown_code(self, store):
+    async def test_the_session_scope_is_the_one_answered(self, store, backend, frozen):
+        backend.create.return_value = session(scope="mcp:other")
+        seed_code(store, scope="mcp:custom")
+        resp = await _handle_code_exchange(exchange_body())
+        assert body(resp)["scope"] == "mcp:other"
+        backend.create.assert_awaited_once_with(SSO_JWT, "Claude", "mcp:custom")
+
+    @pytest.mark.asyncio
+    async def test_the_access_token_lasts_the_backends_lifetime(
+        self, store, backend, frozen, monkeypatch
+    ):
+        backend.create.return_value = session(expires_in=600)
+        seed_code(store)
+        data = body(await _handle_code_exchange(exchange_body()))
+        assert data["expires_in"] == 600
+        assert await opens_at(NOW + 599, data["access_token"], monkeypatch) == SESSION_JWT
+        assert await opens_at(NOW + 600, data["access_token"], monkeypatch) is None
+
+    @pytest.mark.asyncio
+    async def test_the_access_token_never_outlives_its_jwt(
+        self, store, backend, frozen, monkeypatch
+    ):
+        short = jwt_with({"exp": NOW + 100})
+        backend.create.return_value = session(access_token=short, expires_in=3600)
+        seed_code(store)
+        data = body(await _handle_code_exchange(exchange_body()))
+        assert data["expires_in"] == 100
+        assert await opens_at(NOW + 99, data["access_token"], monkeypatch) == short
+        assert await opens_at(NOW + 100, data["access_token"], monkeypatch) is None
+
+    @pytest.mark.asyncio
+    async def test_without_a_session_the_sso_jwt_is_sealed_and_no_refresh_token_issued(
+        self, store, backend, frozen
+    ):
+        backend.create.return_value = None
+        seed_code(store, scope="mcp:custom")
+        resp = await _handle_code_exchange(exchange_body())
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "no-store"
+        data = body(resp)
+        access = data.pop("access_token")
+        assert data == {"token_type": "Bearer", "expires_in": 86_400, "scope": "mcp:custom"}
+        assert await resolve_token(access) == SSO_JWT
+        assert store.codes == {}
+
+    @pytest.mark.asyncio
+    async def test_an_outage_answers_503_and_keeps_the_code_for_the_retry(
+        self, store, backend, caplog
+    ):
+        backend.create.side_effect = [RefreshUnavailableError("backend answered 502"), session()]
+        seed_code(store)
+        with caplog.at_level(logging.WARNING, logger=oauth.logger.name):
+            resp = await _handle_code_exchange(exchange_body())
+        assert resp.status_code == 503
+        assert resp.headers["retry-after"] == "5"
+        assert resp.body == UNAVAILABLE
+        assert store.codes["code1"].used is False
+        (record,) = [r for r in caplog.records if r.name == oauth.logger.name]
+        assert record.getMessage() == "Turbo EA backend unavailable while opening an MCP session"
+        assert record.exc_info[0] is RefreshUnavailableError
+        # The client's retry signs in.
+        retry = await _handle_code_exchange(exchange_body())
+        assert retry.status_code == 200
+        assert body(retry)["refresh_token"] == REFRESH_1
+        assert store.codes == {}
+
+    @pytest.mark.asyncio
+    async def test_a_code_dropped_while_the_session_opens_still_answers(self, store, backend):
+        seed_code(store)
+
+        async def racing(*args):
+            store.codes.clear()  # a replayed exchange dropped it meanwhile
+            return session()
+
+        backend.create.side_effect = racing
+        resp = await _handle_code_exchange(exchange_body())
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_unknown_code(self, store, backend):
         resp = await _handle_code_exchange(exchange_body())
         assert resp.status_code == 400
         assert body(resp) == {
             "error": "invalid_grant",
             "error_description": "Unknown or expired code",
         }
+        backend.create.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_a_replayed_code_is_refused_and_dropped(self, store):
+    async def test_a_replayed_code_is_refused_and_dropped(self, store, backend):
         seed_code(store, used=True)
         resp = await _handle_code_exchange(exchange_body())
         assert resp.status_code == 400
         assert body(resp) == {"error": "invalid_grant", "error_description": "Code already used"}
         assert store.codes == {}
-        assert store.tokens == {}
+        backend.create.assert_not_awaited()
 
     @pytest.mark.parametrize(
         "overrides, description",
@@ -594,13 +756,15 @@ class TestCodeExchange:
         ],
     )
     @pytest.mark.asyncio
-    async def test_each_binding_failure_burns_the_code(self, store, overrides, description):
+    async def test_each_binding_failure_burns_the_code(
+        self, store, backend, overrides, description
+    ):
         seed_code(store)
         resp = await _handle_code_exchange(exchange_body(**overrides))
         assert resp.status_code == 400
         assert body(resp) == {"error": "invalid_grant", "error_description": description}
         assert store.codes == {}
-        assert store.tokens == {}
+        backend.create.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_an_empty_verifier_never_passes_even_against_its_own_hash(self, store):
@@ -636,127 +800,183 @@ class TestVerifyPkce:
         assert not _verify_pkce("verifier", "verifier")
 
 
-class FakeTurboClient:
-    """Stands in for ``TurboEAClient``: records the JWT it was built with."""
-
-    built_with: ClassVar[list[str]] = []
-    result: str | None = None
-
-    def __init__(self, token: str) -> None:
-        FakeTurboClient.built_with.append(token)
-
-    async def refresh_token(self) -> str | None:
-        return FakeTurboClient.result
-
-
-@pytest.fixture
-def turbo(monkeypatch):
-    FakeTurboClient.built_with = []
-    FakeTurboClient.result = None
-    monkeypatch.setattr(api_client, "TurboEAClient", FakeTurboClient)
-    return FakeTurboClient
-
-
 class TestRefresh:
-    def _seed(self, store):
-        store.tokens["old"] = TokenEntry("old-jwt", time.time() + 99999, "r1", "mcp:read")
-        store.refresh_tokens["r1"] = "old"
-
     @pytest.mark.asyncio
-    async def test_rotates_both_tokens_with_a_fresh_jwt(self, store, turbo):
-        self._seed(store)
-        turbo.result = jwt_with({"exp": 4102444800})
-        resp = await _handle_refresh({"refresh_token": "r1"})
+    async def test_relays_to_the_backend_and_issues_the_rotated_pair(self, backend, frozen):
+        resp = await _handle_refresh({"refresh_token": REFRESH_1})
         assert resp.status_code == 200
-        assert turbo.built_with == ["old-jwt"]
+        assert resp.headers["cache-control"] == "no-store"
+        assert resp.headers["pragma"] == "no-cache"
+        backend.refresh.assert_awaited_once_with(REFRESH_1)
         data = body(resp)
-        access, refresh = data.pop("access_token"), data.pop("refresh_token")
-        assert data == {"token_type": "Bearer", "expires_in": 3600, "scope": "mcp:read"}
-        assert len(access) == len(refresh) == 64
-        assert set(store.tokens) == {access}
-        assert store.refresh_tokens == {refresh: access}
-        entry = store.tokens[access]
-        assert entry.turbo_jwt == turbo.result
-        assert entry.turbo_jwt_exp == 4102444800.0
-        assert entry.refresh_token == refresh
-        assert entry.scope == "mcp:read"
-
-    @pytest.mark.asyncio
-    async def test_an_unknown_refresh_token(self, store, turbo):
-        resp = await _handle_refresh({})
-        assert resp.status_code == 400
-        assert body(resp) == {
-            "error": "invalid_grant",
-            "error_description": "Unknown refresh token",
+        access = data.pop("access_token")
+        assert data == {
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "refresh_token": REFRESH_2,
+            "scope": "mcp:read",
         }
-        assert turbo.built_with == []
+        assert await resolve_token(access) == SESSION_JWT
 
     @pytest.mark.asyncio
-    async def test_a_dangling_refresh_token_is_dropped(self, store, turbo):
-        store.refresh_tokens["r1"] = "gone"
-        store.refresh_tokens["r2"] = "other"
-        resp = await _handle_refresh({"refresh_token": "r1"})
-        assert resp.status_code == 400
-        assert body(resp) == {
-            "error": "invalid_grant",
-            "error_description": "Token entry not found",
-        }
-        assert store.refresh_tokens == {"r2": "other"}
+    async def test_the_renewed_token_lasts_the_backends_lifetime(self, backend, frozen):
+        backend.refresh.return_value = session(refresh_token=REFRESH_2, expires_in=900)
+        data = body(await _handle_refresh({"refresh_token": REFRESH_1}))
+        assert data["expires_in"] == 900
 
     @pytest.mark.asyncio
-    async def test_an_unrenewable_session_is_revoked(self, store, turbo):
-        self._seed(store)
-        store.tokens["keep"] = TokenEntry("k", time.time() + 99999, "r2", "mcp:read")
-        store.refresh_tokens["r2"] = "keep"
-        resp = await _handle_refresh({"refresh_token": "r1"})
+    async def test_the_answered_scope_is_the_sessions(self, backend):
+        backend.refresh.return_value = session(refresh_token=REFRESH_2, scope="mcp:other")
+        assert body(await _handle_refresh({"refresh_token": REFRESH_1}))["scope"] == "mcp:other"
+
+    @pytest.mark.asyncio
+    async def test_a_refused_session_must_sign_in_again(self, backend):
+        backend.refresh.return_value = None
+        resp = await _handle_refresh({"refresh_token": REFRESH_1})
         assert resp.status_code == 400
         assert body(resp) == {
             "error": "invalid_grant",
             "error_description": "Session expired, re-authenticate",
         }
-        assert set(store.tokens) == {"keep"}
-        assert store.refresh_tokens == {"r2": "keep"}
+
+    @pytest.mark.asyncio
+    async def test_an_outage_answers_503(self, backend):
+        backend.refresh.side_effect = RefreshUnavailableError("backend answered 502")
+        resp = await _handle_refresh({"refresh_token": REFRESH_1})
+        assert resp.status_code == 503
+        assert resp.headers["retry-after"] == "5"
+        assert resp.body == UNAVAILABLE
+
+    @pytest.mark.parametrize(
+        "token",
+        [
+            "",
+            "r1",
+            "tea1r",
+            "TEA1R.s1.1.sig",
+            "tea1.s1.1.sig",
+            "tea1a.s1.1.sig",
+            " tea1r.s1.1.sig",
+            None,
+            123,
+            ["tea1r.s1.1.sig"],
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_anything_but_a_backend_refresh_token_is_refused_here(self, backend, token):
+        resp = await _handle_refresh({"refresh_token": token})
+        assert resp.status_code == 400
+        assert body(resp) == {
+            "error": "invalid_grant",
+            "error_description": "Unknown refresh token",
+        }
+        backend.refresh.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_an_absent_refresh_token_is_refused_here(self, backend):
+        resp = await _handle_refresh({})
+        assert body(resp)["error_description"] == "Unknown refresh token"
+        backend.refresh.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_an_access_token_is_not_a_refresh_token(self, store, backend):
+        seed_code(store)
+        access = body(await _handle_code_exchange(exchange_body()))["access_token"]
+        resp = await _handle_refresh({"refresh_token": access})
+        assert body(resp)["error_description"] == "Unknown refresh token"
+        backend.refresh.assert_not_awaited()
+
+
+class TestSealAccessToken:
+    def test_seals_exactly_the_type_the_jwt_and_the_expiry(self):
+        token = oauth.seal_access_token("the.jwt.x", 1234.5)
+        assert token.startswith("tea1a.")
+        plain = oauth._token_fernet.decrypt(token[len("tea1a.") :])
+        assert plain == b'{"typ":"access","jwt":"the.jwt.x","exp":1234.5}'
+
+    def test_two_seals_of_the_same_jwt_differ(self):
+        assert oauth.seal_access_token("j", 5.0) != oauth.seal_access_token("j", 5.0)
 
 
 class TestResolveToken:
     @pytest.mark.asyncio
-    async def test_unknown_token(self, store, turbo):
-        assert await resolve_token("nope") is None
+    async def test_a_sealed_token_opens_to_its_jwt(self, frozen):
+        assert await resolve_token(oauth.seal_access_token("the.jwt.x", NOW + 60)) == "the.jwt.x"
 
     @pytest.mark.asyncio
-    async def test_a_jwt_far_from_expiry_is_returned_as_is(self, store, turbo):
-        store.tokens["a"] = TokenEntry("jwt", time.time() + TURBO_JWT_REFRESH_BUFFER + 60, "r", "s")
-        assert await resolve_token("a") == "jwt"
-        assert turbo.built_with == []
+    async def test_an_integer_expiry_is_read(self, frozen):
+        assert await resolve_token(seal({"typ": "access", "jwt": "j", "exp": int(NOW) + 1})) == "j"
 
     @pytest.mark.asyncio
-    async def test_a_jwt_near_expiry_is_renewed_in_place(self, store, turbo):
-        store.tokens["a"] = TokenEntry("jwt", time.time() + TURBO_JWT_REFRESH_BUFFER - 60, "r", "s")
-        turbo.result = jwt_with({"exp": 4102444800})
-        assert await resolve_token("a") == turbo.result
-        assert turbo.built_with == ["jwt"]
-        assert store.tokens["a"].turbo_jwt == turbo.result
-        assert store.tokens["a"].turbo_jwt_exp == 4102444800.0
+    async def test_it_never_asks_the_backend(self, backend, frozen, monkeypatch):
+        monkeypatch.setattr(api_client, "TurboEAClient", None)
+        assert await resolve_token(oauth.seal_access_token("j", NOW + 60)) == "j"
+        backend.create.assert_not_awaited()
+        backend.refresh.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_an_unrenewable_jwt_revokes_the_token(self, store, turbo):
-        store.tokens["a"] = TokenEntry("jwt", time.time() - 1, "r", "s")
-        store.refresh_tokens["r"] = "a"
-        store.refresh_tokens["r2"] = "b"
-        assert await resolve_token("a") is None
-        assert store.tokens == {}
-        assert store.refresh_tokens == {"r2": "b"}
+    async def test_it_expires_at_exactly_its_expiry(self, frozen, monkeypatch):
+        token = oauth.seal_access_token("j", NOW + 10)
+        assert await opens_at(NOW + 9.999, token, monkeypatch) == "j"
+        assert await opens_at(NOW + 10, token, monkeypatch) is None
+        assert await opens_at(NOW + 11, token, monkeypatch) is None
+
+    @pytest.mark.parametrize(
+        "token",
+        [
+            "",
+            "nope",
+            SESSION_JWT,
+            REFRESH_1,
+            "tea1a.",
+            "tea1a.garbage",
+            "tea1a.été",
+            "tea1.x.y",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_anything_not_sealed_here_does_not_resolve(self, frozen, token):
+        assert await resolve_token(token) is None
+
+    @pytest.mark.asyncio
+    async def test_the_prefix_is_required(self, frozen):
+        token = oauth.seal_access_token("j", NOW + 60)
+        assert await resolve_token(token[len("tea1a.") :]) is None
+        assert await resolve_token("tea1r." + token[len("tea1a.") :]) is None
+
+    @pytest.mark.asyncio
+    async def test_a_token_sealed_with_another_key_does_not_resolve(self, frozen):
+        claims = json.dumps({"typ": "access", "jwt": "j", "exp": NOW + 60}).encode()
+        other = Fernet(Fernet.generate_key()).encrypt(claims).decode()
+        assert await resolve_token("tea1a." + other) is None
+
+    @pytest.mark.parametrize(
+        "claims",
+        [
+            ["access", "j", NOW + 60],
+            "access",
+            {"jwt": "j", "exp": NOW + 60},
+            {"typ": "refresh", "jwt": "j", "exp": NOW + 60},
+            {"typ": "ACCESS", "jwt": "j", "exp": NOW + 60},
+            {"typ": "access", "exp": NOW + 60},
+            {"typ": "access", "jwt": "", "exp": NOW + 60},
+            {"typ": "access", "jwt": 7, "exp": NOW + 60},
+            {"typ": "access", "jwt": "j"},
+            {"typ": "access", "jwt": "j", "exp": str(NOW + 60)},
+            {"typ": "access", "jwt": "j", "exp": None},
+            {"typ": "access", "jwt": "j", "exp": NOW - 1},
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_a_malformed_seal_does_not_resolve(self, frozen, claims):
+        assert await resolve_token(seal(claims)) is None
+
+    @pytest.mark.asyncio
+    async def test_a_seal_that_is_not_json_does_not_resolve(self, frozen):
+        assert await resolve_token("tea1a." + oauth._token_fernet.encrypt(b"\xff").decode()) is None
 
 
 # ── Exact boundaries and absent parameters ──────────────────────────────────
-
-NOW = 1_700_000_000.0
-
-
-@pytest.fixture
-def frozen(monkeypatch):
-    monkeypatch.setattr(oauth.time, "time", lambda: NOW)
-    return NOW
 
 
 class TestBoundaries:
@@ -777,20 +997,6 @@ class TestBoundaries:
         monkeypatch.setattr(api_client, "get_sso_config", fetch)
         assert await oauth._get_sso_config() == {"n": 1}
         fetch.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_a_jwt_exactly_one_buffer_from_expiry_is_not_refreshed(
-        self, store, turbo, frozen
-    ):
-        store.tokens["a"] = TokenEntry("jwt", NOW + TURBO_JWT_REFRESH_BUFFER, "r", "s")
-        assert await resolve_token("a") == "jwt"
-        assert turbo.built_with == []
-
-    @pytest.mark.asyncio
-    async def test_revoking_tolerates_an_already_dropped_refresh_token(self, store, turbo):
-        store.tokens["a"] = TokenEntry("jwt", time.time() - 1, "gone", "s")
-        assert await resolve_token("a") is None
-        assert store.tokens == {}
 
     @pytest.mark.parametrize("token", ["a.b", jwt_with({"sub": "x"}), "h.!!!.s"])
     def test_the_fallback_is_exactly_one_hour(self, frozen, token):
@@ -842,7 +1048,7 @@ class TestAbsentParameters:
         assert pending.scope == "mcp:custom"
 
     @pytest.mark.asyncio
-    async def test_an_absent_code_is_the_empty_code(self, store):
+    async def test_an_absent_code_is_the_empty_code(self, store, backend):
         seed_code(store, code="")
         resp = await _handle_code_exchange(exchange_body(code=None))
         assert resp.status_code == 200
@@ -860,7 +1066,7 @@ class TestAbsentParameters:
         assert body(resp)["error_description"] == "PKCE verification failed"
 
     @pytest.mark.asyncio
-    async def test_an_absent_redirect_uri_is_the_empty_uri(self, store):
+    async def test_an_absent_redirect_uri_is_the_empty_uri(self, store, backend):
         seed_code(store)
         store.codes["code1"].redirect_uri = ""
         resp = await _handle_code_exchange(exchange_body(redirect_uri=None))
@@ -873,24 +1079,16 @@ class TestAbsentParameters:
         resp = await _handle_code_exchange(exchange_body(redirect_uri=None))
         assert body(resp)["error_description"] == "redirect_uri mismatch"
 
-    @pytest.mark.asyncio
-    async def test_an_absent_refresh_token_is_the_empty_token(self, store, turbo):
-        store.tokens["old"] = TokenEntry("jwt", time.time() + 99999, "", "s")
-        store.refresh_tokens[""] = "old"
-        turbo.result = jwt_with({"exp": 5})
-        resp = await _handle_refresh({})
-        assert resp.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_an_absent_refresh_token_matches_no_other_token(self, store, turbo):
-        store.tokens["old"] = TokenEntry("jwt", time.time() + 99999, "XXXX", "s")
-        store.refresh_tokens["XXXX"] = "old"
-        resp = await _handle_refresh({})
-        assert body(resp)["error_description"] == "Unknown refresh token"
+    def test_an_auth_code_names_the_default_client_unless_told(self):
+        assert AuthCode("c", "cid", CB, "s", "ch", "j").client_name == "MCP Client"
+        assert PendingAuth("cid", CB, "s", "st", "ch", "S256").client_name == "MCP Client"
 
 
 class TestTokenEndpointBodies:
-    def test_falls_back_to_json_when_the_form_cannot_be_parsed(self, app, store):
+    @pytest.mark.asyncio
+    async def test_falls_back_to_json_when_the_form_cannot_be_parsed(
+        self, app, store, backend, frozen
+    ):
         # A multipart body without a boundary makes the form parser raise.
         seed_code(store)
         resp = app.post(
@@ -899,7 +1097,7 @@ class TestTokenEndpointBodies:
             headers={"content-type": "multipart/form-data"},
         )
         assert resp.status_code == 200
-        assert resp.json()["access_token"] in store.tokens
+        assert await resolve_token(resp.json()["access_token"]) == SESSION_JWT
 
     def test_a_body_that_is_neither_form_nor_json_is_refused(self, app):
         resp = app.post(
