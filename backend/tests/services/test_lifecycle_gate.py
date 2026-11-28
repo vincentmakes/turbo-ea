@@ -143,6 +143,18 @@ class TestEffectiveLock:
         assert lg.lock_payload(MARKER, reg, cache=cache)["name"] == "Acme Sync"
         assert lg.lock_payload(other, reg, cache=cache) is None
 
+    def test_the_cached_lookup_judges_the_licence_at_the_given_time(self):
+        # The entitlement is in force today and long over a year from now
+        # (grace included): the cache must ask about that later time, too.
+        today = datetime.now(timezone.utc)
+        reg = _registry(expires_in_days=(today - NOW).days + 10)
+        later = today + timedelta(days=365)
+        assert lg.effective_lock(MARKER, reg, today) is not None
+        assert lg.effective_lock(MARKER, reg, later) is None
+        cache: dict = {}
+        assert lg.effective_lock(MARKER, reg, later, cache=cache) is None
+        assert cache == {KEY: None}
+
     def test_lock_payload_shape(self):
         reg = _registry(expires_in_days=None)
         assert lg.lock_payload(MARKER, reg) == {
@@ -363,6 +375,34 @@ class TestClamp:
     def test_matrix(self, lifecycle, phases, expected):
         assert lg.clamp_to_maintained(lifecycle, phases) == expected
 
+    def test_an_undated_maintained_phase_before_a_dated_one_sets_no_bound(self):
+        # plan is maintained but undated; active, maintained after it, still bounds.
+        lc = {"active": "2025-01-01", "phaseOut": "2020-01-01"}
+        assert lg.clamp_to_maintained(lc, ("plan", "active")) == {
+            "active": "2025-01-01",
+            "phaseOut": "2025-01-01",
+        }
+
+    def test_a_tie_between_bounds_keeps_the_earliest_phases_stored_value(self):
+        lc = {"plan": "2022-01-01", "active": "2022-01-01T00:00:00", "phaseOut": "2020-01-01"}
+        assert lg.clamp_to_maintained(lc, ("plan", "active"))["phaseOut"] == "2022-01-01"
+        lc = {"plan": "2030-01-01", "active": "2025-01-01T00:00:00", "endOfLife": "2025-01-01"}
+        assert lg.clamp_to_maintained(lc, ("active", "endOfLife"))["plan"] == "2025-01-01T00:00:00"
+
+    def test_a_date_equal_to_its_bound_keeps_its_own_string(self):
+        lc = {"active": "2022-01-01T00:00:00", "phaseOut": "2022-01-01"}
+        assert lg.clamp_to_maintained(lc, ("active",)) == lc
+        lc = {"plan": "2025-01-01", "active": "2025-01-01T00:00:00"}
+        assert lg.clamp_to_maintained(lc, ("active",)) == lc
+
+    def test_only_the_side_a_maintained_phase_is_on_bounds(self):
+        # The phase just before bounds from below only, the one just after from above.
+        lc = {"active": "2022-01-01", "phaseOut": "2025-01-01"}
+        assert lg.clamp_to_maintained(lc, ("active",)) == lc
+        assert lg.clamp_to_maintained(
+            {"plan": "2030-01-01", "phaseIn": "2025-01-01"}, ("phaseIn",)
+        ) == {"plan": "2025-01-01", "phaseIn": "2025-01-01"}
+
     def test_does_not_mutate_input(self):
         lifecycle = {"phaseIn": "2021-06-01", "active": "2021-01-01"}
         lg.clamp_to_maintained(lifecycle, ("active",))
@@ -389,6 +429,10 @@ class TestMergeMaintained:
     def test_values_outside_phases_are_ignored(self):
         out = lg.merge_maintained({}, {"active": "2020-01-01", "plan": "2019-01-01"}, ("active",))
         assert out == {"active": "2020-01-01"}
+
+    def test_removing_a_phase_that_was_never_set(self):
+        stored = {"plan": "2019-01-01"}
+        assert lg.merge_maintained(stored, {"endOfLife": None}, ("endOfLife",)) == stored
 
     def test_none_stored(self):
         assert lg.merge_maintained(None, {"active": "2020-01-01"}, ("active",)) == {

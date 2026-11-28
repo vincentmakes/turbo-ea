@@ -448,11 +448,23 @@ function scan(): Scan {
   return scanned;
 }
 
+// The first test pays for the whole scan: every locale bundle plus a
+// TypeScript parse of every file under src/. That takes about 2s locally but
+// is CPU-bound, so on a contended CI shard it can cross the suite's 15s
+// per-test budget (it did, at 15s, on a shard that ran 13 minutes instead of
+// 7) without anything being wrong. It gets a budget sized for one full-tree
+// parse; a genuine hang still fails.
+const SCAN_TIMEOUT_MS = 60_000;
+
 describeSourceScan("unused translation keys", () => {
-  itSourceScan(`reads at least ${MIN_REFERENCED_KEYS} English keys`, () => {
-    const { leaves, unused } = scan();
-    expect(leaves.length - unused.length).toBeGreaterThanOrEqual(MIN_REFERENCED_KEYS);
-  });
+  itSourceScan(
+    `reads at least ${MIN_REFERENCED_KEYS} English keys`,
+    () => {
+      const { leaves, unused } = scan();
+      expect(leaves.length - unused.length).toBeGreaterThanOrEqual(MIN_REFERENCED_KEYS);
+    },
+    SCAN_TIMEOUT_MS,
+  );
 
   itSourceScan("every English key is read by some code", () => {
     expect(

@@ -398,23 +398,23 @@ async def _apply_single_card(
             card.description = payload["description"]
         if payload.get("subtype"):
             card.subtype = payload["subtype"]
-        skipped_phases: list[str] = []
+        merged_attrs = {**(card.attributes or {}), **(payload.get("attributes") or {})}
+        locked = await _locked_fields(db, card.type, locked_by_type)
+        merged_attrs, skipped = field_gate.apply_field_lock(card.attributes, merged_attrs, locked)
+        _note_skipped_fields(staged, skipped)
+        card.attributes = merged_attrs
         if payload.get("lifecycle"):
             merged_lifecycle = {**(card.lifecycle or {}), **payload["lifecycle"]}
             # A phase an installed, licensed extension maintains keeps its
-            # stored date; the skip is noted on the staged row below.
+            # stored date; the skip is noted on the staged row, after any
+            # read-only field note.
             lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
             if lock is not None:
                 merged_lifecycle, skipped_phases = lifecycle_gate.apply_lifecycle_lock(
                     card.lifecycle, merged_lifecycle, lock.phases
                 )
+                _note_skipped_phases(staged, skipped_phases)
             card.lifecycle = merged_lifecycle
-        merged_attrs = {**(card.attributes or {}), **(payload.get("attributes") or {})}
-        locked = await _locked_fields(db, card.type, locked_by_type)
-        merged_attrs, skipped = field_gate.apply_field_lock(card.attributes, merged_attrs, locked)
-        _note_skipped_fields(staged, skipped)
-        _note_skipped_phases(staged, skipped_phases)
-        card.attributes = merged_attrs
         if payload.get("external_id"):
             card.external_id = payload["external_id"]
         if parent_id is not None:

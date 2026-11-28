@@ -394,18 +394,16 @@ def skip_maintained_lifecycle_changes(diff: dict, marker: object, sys_id: str) -
     lock = lifecycle_gate.effective_lock(marker)
     if lock is None:
         return diff
-    skipped = [
-        path
-        for path in diff
-        if path.startswith("lifecycle.") and path.split(".", 1)[1] in lock.phases
-    ]
+    # The diff path of each maintained phase, mapped back to the phase.
+    maintained = {f"lifecycle.{phase}": phase for phase in lock.phases}
+    skipped = [path for path in diff if path in maintained]
     if not skipped:
         return diff
     logger.warning(
         "ServiceNow sync: lifecycle phases maintained by %s not updated for %s: %s",
         lock.name,
         sys_id,
-        ", ".join(path.split(".", 1)[1] for path in skipped),
+        ", ".join(maintained[path] for path in skipped),
     )
     return {path: change for path, change in diff.items() if path not in skipped}
 

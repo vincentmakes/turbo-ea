@@ -651,6 +651,22 @@ class TestMaintainedLifecyclePhases:
         untouched = {"name": {"old": "a", "new": "b"}}
         assert snow.skip_maintained_lifecycle_changes(untouched, self.MARKER, S1) is untouched
 
+    def test_every_skipped_phase_is_logged_in_one_line(self, caplog):
+        marker = {"ext": "acme-sync", "phases": ["active", "endOfLife"]}
+        diff = {
+            "lifecycle.endOfLife": {"old": "2030-01-01", "new": "2031-01-01"},
+            "lifecycle.plan": {"old": None, "new": "2019-01-01"},
+            "lifecycle.active": {"old": None, "new": "2020-01-01"},
+        }
+        with caplog.at_level(logging.WARNING, logger=snow.logger.name):
+            kept = snow.skip_maintained_lifecycle_changes(diff, marker, S1)
+        assert kept == {"lifecycle.plan": {"old": None, "new": "2019-01-01"}}
+        (record,) = [r for r in caplog.records if r.name == snow.logger.name]
+        assert record.getMessage() == (
+            f"ServiceNow sync: lifecycle phases maintained by Acme Sync not updated for {S1}: "
+            "endOfLife, active"
+        )
+
     def test_an_ineffective_claim_skips_nothing(self):
         from app.services.extensions.registry import extension_registry
 
@@ -658,7 +674,7 @@ class TestMaintainedLifecyclePhases:
         diff = {"lifecycle.endOfLife": {"old": "2030-01-01", "new": "2031-01-01"}}
         assert snow.skip_maintained_lifecycle_changes(diff, self.MARKER, S1) is diff
 
-    async def test_an_update_skips_the_maintained_phase(self, db, env, monkeypatch):
+    async def test_an_update_skips_the_maintained_phase(self, db, env, monkeypatch, caplog):
         engine, _ = _engine(db, monkeypatch, snow_table_handler())
         card = await _card(
             db,
@@ -682,7 +698,10 @@ class TestMaintainedLifecyclePhases:
                 "lifecycle.active": {"old": None, "new": "2020-01-01"},
             },
         )
-        assert await engine._apply_update(staged, env["admin"].id) is True
+        with caplog.at_level(logging.WARNING, logger=snow.logger.name):
+            assert await engine._apply_update(staged, env["admin"].id) is True
+        # The skip is logged against the ServiceNow record it came from.
+        assert f"not updated for {S1}: endOfLife" in caplog.text
         assert card.name == "New"
         assert card.lifecycle == {"endOfLife": "2030-01-01", "active": "2020-01-01"}
         (event,) = await _events(db, "card.updated")

@@ -979,6 +979,56 @@ class TestMaintainedLifecycleRollbackOwnership:
         assert card.lifecycle_maintained == {"ext": self.B, "phases": ["active"]}
         assert card.lifecycle == {"plan": "2019-01-01", "active": "2022-01-01"}
 
+    async def test_a_kept_foreign_claim_still_restores_the_fields_after_it(self, db, actor):
+        from app.services.rollback_service import _apply_restore_card_fields
+
+        self._load()
+        card = await create_card(
+            db,
+            name="Renamed",
+            lifecycle={"active": "2022-01-01"},
+            lifecycle_maintained={"ext": self.B, "phases": ["active"]},
+        )
+        # The claim comes first in the snapshot; the name after it still goes back.
+        op = {
+            "op": "restore_card_fields",
+            "card_id": str(card.id),
+            "maintainer": self.A,
+            "fields": {"lifecycle_maintained": None, "name": "Original"},
+        }
+        result = await _apply_restore_card_fields(db, op)
+        assert result["status"] == "ok"
+        assert result["lifecycle_claim_kept"] == "Beta Sync"
+        assert "locked_phases" not in result
+        assert card.name == "Original"
+        assert card.lifecycle_maintained == {"ext": self.B, "phases": ["active"]}
+
+    async def test_an_own_claim_is_restored_to_its_earlier_value_before_the_dates(self, db, actor):
+        from app.services.rollback_service import _apply_restore_card_fields
+
+        self._load()
+        card = await create_card(
+            db,
+            name="Widened",
+            lifecycle={"active": "2021-01-01", "endOfLife": "2030-01-01"},
+            lifecycle_maintained={"ext": self.A, "phases": ["active", "endOfLife"]},
+        )
+        # The owner's maintain write widened the claim and moved the dates;
+        # undoing it puts back the narrower claim (not None) and then the dates.
+        op = {
+            "op": "restore_card_fields",
+            "card_id": str(card.id),
+            "maintainer": self.A,
+            "fields": {
+                "lifecycle_maintained": {"ext": self.A, "phases": ["active"]},
+                "lifecycle": {"active": "2020-01-01"},
+            },
+        }
+        result = await _apply_restore_card_fields(db, op)
+        assert result == {**op, "status": "ok"}
+        assert card.lifecycle_maintained == {"ext": self.A, "phases": ["active"]}
+        assert card.lifecycle == {"active": "2020-01-01"}
+
     def test_the_plan_names_the_maintainer_of_a_maintain_write_only(self):
         from app.services.rollback_service import _plan_card_updated
 

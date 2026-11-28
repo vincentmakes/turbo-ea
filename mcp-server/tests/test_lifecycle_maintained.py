@@ -76,6 +76,25 @@ class TestRefusalMessage:
         assert out["extension"] is None
         assert out["cards"] == ["c1", "c2"]
 
+    def test_the_whole_message(self):
+        out = server._lifecycle_maintained_refusal(["endOfLife"], "Acme Sync")
+        assert out["message"] == (
+            "The End of Life date of this card is set automatically by an installed "
+            "extension (Acme Sync) and cannot be set by hand while it is active. Leave "
+            "those phases out of the change, or ask an administrator to disable the "
+            "extension's rule."
+        )
+
+    def test_an_unknown_phase_is_named_as_sent(self):
+        out = server._lifecycle_maintained_refusal(["retired"], "Acme Sync")
+        assert out["message"].startswith("The retired date of this card is set")
+        assert out["phases"] == ["retired"]
+
+    def test_no_phase_names_the_lifecycle(self):
+        out = server._lifecycle_maintained_refusal([], "Acme Sync")
+        assert out["message"].startswith("The lifecycle date of this card is set")
+        assert out["phases"] == []
+
     def test_detail_is_recognised_only_on_a_lifecycle_403(self):
         assert server._lifecycle_maintained_detail(_http_error(403, _maintained_detail()))
         assert (
@@ -236,6 +255,51 @@ class TestTransitionCardLifecycle:
 
 
 class TestClampToMaintained:
+    def test_an_undated_maintained_phase_sets_no_bound(self):
+        # The first maintained phase has no date; a later one still bounds.
+        assert server._clamp_to_maintained(
+            {"active": "2025-01-01", "phaseOut": "2020-01-01"}, ["plan", "active"]
+        ) == {"active": "2025-01-01", "phaseOut": "2025-01-01"}
+
+    def test_lower_bound_is_the_latest_earlier_maintained_date(self):
+        clamp = server._clamp_to_maintained
+        lc = {"plan": "2020-01-01", "active": "2023-01-01", "phaseOut": "2021-01-01"}
+        assert clamp(lc, ["plan", "active"])["phaseOut"] == "2023-01-01"
+        lc = {"plan": "2023-01-01", "active": "2020-01-01", "phaseOut": "2021-01-01"}
+        assert clamp(lc, ["plan", "active"])["phaseOut"] == "2023-01-01"
+
+    def test_upper_bound_is_the_earliest_later_maintained_date(self):
+        clamp = server._clamp_to_maintained
+        lc = {"plan": "2031-01-01", "active": "2028-01-01", "endOfLife": "2026-01-01"}
+        assert clamp(lc, ["active", "endOfLife"])["plan"] == "2026-01-01"
+        lc = {"plan": "2031-01-01", "active": "2026-01-01", "endOfLife": "2028-01-01"}
+        assert clamp(lc, ["active", "endOfLife"])["plan"] == "2026-01-01"
+
+    def test_a_tie_keeps_the_earliest_phases_stored_value(self):
+        clamp = server._clamp_to_maintained
+        lc = {"plan": "2022-01-01", "active": "2022-01-01T00:00:00", "phaseOut": "2020-01-01"}
+        assert clamp(lc, ["plan", "active"])["phaseOut"] == "2022-01-01"
+        lc = {"plan": "2030-01-01", "active": "2025-01-01T00:00:00", "endOfLife": "2025-01-01"}
+        assert clamp(lc, ["active", "endOfLife"])["plan"] == "2025-01-01T00:00:00"
+
+    def test_a_date_equal_to_its_bound_is_kept_verbatim(self):
+        clamp = server._clamp_to_maintained
+        lc = {"active": "2022-01-01T00:00:00", "phaseOut": "2022-01-01"}
+        assert clamp(lc, ["active"]) == lc
+        lc = {"plan": "2025-01-01", "active": "2025-01-01T00:00:00"}
+        assert clamp(lc, ["active"]) == lc
+
+    def test_only_neighbours_on_the_right_side_bound(self):
+        clamp = server._clamp_to_maintained
+        # The phase just before bounds from below only.
+        lc = {"active": "2022-01-01", "phaseOut": "2025-01-01"}
+        assert clamp(lc, ["active"]) == lc
+        # The phase just after bounds from above.
+        assert clamp({"plan": "2030-01-01", "phaseIn": "2025-01-01"}, ["phaseIn"]) == {
+            "plan": "2025-01-01",
+            "phaseIn": "2025-01-01",
+        }
+
     def test_mirrors_the_backend_rule(self):
         clamp = server._clamp_to_maintained
         # Lower bound: the latest maintained date of an earlier phase.

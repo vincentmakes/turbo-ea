@@ -35,7 +35,7 @@ from __future__ import annotations
 from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -228,19 +228,23 @@ def _bounds(
     maintained date of an earlier phase, and the EARLIEST maintained date of a
     later phase (each with the stored value it came from)."""
     idx = PHASES.index(phase)
-    lower: tuple[date, Any] | None = None
-    upper: tuple[date, Any] | None = None
-    for other in maintained:
-        raw = lifecycle.get(other)
-        d = parse_lifecycle_date(raw)
-        if d is None:
-            continue
-        other_idx = PHASES.index(other)
-        if other_idx < idx and (lower is None or d > lower[0]):
-            lower = (d, raw)
-        elif other_idx > idx and (upper is None or d < upper[0]):
-            upper = (d, raw)
+    dated = {
+        p: (d, lifecycle[p])
+        for p in maintained
+        if (d := parse_lifecycle_date(lifecycle.get(p))) is not None
+    }
+    earlier = [dated[p] for p in PHASES[:idx] if p in dated]
+    later = [dated[p] for p in PHASES[idx + 1 :] if p in dated]
+    # max / min keep the first of equal dates: the earliest phase's stored
+    # string wins a tie.
+    lower = max(earlier, key=_bound_date) if earlier else None
+    upper = min(later, key=_bound_date) if later else None
     return lower, upper
+
+
+def _bound_date(bound: tuple[date, Any]) -> date:
+    """The date of a ``(date, stored value)`` bound in :func:`_bounds`."""
+    return bound[0]
 
 
 def clamp_to_maintained(lifecycle: Mapping[str, Any], phases: Collection[str]) -> dict[str, Any]:
@@ -302,7 +306,7 @@ def merge_maintained(
 
 
 def _labels(phases: Collection[str]) -> str:
-    return ", ".join(PHASE_LABELS.get(p, p) for p in phases)
+    return ", ".join(PHASE_LABELS[p] for p in phases)
 
 
 def maintained_error(refused: list[str], lock: LifecycleLock) -> HTTPException:
@@ -371,11 +375,11 @@ def checked_bulk_lifecycle(
             out[card_id] = checked_lifecycle(stored, incoming, lock)
         except HTTPException as exc:
             refused_cards.append(card_id)
-            refused_phases.update(exc.detail["phases"])
+            refused_phases.update(cast(dict[str, Any], exc.detail)["phases"])
             first_lock = first_lock or lock
     if first_lock is not None:
         err = maintained_error(list(ordered_phases(refused_phases)), first_lock)
-        err.detail["cards"] = refused_cards
+        cast(dict[str, Any], err.detail)["cards"] = refused_cards
         raise err
     return out
 
@@ -409,10 +413,8 @@ async def release_extension_claims(db: AsyncSession, key: str) -> int:
     cards = (
         (
             await db.execute(
-                select(Card).where(
-                    Card.lifecycle_maintained.is_not(None),
-                    Card.lifecycle_maintained["ext"].astext == key,
-                )
+                # A NULL marker has no "ext", so it never equals ``key``.
+                select(Card).where(Card.lifecycle_maintained["ext"].astext == key)
             )
         )
         .scalars()

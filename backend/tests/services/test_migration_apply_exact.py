@@ -1830,6 +1830,34 @@ def test_no_skipped_field_leaves_the_row_and_the_log_alone(caplog):
     assert [r for r in caplog.records if r.name == LOGGER] == []
 
 
+def test_a_skipped_phase_note_names_every_phase_and_is_logged(caplog):
+    staged = SimpleNamespace(source_id="P7", error_message=None)
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        ap._note_skipped_phases(staged, ["active", "endOfLife"])
+    note = "Lifecycle phases maintained by an extension not imported: active, endOfLife"
+    assert staged.error_message == note
+    records = [r for r in caplog.records if r.name == LOGGER]
+    assert [(r.levelno, r.msg, r.args) for r in records] == [
+        (logging.WARNING, "migration apply: card %s — %s", ("P7", note))
+    ]
+
+
+def test_a_skipped_phase_note_after_a_long_field_note_is_cut_to_a_thousand_characters():
+    staged = SimpleNamespace(source_id="P8", error_message="x" * 990)
+    ap._note_skipped_phases(staged, ["active"])
+    full = "x" * 990 + "; Lifecycle phases maintained by an extension not imported: active"
+    assert staged.error_message == full[:1000]
+    assert len(staged.error_message) == 1000
+
+
+def test_no_skipped_phase_leaves_the_row_and_the_log_alone(caplog):
+    staged = SimpleNamespace(source_id="P9", error_message="kept")
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        ap._note_skipped_phases(staged, [])
+    assert staged.error_message == "kept"
+    assert [r for r in caplog.records if r.name == LOGGER] == []
+
+
 async def test_a_create_gates_its_attributes_against_an_empty_stored_dict(
     db, env, published, no_extensions, monkeypatch
 ):

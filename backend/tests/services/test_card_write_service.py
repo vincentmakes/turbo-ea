@@ -321,3 +321,30 @@ class TestSelfNotificationOnUpdate:
         await svc.update_card(db, ext_actor(), card, {"description": "changed by a connector"})
 
         assert await self._recipients(db) == {editor.id, other.id}
+
+
+class TestLifecycleClaimIsTheBridgesAlone:
+    """Only the data bridge's maintain / release calls write
+    ``lifecycle_maintained``; any other ``update_card`` caller has it dropped."""
+
+    async def test_a_plain_update_cannot_plant_a_claim(self, db, env):
+        card = await create_card(db, card_type="Application", name="Unclaimed")
+        changed = await svc.update_card(
+            db,
+            WriteActor.from_user(env["user"]),
+            card,
+            {"lifecycle_maintained": {"ext": "sample-connector", "phases": ["active"]}},
+        )
+        assert changed is False
+        assert card.lifecycle_maintained is None
+
+    async def test_a_plain_update_cannot_lift_a_claim(self, db, env):
+        claim = {"ext": "sample-connector", "phases": ["active"]}
+        card = await create_card(
+            db, card_type="Application", name="Claimed", lifecycle_maintained=claim
+        )
+        await svc.update_card(
+            db, ext_actor(), card, {"name": "Renamed", "lifecycle_maintained": None}
+        )
+        assert card.name == "Renamed"
+        assert card.lifecycle_maintained == claim

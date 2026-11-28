@@ -422,32 +422,34 @@ def _clamp_to_maintained(lifecycle: dict, maintained: list) -> dict:
     """
     locked = [p for p in _PHASE_ORDER if p in set(maintained)]
     out = dict(lifecycle)
-    if not locked:
-        return out
-    for phase in _PHASE_ORDER:
+    # A maintained phase is never rewritten below, so its date is read once.
+    # An unreadable maintained date sets no bound.
+    dated = {p: (d, out[p]) for p in locked if (d := _phase_date(out.get(p))) is not None}
+    for idx, phase in enumerate(_PHASE_ORDER):
         if phase in locked:
             continue
         mine = _phase_date(out.get(phase))
         if mine is None:
             continue
-        idx = _PHASE_ORDER.index(phase)
-        lower: tuple[date, object] | None = None
-        upper: tuple[date, object] | None = None
-        for other in locked:
-            raw = out.get(other)
-            d = _phase_date(raw)
-            if d is None:
-                continue
-            if _PHASE_ORDER.index(other) < idx and (lower is None or d > lower[0]):
-                lower = (d, raw)
-            elif _PHASE_ORDER.index(other) > idx and (upper is None or d < upper[0]):
-                upper = (d, raw)
-        if lower is not None and mine < lower[0]:
-            out[phase] = lower[1]
-            mine = lower[0]
-        if upper is not None and mine > upper[0]:
-            out[phase] = upper[1]
+        earlier = [dated[p] for p in _PHASE_ORDER[:idx] if p in dated]
+        later = [dated[p] for p in _PHASE_ORDER[idx + 1 :] if p in dated]
+        # max / min keep the first of equal dates, as the backend's strict
+        # comparisons do: the earliest phase's stored string wins a tie.
+        if earlier:
+            lower = max(earlier, key=_bound_date)
+            if mine < lower[0]:
+                out[phase] = lower[1]
+                mine = lower[0]
+        if later:
+            upper = min(later, key=_bound_date)
+            if mine > upper[0]:
+                out[phase] = upper[1]
     return out
+
+
+def _bound_date(bound: tuple[date, object]) -> date:
+    """The date of a ``(date, stored value)`` bound in :func:`_clamp_to_maintained`."""
+    return bound[0]
 
 
 def _lifecycle_maintained_detail(exc: Exception) -> dict | None:

@@ -558,14 +558,16 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
     # is never replaced or wiped by rolling back an older batch.
     current_lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
     maintainer = op.get("maintainer")
-    own_claim = current_lock is None or current_lock.ext == maintainer
+    # Another extension's claim in force right now, which this rollback keeps.
+    foreign_lock = current_lock if current_lock and current_lock.ext != maintainer else None
+    own_claim = foreign_lock is None
     lifecycle_lock = None if maintainer and own_claim else current_lock
-    locked_phases: list[str] = []
-    claim_kept: str | None = None
+    result = _ok(op)
     for k, v in (op.get("fields") or {}).items():
         if k == "lifecycle_maintained":
-            if not own_claim:
-                claim_kept = current_lock.name
+            if foreign_lock is not None:
+                # The display name of the extension whose claim stayed in place.
+                result["lifecycle_claim_kept"] = foreign_lock.name
                 continue
             setattr(card, k, v)
             continue
@@ -579,6 +581,8 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
             card.lifecycle, locked_phases = lifecycle_gate.apply_lifecycle_snapshot_lock(
                 card.lifecycle, v, lifecycle_lock.phases
             )
+            if locked_phases:
+                result["locked_phases"] = locked_phases
             continue
         if k == "parent_id" and v:
             v = uuid.UUID(v)
@@ -594,12 +598,6 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
                 restored_attrs.pop(key, None)
             else:
                 restored_attrs[key] = old
-    result = _ok(op)
-    if locked_phases:
-        result["locked_phases"] = locked_phases
-    if claim_kept is not None:
-        # The display name of the extension whose claim stayed in place.
-        result["lifecycle_claim_kept"] = claim_kept
     if restored_attrs is None:
         return result
     # A field an inactive or unlicensed extension contributed is read-only:

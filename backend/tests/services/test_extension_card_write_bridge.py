@@ -725,7 +725,14 @@ class TestMaintainLifecycle:
         assert await _batches(db) == []
 
     @pytest.mark.parametrize(
-        "grants", [["core.cards.write"], ["core.cards.maintain_lifecycle"], ["core.cards.read"]]
+        "grants",
+        [
+            ["core.cards.write"],
+            ["core.cards.maintain_lifecycle"],
+            ["core.cards.read"],
+            # Reading is not writing: the maintain grant needs the WRITE grant.
+            ["core.cards.read", "core.cards.maintain_lifecycle"],
+        ],
     )
     async def test_both_grants_are_required(self, db, env, grants):
         load_registry(grants=grants)
@@ -763,6 +770,69 @@ class TestMaintainLifecycle:
         assert out.lifecycle == {"active": "2020-01-01"}
         assert out.lifecycle_maintained == {"ext": KEY, "phases": ["active", "endOfLife"]}
 
+    def test_values_validation_messages(self):
+        normalise = bridge_mod.normalise_maintained_values
+        with pytest.raises(ExtensionDataError) as exc:
+            normalise({})
+        assert str(exc.value) == (
+            "values must be a non-empty object of phase → date (or None to remove it)"
+        )
+        with pytest.raises(ExtensionDataError) as exc:
+            normalise({"bogus": "2020-01-01"})
+        assert str(exc.value) == (
+            "lifecycle: unknown phase 'bogus' "
+            "(expected one of plan, phaseIn, active, phaseOut, endOfLife)"
+        )
+        # A date object is not a date STRING; only strings are read.
+        from datetime import date
+
+        with pytest.raises(ExtensionDataError, match="'active' is not a date"):
+            normalise({"active": date(2020, 1, 1)})
+
+    def test_empty_and_none_remove_and_later_values_still_count(self):
+        out = bridge_mod.normalise_maintained_values(
+            {"endOfLife": "", "phaseOut": None, "active": "2020-1-2"}
+        )
+        assert out == {"endOfLife": None, "phaseOut": None, "active": "2020-01-02"}
+
+    async def test_an_invalid_card_id_is_named(self, db, env):
+        load_registry(grants=MAINTAIN)
+        with pytest.raises(ExtensionDataError, match=r"^Invalid card id: 'nope'$"):
+            await ExtensionData(KEY).maintain_lifecycle("nope", {"active": "2020-01-01"})
+
+    async def test_a_card_deleted_before_the_write_is_reported(self, db, env, monkeypatch):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(db, card_type="Application", name="Vanishing")
+        card_id = card.id
+        bridge = ExtensionData(KEY)
+        original = bridge._write
+
+        async def deleting_write(op, **kwargs):
+            # Another session deletes the card between the read and the write.
+            await db.delete(card)
+            await db.flush()
+            return await original(op, **kwargs)
+
+        monkeypatch.setattr(bridge, "_write", deleting_write)
+        with pytest.raises(ExtensionDataError, match=rf"^Card {card_id} not found$"):
+            await bridge.maintain_lifecycle(str(card_id), {"active": "2020-01-01"})
+
+    async def test_dry_run_publishes_no_event(self, db, env, monkeypatch):
+        from app.services.event_bus import event_bus
+
+        load_registry(grants=MAINTAIN)
+        card = await create_card(db, card_type="Application", name="Quiet")
+        published: list = []
+
+        async def spy(*args, **kwargs):
+            published.append(args)
+
+        monkeypatch.setattr(event_bus, "publish", spy)
+        await ExtensionData(KEY).maintain_lifecycle(
+            str(card.id), {"active": "2020-01-01"}, dry_run=True
+        )
+        assert published == []
+
     async def test_unknown_card_is_refused(self, db, env):
         load_registry(grants=MAINTAIN)
         with pytest.raises(ExtensionDataError, match="not found"):
@@ -777,8 +847,13 @@ class TestMaintainLifecycle:
             lifecycle={"active": "2019-01-01"},
             lifecycle_maintained={"ext": "other-ext", "phases": ["active"]},
         )
-        with pytest.raises(ExtensionDataError, match="maintained by the extension Other Ext"):
+        # Refused by the bridge itself, before any audit batch is opened.
+        with pytest.raises(
+            ExtensionDataError,
+            match=f"^The lifecycle of card {card.id} is maintained by the extension Other Ext$",
+        ):
             await ExtensionData(KEY).maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        assert await _batches(db) == []
         await db.refresh(card)
         assert card.lifecycle == {"active": "2019-01-01"}
         assert card.lifecycle_maintained == {"ext": "other-ext", "phases": ["active"]}

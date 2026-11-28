@@ -1291,7 +1291,8 @@ class ExtensionData:
                 await db.refresh(card)
             return _to_ext_card(card)
 
-        return await self._write(op, dry_run=dry_run, grant=lifecycle_gate.MAINTAIN_GRANT)
+        # Both grants were checked above; ``_write`` re-checks the write grant.
+        return await self._write(op, dry_run=dry_run)
 
     async def maintain_lifecycle(
         self,
