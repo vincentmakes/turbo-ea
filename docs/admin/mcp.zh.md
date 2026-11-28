@@ -335,14 +335,14 @@ MCP 服务器提供 **85 个工具**，分为两组：**48 个读取工具** 用
 | 工具 | 描述 |
 |------|------|
 | `create_cards_bulk` | 在一次调用中创建多张卡片（例如电子表格的多行）。支持同一批次内按名称引用父卡片，服务端执行拓扑排序。 |
-| `transition_card_lifecycle` | 推动卡片经过审批或生命周期各阶段。 |
+| `transition_card_lifecycle` | 推动卡片经过审批或生命周期各阶段。 由已安装扩展自动设置的阶段（参见[由扩展设置的生命周期日期](extensions.md#lifecycle-dates-set-by-an-extension)）会以 `lifecycle_maintained` 拒绝，预览中同样如此，并指明阶段和扩展。 |
 | `create_risks` | 在 EA 风险登记册中创建条目。 |
 | `update_risks` | 更新风险登记册条目（字段、关联卡片）。 |
 | `add_card_comment` | 在卡片上发表评论——一种非破坏性、可审阅的备注，而不是直接修改字段。 |
 | `add_document_comment` | 在决策或 SoAW 上发表评论：新的主题（可选择关联到某个章节），或对某个主题的回复。评论为纯文本；提及只能在 Web 界面中进行。需要 `adr.comment` / `soaw.comment` 权限，或是该文档的签署人。已发表的评论无法通过 `rollback_batch` 撤销；请在 Web 界面的讨论中将其删除。 |
 | `create_soaw` | 为某项举措创建架构工作说明书。 |
 | `assign_stakeholders` | 在卡片上分配或移除干系人角色。 |
-| `update_cards_bulk` | 在一次调用中对多张卡片进行字段级修补。 |
+| `update_cards_bulk` | 在一次调用中对多张卡片进行字段级修补。 对由已安装扩展自动设置的阶段所做的 `lifecycle` 更改会以 `lifecycle_maintained` 拒绝，并指明阶段和卡片；提交时，调用中较早部分已更新的卡片会列在 `applied_card_ids` 中（可用 `rollback_batch` 撤销）。 |
 | `create_adr` | 创建架构决策记录，可带有指向其他决策的类型化关联（`replaces`、`amends`、`revokes`、`relates`）、决策者、参与者和日期。取代或撤销决策即通过这种方式完成：创建一项带有 `replaces` / `revokes` 关联的新决策，它在签署后生效。 |
 | `update_adr` | 更新草稿 ADR（标题、章节、关联卡片、类型化关联、人员、日期、变更摘要）。审核中的决策只接受关联卡片的更改，已签署的决策永远不会被编辑。 |
 | `sign_adr` | 签署 ADR（需要 `adr.sign` 权限；否则返回一个界面深层链接，供在浏览器中签署）。 |

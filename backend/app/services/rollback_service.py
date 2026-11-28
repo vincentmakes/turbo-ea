@@ -86,7 +86,7 @@ from app.models.tag import CardTag, Tag
 from app.models.todo import Todo
 from app.services import adr_service, review_outcome
 from app.services.event_bus import event_bus
-from app.services.extensions import field_gate
+from app.services.extensions import field_gate, lifecycle_gate
 from app.services.mutation_batch_service import batch_to_dict, create_batch
 
 # ---------------------------------------------------------------------------
@@ -148,11 +148,24 @@ def _plan_card_updated(event: Event, data: dict) -> dict[str, Any]:
     if data.get("source") in _DERIVED_CARD_UPDATE_SOURCES:
         return _unsupported(event, _DERIVED_CARD_UPDATE_REASON)
     changes = data.get("changes") or {}
-    return {
+    op = {
         "op": "restore_card_fields",
         "card_id": _card_id_of(event, data),
         "fields": {k: v.get("old") for k, v in changes.items()},
     }
+    # A maintain / release write of the data bridge (SDK 1.22) names the
+    # extension that made it: rolling such a write back restores the dates AND
+    # the claim, unblocked by that extension's own claim. Any other write —
+    # the owner's plain ``update_card`` or an ``on_behalf_of`` edit included —
+    # carries no maintainer and is restored like a foreign one, so its
+    # whole-dict lifecycle snapshot cannot revert the maintained phases.
+    maintainer = data.get("lifecycle_maintainer")
+    if not maintainer and "lifecycle_maintained" in changes and data.get("ext"):
+        # Only the two bridge calls ever write the claim column.
+        maintainer = data["ext"]
+    if maintainer:
+        op["maintainer"] = maintainer
+    return op
 
 
 def _plan_relation_created(event: Event, data: dict) -> dict[str, Any]:
@@ -537,12 +550,39 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
     # UUID; everything else is set verbatim.
     legacy_attrs: dict[str, Any] = {}
     restored_attrs: dict[str, Any] | None = None
+    # Lifecycle phases an installed, licensed extension maintains keep their
+    # current dates and are reported — unless the change being undone is a
+    # maintain / release write of the extension whose claim is in force (or
+    # no claim is in force at all): then both the dates and the claim go back.
+    # The claim itself is restored only then; another extension's live claim
+    # is never replaced or wiped by rolling back an older batch.
+    current_lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
+    maintainer = op.get("maintainer")
+    # Another extension's claim in force right now, which this rollback keeps.
+    foreign_lock = current_lock if current_lock and current_lock.ext != maintainer else None
+    own_claim = foreign_lock is None
+    lifecycle_lock = None if maintainer and own_claim else current_lock
+    result = _ok(op)
     for k, v in (op.get("fields") or {}).items():
+        if k == "lifecycle_maintained":
+            if foreign_lock is not None:
+                # The display name of the extension whose claim stayed in place.
+                result["lifecycle_claim_kept"] = foreign_lock.name
+                continue
+            setattr(card, k, v)
+            continue
         if k.startswith(_LEGACY_ATTR_PREFIX):
             legacy_attrs[k[len(_LEGACY_ATTR_PREFIX) :]] = v
             continue
         if k == "attributes":
             restored_attrs = dict(v or {})
+            continue
+        if k == "lifecycle" and lifecycle_lock is not None:
+            card.lifecycle, locked_phases = lifecycle_gate.apply_lifecycle_snapshot_lock(
+                card.lifecycle, v, lifecycle_lock.phases
+            )
+            if locked_phases:
+                result["locked_phases"] = locked_phases
             continue
         if k == "parent_id" and v:
             v = uuid.UUID(v)
@@ -559,7 +599,7 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
             else:
                 restored_attrs[key] = old
     if restored_attrs is None:
-        return _ok(op)
+        return result
     # A field an inactive or unlicensed extension contributed is read-only:
     # the rollback keeps its current value and reports it, restoring the rest.
     # The snapshot is the whole column, so a locked key missing from it did
@@ -569,8 +609,8 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
         card.attributes, restored_attrs, locked
     )
     if skipped:
-        return {**_ok(op), "locked_fields": skipped}
-    return _ok(op)
+        return {**result, "locked_fields": skipped}
+    return result
 
 
 async def _apply_delete_relation(db: AsyncSession, op: dict[str, Any]) -> dict[str, Any]:

@@ -99,6 +99,8 @@ Naviger til **Admin > Undersøgelser > [Undersøgelsesnavn] > Resultater** for a
 
 Når et svar anvendes, gennemgår det de samme kontroller som en redigering direkte på kortet. En værdi, som kortet afviser — fx en mulighed, der ikke længere findes — rapporteres for det svar, og intet af det anvendes, mens de øvrige svar stadig anvendes. Hver ændring vises på kortets fane **Historik** under den administrator, der anvendte den, med en markering **via undersøgelsen**, der navngiver undersøgelsen; holder du musen over markeringen, ses det, hvem der svarede. Hele anvendelsen er én post i **Admin → Revisionslog** og kan derfor rulles tilbage derfra.
 
+Et svar til en livscyklusdato, som en installeret udvidelse angiver automatisk (se [Livscyklusdatoer angivet af en udvidelse](extensions.md#lifecycle-dates-set-by-an-extension)), anvendes ikke — heller ikke en ryddet dato — og den gemte dato bevares; resten af svaret anvendes stadig. En advarsel over resultaterne siger, hvor mange svar der blev sprunget over, med angivelse af hvert kort og dets livscyklusfaser.
+
 ## Sletning af en undersøgelse
 
 En undersøgelse kan slettes uanset status: åbn menuen **⋮** i dens række under **Admin > Undersøgelser**, eller brug **Slet** i undersøgelsesbyggeren eller på resultatsiden. Bekræftelsen fortæller, hvad der forsvinder med den: anmodninger, der stadig venter på svar, trækkes tilbage sammen med deres notifikationer, og svar, der endnu ikke er anvendt, går tabt. Ændringer, der allerede er anvendt, bliver på kortene, og kortets historik nævner fortsat undersøgelsen.

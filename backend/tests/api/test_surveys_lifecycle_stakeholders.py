@@ -309,6 +309,68 @@ async def _survey_events(db, card_id) -> list[Event]:
 
 
 class TestApply:
+    @pytest.mark.parametrize("eol_answer", ["2030-12-31", ""], ids=["moved", "cleared"])
+    async def test_a_maintained_phase_answer_is_skipped_and_reported(
+        self, client, db, env, eol_answer
+    ):
+        # An installed, licensed extension maintains End of Life on the card:
+        # the answer for it is skipped (stored date kept), the rest applies.
+        # A CLEAR of the maintained date is skipped and reported too — it used
+        # to vanish unreported, an absent phase reading as "carried over".
+        from datetime import datetime, timedelta, timezone
+
+        from app.services.extensions.license import Entitlement, LicenseDocument
+        from app.services.extensions.registry import ExtensionInfo, extension_registry
+
+        extension_registry.clear()
+        extension_registry.load_installed(
+            [
+                ExtensionInfo(
+                    key="acme-sync",
+                    name="Acme Sync",
+                    version="1.0.0",
+                    status="installed",
+                    enabled=True,
+                    manifest={"grants": ["core.cards.write", "core.cards.maintain_lifecycle"]},
+                )
+            ]
+        )
+        extension_registry.set_license(
+            LicenseDocument(
+                licensee="ACME",
+                customer_id="cus_1",
+                issued_at=datetime.now(timezone.utc) - timedelta(days=1),
+                grace_days=30,
+                entitlements=[Entitlement(extension_key="acme-sync", expires_at=None)],
+            )
+        )
+        try:
+            card, member = env["card"], env["member"]
+            card.lifecycle = {"plan": "2024-01-01", "endOfLife": "2029-01-01"}
+            card.lifecycle_maintained = {"ext": "acme-sync", "phases": ["endOfLife"]}
+            await db.flush()
+            sid = await _send(client, env["admin"], LIFECYCLE_FIELDS)
+            rid = await _answer(
+                client,
+                member,
+                sid,
+                card.id,
+                {
+                    "lifecycle:endOfLife": {"new_value": eol_answer},
+                    "lifecycle:plan": {"new_value": "2023-01-01"},
+                },
+            )
+            result = await _apply(client, env["admin"], sid, [rid])
+            assert result == {
+                "applied": 1,
+                "errors": [],
+                "skipped": [{"response_id": rid, "card_id": str(card.id), "phases": ["endOfLife"]}],
+            }
+            await db.refresh(card)
+            assert card.lifecycle == {"plan": "2023-01-01", "endOfLife": "2029-01-01"}
+        finally:
+            extension_registry.clear()
+
     async def test_lifecycle_answers_merge_and_clear_through_update_card(self, client, db, env):
         card, member = env["card"], env["member"]
         sid = await _send(client, env["admin"], LIFECYCLE_FIELDS)
@@ -323,7 +385,7 @@ class TestApply:
             },
         )
         result = await _apply(client, env["admin"], sid, [rid])
-        assert result == {"applied": 1, "errors": []}
+        assert result == {"applied": 1, "errors": [], "skipped": []}
 
         await db.refresh(card)
         # `active` was not in the survey and survives; `plan` was cleared.
@@ -435,7 +497,7 @@ class TestApply:
             client, other, sid, card.id, {"sh:observer": {"new_value": [{"id": str(other.id)}]}}
         )
         result = await _apply(client, env["admin"], sid, [first, second])
-        assert result == {"applied": 2, "errors": []}
+        assert result == {"applied": 2, "errors": [], "skipped": []}
         holders = (
             await db.execute(
                 select(Stakeholder.user_id).where(
@@ -529,7 +591,7 @@ class TestApply:
         db.add(Stakeholder(card_id=card_id, user_id=applier.id, role="steward"))
         await db.flush()
         result = await _apply(client, applier, sid, [roles])
-        assert result == {"applied": 1, "errors": []}
+        assert result == {"applied": 1, "errors": [], "skipped": []}
 
     async def test_an_unchanged_stakeholder_answer_writes_nothing(self, client, db, env):
         sid = await _send(client, env["admin"], [OBSERVER_FIELD])

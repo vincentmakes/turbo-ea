@@ -609,6 +609,9 @@ async def apply_responses(
 
     applied_count = 0
     errors = []
+    # Lifecycle answers left out because an installed extension maintains
+    # that phase: the response still applied, the stored date stayed.
+    skipped: list[dict] = []
     # Subscriber nudges, collected per response and delivered after the commit
     # (see ``update_card``'s ``deferred_notifications``): an apply over dozens
     # of cards must not email each stakeholder inline on the request's
@@ -673,6 +676,7 @@ async def apply_responses(
         # logged in full and reported to the client only generically.
         savepoint = await db.begin_nested()
         mine: list[dict] = []
+        skipped_phases: list[str] = []
         try:
             await survey_apply.apply_response(
                 db,
@@ -682,6 +686,7 @@ async def apply_responses(
                 user,
                 can_manage_stakeholders=can_manage_stakeholders[card.id],
                 deferred_notifications=mine,
+                skipped_phases=skipped_phases,
             )
             resp.applied = True
             resp.applied_at = datetime.now(timezone.utc)
@@ -698,6 +703,10 @@ async def apply_responses(
         await savepoint.commit()
         pending_notifications.extend(mine)
         applied_count += 1
+        if skipped_phases:
+            skipped.append(
+                {"response_id": rid_str, "card_id": str(card.id), "phases": skipped_phases}
+            )
 
     if opened_batch and not await db.scalar(select(exists().where(Event.batch_id == opened_batch))):
         # Nothing was written (every answer confirmed, refused or already
@@ -719,7 +728,7 @@ async def apply_responses(
             notif_type=notif_type,
             actor_id=user.id,
         )
-    return {"applied": applied_count, "errors": errors}
+    return {"applied": applied_count, "errors": errors, "skipped": skipped}
 
 
 # ── Respondent endpoints ──────────────────────────────────────────────────────

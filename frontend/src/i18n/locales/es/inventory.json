@@ -306,6 +306,8 @@
   "import.warnings.idNotFoundCreating": "Fila {{row}}: el id «{{id}}» no existe en esta instancia — se creará como ficha nueva",
   "import.warnings.ambiguousParentPath": "Fila {{row}}: la ruta del padre «{{path}}» coincide con varias fichas — se usa la primera coincidencia",
   "import.warnings.readOnlyFieldIgnored": "Fila {{row}}: «{{field}}» es un campo de solo lectura — el valor se ignorará",
+  "import.warnings.lifecycleMaintainedIgnored_one": "Fila {{row}}: {{count}} fecha del ciclo de vida la establece automáticamente la extensión {{name}}; se ignorará el valor de la hoja",
+  "import.warnings.lifecycleMaintainedIgnored_other": "Fila {{row}}: {{count}} fechas del ciclo de vida las establece automáticamente la extensión {{name}}; se ignorarán los valores de la hoja",
   "import.warnings.extLockedFieldIgnored": "Fila {{row}}: «{{field}}» es de solo lectura porque la extensión que lo proporciona no está activa o no tiene licencia – se ignorará el valor",
   "import.relationsToAdd_one": "{{count}} relación por añadir",
   "import.relationsToAdd_other": "{{count}} relaciones por añadir",

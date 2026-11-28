@@ -357,6 +357,112 @@ def _detail(exc: httpx.HTTPStatusError) -> object:
     return body.get("detail") if isinstance(body, dict) else None
 
 
+_PHASE_LABELS = {
+    "plan": "Plan",
+    "phaseIn": "Phase In",
+    "active": "Active",
+    "phaseOut": "Phase Out",
+    "endOfLife": "End of Life",
+}
+
+
+def _lifecycle_maintained_refusal(
+    phases: list, extension: object, *, cards: list | None = None
+) -> dict:
+    """The tool error for a write to lifecycle phases an installed extension
+    maintains. Plain and actionable: which dates, who sets them, and that
+    nothing here can change that while the extension is active."""
+    names = [_PHASE_LABELS.get(str(p), str(p)) for p in phases] or ["lifecycle"]
+    who = f" ({extension})" if extension else ""
+    noun = "date" if len(names) == 1 else "dates"
+    verb = "is" if len(names) == 1 else "are"
+    subject = "these cards" if cards else "this card"
+    out: dict = {
+        "error": "lifecycle_maintained",
+        "message": (
+            f"The {', '.join(names)} {noun} of {subject} {verb} set automatically by "
+            f"an installed extension{who} and cannot be set by hand while it is "
+            "active. Leave those phases out of the change, or ask an administrator "
+            "to disable the extension's rule."
+        ),
+        "phases": [str(p) for p in phases],
+        "extension": extension or None,
+    }
+    if cards:
+        out["cards"] = list(cards)
+    return out
+
+
+_PHASE_ORDER = ("plan", "phaseIn", "active", "phaseOut", "endOfLife")
+
+
+def _phase_date(value: object) -> date | None:
+    """A lifecycle phase date as the backend reads it (``YYYY-MM-DD`` or an
+    ISO timestamp), else None."""
+    if not value:
+        return None
+    try:
+        text = str(value)
+        if "T" in text:
+            return datetime.fromisoformat(text).date()
+        return datetime.strptime(text, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _clamp_to_maintained(lifecycle: dict, maintained: list) -> dict:
+    """Mirror of the backend's ``lifecycle_gate.clamp_to_maintained``.
+
+    Every hand-set phase with a readable date is kept in the order the
+    maintained phases set: raised to the LATEST maintained date of an earlier
+    phase, then lowered to the EARLIEST maintained date of a later phase (the
+    maintained neighbour's stored string, verbatim). The backend applies this
+    to every user write, so a preview that skips it promises a date the commit
+    will not store.
+    """
+    locked = [p for p in _PHASE_ORDER if p in set(maintained)]
+    out = dict(lifecycle)
+    # A maintained phase is never rewritten below, so its date is read once.
+    # An unreadable maintained date sets no bound.
+    dated = {p: (d, out[p]) for p in locked if (d := _phase_date(out.get(p))) is not None}
+    for idx, phase in enumerate(_PHASE_ORDER):
+        if phase in locked:
+            continue
+        mine = _phase_date(out.get(phase))
+        if mine is None:
+            continue
+        earlier = [dated[p] for p in _PHASE_ORDER[:idx] if p in dated]
+        later = [dated[p] for p in _PHASE_ORDER[idx + 1 :] if p in dated]
+        # max / min keep the first of equal dates, as the backend's strict
+        # comparisons do: the earliest phase's stored string wins a tie.
+        if earlier:
+            lower = max(earlier, key=_bound_date)
+            if mine < lower[0]:
+                out[phase] = lower[1]
+                mine = lower[0]
+        if later:
+            upper = min(later, key=_bound_date)
+            if mine > upper[0]:
+                out[phase] = upper[1]
+    return out
+
+
+def _bound_date(bound: tuple[date, object]) -> date:
+    """The date of a ``(date, stored value)`` bound in :func:`_clamp_to_maintained`."""
+    return bound[0]
+
+
+def _lifecycle_maintained_detail(exc: Exception) -> dict | None:
+    """The 403 ``lifecycle_maintained`` detail a card write was refused with,
+    else None (any other error, or a 403 for another reason)."""
+    if not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code != 403:
+        return None
+    detail = _detail(exc)
+    if isinstance(detail, dict) and detail.get("error") == "lifecycle_maintained":
+        return detail
+    return None
+
+
 def _query_rejection(exc: httpx.HTTPStatusError) -> dict | None:
     """The error a 400 (or 422) from a card-query endpoint stands for, else
     None.
@@ -2001,6 +2107,10 @@ async def transition_card_lifecycle(
     (``/cards/{id}?tab=approval``) so a human can complete the
     transition in the UI (S8).
 
+    A lifecycle phase an installed extension maintains on the card (the
+    card's ``lifecycle_maintained``) cannot be set by hand: the tool
+    refuses it with ``error: "lifecycle_maintained"``, on the preview too.
+
     Args:
         card_id: Card UUID.
         target: One of the values above. Approvals require
@@ -2046,19 +2156,53 @@ async def transition_card_lifecycle(
             }
         )
 
-    async def _merged_lifecycle(client: TurboEAClient) -> tuple[dict, dict]:
+    async def _merged_lifecycle(
+        client: TurboEAClient,
+    ) -> tuple[dict, dict, dict, dict | None, str | None]:
         """Fetch the card's current lifecycle record and return
-        ``(before, after)`` with the target phase's date set.
+        ``(before, after, payload, refusal, note)``.
 
         ``PATCH /cards/{id}`` replaces the whole ``lifecycle`` JSONB, so
         the wrapper must merge client-side — sending only the target
         phase used to wipe every other phase date.
+
+        Phases an installed extension maintains (``lifecycle_maintained``)
+        are left OUT of ``payload``: the backend carries an absent maintained
+        phase over at its current stored value, so the write never echoes a
+        date the extension may have moved since this read. ``after`` (the
+        preview) still shows them at their stored values, and with the
+        target clamped the way the backend will clamp it to stay in order
+        with them — ``note`` says so when that moved the date.
+
+        ``refusal`` is set when an installed extension maintains the target
+        phase itself: the backend would refuse the write, so the preview says
+        so instead of promising it.
         """
         card = await client.get(f"/cards/{card_id}")
         before = dict((card.get("lifecycle") if isinstance(card, dict) else None) or {})
         after = dict(before)
-        after[target] = effective_date or datetime.now(timezone.utc).date().isoformat()
-        return before, after
+        wanted = effective_date or datetime.now(timezone.utc).date().isoformat()
+        after[target] = wanted
+        maintained = card.get("lifecycle_maintained") if isinstance(card, dict) else None
+        phases = list((maintained.get("phases") or []) if isinstance(maintained, dict) else [])
+        refusal = None
+        note = None
+        if target in phases:
+            refusal = _lifecycle_maintained_refusal(
+                [target], maintained.get("name") or maintained.get("ext")
+            )
+        elif phases:
+            after = _clamp_to_maintained(after, phases)
+            if after.get(target) != wanted:
+                note = (
+                    f"The {_PHASE_LABELS.get(target, target)} date was adjusted from "
+                    f"{wanted} to {after.get(target)} to stay in order with the dates "
+                    "an installed extension sets automatically on this card."
+                )
+        payload = {k: v for k, v in after.items() if k not in phases}
+        if target in payload:
+            payload[target] = wanted
+        return before, after, payload, refusal, note
 
     async with mutation_batch(
         token,
@@ -2076,9 +2220,18 @@ async def transition_card_lifecycle(
                     "effective_date": effective_date or None,
                 }
                 if family == "lifecycle_phase":
-                    before, after = await _merged_lifecycle(client)
+                    before, after, _payload, refusal, note = await _merged_lifecycle(client)
+                    if refusal is not None:
+                        batch.summary = {
+                            "card_id": card_id,
+                            "target": target,
+                            "status": "refused",
+                        }
+                        return _fmt({**refusal, "card_id": card_id, **_preview_fields(batch)})
                     preview["lifecycle_before"] = before
                     preview["lifecycle_after"] = after
+                    if note:
+                        preview["lifecycle_note"] = note
                 batch.summary = {"card_id": card_id, "target": target, "status": "previewed"}
                 return _fmt(
                     {"dry_run": True, "would_transition": preview, **_preview_fields(batch)}
@@ -2089,8 +2242,11 @@ async def transition_card_lifecycle(
                     f"/cards/{card_id}/approval-status?action={target}", json=None
                 )
             elif family == "lifecycle_phase":
-                _, after = await _merged_lifecycle(client)
-                data = await client.patch(f"/cards/{card_id}", json={"lifecycle": after})
+                _, _after, payload, refusal, _note = await _merged_lifecycle(client)
+                if refusal is not None:
+                    batch.summary = {"card_id": card_id, "target": target, "status": "refused"}
+                    return _fmt({**refusal, "card_id": card_id, "batch_id": batch.batch_id})
+                data = await client.patch(f"/cards/{card_id}", json={"lifecycle": payload})
             else:  # status
                 data = await client.patch(f"/cards/{card_id}", json={"status": target})
             batch.summary = {"card_id": card_id, "target": target}
@@ -2098,6 +2254,21 @@ async def transition_card_lifecycle(
                 data["batch_id"] = batch.batch_id
             return _fmt(data)
         except Exception as exc:  # noqa: BLE001
+            # A phase an extension maintains is not a missing permission: no
+            # human can complete it in the UI either, so it is a plain refusal.
+            maintained = _lifecycle_maintained_detail(exc)
+            if maintained is not None:
+                batch.summary = {"card_id": card_id, "target": target, "status": "refused"}
+                return _fmt(
+                    {
+                        **_lifecycle_maintained_refusal(
+                            maintained.get("phases") or [target],
+                            maintained.get("extension"),
+                        ),
+                        "card_id": card_id,
+                        "batch_id": batch.batch_id,
+                    }
+                )
             msg = str(exc)
             if "403" in msg or "Forbidden" in msg or "Not enough permissions" in msg:
                 batch.summary = {"card_id": card_id, "target": target, "status": "pending"}
@@ -3637,6 +3808,9 @@ async def update_cards_bulk(
             ``attributes`` is a *full replace* — supply the complete
             map of fields you want on the card after the update.
             (Backend preserves cost-typed keys the caller can't see.)
+            A ``lifecycle`` change to a phase an installed extension
+            maintains is refused (``error: "lifecycle_maintained"``,
+            with the phases and the cards), on the preview too.
         strict_attributes: When True, reject ``attributes`` keys that
             are not declared in the card type's ``fields_schema``. The
             422 lists the unknown keys and the valid key set so an LLM
@@ -3709,18 +3883,43 @@ async def update_cards_bulk(
         client = batch.client()
         aggregated_results: list[dict] = []
         any_actual: dict | None = None
+        applied_ids: list = []
         for group in by_patch.values():
             patch = dict(group["patch"])
             if strict_attributes:
                 patch["strict_attributes"] = True
-            resp = await client.patch(
-                "/cards/bulk",
-                json={"ids": group["ids"], "updates": patch, "dry_run": dry_run},
-            )
+            try:
+                resp = await client.patch(
+                    "/cards/bulk",
+                    json={"ids": group["ids"], "updates": patch, "dry_run": dry_run},
+                )
+            except httpx.HTTPStatusError as exc:
+                # Lifecycle phases an installed extension maintains: the
+                # backend refuses the whole group (a dry run too), so the
+                # preview and the commit both say which dates and cards.
+                maintained = _lifecycle_maintained_detail(exc)
+                if maintained is None:
+                    raise
+                batch.summary = {"rows": len(updates), "status": "refused"}
+                refused = {
+                    **_lifecycle_maintained_refusal(
+                        maintained.get("phases") or [],
+                        maintained.get("extension"),
+                        cards=maintained.get("cards") or group["ids"],
+                    ),
+                    "dry_run": dry_run,
+                    "batch_id": batch.batch_id,
+                }
+                if not dry_run:
+                    # Rows sharing another patch went in before this one was
+                    # refused; rollback_batch undoes them by this batch id.
+                    refused["applied_card_ids"] = applied_ids
+                return _fmt(refused)
             if isinstance(resp, dict) and dry_run:
                 aggregated_results.extend(resp.get("results", []))
             else:
                 any_actual = resp
+                applied_ids.extend(group["ids"])
         if dry_run:
             data: dict = {
                 "dry_run": True,

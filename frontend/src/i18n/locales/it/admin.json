@@ -1264,6 +1264,8 @@
   "surveyResults.detail.noInput": "Nessun input",
   "surveyResults.detail.applyChanges": "Applica modifiche",
   "surveyResults.applyPartial": "Applicate {{applied}}, ma {{errorCount}} errore/i: {{errors}}",
+  "surveyResults.lifecycleSkipped_one": "{{count}} risposta non è stata applicata perché quella data del ciclo di vita è impostata automaticamente da un'estensione installata: {{items}}",
+  "surveyResults.lifecycleSkipped_other": "{{count}} risposte non sono state applicate perché quelle date del ciclo di vita sono impostate automaticamente da un'estensione installata: {{items}}",
   "surveyResults.boolTrue": "Sì",
   "surveyResults.boolFalse": "No",
   "cardLayout.title": "Layout scheda",

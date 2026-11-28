@@ -335,14 +335,14 @@ The server exposes 37 write tools, each annotated as **additive** (creates or ex
 | Tool | Description |
 |------|-------------|
 | `create_cards_bulk` | Create many cards in one call (e.g. spreadsheet rows). Supports same-batch parent references by name with server-side topological sort. |
-| `transition_card_lifecycle` | Move a card through approval or lifecycle phases. |
+| `transition_card_lifecycle` | Move a card through approval or lifecycle phases. A phase an installed extension sets automatically (see [Lifecycle dates set by an extension](extensions.md#lifecycle-dates-set-by-an-extension)) is refused with `lifecycle_maintained`, in the preview too, naming the phase and the extension. |
 | `create_risks` | Create entries in the EA Risk Register. |
 | `update_risks` | Update Risk Register entries (fields, linked cards). |
 | `add_card_comment` | Post a comment on a card — a non-destructive, reviewable note instead of mutating fields. |
 | `add_document_comment` | Post a comment on a decision or a SoAW: a new thread, optionally tagged to a section, or a reply to a thread. The comment is plain text; mentions are made in the web UI only. Takes the `adr.comment` / `soaw.comment` permission, or being a signatory of the document. A posted comment cannot be undone with `rollback_batch`; delete it from the discussion in the web UI. |
 | `create_soaw` | Create a Statement of Architecture Work for an initiative. |
 | `assign_stakeholders` | Assign or remove stakeholder roles on cards. |
-| `update_cards_bulk` | Field-level patches on many cards in one call. |
+| `update_cards_bulk` | Field-level patches on many cards in one call. A `lifecycle` change to a phase an installed extension sets automatically is refused with `lifecycle_maintained`, naming the phases and the cards; on a commit, the cards already updated by an earlier part of the call are listed as `applied_card_ids` (undo them with `rollback_batch`). |
 | `create_adr` | Create an Architecture Decision Record, with typed links to other decisions (`replaces`, `amends`, `revokes`, `relates`), decision makers, participants and dates. Replacing or revoking a decision is done this way: a new decision with a `replaces` / `revokes` link, which takes effect once it is signed. |
 | `update_adr` | Update a draft ADR (title, sections, linked cards, typed links, people, dates, change summary). A decision in review only accepts linked-card changes, and a signed one is never edited. |
 | `sign_adr` | Sign an ADR (requires the `adr.sign` permission; otherwise returns a UI deep-link to sign in the browser). |

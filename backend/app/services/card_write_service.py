@@ -55,7 +55,7 @@ from app.services.cost_field_filter import keep_stored_cost_values
 from app.services.cost_value import is_numeric_text
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
-from app.services.extensions import field_gate
+from app.services.extensions import field_gate, lifecycle_gate
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY
 from app.services.ppm_fiscal_costs import ACTUAL_FIELD, BUDGET_FIELD, PPM_COST_FIELDS
 from app.services.relation_orientation import orient_endpoints
@@ -876,6 +876,7 @@ async def update_card(
     dry_run: bool = False,
     event_extra: dict | None = None,
     deferred_notifications: list[dict] | None = None,
+    lifecycle_maintainer: str | None = None,
 ) -> bool:
     """Apply an update payload to ``card`` with full validation and side
     effects. Returns True when anything actually changed. ``updates`` is the
@@ -884,6 +885,17 @@ async def update_card(
     already have been applied by route callers. ``event_extra`` is merged into
     the ``card.updated`` payload — the survey apply path stamps the survey the
     change came from; ``id`` and ``changes`` always win over it.
+
+    ``lifecycle_maintainer`` (SDK 1.22) is set ONLY by the data bridge's
+    ``maintain_lifecycle`` / ``release_lifecycle``, to the calling extension's
+    key: the one write allowed to move maintained lifecycle phases and the
+    ``lifecycle_maintained`` claim itself — refused (409) while another
+    extension holds an effective claim on the card. Every other caller (REST,
+    bulk, imports, the bridge's plain ``update_card``) has any
+    ``lifecycle_maintained`` key dropped from ``updates``, and a change to a
+    maintained phase answers 403 ``lifecycle_maintained``
+    (``lifecycle_gate.checked_lifecycle``). The decision rests on this keyword,
+    never on who the actor is.
 
     ``deferred_notifications`` changes where the subscriber nudges go. By
     default they are created inline on ``db`` — one SMTP round-trip per emailed
@@ -900,6 +912,24 @@ async def update_card(
     # update (defensive: CardUpdate no longer carries it, but drop any stray).
     updates = dict(updates)
     updates.pop("reference", None)
+
+    # Guard: lifecycle phases a licensed extension maintains (SDK 1.22). Only
+    # the bridge's maintain/release calls may write the claim or those phases;
+    # anyone else has the claim dropped and a change to a phase refused.
+    lifecycle_lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
+    if lifecycle_maintainer is None:
+        updates.pop("lifecycle_maintained", None)
+        if "lifecycle" in updates and lifecycle_lock is not None:
+            updates["lifecycle"] = lifecycle_gate.checked_lifecycle(
+                card.lifecycle, updates["lifecycle"], lifecycle_lock
+            )
+    elif lifecycle_lock is not None and lifecycle_lock.ext != lifecycle_maintainer:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"The lifecycle of this card is maintained by the extension {lifecycle_lock.name}"
+            ),
+        )
 
     # Validate URL- and percentage-typed attributes
     if "attributes" in updates and updates["attributes"]:
@@ -1061,7 +1091,18 @@ async def update_card(
             "card.updated",
             _stamp_ext(
                 actor,
-                {**(event_extra or {}), "id": str(card.id), "changes": serialised_changes},
+                {
+                    **(event_extra or {}),
+                    # A maintain / release write names its extension, so a
+                    # rollback can tell it from that extension's other writes.
+                    **(
+                        {"lifecycle_maintainer": lifecycle_maintainer}
+                        if lifecycle_maintainer
+                        else {}
+                    ),
+                    "id": str(card.id),
+                    "changes": serialised_changes,
+                },
             ),
             db=db,
             card_id=card.id,

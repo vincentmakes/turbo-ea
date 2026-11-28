@@ -56,6 +56,7 @@ import {
   type StakeholderRolesByType,
   type UserRef,
   type ValidateImportOptions,
+  keepMaintainedPhases,
   validateImport,
 } from "./excelImport";
 
@@ -1195,5 +1196,92 @@ describe("validateImport — update classification", () => {
     const row = oneUpdate(erp({ name: "ERP Core v2", attr_vendorScore: "4.2" }));
     expect(row.data.attributes).toBeUndefined();
     expect(APPLICATION_TYPE.fields_schema.flatMap((s) => s.fields).find((f) => f.key === "vendorScore")?.readonly).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------------- */
+/*  Lifecycle phases an installed extension maintains                          */
+/* ------------------------------------------------------------------------- */
+
+describe("validateImport — lifecycle phases an extension maintains", () => {
+  const maintainedErp = {
+    ...ERP,
+    lifecycle_maintained: { ext: "acme-sync", name: "Acme Sync", phases: ["active", "endOfLife"] },
+  } as Card;
+  const existing = CARDS.map((c) => (c.id === ERP.id ? maintainedErp : c));
+  const stored = ERP.lifecycle as Record<string, string>;
+
+  it("drops the maintained phases, keeps a manual change and warns with the count", () => {
+    const r = run(
+      [
+        erp({
+          lifecycle_plan: "2018-01-01",
+          lifecycle_active: "2021-01-01",
+          lifecycle_endOfLife: "",
+        }),
+      ],
+      { existing },
+    );
+    expect(r.errors).toEqual([]);
+    expect(r.warnings).toEqual([
+      {
+        row: 2,
+        message: warn("lifecycleMaintainedIgnored", { row: 2, count: 2, name: "Acme Sync" }),
+      },
+    ]);
+    expect(warn("lifecycleMaintainedIgnored", { row: 2, count: 2, name: "Acme Sync" })).toContain(
+      "2 lifecycle dates",
+    );
+    expect(r.updates).toHaveLength(1);
+    const row = r.updates[0];
+    expect(row.data.lifecycle).toEqual({ ...stored, plan: "2018-01-01" });
+    expect(row.changes).toEqual({ lifecycle_plan: { old: stored.plan, new: "2018-01-01" } });
+  });
+
+  it("skips a row whose only change is to a maintained phase", () => {
+    const r = run([erp({ lifecycle_active: "2021-01-01" })], { existing });
+    expect(r.updates).toEqual([]);
+    expect(r.skipped).toBe(1);
+    expect(r.warnings).toEqual([
+      {
+        row: 2,
+        message: warn("lifecycleMaintainedIgnored", { row: 2, count: 1, name: "Acme Sync" }),
+      },
+    ]);
+    expect(warn("lifecycleMaintainedIgnored", { row: 2, count: 1, name: "Acme Sync" })).toContain(
+      "1 lifecycle date is",
+    );
+  });
+
+  it("says nothing when the sheet repeats the stored maintained dates", () => {
+    const r = run(
+      [erp({ lifecycle_active: stored.active, lifecycle_endOfLife: stored.endOfLife })],
+      { existing },
+    );
+    expect(r.warnings).toEqual([]);
+    expect(r.updates).toEqual([]);
+  });
+
+  it("changes nothing for a card without a maintained phase", () => {
+    const r = run([erp({ lifecycle_active: "2021-01-01" })]);
+    expect(r.warnings).toEqual([]);
+    expect(r.updates[0].changes).toEqual({
+      lifecycle_active: { old: stored.active, new: "2021-01-01" },
+    });
+  });
+});
+
+describe("keepMaintainedPhases", () => {
+  it("puts maintained phases back in place and counts the ones that differed", () => {
+    const card = {
+      ...ERP,
+      lifecycle: { active: "2020-06-01" },
+      lifecycle_maintained: { ext: "acme-sync", name: "Acme Sync", phases: ["active", "endOfLife"] },
+    } as Card;
+    const lc: Record<string, string> = { plan: "2019-01-01", active: "2021-01-01", endOfLife: "2030-01-01" };
+    expect(keepMaintainedPhases(lc, card)).toBe(2);
+    expect(lc).toEqual({ plan: "2019-01-01", active: "2020-06-01" });
+    expect(keepMaintainedPhases({ active: "2020-06-01" }, card)).toBe(0);
+    expect(keepMaintainedPhases({ active: "x" }, ERP)).toBe(0);
   });
 });

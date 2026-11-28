@@ -306,6 +306,8 @@
   "import.warnings.idNotFoundCreating": "Ligne {{row}} : l’id « {{id}} » n’existe pas dans cette instance — création d’une nouvelle fiche",
   "import.warnings.ambiguousParentPath": "Ligne {{row}} : le chemin parent « {{path}} » correspond à plusieurs fiches — la première correspondance est utilisée",
   "import.warnings.readOnlyFieldIgnored": "Ligne {{row}} : « {{field}} » est un champ en lecture seule — la valeur sera ignorée",
+  "import.warnings.lifecycleMaintainedIgnored_one": "Ligne {{row}} : {{count}} date de cycle de vie est définie automatiquement par l'extension {{name}} — la valeur de la feuille sera ignorée",
+  "import.warnings.lifecycleMaintainedIgnored_other": "Ligne {{row}} : {{count}} dates de cycle de vie sont définies automatiquement par l'extension {{name}} — les valeurs de la feuille seront ignorées",
   "import.warnings.extLockedFieldIgnored": "Ligne {{row}} : « {{field}} » est en lecture seule car l'extension qui le fournit n'est pas active ou sous licence – la valeur sera ignorée",
   "import.relationsToAdd_one": "{{count}} relation à ajouter",
   "import.relationsToAdd_other": "{{count}} relations à ajouter",

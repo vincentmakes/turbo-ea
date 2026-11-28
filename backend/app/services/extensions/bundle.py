@@ -78,6 +78,10 @@ VALID_GRANTS = frozenset(
         # SDK 1.18: the extension offers operations to AI assistants through
         # the MCP server (``get_agent_tools()``; ``extensions/agent_tools.py``).
         "core.agent.tools",
+        # SDK 1.22: the extension maintains chosen lifecycle phases of cards
+        # (``ctx.data.maintain_lifecycle``; ``extensions/lifecycle_gate.py``).
+        # Used together with ``core.cards.write``.
+        "core.cards.maintain_lifecycle",
     }
 )
 

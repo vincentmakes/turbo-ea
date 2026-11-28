@@ -454,6 +454,13 @@ export interface StakeholderRef {
   role_label?: string;
 }
 
+/** Who maintains which lifecycle phases of a card (see `Card.lifecycle_maintained`). */
+export interface LifecycleMaintained {
+  ext: string;
+  name: string;
+  phases: string[];
+}
+
 export interface Card {
   id: string;
   type: string;
@@ -466,6 +473,11 @@ export interface Card {
    *  loses its parent. */
   parent_label?: string | null;
   lifecycle?: Record<string, string>;
+  /** Lifecycle phases an installed, licensed extension maintains on this card
+   *  (`ext` its key, `name` its display name). Sent only while the lock is in
+   *  effect; null or absent means every phase is editable by hand. A write that
+   *  changes a listed phase is refused with 403 `lifecycle_maintained`. */
+  lifecycle_maintained?: LifecycleMaintained | null;
   attributes?: Record<string, unknown>;
   status: string;
   approval_status: string;
@@ -1915,6 +1927,15 @@ export interface Survey {
   total_responses?: number;
   completed_responses?: number;
   applied_responses?: number;
+}
+
+/** What `POST /surveys/{id}/apply` reports. `skipped` lists, per applied
+ *  response, the lifecycle answers left out because an installed extension
+ *  sets those dates automatically (the rest of the response was applied). */
+export interface SurveyApplyResult {
+  applied: number;
+  errors: { response_id: string; error: string }[];
+  skipped?: { response_id: string; card_id: string; phases: string[] }[];
 }
 
 export interface SurveyResponseDetail {

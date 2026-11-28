@@ -1264,6 +1264,8 @@
   "surveyResults.detail.noInput": "Aucune saisie",
   "surveyResults.detail.applyChanges": "Appliquer les modifications",
   "surveyResults.applyPartial": "{{applied}} appliqué(s), mais {{errorCount}} erreur(s) : {{errors}}",
+  "surveyResults.lifecycleSkipped_one": "{{count}} réponse n'a pas été appliquée, car cette date de cycle de vie est définie automatiquement par une extension installée : {{items}}",
+  "surveyResults.lifecycleSkipped_other": "{{count}} réponses n'ont pas été appliquées, car ces dates de cycle de vie sont définies automatiquement par une extension installée : {{items}}",
   "surveyResults.boolTrue": "Oui",
   "surveyResults.boolFalse": "Non",
   "cardLayout.title": "Mise en page de la fiche",

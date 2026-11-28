@@ -576,6 +576,31 @@ class TestEnableDisableUninstall:
         res = await client.get("/api/v1/admin/extensions", headers=auth_headers(admin))
         assert res.json() == []
 
+    async def test_uninstall_releases_its_lifecycle_claims(self, client, db, vendor):
+        from tests.conftest import create_card
+
+        admin = await make_admin(db)
+        await self._install(client, db, admin, vendor)
+        card = await create_card(
+            db,
+            name="Claimed",
+            lifecycle={"active": "2020-01-01"},
+            lifecycle_maintained={"ext": "sample-ext", "phases": ["active"]},
+        )
+        other = await create_card(
+            db, name="Other", lifecycle_maintained={"ext": "other-ext", "phases": ["active"]}
+        )
+        await db.commit()
+        res = await client.delete(
+            "/api/v1/admin/extensions/sample-ext", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        await db.refresh(card)
+        await db.refresh(other)
+        assert card.lifecycle_maintained is None
+        assert card.lifecycle == {"active": "2020-01-01"}
+        assert other.lifecycle_maintained == {"ext": "other-ext", "phases": ["active"]}
+
     async def test_disable_hides_pack_types_and_enable_restores_them(self, client, db, vendor):
         admin = await make_admin(db)
         await self._install(client, db, admin, vendor)

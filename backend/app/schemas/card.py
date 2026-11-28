@@ -161,6 +161,16 @@ class StakeholderRef(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class LifecycleMaintainedRef(BaseModel):
+    """Lifecycle phases a licensed extension keeps up to date on a card (SDK
+    1.22). Sent only while the claim is in force; those phases cannot be
+    edited by hand."""
+
+    ext: str
+    name: str
+    phases: list[str]
+
+
 class CardResponse(BaseModel):
     id: str
     type: str
@@ -197,6 +207,9 @@ class CardResponse(BaseModel):
     logo_updated_at: datetime | None = None
     tags: list[TagRef] = []
     stakeholders: list[StakeholderRef] = []
+    # The phases an installed, licensed extension maintains — ``None`` unless
+    # that claim is in force (``lifecycle_gate.lock_payload``).
+    lifecycle_maintained: LifecycleMaintainedRef | None = None
 
     model_config = {"from_attributes": True}
 

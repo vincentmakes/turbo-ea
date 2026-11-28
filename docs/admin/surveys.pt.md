@@ -99,6 +99,8 @@ Navegue até **Admin > Pesquisas > [Nome da Pesquisa] > Resultados** para ver:
 
 Aplicar uma resposta passa pelas mesmas verificações que uma edição feita no próprio cartão. Um valor que o cartão recusa — por exemplo, uma opção que já não existe — é assinalado para essa resposta e nada dela é aplicado, enquanto as restantes respostas são aplicadas na mesma. Cada alteração aparece no separador **Histórico** do cartão sob o administrador que a aplicou, com um marcador **através da pesquisa** que nomeia a pesquisa; ao passar o rato por cima vê-se quem respondeu. Toda a aplicação é uma única entrada em **Admin → Registo de auditoria**, pelo que pode ser revertida a partir daí.
 
+Uma resposta para uma data do ciclo de vida que uma extensão instalada define automaticamente (ver [Datas do ciclo de vida definidas por uma extensão](extensions.md#lifecycle-dates-set-by-an-extension)) não é aplicada — nem uma data apagada — e a data guardada mantém-se; o resto dessa resposta é aplicado. Um aviso acima dos resultados indica quantas respostas foram ignoradas, com cada card e as suas fases do ciclo de vida.
+
 ## Eliminar uma Pesquisa
 
 Uma pesquisa pode ser eliminada em qualquer estado: abra o menu **⋮** da sua linha em **Admin > Pesquisas**, ou use **Eliminar** no construtor de pesquisas ou na página de resultados. A confirmação indica o que é eliminado com ela: os pedidos ainda à espera de resposta são retirados, juntamente com as suas notificações, e as respostas ainda não aplicadas perdem-se. As alterações já aplicadas permanecem nos cartões, e o histórico do cartão continua a nomear a pesquisa.

@@ -99,6 +99,8 @@ Navigate su **Admin > Sondaggi > [Nome sondaggio] > Risultati** per vedere:
 
 Applicare una risposta passa per gli stessi controlli di una modifica fatta direttamente sulla scheda. Un valore che la scheda rifiuta — ad esempio un'opzione che non esiste più — viene segnalato per quella risposta e nulla di essa viene applicato, mentre le altre risposte vengono comunque applicate. Ogni modifica compare nella scheda **Cronologia** della scheda sotto l'amministratore che l'ha applicata, con un indicatore **tramite il sondaggio** che nomina il sondaggio; passandoci sopra si vede chi ha risposto. L'intera applicazione è una sola voce in **Admin → Registro di audit**, quindi può essere annullata da lì.
 
+Una risposta per una data del ciclo di vita che un'estensione installata imposta automaticamente (vedi [Date del ciclo di vita impostate da un'estensione](extensions.md#lifecycle-dates-set-by-an-extension)) non viene applicata — nemmeno una data cancellata — e la data memorizzata resta; il resto di quella risposta viene comunque applicato. Un avviso sopra i risultati indica quante risposte sono state saltate, con ogni scheda e le sue fasi del ciclo di vita.
+
 ## Eliminazione di un sondaggio
 
 Un sondaggio può essere eliminato in qualsiasi stato: apri il menu **⋮** nella sua riga in **Admin > Sondaggi**, oppure usa **Elimina** nel generatore di sondaggi o nella pagina dei risultati. La conferma indica cosa viene eliminato insieme: le richieste ancora in attesa di risposta vengono ritirate, insieme alle relative notifiche, e le risposte non ancora applicate vanno perse. Le modifiche già applicate restano sulle schede e la cronologia della scheda continua a citare il sondaggio.

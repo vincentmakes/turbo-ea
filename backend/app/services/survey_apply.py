@@ -475,6 +475,7 @@ async def apply_response(
     *,
     can_manage_stakeholders: bool = True,
     deferred_notifications: list[dict] | None = None,
+    skipped_phases: list[str] | None = None,
 ) -> bool:
     """Write one completed response onto its card. Flushes, never commits.
 
@@ -495,8 +496,14 @@ async def apply_response(
     refused as a whole. ``deferred_notifications`` is handed to ``update_card``
     so the subscriber nudges are collected for delivery after the commit
     instead of emailed inline on the request's session.
+
+    A lifecycle answer on a phase an installed, licensed extension maintains
+    (``lifecycle_gate``) is skipped — the stored date stays, the rest of the
+    response still lands — and the phase is appended to ``skipped_phases``
+    when the caller passes a list, so it can report it.
     """
     from app.services.card_write_service import WriteActor, update_card
+    from app.services.extensions import lifecycle_gate
 
     field_defs = {f.get("key"): f for f in (survey.fields or []) if isinstance(f, dict)}
     respondent = await db.get(User, resp.user_id)
@@ -549,6 +556,18 @@ async def apply_response(
                 lifecycle[phase] = answer
             else:
                 lifecycle.pop(phase, None)
+        lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
+        if lock is not None:
+            # Skipped answers are read off the answers themselves: an answer
+            # CLEARING a maintained date leaves no key in the merged dict, and
+            # an absent key reads as "carried over" there, never as refused.
+            if skipped_phases is not None:
+                skipped_phases.extend(
+                    lifecycle_gate.changed_phases(card.lifecycle, lifecycle_updates, lock.phases)
+                )
+            lifecycle, _ = lifecycle_gate.apply_lifecycle_lock(
+                card.lifecycle, lifecycle, lock.phases
+            )
         updates["lifecycle"] = lifecycle
 
     if updates:

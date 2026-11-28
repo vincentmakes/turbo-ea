@@ -355,6 +355,28 @@ describe("SurveyResults — apply", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(`POST /surveys/${SURVEY_ID}/apply failed`);
   });
 
+  it("warns about lifecycle answers skipped because an extension sets those dates", async () => {
+    mockApi.on("post", `/surveys/${SURVEY_ID}/apply`, {
+      applied: 1,
+      errors: [],
+      skipped: [{ response_id: "r1", card_id: "c1", phases: ["active", "endOfLife"] }],
+    });
+    const { user } = renderPage();
+    await loaded();
+    await user.click(within(dataRows()[0]).getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: named(t("admin:surveyResults.applyResponses", { count: 1 })) }));
+    const warning = await screen.findByTestId("survey-apply-skipped");
+    expect(warning).toHaveTextContent(
+      t("admin:surveyResults.lifecycleSkipped", {
+        count: 2,
+        items: `Billing Engine: ${t("common:lifecycle.active")}, ${t("common:lifecycle.endOfLife")}`,
+      }),
+    );
+    expect(warning).toHaveTextContent("2 answers were not applied");
+    // The rest of the response was applied: no error alongside the warning.
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+  });
+
   it("closes the survey and reports a failed close", async () => {
     mockApi.on("post", `/surveys/${SURVEY_ID}/close`, survey({ status: "closed" }));
     const { user } = renderPage();
@@ -436,6 +458,25 @@ describe("SurveyResults — response detail", () => {
     expect(mockApi.callsOf("post", `/surveys/${SURVEY_ID}/apply`)[0].body).toEqual({ response_ids: ["r1"] });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await waitFor(() => expect(mockApi.callsOf("get", `/surveys/${SURVEY_ID}/responses`)).toHaveLength(2));
+  });
+
+  it("warns about a skipped lifecycle answer when applying from the dialog too", async () => {
+    mockApi.on("post", `/surveys/${SURVEY_ID}/apply`, {
+      applied: 1,
+      errors: [],
+      skipped: [{ response_id: "r1", card_id: "c1", phases: ["endOfLife"] }],
+    });
+    const { user } = renderPage();
+    await loaded();
+    const dialog = await openDetail(user, 0);
+    await user.click(within(dialog).getByRole("button", { name: t("admin:surveyResults.detail.applyChanges") }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findByTestId("survey-apply-skipped")).toHaveTextContent(
+      t("admin:surveyResults.lifecycleSkipped", {
+        count: 1,
+        items: `Billing Engine: ${t("common:lifecycle.endOfLife")}`,
+      }),
+    );
   });
 
   it("keeps the dialog open and shows the error when applying from it fails", async () => {

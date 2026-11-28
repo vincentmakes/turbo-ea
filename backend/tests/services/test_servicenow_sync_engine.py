@@ -619,6 +619,124 @@ class TestReadOnlyExtensionFields:
         assert card.attributes["origin"] == "servicenow"
 
 
+class TestMaintainedLifecyclePhases:
+    """A lifecycle phase an installed, licensed extension maintains keeps its
+    stored date: the sync skips that change, logs it and applies the rest."""
+
+    @pytest.fixture(autouse=True)
+    def _maintainer(self):
+        from app.services.extensions.registry import extension_registry
+        from tests.lifecycle_lock_helpers import load_maintainer
+
+        load_maintainer()
+        yield
+        extension_registry.clear()
+
+    MARKER = {"ext": "acme-sync", "phases": ["endOfLife"]}
+
+    def test_the_diff_loses_only_the_maintained_phase(self, caplog):
+        diff = {
+            "name": {"old": "a", "new": "b"},
+            "lifecycle.endOfLife": {"old": "2030-01-01", "new": "2031-01-01"},
+            "lifecycle.active": {"old": None, "new": "2020-01-01"},
+        }
+        with caplog.at_level(logging.WARNING, logger=snow.logger.name):
+            kept = snow.skip_maintained_lifecycle_changes(diff, self.MARKER, S1)
+        assert kept == {
+            "name": {"old": "a", "new": "b"},
+            "lifecycle.active": {"old": None, "new": "2020-01-01"},
+        }
+        assert "Acme Sync" in caplog.text and S1 in caplog.text and "endOfLife" in caplog.text
+        assert snow.skip_maintained_lifecycle_changes(diff, None, S1) is diff
+        untouched = {"name": {"old": "a", "new": "b"}}
+        assert snow.skip_maintained_lifecycle_changes(untouched, self.MARKER, S1) is untouched
+
+    def test_every_skipped_phase_is_logged_in_one_line(self, caplog):
+        marker = {"ext": "acme-sync", "phases": ["active", "endOfLife"]}
+        diff = {
+            "lifecycle.endOfLife": {"old": "2030-01-01", "new": "2031-01-01"},
+            "lifecycle.plan": {"old": None, "new": "2019-01-01"},
+            "lifecycle.active": {"old": None, "new": "2020-01-01"},
+        }
+        with caplog.at_level(logging.WARNING, logger=snow.logger.name):
+            kept = snow.skip_maintained_lifecycle_changes(diff, marker, S1)
+        assert kept == {"lifecycle.plan": {"old": None, "new": "2019-01-01"}}
+        (record,) = [r for r in caplog.records if r.name == snow.logger.name]
+        assert record.getMessage() == (
+            f"ServiceNow sync: lifecycle phases maintained by Acme Sync not updated for {S1}: "
+            "endOfLife, active"
+        )
+
+    def test_an_ineffective_claim_skips_nothing(self):
+        from app.services.extensions.registry import extension_registry
+
+        extension_registry.clear()
+        diff = {"lifecycle.endOfLife": {"old": "2030-01-01", "new": "2031-01-01"}}
+        assert snow.skip_maintained_lifecycle_changes(diff, self.MARKER, S1) is diff
+
+    async def test_an_update_skips_the_maintained_phase(self, db, env, monkeypatch, caplog):
+        engine, _ = _engine(db, monkeypatch, snow_table_handler())
+        card = await _card(
+            db,
+            env,
+            "Old",
+            lifecycle={"endOfLife": "2030-01-01"},
+            lifecycle_maintained=dict(self.MARKER),
+        )
+        run = SnowSyncRun(connection_id=env["conn"].id, mapping_id=env["mapping"].id, stats={})
+        db.add(run)
+        await db.flush()
+        staged = SnowStagedRecord(
+            sync_run_id=run.id,
+            mapping_id=env["mapping"].id,
+            snow_sys_id=S1,
+            action="update",
+            card_id=card.id,
+            diff={
+                "name": {"old": "Old", "new": "New"},
+                "lifecycle.endOfLife": {"old": "2030-01-01", "new": "2031-01-01"},
+                "lifecycle.active": {"old": None, "new": "2020-01-01"},
+            },
+        )
+        with caplog.at_level(logging.WARNING, logger=snow.logger.name):
+            assert await engine._apply_update(staged, env["admin"].id) is True
+        # The skip is logged against the ServiceNow record it came from.
+        assert f"not updated for {S1}: endOfLife" in caplog.text
+        assert card.name == "New"
+        assert card.lifecycle == {"endOfLife": "2030-01-01", "active": "2020-01-01"}
+        (event,) = await _events(db, "card.updated")
+        assert event.data["changes"]["lifecycle"]["new"] == {
+            "endOfLife": "2030-01-01",
+            "active": "2020-01-01",
+        }
+
+    async def test_an_update_with_only_maintained_changes_is_not_an_update(
+        self, db, env, monkeypatch
+    ):
+        engine, _ = _engine(db, monkeypatch, snow_table_handler())
+        card = await _card(
+            db,
+            env,
+            "Same",
+            lifecycle={"endOfLife": "2030-01-01"},
+            lifecycle_maintained=dict(self.MARKER),
+        )
+        run = SnowSyncRun(connection_id=env["conn"].id, mapping_id=env["mapping"].id, stats={})
+        db.add(run)
+        await db.flush()
+        staged = SnowStagedRecord(
+            sync_run_id=run.id,
+            mapping_id=env["mapping"].id,
+            snow_sys_id=S1,
+            action="update",
+            card_id=card.id,
+            diff={"lifecycle.endOfLife": {"old": "2030-01-01", "new": "2031-01-01"}},
+        )
+        assert await engine._apply_update(staged, env["admin"].id) is False
+        assert card.lifecycle == {"endOfLife": "2030-01-01"}
+        assert await _events(db, "card.updated") == []
+
+
 # ---------------------------------------------------------------------------
 # Deletions
 # ---------------------------------------------------------------------------

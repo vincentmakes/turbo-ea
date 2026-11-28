@@ -1,9 +1,10 @@
-import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
+import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
@@ -26,7 +27,15 @@ import {
 import type { Card } from "@/types";
 import { LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
 import { useLifecycleOrderWarning } from "@/hooks/useLifecycleOrderWarning";
-import LifecycleDateFields, { type PhaseAnnotation } from "./LifecycleDateFields";
+import LifecycleDateFields, {
+  MaintainedPhaseChip,
+  type PhaseAnnotation,
+} from "./LifecycleDateFields";
+import {
+  lifecyclePayload,
+  maintainedRefusal,
+  type MaintainedLifecycle,
+} from "./lifecycleMaintained";
 
 // ── Section: Lifecycle ──────────────────────────────────────────
 function LifecycleSection({
@@ -39,6 +48,7 @@ function LifecycleSection({
   expandOn,
   editOn,
   footer,
+  maintained,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
@@ -63,6 +73,12 @@ function LifecycleSection({
    * stays props-driven and fetches nothing.
    */
   footer?: ReactNode;
+  /**
+   * Phases an installed extension maintains, and its display name. Those
+   * phases show a chip and are not editable; the save keeps them at their
+   * stored values. Omitted or null, the section behaves exactly as before.
+   */
+  maintained?: MaintainedLifecycle | null;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
@@ -75,20 +91,33 @@ function LifecycleSection({
     card.lifecycle || {}
   );
   const rootRef = useRef<HTMLDivElement>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Keyed on the phase list's content, so a new card object with the same
+  // lock (every save replaces it) keeps one Set identity.
+  const lockedKey = (maintained?.phases ?? []).join("|");
+  const lockedPhases = useMemo(
+    () =>
+      new Set(
+        lockedKey.split("|").filter((p) => (PHASES as readonly string[]).includes(p)),
+      ),
+    [lockedKey],
+  );
+  const allLocked = PHASES.every((p) => lockedPhases.has(p));
+  const editable = canEdit && !allLocked;
 
   // A data-quality jump opens the edit row, then focuses the first phase still
   // without a date once that row has rendered.
   const [focusPending, setFocusPending] = useState(false);
-  useEditRequest(editOn, canEdit, () => {
+  useEditRequest(editOn, editable, () => {
     setEditing(true);
     setFocusPending(true);
   });
   useLayoutEffect(() => {
     if (!editing || !focusPending) return;
-    const phase = PHASES.find((p) => !lifecycle[p]);
+    const phase = PHASES.find((p) => !lifecycle[p] && !lockedPhases.has(p));
     if (phase) focusFirstControl(rootRef.current?.querySelector(`[data-phase="${phase}"]`));
     setFocusPending(false);
-  }, [editing, focusPending, lifecycle]);
+  }, [editing, focusPending, lifecycle, lockedPhases]);
 
   // Re-sync the draft from the card prop only while NOT editing, so saving
   // another section (which replaces the whole card object in the parent) can't
@@ -111,8 +140,25 @@ function LifecycleSection({
   const orderWarning = useLifecycleOrderWarning(lifecycle);
 
   const save = async () => {
-    await onSave({ lifecycle });
-    setEditing(false);
+    setSaveError(null);
+    try {
+      await onSave({ lifecycle: lifecyclePayload(lifecycle, lockedPhases) });
+      setEditing(false);
+    } catch (err) {
+      // A refused maintained phase is worded here, in the UI language; any
+      // other error shows the server's own text.
+      const refusal = maintainedRefusal(err);
+      setSaveError(
+        refusal
+          ? t("lifecycle.maintained.refused", {
+              name: refusal.extension,
+              phases: refusal.phases.map((p) => phaseLabels[p] ?? p).join(", "),
+            })
+          : err instanceof Error
+            ? err.message
+            : String(err),
+      );
+    }
   };
 
   return (
@@ -135,7 +181,7 @@ function LifecycleSection({
           <MaterialSymbol icon="timeline" size={20} />
           <Typography fontWeight={600}>{t("lifecycle.title")}</Typography>
         </Box>
-        {!editing && canEdit && (
+        {!editing && editable && (
           <IconButton
             size="small"
             onClick={(e) => {
@@ -321,24 +367,49 @@ function LifecycleSection({
                       </Box>
                     </Tooltip>
                   )}
+                  {lockedPhases.has(phase) && (
+                    <Box>
+                      <MaintainedPhaseChip phase={phase} name={maintained?.name ?? ""} />
+                    </Box>
+                  )}
                   {annotation?.note}
                 </Box>
               );
             })}
           </Box>
         </Box>
+        {allLocked && canEdit && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            display="block"
+            data-testid="lifecycle-all-maintained"
+            sx={{ mb: 1 }}
+          >
+            {t("lifecycle.maintained.allLocked", { name: maintained?.name ?? "" })}
+          </Typography>
+        )}
         {editing && (
           <Box>
             <LifecycleDateFields
               lifecycle={lifecycle}
               onChange={setLifecycle}
               phaseAnnotation={phaseAnnotation}
+              {...(lockedPhases.size > 0
+                ? { lockedPhases: [...lockedPhases], lockedBy: maintained?.name ?? "" }
+                : {})}
             />
+            {saveError && (
+              <Alert severity="error" sx={{ mb: 1 }} onClose={() => setSaveError(null)}>
+                {saveError}
+              </Alert>
+            )}
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
               <Button
                 size="small"
                 onClick={() => {
                   setLifecycle(card.lifecycle || {});
+                  setSaveError(null);
                   setEditing(false);
                 }}
               >

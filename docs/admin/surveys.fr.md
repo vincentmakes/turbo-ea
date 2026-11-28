@@ -99,6 +99,8 @@ Naviguez vers **Admin > Enquêtes > [Nom de l'enquête] > Résultats** pour voir
 
 Appliquer une réponse passe par les mêmes contrôles qu'une modification faite directement sur la fiche. Une valeur que la fiche refuse — une option qui n'existe plus, par exemple — est signalée pour cette réponse et rien n'en est appliqué, tandis que les autres réponses sont tout de même appliquées. Chaque modification apparaît dans l'onglet **Historique** de la fiche sous l'administrateur qui l'a appliquée, avec un repère **via l'enquête** qui nomme l'enquête ; le survoler indique qui a répondu. L'application entière constitue une seule entrée dans **Admin → Journal d'audit** et peut donc y être annulée.
 
+Une réponse portant sur une date de cycle de vie qu'une extension installée définit automatiquement (voir [Dates de cycle de vie définies par une extension](extensions.md#lifecycle-dates-set-by-an-extension)) n'est pas appliquée — y compris une date effacée — et la date enregistrée reste ; le reste de cette réponse est appliqué. Un avertissement au-dessus des résultats indique combien de réponses ont été ignorées, en nommant chaque fiche et ses phases de cycle de vie.
+
 ## Suppression d'une enquête
 
 Une enquête peut être supprimée quel que soit son statut : ouvrez le menu **⋮** de sa ligne dans **Admin > Enquêtes**, ou utilisez **Supprimer** dans le générateur d'enquête ou sur la page des résultats. La confirmation indique ce qui disparaît avec elle : les demandes encore sans réponse sont retirées, ainsi que leurs notifications, et les réponses pas encore appliquées sont perdues. Les modifications déjà appliquées restent sur les fiches, et l'historique des fiches continue de citer l'enquête.
