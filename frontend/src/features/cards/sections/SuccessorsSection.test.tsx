@@ -61,7 +61,7 @@ import {
 } from "@/test/fixtures/metamodel";
 import type { Card, Relation } from "@/types";
 import SuccessorsSection from "./SuccessorsSection";
-import { OwnCardWriteContext } from "@/features/cards/ownCardWrite";
+import { OwnCardWriteContext, type TrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 const SUCCESSOR_RT = makeRelationType({
   key: "relApplicationSuccessor",
@@ -296,15 +296,20 @@ describe("SuccessorsSection", () => {
     expect(within(dialog).getByRole("button", { name: "Add" })).toBeEnabled();
   });
 
-  it("notes the own write before adding, so the live re-read plays its gain", async () => {
+  it("runs the add through the own-write tracker, so the live re-read plays its gain", async () => {
     const order: string[] = [];
-    const note = vi.fn(() => order.push("note"));
+    const track: TrackOwnCardWrite = async (run) => {
+      order.push("track");
+      const result = await run();
+      order.push("tracked");
+      return result;
+    };
     mockApi.on("post", "/relations", () => {
       order.push("post");
       return {};
     });
     const { user } = renderWithProviders(
-      <OwnCardWriteContext.Provider value={note}>
+      <OwnCardWriteContext.Provider value={track}>
         <SuccessorsSection card={CARD} />
       </OwnCardWriteContext.Provider>,
     );
@@ -313,7 +318,7 @@ describe("SuccessorsSection", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByTestId("card-picker"));
     await user.click(within(dialog).getByRole("button", { name: "Add" }));
-    await waitFor(() => expect(order).toEqual(["note", "post"]));
+    await waitFor(() => expect(order).toEqual(["track", "post", "tracked"]));
   });
 
   it("renders nothing for a card whose type is not in the metamodel", () => {

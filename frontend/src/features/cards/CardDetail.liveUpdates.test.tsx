@@ -59,7 +59,7 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
         supersede: () => {
           live.supersede += 1;
         },
-        noteOwnWrite: () => {},
+        trackOwnWrite: (run: () => Promise<unknown>) => run(),
         editingCb: () => () => {},
         ownWrite: async (write: () => Promise<unknown>) => {
           live.ownWrite.push("write");

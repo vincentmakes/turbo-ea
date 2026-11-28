@@ -13,6 +13,16 @@ export const LIVE_MAX_WAIT_MS = 2000;
 /** A re-read that failed for a passing reason is tried again after these. */
 export const LIVE_RETRY_DELAYS_MS = [1000, 2000, 5000] as const;
 
+/** A live re-read applied this long after an own write succeeded is still own. */
+export const OWN_WRITE_GRACE_MS = 5000;
+
+/** One write tracked through `trackOwnWrite`. */
+interface OwnWrite {
+  anchor: string | null;
+  /** `null` while the write is out. */
+  succeededAt: number | null;
+}
+
 /**
  * Keep an open card current while somebody else changes it.
  *
@@ -21,16 +31,20 @@ export const LIVE_RETRY_DELAYS_MS = [1000, 2000, 5000] as const;
  * `onCardUpdate` and `onReloaded` lets the caller reload the lists that hang
  * off the card.
  *
- * The server pings the viewer's own writes too. A re-read is marked with
- * `markLiveCardUpdate` (the score moves silently: the viewer did not earn a
- * change somebody else made) only when no own write happened on the page
- * since the card was last stored: a section that writes something of the card
- * and stores the card later, or never (a relation picked in the add dialog, a
- * tag), calls `noteOwnWrite` first, and the re-read that brings that write
- * back plays its score change like a save — from the section's anchor,
- * reported through `onOwnOrigin`. The host's own writes whose result it stores
- * run through `ownWrite`, which holds re-reads while the write is out and
- * clears what `noteOwnWrite` recorded (the stored card carries it).
+ * The server pings the viewer's own writes too. A section that writes
+ * something of the card and stores the card later, or never (a relation
+ * picked in the add dialog, a tag), wraps the request in `trackOwnWrite`. A
+ * re-read whose result is applied while such a write is still out, or within
+ * `OWN_WRITE_GRACE_MS` of one succeeding, is the viewer's own: its score change
+ * plays like a save, from the anchor of the most recent of those writes
+ * (reported through `onOwnOrigin`). Any other re-read is marked with
+ * `markLiveCardUpdate` — the score moves silently: the viewer did not earn a
+ * change somebody else made. Nothing is consumed: several re-reads inside the
+ * window are all own, and only one that actually raises the score shows
+ * anything. A failed write counts for nothing. The host's own writes whose
+ * result it stores run through `ownWrite`, which holds re-reads while the
+ * write is out and drops one in flight; it records no own write (the stored
+ * card plays its own gain) and never touches what `trackOwnWrite` recorded.
  *
  * Held — the read waits, and runs once the hold clears — while any section
  * reports edit mode, while `paused`, while an `ownWrite` is out, and while the
@@ -64,8 +78,8 @@ export function useLiveCardUpdates(
   const firstPingRef = useRef<number | null>(null);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryAttemptRef = useRef(0);
-  /** An own write not yet stored as a card: the next re-read brings it back. */
-  const ownRef = useRef<{ anchor: string | null } | null>(null);
+  /** Section writes (`trackOwnWrite`) out, or succeeded within the grace window. */
+  const ownWritesRef = useRef<Set<OwnWrite>>(new Set());
   /** Host writes (`ownWrite`) out right now. */
   const ownInFlightRef = useRef(0);
   const [stoppedFor, setStoppedFor] = useState<string | null>(null);
@@ -75,6 +89,21 @@ export function useLiveCardUpdates(
     pausedRef.current ||
     ownInFlightRef.current > 0 ||
     document.hidden;
+
+  /** The most recent own write that is out or inside the grace window, if any;
+   *  forgets the ones that left it. */
+  const currentOwnWrite = (): OwnWrite | null => {
+    const now = Date.now();
+    let latest: OwnWrite | null = null;
+    for (const w of [...ownWritesRef.current]) {
+      if (w.succeededAt !== null && now - w.succeededAt > OWN_WRITE_GRACE_MS) {
+        ownWritesRef.current.delete(w);
+      } else {
+        latest = w;
+      }
+    }
+    return latest;
+  };
 
   const clearRetry = () => {
     if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
@@ -104,8 +133,7 @@ export function useLiveCardUpdates(
           pendingRef.current = true;
           return;
         }
-        const own = ownRef.current;
-        ownRef.current = null;
+        const own = currentOwnWrite();
         if (own?.anchor) onOwnOriginRef.current?.(own.anchor);
         onCardUpdateRef.current(own ? fresh : markLiveCardUpdate(fresh));
         onReloadedRef.current();
@@ -188,7 +216,8 @@ export function useLiveCardUpdates(
       firstPingRef.current = null;
       pendingRef.current = false;
       inFlightRef.current = false;
-      ownRef.current = null;
+      // A write still out for the previous card settles into the old set.
+      ownWritesRef.current = new Set();
       request.cancel();
     },
     [cardId, request],
@@ -202,12 +231,22 @@ export function useLiveCardUpdates(
     schedule(LIVE_DEBOUNCE_MS);
   }, [request, schedule]);
 
-  const noteOwnWrite = useCallback(
-    (anchor?: string | null) => {
-      supersede();
-      ownRef.current = { anchor: anchor ?? null };
+  const trackOwnWrite = useCallback(
+    async <T>(run: () => Promise<T>, anchor: string | null = null): Promise<T> => {
+      const entry: OwnWrite = { anchor, succeededAt: null };
+      // Insertion order is start order: the last entry is the newest write.
+      const writes = ownWritesRef.current;
+      writes.add(entry);
+      try {
+        const result = await run();
+        entry.succeededAt = Date.now();
+        return result;
+      } catch (err) {
+        writes.delete(entry);
+        throw err;
+      }
     },
-    [supersede],
+    [],
   );
 
   const flushRef = useRef(flush);
@@ -224,9 +263,6 @@ export function useLiveCardUpdates(
       } finally {
         ownInFlightRef.current -= 1;
         supersede();
-        // The caller stores what came back, which carries every own write so
-        // far: the next re-read is somebody else's again.
-        ownRef.current = null;
         // A re-read held while the write was out runs after the usual
         // debounce, so it coalesces with the write's own ping.
         if (ownInFlightRef.current === 0 && pendingRef.current) schedule(LIVE_DEBOUNCE_MS);
@@ -252,7 +288,7 @@ export function useLiveCardUpdates(
   }, []);
 
   return useMemo(
-    () => ({ supersede, noteOwnWrite, ownWrite, editingCb }),
-    [supersede, noteOwnWrite, ownWrite, editingCb],
+    () => ({ supersede, trackOwnWrite, ownWrite, editingCb }),
+    [supersede, trackOwnWrite, ownWrite, editingCb],
   );
 }

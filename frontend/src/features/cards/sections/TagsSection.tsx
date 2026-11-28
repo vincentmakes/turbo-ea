@@ -25,7 +25,7 @@ import {
 import { api } from "@/api/client";
 import type { Card, TagGroup, TagRef } from "@/types";
 import { readableTextColor } from "@/lib/color";
-import { useNoteOwnCardWrite } from "@/features/cards/ownCardWrite";
+import { useTrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 interface Props {
   card: Card;
@@ -55,7 +55,7 @@ export default function TagsSection({
   editOn,
 }: Props) {
   const { t } = useTranslation(["cards", "common"]);
-  const noteOwnWrite = useNoteOwnCardWrite();
+  const trackOwnWrite = useTrackOwnCardWrite();
   const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [groups, setGroups] = useState<TagGroup[]>([]);
   const [editOpen, setEditOpen] = useState(false);
@@ -111,12 +111,10 @@ export default function TagsSection({
       const toAdd = [...newIds].filter((id) => !oldIds.has(id));
       const toRemove = [...oldIds].filter((id) => !newIds.has(id));
       if (toAdd.length > 0) {
-        noteOwnWrite();
-        await api.post(`/cards/${card.id}/tags`, toAdd);
+        await trackOwnWrite(() => api.post(`/cards/${card.id}/tags`, toAdd));
       }
       for (const id of toRemove) {
-        noteOwnWrite();
-        await api.delete(`/cards/${card.id}/tags/${id}`);
+        await trackOwnWrite(() => api.delete(`/cards/${card.id}/tags/${id}`));
       }
       setEditOpen(false);
       onUpdate();

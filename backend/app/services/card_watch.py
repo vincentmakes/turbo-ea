@@ -48,11 +48,20 @@ never the subscriber.
 **What a watcher can learn.** Only that a card it could read when it
 registered the watch changed at some moment — at most for
 ``WATCH_TTL_SECONDS`` (five minutes) after its last registration, after which
-a lost read right also ends the signal (re-registering re-checks it; the
-browser re-registers at 80 % of the announced lifetime, one request per tab). A change to a
-relation whose other end the viewer may not read still pings the visible end
-(relation events are published once per end); the re-read then shows nothing
-the viewer could not already see. A stream belongs to the user who opened it:
+a lost read right also ends the signal (re-registering re-checks it).
+
+**The client contract.** The browser re-registers at half the announced
+lifetime, one request per tab, so a timer a background tab fires late still
+lands inside the lifetime. A registration the server accepts later than the
+lifetime after the previous accepted one (failed retries, a throttled timer, a
+suspended laptop) may have missed pings while the watch had lapsed, so the
+browser re-reads each such card once; it does the same for each card's first
+accepted registration on a stream (on opening the card, and after a
+reconnect, which brings a new stream id).
+
+A change to a relation whose other end the viewer may not read still pings the
+visible end (relation events are published once per end); the re-read then
+shows nothing the viewer could not already see. A stream belongs to the user who opened it:
 ``set_watch`` refuses any other user, and the id is unguessable.
 
 The registry is in memory: core runs a single backend process. This module

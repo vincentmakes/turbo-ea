@@ -71,7 +71,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
 
 import { api } from "@/api/client";
 import { HierarchySection } from "./index";
-import { OwnCardWriteContext } from "@/features/cards/ownCardWrite";
+import { OwnCardWriteContext, type TrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 const VOCAB = [
   { key: "commercial", label: "Commercial", color: "#2889ff" },
@@ -322,22 +322,29 @@ describe("HierarchySection live updates", () => {
     await waitFor(() => expect(loads()).toBe(2));
   });
 
-  it("notes an own write before patching this card", async () => {
+  it("runs a patch of this card through the own-write tracker", async () => {
     const user = userEvent.setup();
     const order: string[] = [];
-    const note = vi.fn(() => order.push("note"));
+    const track: TrackOwnCardWrite = async (run) => {
+      order.push("track");
+      const result = await run();
+      order.push("tracked");
+      return result;
+    };
     vi.mocked(api.patch).mockImplementation(async (path: string) => {
       order.push(`patch ${path}`);
       return {} as never;
     });
     render(
-      <OwnCardWriteContext.Provider value={note}>
+      <OwnCardWriteContext.Provider value={track}>
         <HierarchySection card={CARD} onUpdate={vi.fn()} />
       </OwnCardWriteContext.Provider>,
     );
     await screen.findByText("Commercial");
     await pick(user, editButton("Commercial"), "Sales");
     await user.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(order).toEqual(["note", `patch /cards/${CARD.id}`]));
+    await waitFor(() =>
+      expect(order).toEqual(["track", `patch /cards/${CARD.id}`, "tracked"]),
+    );
   });
 });

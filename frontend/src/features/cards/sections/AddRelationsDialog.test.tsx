@@ -58,7 +58,7 @@ import { api } from "@/api/client";
 import type { Relation, RelationType } from "@/types";
 import { createTheme } from "@mui/material/styles";
 import AddRelationsDialog from "./AddRelationsDialog";
-import { OwnCardWriteContext } from "@/features/cards/ownCardWrite";
+import { OwnCardWriteContext, type TrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 /** `#rrggbb` as the `rgb(r, g, b)` a computed style reports. */
 function hexToRgb(hex: string): string {
@@ -148,15 +148,20 @@ describe("AddRelationsDialog relation attributes", () => {
     );
   });
 
-  it("notes the own write before each relation it creates", async () => {
+  it("runs each relation it creates through the own-write tracker", async () => {
     const order: string[] = [];
-    const note = vi.fn(() => order.push("note"));
+    const track: TrackOwnCardWrite = async (run) => {
+      order.push("track");
+      const result = await run();
+      order.push("tracked");
+      return result;
+    };
     vi.mocked(api.post).mockImplementation(async (_url: string, body: unknown) => {
       order.push("post");
       return { id: "rel-1", ...(body as object) } as never;
     });
     render(
-      <OwnCardWriteContext.Provider value={note}>
+      <OwnCardWriteContext.Provider value={track}>
         <AddRelationsDialog
           open
           onClose={vi.fn()}
@@ -173,7 +178,7 @@ describe("AddRelationsDialog relation attributes", () => {
     );
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(await within(dialog).findByText("Finance"));
-    await waitFor(() => expect(order).toEqual(["note", "post"]));
+    await waitFor(() => expect(order).toEqual(["track", "post", "tracked"]));
   });
 
   it("keeps the attribute for every card added afterwards", async () => {

@@ -15,7 +15,10 @@ import { ApiError, api } from "@/api/client";
 import { stopEventStream, useEventStream } from "./useEventStream";
 import {
   MAX_WATCHED_CARDS,
+  RECONNECT_JITTER_MS,
+  WATCH_RENEW_AT,
   WATCH_RETRY_DELAYS_MS,
+  WATCH_RETRY_INTERVAL_MS,
   resetCardWatch,
   useCardWatch,
 } from "./useCardWatch";
@@ -173,7 +176,7 @@ describe("useCardWatch", () => {
     expect(putCalls()).toEqual([["/events/stream/s-1/watch", { card_ids: ["c1", "c2", "c3"] }]]);
   });
 
-  it("re-registers on a reconnect hello and re-reads every card once, jittered", async () => {
+  it("re-registers a reconnect after a jitter, then catches up once the watch is back", async () => {
     const onChanged = vi.fn();
     renderHook(() => useCardWatch("c1", onChanged));
     hello("s-1");
@@ -181,19 +184,43 @@ describe("useCardWatch", () => {
     // The first registration's catch-up.
     expect(onChanged).toHaveBeenCalledTimes(1);
     onChanged.mockClear();
+    expect(RECONNECT_JITTER_MS).toBe(1500);
 
+    let release: (v: unknown) => void = () => {};
+    put.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     hello("s-2");
-    await settle();
-    expect(putCalls()[1]).toEqual(["/events/stream/s-2/watch", { card_ids: ["c1"] }]);
-    // Jitter: 0.5 × 1500 ms.
+    // Jitter: 0.5 × 1500 ms before the registration goes out.
     await settle(749);
-    expect(onChanged).not.toHaveBeenCalled();
+    expect(put).toHaveBeenCalledTimes(1);
     await settle(1);
-    // The reconnect's re-read only: the card's catch-up is long done.
-    expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(putCalls()[1]).toEqual(["/events/stream/s-2/watch", { card_ids: ["c1"] }]);
+    // No read while the new watch does not exist yet: it could miss a change
+    // committed before the watch.
     await settle(5000);
+    expect(onChanged).not.toHaveBeenCalled();
+    await act(async () => {
+      release({ card_ids: ["c1"], expires_in: 300 });
+    });
+    // First accepted registration on the new stream: exactly one catch-up.
     expect(onChanged).toHaveBeenCalledTimes(1);
+    await settle(60_000);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    vi.mocked(Math.random).mockRestore();
+  });
+
+  it("registers a first hello without a jitter", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    renderHook(() => useCardWatch("c1", vi.fn()));
+    hello("s-1");
+    await settle();
+    expect(put).toHaveBeenCalledTimes(1);
+    vi.mocked(Math.random).mockRestore();
   });
 
   it("refreshes the watch before it expires, while something is watched", async () => {
@@ -202,19 +229,20 @@ describe("useCardWatch", () => {
     await settle();
     expect(put).toHaveBeenCalledTimes(1);
 
-    // At 80 % of the 100 s lifetime.
-    await settle(79_999);
+    // At half of the 100 s lifetime.
+    expect(WATCH_RENEW_AT).toBe(0.5);
+    await settle(49_999);
     expect(put).toHaveBeenCalledTimes(1);
     await settle(1);
     expect(putCalls()[1]).toEqual(["/events/stream/s-1/watch", { card_ids: ["c1"] }]);
-    await settle(80_000);
+    await settle(50_000);
     expect(put).toHaveBeenCalledTimes(3);
 
     unmount();
     await settle();
     expect(putCalls()[3]).toEqual(["/events/stream/s-1/watch", { card_ids: [] }]);
     // Nothing watched: no more refreshes.
-    await settle(10 * 80_000);
+    await settle(10 * 50_000);
     expect(put).toHaveBeenCalledTimes(4);
   });
 
@@ -232,11 +260,12 @@ describe("useCardWatch", () => {
     expect(put).toHaveBeenCalledTimes(1);
 
     hello("s-2");
-    await settle();
+    // A reconnect hello: registered within the jitter window.
+    await settle(RECONNECT_JITTER_MS);
     expect(putCalls()[1]).toEqual(["/events/stream/s-2/watch", { card_ids: ["c1", "c2"] }]);
   });
 
-  it("retries a passing failure after 1, 2 and 5 s, then waits for the refresh", async () => {
+  it("retries a passing failure after 1, 2 and 5 s, then every 30 s", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     put.mockRejectedValue(new ApiError("Boom", 500, null));
     const onChanged = vi.fn();
@@ -245,6 +274,7 @@ describe("useCardWatch", () => {
     await settle();
     expect(put).toHaveBeenCalledTimes(1);
     expect([...WATCH_RETRY_DELAYS_MS]).toEqual([1000, 2000, 5000]);
+    expect(WATCH_RETRY_INTERVAL_MS).toBe(30_000);
 
     await settle(999);
     expect(put).toHaveBeenCalledTimes(1);
@@ -258,19 +288,151 @@ describe("useCardWatch", () => {
     expect(put).toHaveBeenCalledTimes(3);
     await settle(1);
     expect(put).toHaveBeenCalledTimes(4);
-    // Given up: no loop, nothing logged, and no catch-up for a card that
+    // The series is spent: the next attempt is 30 s later, not a whole
+    // renewal interval later; nothing logged, and no catch-up for a card that
     // was never registered.
-    await settle(60_000);
+    await settle(29_999);
     expect(put).toHaveBeenCalledTimes(4);
+    await settle(1);
+    expect(put).toHaveBeenCalledTimes(5);
+    await settle(30_000);
+    expect(put).toHaveBeenCalledTimes(6);
     expect(errorSpy).not.toHaveBeenCalled();
     expect(onChanged).not.toHaveBeenCalled();
 
-    // The refresh tries again later, and that works once the server does.
+    // Once the server answers, the card is registered and catches up once.
     put.mockResolvedValue({ card_ids: ["c1"], expires_in: 100 });
-    await settle(80_000 - 60_000);
-    expect(put).toHaveBeenCalledTimes(5);
+    await settle(30_000);
+    expect(put).toHaveBeenCalledTimes(7);
     expect(onChanged).toHaveBeenCalledTimes(1);
+    // And the steady retry stops: the next send is the renewal at 50 s.
+    await settle(49_999);
+    expect(put).toHaveBeenCalledTimes(7);
+    await settle(1);
+    expect(put).toHaveBeenCalledTimes(8);
     errorSpy.mockRestore();
+  });
+
+  it("stops the steady retry once nothing is watched", async () => {
+    put.mockRejectedValue(new ApiError("Boom", 500, null));
+    const { unmount } = renderHook(() => useCardWatch("c1", vi.fn()));
+    hello("s-1");
+    await settle(1000 + 2000 + 5000);
+    expect(put).toHaveBeenCalledTimes(4);
+    unmount();
+    await settle(10 * 30_000);
+    expect(put).toHaveBeenCalledTimes(4);
+  });
+
+  it("renews in time without a catch-up", async () => {
+    const onChanged = vi.fn();
+    renderHook(() => useCardWatch("c1", onChanged));
+    hello("s-1", 300);
+    await settle();
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    onChanged.mockClear();
+    await settle(150_000);
+    await settle(150_000);
+    await settle(150_000);
+    expect(put).toHaveBeenCalledTimes(4);
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("catches up once when a renewal is accepted only after failed retries outlast the lifetime", async () => {
+    const onChanged = vi.fn();
+    renderHook(() => useCardWatch("c1", onChanged));
+    hello("s-1", 300);
+    await settle();
+    onChanged.mockClear();
+
+    // The renewal at 150 s and everything after it fail for a while.
+    put.mockRejectedValue(new TypeError("Failed to fetch"));
+    await settle(150_000);
+    expect(put).toHaveBeenCalledTimes(2);
+    // 1 + 2 + 5 s, then 30 s steps: still failing at 150 + 8 + 4 × 30 = 278 s.
+    await settle(8000 + 4 * 30_000);
+    expect(put).toHaveBeenCalledTimes(2 + 3 + 4);
+    expect(onChanged).not.toHaveBeenCalled();
+
+    put.mockImplementation(async (_path: string, body?: unknown) => ({
+      card_ids: (body as { card_ids: string[] }).card_ids,
+      expires_in: 300,
+    }));
+    // Accepted at 308 s, more than 300 s after the last accepted one at 0 s:
+    // the watch lapsed meanwhile, so the page re-reads once.
+    await settle(30_000);
+    expect(put).toHaveBeenCalledTimes(10);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    // The next renewal is in time again.
+    await settle(150_000);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("catches up after a renewal timer a background tab fired late", async () => {
+    const onChanged = vi.fn();
+    renderHook(() => useCardWatch("c1", onChanged));
+    hello("s-1", 300);
+    await settle();
+    onChanged.mockClear();
+
+    // The tab was throttled (or the laptop slept): the clock moved 250 s on
+    // while the renewal timer did not fire...
+    vi.setSystemTime(Date.now() + 250_000);
+    await settle();
+    expect(put).toHaveBeenCalledTimes(1);
+    // ...and it fires 150 s "later" by its own count, 400 s after the last
+    // accepted registration.
+    await settle(150_000);
+    expect(put).toHaveBeenCalledTimes(2);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("renews at once when the tab becomes visible with the renewal overdue", async () => {
+    const onChanged = vi.fn();
+    renderHook(() => useCardWatch("c1", onChanged));
+    hello("s-1", 300);
+    await settle();
+    onChanged.mockClear();
+    const visible = () =>
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+
+    // Not overdue yet: nothing happens.
+    await settle(100_000);
+    visible();
+    await settle();
+    expect(put).toHaveBeenCalledTimes(1);
+
+    // The renewal timer was throttled while hidden; the clock went past half
+    // the lifetime and past the lifetime itself.
+    vi.setSystemTime(Date.now() + 260_000);
+    visible();
+    await settle();
+    expect(put).toHaveBeenCalledTimes(2);
+    expect(putCalls()[1]).toEqual(["/events/stream/s-1/watch", { card_ids: ["c1"] }]);
+    // 360 s since the last accepted one: the watch had lapsed.
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    // The renewal rearmed from now: no double send when the old timer would have run.
+    await settle(149_999);
+    expect(put).toHaveBeenCalledTimes(2);
+    await settle(1);
+    expect(put).toHaveBeenCalledTimes(3);
+  });
+
+  it("renews early on visibility without a catch-up when the watch has not lapsed", async () => {
+    const onChanged = vi.fn();
+    renderHook(() => useCardWatch("c1", onChanged));
+    hello("s-1", 300);
+    await settle();
+    onChanged.mockClear();
+    vi.setSystemTime(Date.now() + 200_000);
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await settle();
+    expect(put).toHaveBeenCalledTimes(2);
+    expect(onChanged).not.toHaveBeenCalled();
   });
 
   it("recovers from one failed registration within a second", async () => {
@@ -320,34 +482,57 @@ describe("useCardWatch", () => {
     });
     expect(onChanged).toHaveBeenCalledTimes(1);
 
-    // A second hook on the card, the refresh re-send and a re-sent set
-    // bring no further catch-up.
+    // A second hook on the card and the renewal bring no further catch-up.
     const other = vi.fn();
     renderHook(() => useCardWatch("c1", other));
-    await settle(80_000);
+    await settle(50_000);
     expect(put).toHaveBeenCalledTimes(2);
     expect(onChanged).toHaveBeenCalledTimes(1);
     expect(other).not.toHaveBeenCalled();
   });
 
-  it("gives no catch-up for a card the server did not accept", async () => {
+  it("never gives a catch-up for a card the server did not accept", async () => {
     put.mockResolvedValue({ card_ids: [], expires_in: 300 });
     const onChanged = vi.fn();
     renderHook(() => useCardWatch("c-hidden", onChanged));
     hello("s-1");
     await settle();
     expect(put).toHaveBeenCalledTimes(1);
+    // Not on renewals either, however late one lands.
+    vi.setSystemTime(Date.now() + 400_000);
+    await settle(150_000);
+    await settle(150_000);
+    expect(put).toHaveBeenCalledTimes(3);
     expect(onChanged).not.toHaveBeenCalled();
   });
 
-  it("renews once per tab, at 80 % of the lifetime the hello announced", async () => {
+  it("catches up a card that comes back into the set after being left out", async () => {
+    hello("s-1");
+    const first = vi.fn();
+    renderHook(() => useCardWatch("c1", first));
+    await settle();
+    expect(first).toHaveBeenCalledTimes(1);
+    // Ten newer cards push c1 out of the registered set.
+    const later = Array.from({ length: MAX_WATCHED_CARDS }, (_, i) =>
+      renderHook(() => useCardWatch(`n${i}`, vi.fn())),
+    );
+    await settle();
+    expect((putCalls()[1][1] as { card_ids: string[] }).card_ids).not.toContain("c1");
+    // One closes: c1 is registered again, and catches up on what it missed.
+    later[0].unmount();
+    await settle();
+    expect((putCalls()[2][1] as { card_ids: string[] }).card_ids).toContain("c1");
+    expect(first).toHaveBeenCalledTimes(2);
+  });
+
+  it("renews once per tab, at half the lifetime the hello announced", async () => {
     renderHook(() => useCardWatch("c1", vi.fn()));
     renderHook(() => useCardWatch("c2", vi.fn()));
     renderHook(() => useCardWatch("c3", vi.fn()));
     hello("s-1", 300);
     await settle();
     expect(put).toHaveBeenCalledTimes(1);
-    await settle(240_000 - 1);
+    await settle(150_000 - 1);
     expect(put).toHaveBeenCalledTimes(1);
     await settle(1);
     expect(putCalls()[1]).toEqual(["/events/stream/s-1/watch", { card_ids: ["c1", "c2", "c3"] }]);

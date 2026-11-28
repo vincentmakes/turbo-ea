@@ -30,7 +30,7 @@ import { useGrcEnabled } from "@/hooks/useGrcEnabled";
 import { useCardTabActivity } from "@/hooks/useCardTabActivity";
 import { api } from "@/api/client";
 import { useLiveCardUpdates } from "@/features/cards/useLiveCardUpdates";
-import { OwnCardWriteContext } from "@/features/cards/ownCardWrite";
+import { OwnCardWriteContext, type TrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 import {
   DescriptionSection,
   LifecycleSection,
@@ -384,9 +384,9 @@ export default function CardDetailContent({
   // card's own that this page stores — the sections' saves below and the
   // host's through `liveUpdatesRef` — runs through `ownWrite`, so a re-read in
   // flight can never land after it with the card as it was before; a section
-  // that writes something of the card and stores it later (or never) notes
-  // it through `OwnCardWriteContext`, so the re-read bringing it back plays
-  // its score gain.
+  // that writes something of the card and stores it later (or never) wraps
+  // the write in `OwnCardWriteContext`'s tracker, so the re-read bringing it
+  // back plays its score gain.
   const live = useLiveCardUpdates(
     card.id,
     onCardUpdate,
@@ -399,7 +399,7 @@ export default function CardDetailContent({
     },
     (anchor) => onSaveOriginRef.current?.(anchor),
   );
-  const { ownWrite, noteOwnWrite } = live;
+  const { ownWrite, trackOwnWrite } = live;
   useEffect(() => {
     if (!liveUpdatesRef) return;
     liveUpdatesRef.current = live;
@@ -407,20 +407,20 @@ export default function CardDetailContent({
       if (liveUpdatesRef.current === live) liveUpdatesRef.current = null;
     };
   }, [live, liveUpdatesRef]);
-  // One stable note per section, so the context value never changes identity.
+  // One stable tracker per section, so the context value never changes identity.
   const ownWriteFrom = useMemo(() => {
-    const notes = new Map<string, () => void>();
+    const trackers = new Map<string, TrackOwnCardWrite>();
     /** `null`: a section with no anchor of its own (the gain plays at the pill). */
     return (anchor: string | null) => {
       const key = anchor ?? "";
-      let cb = notes.get(key);
+      let cb = trackers.get(key);
       if (!cb) {
-        cb = () => noteOwnWrite(anchor);
-        notes.set(key, cb);
+        cb = (run) => trackOwnWrite(run, anchor);
+        trackers.set(key, cb);
       }
       return cb;
     };
-  }, [noteOwnWrite]);
+  }, [trackOwnWrite]);
   const patchCard = useCallback(
     async (updates: Record<string, unknown>, anchor: string | null) => {
       const updated = await ownWrite(() => api.patch<Card>(`/cards/${card.id}`, updates));

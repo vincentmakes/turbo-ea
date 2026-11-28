@@ -3932,18 +3932,18 @@ export interface LiveCardUpdates {
    */
   supersede: () => void;
   /**
-   * The viewer wrote something of this card from the page (a relation, a tag,
-   * the hierarchy) and the card itself has not been stored since: the next
-   * live re-read is that write coming back, so its score change plays like a
-   * save — from `anchor`, when given — instead of moving the baseline
-   * silently. Also supersedes a re-read in flight.
+   * Run a write of something of this card from the page (a relation, a tag,
+   * the hierarchy) whose result the card itself does not carry. A live
+   * re-read applied while it is out, or a few seconds after it succeeded,
+   * plays its score change like a save — from `anchor`, when given — instead
+   * of moving the baseline silently. A failed write records nothing.
    */
-  noteOwnWrite: (anchor?: string | null) => void;
+  trackOwnWrite: <T>(run: () => Promise<T>, anchor?: string | null) => Promise<T>;
   /**
    * Run a write of the host's own whose result the caller then stores
-   * (a PATCH, or a refetch after one): supersedes a live re-read in flight
-   * before and after it, and — the stored card carrying every own write so
-   * far — clears what `noteOwnWrite` recorded.
+   * (a PATCH, or a refetch after one): holds live re-reads while it is out and
+   * supersedes one in flight before and after it. It leaves what
+   * `trackOwnWrite` recorded alone.
    */
   ownWrite: <T>(write: () => Promise<T>) => Promise<T>;
   /** A stable per-key callback for a section's `onEditingChange`. */

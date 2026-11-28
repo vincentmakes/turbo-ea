@@ -1,7 +1,7 @@
 /**
- * A tag save notes the own write before it posts: the card page's live
- * re-read can then bring the change back with its score gain, whichever of it
- * and the section's own refresh lands first.
+ * A tag save runs its requests through the own-write tracker: the card page's
+ * live re-read can then bring the change back with its score gain, whichever
+ * of it and the section's own refresh lands first.
  */
 import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -17,7 +17,7 @@ vi.mock("@/components/TagPicker", () => ({
 }));
 
 import { api } from "@/api/client";
-import { OwnCardWriteContext } from "@/features/cards/ownCardWrite";
+import { OwnCardWriteContext, type TrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 import TagsSection from "./TagsSection";
 import type { Card } from "@/types";
 
@@ -32,8 +32,14 @@ const GROUP = {
 };
 
 describe("TagsSection — own writes", () => {
-  it("notes the own write before posting the tags, then refreshes the card", async () => {
+  it("runs the tag post through the own-write tracker, then refreshes the card", async () => {
     const order: string[] = [];
+    const track: TrackOwnCardWrite = async (run) => {
+      order.push("track");
+      const result = await run();
+      order.push("tracked");
+      return result;
+    };
     vi.mocked(api.get).mockResolvedValue([GROUP]);
     vi.mocked(api.post).mockImplementation(async () => {
       order.push("post");
@@ -41,7 +47,7 @@ describe("TagsSection — own writes", () => {
     });
     const onUpdate = vi.fn(() => order.push("refresh"));
     render(
-      <OwnCardWriteContext.Provider value={() => order.push("note")}>
+      <OwnCardWriteContext.Provider value={track}>
         <TagsSection
           card={card}
           onUpdate={onUpdate}
@@ -52,7 +58,7 @@ describe("TagsSection — own writes", () => {
     await screen.findByRole("dialog");
     fireEvent.click(screen.getByRole("button", { name: "pick tag" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(order).toEqual(["note", "post", "refresh"]));
+    await waitFor(() => expect(order).toEqual(["track", "post", "tracked", "refresh"]));
     expect(api.post).toHaveBeenCalledWith("/cards/card-1/tags", ["t1"]);
   });
 });

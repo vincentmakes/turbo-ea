@@ -52,8 +52,13 @@ vi.mock("@/features/cards/sections/SoAWTab", () => ({ default: () => null }));
 // Every section stubbed; the three with an edit mode expose it, and the two
 // relation lists show their refresh key.
 const editingCbs = vi.hoisted(() => ({} as Record<string, (editing: boolean) => void>));
+/** The relation write the Relations stub has out: settle it from the test. */
+const relationWrite = vi.hoisted(() => ({
+  resolve: null as null | ((v: unknown) => void),
+  reject: null as null | ((e: unknown) => void),
+}));
 vi.mock("@/features/cards/sections", async () => {
-  const { useNoteOwnCardWrite } = await import("@/features/cards/ownCardWrite");
+  const { useTrackOwnCardWrite } = await import("@/features/cards/ownCardWrite");
   const stub = () => null;
   const editable =
     (name: string) =>
@@ -96,7 +101,7 @@ vi.mock("@/features/cards/sections", async () => {
       <div data-testid="successors-section" data-refresh={refreshKey} />
     ),
     // Like the real one: a pick in the add dialog writes the relation at once
-    // (noting the own write first) and refreshes the card only on close.
+    // (through the own-write tracker) and refreshes the card only on close.
     RelationsSection: function RelationsStub({
       refreshKey,
       onCardUpdate,
@@ -104,10 +109,19 @@ vi.mock("@/features/cards/sections", async () => {
       refreshKey?: number;
       onCardUpdate?: () => void;
     }) {
-      const noteOwnWrite = useNoteOwnCardWrite();
+      const trackOwnWrite = useTrackOwnCardWrite();
+      const pick = () => {
+        void trackOwnWrite(
+          () =>
+            new Promise((resolve, reject) => {
+              relationWrite.resolve = resolve;
+              relationWrite.reject = reject;
+            }),
+        ).catch(() => {});
+      };
       return (
         <div data-testid="relations-section" data-refresh={refreshKey}>
-          <button onClick={() => noteOwnWrite()}>pick relation</button>
+          <button onClick={pick}>pick relation</button>
           <button onClick={() => onCardUpdate?.()}>close add dialog</button>
         </div>
       );
@@ -140,7 +154,7 @@ import {
   useSaveOrigin,
   useScoreGain,
 } from "@/features/cards/gamification/useScoreGain";
-import { LIVE_RETRY_DELAYS_MS } from "@/features/cards/useLiveCardUpdates";
+import { LIVE_RETRY_DELAYS_MS, OWN_WRITE_GRACE_MS } from "@/features/cards/useLiveCardUpdates";
 import { emitEvent, hookState } from "@/test/hooks";
 import type { Card, LiveCardUpdates } from "@/types";
 import CardDetailContent from "./CardDetailContent";
@@ -598,7 +612,13 @@ describe("CardDetailContent — live card updates", () => {
 
 describe("CardDetailContent — live updates and the score gain", () => {
   /** A host shaped like the card page: it stores the card and plays gains. */
-  function Host({ gains }: { gains: Array<{ delta: number; anchor: string | null }> }) {
+  function Host({
+    gains,
+    liveUpdatesRef,
+  }: {
+    gains: Array<{ delta: number; anchor: string | null }>;
+    liveUpdatesRef?: { current: LiveCardUpdates | null };
+  }) {
     const [shown, setShown] = React.useState<Card>(card);
     const [origin, reportOrigin] = useSaveOrigin();
     const gain = useScoreGain(shown.id, shown.data_quality, true, origin, isLiveCardUpdate(shown));
@@ -617,27 +637,44 @@ describe("CardDetailContent — live updates and the score gain", () => {
           onCardUpdate={setShown}
           onSaveOrigin={reportOrigin}
           showLdvSection={false}
+          liveUpdatesRef={liveUpdatesRef}
         />
       </MemoryRouter>
     );
   }
 
   const scored = (dq: number) => ({ ...card, data_quality: dq }) as unknown as Card;
+  const serve = (dq: number) =>
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? scored(dq) : [],
+    );
+  async function commitRelation() {
+    await act(async () => {
+      relationWrite.resolve?.({});
+    });
+  }
+  async function failRelation() {
+    await act(async () => {
+      relationWrite.reject?.(new Error("refused"));
+    });
+  }
 
-  it("plays the gain of a relation the viewer added exactly once", async () => {
+  beforeEach(() => {
+    relationWrite.resolve = null;
+    relationWrite.reject = null;
+  });
+
+  it("plays the gain of a relation the viewer added exactly once, at the section", async () => {
     const gains: Array<{ delta: number; anchor: string | null }> = [];
     render(<Host gains={gains} />);
-    vi.mocked(api.get).mockImplementation(async (path: string) =>
-      path === "/cards/card-1" ? scored(50) : [],
-    );
+    serve(50);
     await watching();
 
     // The pick writes the relation; its ping's re-read wins the race against
     // the dialog's own refresh on close.
-    vi.mocked(api.get).mockImplementation(async (path: string) =>
-      path === "/cards/card-1" ? scored(70) : [],
-    );
     fireEvent.click(screen.getByRole("button", { name: "pick relation" }));
+    serve(70);
+    await commitRelation();
     ping();
     await advance(400);
     expect(gains).toEqual([{ delta: 20, anchor: "card-section-relations" }]);
@@ -648,43 +685,111 @@ describe("CardDetailContent — live updates and the score gain", () => {
     expect(gains).toHaveLength(1);
   });
 
+  it("counts the own write's re-read even after an earlier ping's re-read landed during the write", async () => {
+    const gains: Array<{ delta: number; anchor: string | null }> = [];
+    render(<Host gains={gains} />);
+    serve(50);
+    await watching();
+
+    fireEvent.click(screen.getByRole("button", { name: "pick relation" }));
+    // A ping from before the write commits: its re-read is applied while the
+    // write is out (and plays as own — nothing is consumed by it).
+    serve(60);
+    ping();
+    await advance(400);
+    expect(cardReads()).toBe(1);
+    // The write commits; its own ping's re-read still counts as own.
+    serve(80);
+    await commitRelation();
+    ping();
+    await advance(400);
+    expect(cardReads()).toBe(2);
+    expect(gains.at(-1)).toEqual({ delta: 20, anchor: "card-section-relations" });
+  });
+
   it("plays nothing when another user raised the score", async () => {
     const gains: Array<{ delta: number; anchor: string | null }> = [];
     render(<Host gains={gains} />);
-    vi.mocked(api.get).mockImplementation(async (path: string) =>
-      path === "/cards/card-1" ? scored(50) : [],
-    );
+    serve(50);
     await watching();
-    vi.mocked(api.get).mockImplementation(async (path: string) =>
-      path === "/cards/card-1" ? scored(80) : [],
-    );
+    serve(80);
     ping();
     await advance(400);
     expect(cardReads()).toBe(1);
     expect(gains).toEqual([]);
   });
 
-  it("plays someone else's change silently again once the own write was stored", async () => {
+  it("plays someone else's change silently after the viewer's write failed", async () => {
     const gains: Array<{ delta: number; anchor: string | null }> = [];
     render(<Host gains={gains} />);
-    vi.mocked(api.get).mockImplementation(async (path: string) =>
-      path === "/cards/card-1" ? scored(50) : [],
-    );
+    serve(50);
     await watching();
-    vi.mocked(api.get).mockImplementation(async (path: string) =>
-      path === "/cards/card-1" ? scored(70) : [],
-    );
-    // The own write's card arrives through the section's refresh first...
     fireEvent.click(screen.getByRole("button", { name: "pick relation" }));
-    fireEvent.click(screen.getByRole("button", { name: "close add dialog" }));
-    await advance(0);
-    expect(gains).toEqual([{ delta: 20, anchor: "card-section-relations" }]);
-    // ...so a later change by somebody else is a new baseline.
-    vi.mocked(api.get).mockImplementation(async (path: string) =>
-      path === "/cards/card-1" ? scored(90) : [],
-    );
+    await failRelation();
+    serve(80);
     ping();
     await advance(400);
-    expect(gains).toHaveLength(1);
+    expect(cardReads()).toBe(1);
+    expect(gains).toEqual([]);
+  });
+
+  it("plays someone else's change silently once the grace after an own write is over", async () => {
+    const gains: Array<{ delta: number; anchor: string | null }> = [];
+    render(<Host gains={gains} />);
+    serve(50);
+    await watching();
+    fireEvent.click(screen.getByRole("button", { name: "pick relation" }));
+    await commitRelation();
+    expect(OWN_WRITE_GRACE_MS).toBe(5000);
+    // The re-read's result is applied 400 ms after the ping: start the ping
+    // just late enough for that to fall outside the grace window.
+    await advance(OWN_WRITE_GRACE_MS - 399);
+    serve(80);
+    ping();
+    await advance(400);
+    expect(cardReads()).toBe(1);
+    expect(gains).toEqual([]);
+  });
+
+  it("keeps a section's own write when a host write fails meanwhile", async () => {
+    const gains: Array<{ delta: number; anchor: string | null }> = [];
+    const liveUpdatesRef = { current: null as LiveCardUpdates | null };
+    render(<Host gains={gains} liveUpdatesRef={liveUpdatesRef} />);
+    serve(50);
+    await watching();
+
+    fireEvent.click(screen.getByRole("button", { name: "pick relation" }));
+    // A rename fails while the relation write is still out...
+    await act(async () => {
+      await liveUpdatesRef
+        .current!.ownWrite(() => Promise.reject(new Error("conflict")))
+        .catch(() => {});
+    });
+    // ...and the relation then commits: its re-read is still the viewer's.
+    serve(70);
+    await commitRelation();
+    ping();
+    await advance(400);
+    expect(gains).toEqual([{ delta: 20, anchor: "card-section-relations" }]);
+  });
+
+  it("keeps a just-succeeded section write when a host write fails right after", async () => {
+    const gains: Array<{ delta: number; anchor: string | null }> = [];
+    const liveUpdatesRef = { current: null as LiveCardUpdates | null };
+    render(<Host gains={gains} liveUpdatesRef={liveUpdatesRef} />);
+    serve(50);
+    await watching();
+
+    fireEvent.click(screen.getByRole("button", { name: "pick relation" }));
+    await commitRelation();
+    await act(async () => {
+      await liveUpdatesRef
+        .current!.ownWrite(() => Promise.reject(new Error("conflict")))
+        .catch(() => {});
+    });
+    serve(70);
+    ping();
+    await advance(400);
+    expect(gains).toEqual([{ delta: 20, anchor: "card-section-relations" }]);
   });
 });

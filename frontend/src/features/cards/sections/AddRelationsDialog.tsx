@@ -40,7 +40,7 @@ import RelationAttributesEditor, {
   hasEditableRelationAttributes,
   type RelationAttributes,
 } from "./RelationAttributesEditor";
-import { useNoteOwnCardWrite } from "@/features/cards/ownCardWrite";
+import { useTrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 interface Added {
   relId: string;
@@ -129,7 +129,7 @@ export default function AddRelationsDialog({
   onUpdated: (rel: Relation) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const noteOwnWrite = useNoteOwnCardWrite();
+  const trackOwnWrite = useTrackOwnCardWrite();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
@@ -388,8 +388,7 @@ export default function AddRelationsDialog({
       if (Object.keys(attributes).length > 0) payload.attributes = attributes;
       const dates = rt.lifecycle_enabled ? cleanRelationLifecycle(lifecycle) : {};
       if (Object.keys(dates).length > 0) payload.lifecycle = dates;
-      noteOwnWrite();
-      const created = await api.post<Relation>("/relations", payload);
+      const created = await trackOwnWrite(() => api.post<Relation>("/relations", payload));
       // Name the row from the card that was picked rather than trusting the
       // response to carry its refs — the picked card is authoritative and
       // local, so a row can never render as "Unknown".
@@ -426,10 +425,9 @@ export default function AddRelationsDialog({
     setError("");
     try {
       for (const a of added) {
-        noteOwnWrite();
-        const updated = await api.patch<Relation>(`/relations/${a.relId}`, {
+        const updated = await trackOwnWrite(() => api.patch<Relation>(`/relations/${a.relId}`, {
           attributes: next,
-        });
+        }));
         onUpdated(updated);
       }
     } catch (e) {
@@ -459,8 +457,9 @@ export default function AddRelationsDialog({
     lifecycleWrites.current = lifecycleWrites.current.then(async () => {
       try {
         for (const a of targets) {
-          noteOwnWrite();
-          const updated = await api.patch<Relation>(`/relations/${a.relId}`, { lifecycle: dates });
+          const updated = await trackOwnWrite(() =>
+            api.patch<Relation>(`/relations/${a.relId}`, { lifecycle: dates }),
+          );
           onUpdated(updated);
         }
       } catch (e) {
@@ -474,8 +473,7 @@ export default function AddRelationsDialog({
     setBusy(true);
     setError("");
     try {
-      noteOwnWrite();
-      await api.delete(`/relations/${relId}`);
+      await trackOwnWrite(() => api.delete(`/relations/${relId}`));
       setAdded((prev) => prev.filter((a) => a.relId !== relId));
       onRemoved(relId);
     } catch (e) {
@@ -491,11 +489,10 @@ export default function AddRelationsDialog({
     setBusy(true);
     setError("");
     try {
-      noteOwnWrite();
-      const card = await api.post<Card>("/cards", {
+      const card = await trackOwnWrite(() => api.post<Card>("/cards", {
         type: otherTypeKey,
         name,
-      });
+      }));
       // Tree mode's query is pinned to "", so nothing refetches — fold the new
       // card into the browsed set by hand. It is parentless, so it lands at the
       // root of the tree as an "added" row.

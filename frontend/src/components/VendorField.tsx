@@ -27,7 +27,7 @@ import { useCardSearch } from "@/hooks/useCardSearch";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { VENDOR_ACCENT } from "@/theme/tokens";
 import type { Relation } from "@/types";
-import { useNoteOwnCardWrite } from "@/features/cards/ownCardWrite";
+import { useTrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 interface ProviderOption {
   id: string;
@@ -73,7 +73,7 @@ export default function VendorField({
   onProviderSelected,
 }: VendorFieldProps) {
   const { t } = useTranslation(["cards", "common"]);
-  const noteOwnWrite = useNoteOwnCardWrite();
+  const trackOwnWrite = useTrackOwnCardWrite();
   const resolvedLabel = label ?? t("vendor.label");
   const { relationTypes } = useMetamodel();
   const [inputValue, setInputValue] = useState(value || "");
@@ -254,13 +254,15 @@ export default function VendorField({
       // Link the new Provider first, respecting the metamodel direction, so a
       // failed link leaves the card with the Provider it had. POST /relations
       // checks no cardinality and is idempotent on the pair, so re-picking
-      // the linked Provider keeps its row.
-      noteOwnWrite();
-      await api.post("/relations", {
-        type: relType,
-        source_id: providerIsSource ? providerId : fsId,
-        target_id: providerIsSource ? fsId : providerId,
-      });
+      // the linked Provider keeps its row — and writes nothing, so only a
+      // new Provider's link counts as a write of the card.
+      const link = () =>
+        api.post("/relations", {
+          type: relType,
+          source_id: providerIsSource ? providerId : fsId,
+          target_id: providerIsSource ? fsId : providerId,
+        });
+      await (linkedProvider?.id === providerId ? link() : trackOwnWrite(link));
     } catch (err) {
       setLinkError(errorMessage(err));
       return false;
@@ -274,8 +276,9 @@ export default function VendorField({
       );
       for (const r of existing) {
         const providerEnd = r.target_id === fsId ? r.source_id : r.target_id;
-        noteOwnWrite();
-        if (providerEnd !== providerId) await api.delete(`/relations/${r.id}`);
+        if (providerEnd !== providerId) {
+          await trackOwnWrite(() => api.delete(`/relations/${r.id}`));
+        }
       }
 
       setLinkedProvider({ id: providerId, name: "" });
