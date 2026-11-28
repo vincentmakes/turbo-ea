@@ -71,6 +71,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
 
 import { api } from "@/api/client";
 import { HierarchySection } from "./index";
+import { OwnCardWriteContext } from "@/features/cards/ownCardWrite";
 
 const VOCAB = [
   { key: "commercial", label: "Commercial", color: "#2889ff" },
@@ -307,5 +308,36 @@ describe("HierarchySection link labels", () => {
     expect(await screen.findByText("Commercial")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Commercial" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Set link type" })).not.toBeInTheDocument();
+  });
+});
+
+describe("HierarchySection live updates", () => {
+  it("reloads the tree when the card page bumps refreshKey", async () => {
+    const { rerender } = render(<HierarchySection card={CARD} onUpdate={vi.fn()} refreshKey={0} />);
+    await screen.findByText("Commercial");
+    const loads = () =>
+      vi.mocked(api.get).mock.calls.filter(([p]) => p === `/cards/${CARD.id}/hierarchy`).length;
+    expect(loads()).toBe(1);
+    rerender(<HierarchySection card={CARD} onUpdate={vi.fn()} refreshKey={1} />);
+    await waitFor(() => expect(loads()).toBe(2));
+  });
+
+  it("notes an own write before patching this card", async () => {
+    const user = userEvent.setup();
+    const order: string[] = [];
+    const note = vi.fn(() => order.push("note"));
+    vi.mocked(api.patch).mockImplementation(async (path: string) => {
+      order.push(`patch ${path}`);
+      return {} as never;
+    });
+    render(
+      <OwnCardWriteContext.Provider value={note}>
+        <HierarchySection card={CARD} onUpdate={vi.fn()} />
+      </OwnCardWriteContext.Provider>,
+    );
+    await screen.findByText("Commercial");
+    await pick(user, editButton("Commercial"), "Sales");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(order).toEqual(["note", `patch /cards/${CARD.id}`]));
   });
 });

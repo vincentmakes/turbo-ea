@@ -227,10 +227,12 @@ export function useLiveCardUpdates(
         // The caller stores what came back, which carries every own write so
         // far: the next re-read is somebody else's again.
         ownRef.current = null;
-        if (ownInFlightRef.current === 0) flushRef.current();
+        // A re-read held while the write was out runs after the usual
+        // debounce, so it coalesces with the write's own ping.
+        if (ownInFlightRef.current === 0 && pendingRef.current) schedule(LIVE_DEBOUNCE_MS);
       }
     },
-    [supersede],
+    [supersede, schedule],
   );
 
   const editingCbs = useRef<Map<string, (editing: boolean) => void>>(new Map());

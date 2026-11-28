@@ -61,6 +61,7 @@ import {
 } from "@/test/fixtures/metamodel";
 import type { Card, Relation } from "@/types";
 import SuccessorsSection from "./SuccessorsSection";
+import { OwnCardWriteContext } from "@/features/cards/ownCardWrite";
 
 const SUCCESSOR_RT = makeRelationType({
   key: "relApplicationSuccessor",
@@ -281,6 +282,38 @@ describe("SuccessorsSection", () => {
     rerender(wrapWithProviders(<SuccessorsSection card={other} />));
     expect(await screen.findByText("No predecessors.")).toBeInTheDocument();
     expect(mockApi.callsOf("get", otherUrl)).toHaveLength(1);
+  });
+
+  it("re-reads the lineage when the card page bumps refreshKey, keeping an open dialog", async () => {
+    const { user, rerender } = renderWithProviders(<SuccessorsSection card={CARD} refreshKey={0} />);
+    expect(await screen.findByText("ERP Legacy")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Add Successor/ }));
+    await user.click(within(await screen.findByRole("dialog")).getByTestId("card-picker"));
+    rerender(wrapWithProviders(<SuccessorsSection card={CARD} refreshKey={1} />));
+    await waitFor(() => expect(mockApi.callsOf("get", RELATIONS_URL)).toHaveLength(2));
+    // The picker the user is holding stays open, with what they picked.
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Add" })).toBeEnabled();
+  });
+
+  it("notes the own write before adding, so the live re-read plays its gain", async () => {
+    const order: string[] = [];
+    const note = vi.fn(() => order.push("note"));
+    mockApi.on("post", "/relations", () => {
+      order.push("post");
+      return {};
+    });
+    const { user } = renderWithProviders(
+      <OwnCardWriteContext.Provider value={note}>
+        <SuccessorsSection card={CARD} />
+      </OwnCardWriteContext.Provider>,
+    );
+    await screen.findByText("ERP Legacy");
+    await user.click(screen.getByRole("button", { name: /Add Successor/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByTestId("card-picker"));
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(order).toEqual(["note", "post"]));
   });
 
   it("renders nothing for a card whose type is not in the metamodel", () => {

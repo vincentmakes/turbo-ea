@@ -53,6 +53,7 @@ vi.mock("@/features/cards/sections/SoAWTab", () => ({ default: () => null }));
 // relation lists show their refresh key.
 const editingCbs = vi.hoisted(() => ({} as Record<string, (editing: boolean) => void>));
 vi.mock("@/features/cards/sections", async () => {
+  const { useNoteOwnCardWrite } = await import("@/features/cards/ownCardWrite");
   const stub = () => null;
   const editable =
     (name: string) =>
@@ -88,11 +89,29 @@ vi.mock("@/features/cards/sections", async () => {
       if (onEditingChange) editingCbs.lifecycle = onEditingChange;
       return <div>{footer}</div>;
     },
-    HierarchySection: stub,
-    SuccessorsSection: stub,
-    RelationsSection: ({ refreshKey }: { refreshKey?: number }) => (
-      <div data-testid="relations-section" data-refresh={refreshKey} />
+    HierarchySection: ({ refreshKey }: { refreshKey?: number }) => (
+      <div data-testid="hierarchy-section" data-refresh={refreshKey} />
     ),
+    SuccessorsSection: ({ refreshKey }: { refreshKey?: number }) => (
+      <div data-testid="successors-section" data-refresh={refreshKey} />
+    ),
+    // Like the real one: a pick in the add dialog writes the relation at once
+    // (noting the own write first) and refreshes the card only on close.
+    RelationsSection: function RelationsStub({
+      refreshKey,
+      onCardUpdate,
+    }: {
+      refreshKey?: number;
+      onCardUpdate?: () => void;
+    }) {
+      const noteOwnWrite = useNoteOwnCardWrite();
+      return (
+        <div data-testid="relations-section" data-refresh={refreshKey}>
+          <button onClick={() => noteOwnWrite()}>pick relation</button>
+          <button onClick={() => onCardUpdate?.()}>close add dialog</button>
+        </div>
+      );
+    },
     LayeredDependencySection: stub,
     CommentsTab: stub,
     TodosTab: stub,
@@ -116,9 +135,14 @@ vi.mock("@/features/cards/sections/RelationLifecyclesPanel", () => ({
 import { ApiError, api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { resetCardWatch } from "@/hooks/useCardWatch";
-import { isLiveCardUpdate } from "@/features/cards/gamification/useScoreGain";
+import {
+  isLiveCardUpdate,
+  useSaveOrigin,
+  useScoreGain,
+} from "@/features/cards/gamification/useScoreGain";
+import { LIVE_RETRY_DELAYS_MS } from "@/features/cards/useLiveCardUpdates";
 import { emitEvent, hookState } from "@/test/hooks";
-import type { Card } from "@/types";
+import type { Card, LiveCardUpdates } from "@/types";
 import CardDetailContent from "./CardDetailContent";
 
 const APP_TYPE = {
@@ -126,7 +150,8 @@ const APP_TYPE = {
   label: "Application",
   icon: "apps",
   color: "#0f7eb5",
-  has_hierarchy: false,
+  has_hierarchy: true,
+  has_successors: true,
   subtypes: [],
   fields_schema: [{ section: "Ownership", fields: [{ key: "owner", label: "Owner", type: "text" }] }],
   section_config: {},
@@ -193,7 +218,19 @@ async function advance(ms: number) {
   });
 }
 function hello(streamId = "s-1") {
-  act(() => emitEvent({ event: "event.stream.hello", stream_id: streamId, watch_ttl_seconds: 1800 }));
+  act(() => emitEvent({ event: "event.stream.hello", stream_id: streamId, watch_ttl_seconds: 300 }));
+}
+/**
+ * Hello, registration, and the one catch-up read the first registration
+ * brings (the page read the card before the watch existed) — consumed, so a
+ * test starts from a watched card with no read counted.
+ */
+async function watching(onCardUpdate?: ReturnType<typeof vi.fn>) {
+  hello();
+  await advance(0);
+  await advance(400);
+  vi.mocked(api.get).mockClear();
+  onCardUpdate?.mockClear();
 }
 function ping(cardId = "card-1") {
   act(() => emitEvent({ event: "event.stream.card_changed", card_id: cardId }));
@@ -217,7 +254,7 @@ beforeEach(() => {
   vi.mocked(api.put).mockReset();
   vi.mocked(api.put).mockImplementation(async (_p: string, body?: unknown) => ({
     card_ids: (body as { card_ids: string[] }).card_ids,
-    expires_in: 1800,
+    expires_in: 300,
   }));
   vi.mocked(api.patch).mockReset();
   vi.mocked(useMetamodel).mockReturnValue({
@@ -245,12 +282,31 @@ describe("CardDetailContent — live card updates", () => {
     expect(api.put).toHaveBeenCalledWith("/events/stream/s-1/watch", { card_ids: ["card-1"] });
   });
 
-  it("re-reads the card once after the debounce and reloads both relation lists", async () => {
+  it("re-reads once when the watch is first registered, silently", async () => {
+    // A change committed between the page's own read and the registration
+    // pinged nobody: the first registration catches up.
     const { onCardUpdate } = renderContent();
     hello();
     await advance(0);
-    expect(refreshOf("relations-section")).toBe("0");
-    expect(refreshOf("relation-lifecycles-panel")).toBe("0");
+    expect(cardReads()).toBe(0);
+    await advance(400);
+    expect(cardReads()).toBe(1);
+    expect(onCardUpdate).toHaveBeenCalledWith(fresh);
+    expect(isLiveCardUpdate(onCardUpdate.mock.calls[0][0])).toBe(true);
+    // Once: later refreshes of the watch read nothing.
+    await advance(300_000);
+    expect(cardReads()).toBe(1);
+  });
+
+  it("re-reads the card once after the debounce and reloads the lists hanging off it", async () => {
+    const { onCardUpdate } = renderContent();
+    await watching(onCardUpdate);
+    const before = {
+      relations: Number(refreshOf("relations-section")),
+      lifecycles: Number(refreshOf("relation-lifecycles-panel")),
+      hierarchy: Number(refreshOf("hierarchy-section")),
+      successors: Number(refreshOf("successors-section")),
+    };
 
     ping();
     await advance(399);
@@ -261,14 +317,15 @@ describe("CardDetailContent — live card updates", () => {
     expect(onCardUpdate).toHaveBeenCalledWith(fresh);
     // Marked, so the host's score-gain animation treats it as a new baseline.
     expect(isLiveCardUpdate(onCardUpdate.mock.calls[0][0])).toBe(true);
-    expect(refreshOf("relations-section")).toBe("1");
-    expect(refreshOf("relation-lifecycles-panel")).toBe("1");
+    expect(Number(refreshOf("relations-section"))).toBe(before.relations + 1);
+    expect(Number(refreshOf("relation-lifecycles-panel"))).toBe(before.lifecycles + 1);
+    expect(Number(refreshOf("hierarchy-section"))).toBe(before.hierarchy + 1);
+    expect(Number(refreshOf("successors-section"))).toBe(before.successors + 1);
   });
 
   it("makes several pings within the window one read, at most 2 s after the first", async () => {
     renderContent();
-    hello();
-    await advance(0);
+    await watching();
     ping();
     await advance(300);
     ping();
@@ -293,8 +350,7 @@ describe("CardDetailContent — live card updates", () => {
 
   it("ignores a ping for another card", async () => {
     renderContent();
-    hello();
-    await advance(0);
+    await watching();
     ping("card-2");
     await advance(5000);
     expect(cardReads()).toBe(0);
@@ -302,8 +358,7 @@ describe("CardDetailContent — live card updates", () => {
 
   it("holds the re-read while a section is in edit mode, untouched, and runs it after", async () => {
     const { onCardUpdate } = renderContent();
-    hello();
-    await advance(0);
+    await watching(onCardUpdate);
     act(() => editingCbs.description(true));
     ping();
     await advance(5000);
@@ -323,13 +378,12 @@ describe("CardDetailContent — live card updates", () => {
   });
 
   it("drops a read that lands while editing began, and reads again after", async () => {
+    const { onCardUpdate } = renderContent();
+    await watching(onCardUpdate);
     let answer: (c: Card) => void = () => {};
     vi.mocked(api.get).mockImplementation((path: string) =>
       path === "/cards/card-1" ? new Promise<Card>((r) => (answer = r)) : Promise.resolve([]),
     );
-    const { onCardUpdate } = renderContent();
-    hello();
-    await advance(0);
     ping();
     await advance(400);
     expect(cardReads()).toBe(1);
@@ -355,13 +409,13 @@ describe("CardDetailContent — live card updates", () => {
     expect(cardReads()).toBe(0);
     rerender({ pauseLiveUpdates: false });
     await advance(0);
+    // The held catch-up and the ping: one read.
     expect(cardReads()).toBe(1);
   });
 
   it("holds while the tab is hidden and runs when it is shown", async () => {
     renderContent();
-    hello();
-    await advance(0);
+    await watching();
     setHidden(true);
     ping();
     await advance(5000);
@@ -372,13 +426,12 @@ describe("CardDetailContent — live card updates", () => {
   });
 
   it("stops watching the card after a 404, and reads nothing more", async () => {
+    const { onCardUpdate } = renderContent();
+    await watching(onCardUpdate);
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === "/cards/card-1") throw new ApiError("Not found", 404);
       return [];
     });
-    const { onCardUpdate } = renderContent();
-    hello();
-    await advance(0);
     ping();
     await advance(400);
     expect(cardReads()).toBe(1);
@@ -391,7 +444,46 @@ describe("CardDetailContent — live card updates", () => {
     expect(onCardUpdate).not.toHaveBeenCalled();
   });
 
-  it("swallows any other failure and keeps watching", async () => {
+  it("retries a failed re-read after 1, 2 and 5 s, then waits for the next ping", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { onCardUpdate } = renderContent();
+    await watching(onCardUpdate);
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === "/cards/card-1") throw new TypeError("Failed to fetch");
+      return [];
+    });
+    expect([...LIVE_RETRY_DELAYS_MS]).toEqual([1000, 2000, 5000]);
+    ping();
+    await advance(400);
+    expect(cardReads()).toBe(1);
+    await advance(999);
+    expect(cardReads()).toBe(1);
+    await advance(1);
+    expect(cardReads()).toBe(2);
+    await advance(2000);
+    expect(cardReads()).toBe(3);
+    await advance(5000);
+    expect(cardReads()).toBe(4);
+    // Given up until something changes again.
+    await advance(60_000);
+    expect(cardReads()).toBe(4);
+    expect(onCardUpdate).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+
+    // The next ping reads again, and that works once the server does.
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? fresh : [],
+    );
+    ping();
+    await advance(400);
+    expect(cardReads()).toBe(5);
+    expect(onCardUpdate).toHaveBeenCalledWith(fresh);
+    errorSpy.mockRestore();
+  });
+
+  it("recovers from one failed re-read within a second", async () => {
+    const { onCardUpdate } = renderContent();
+    await watching(onCardUpdate);
     let reads = 0;
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path !== "/cards/card-1") return [];
@@ -399,29 +491,42 @@ describe("CardDetailContent — live card updates", () => {
       if (reads === 1) throw new ApiError("Boom", 500);
       return fresh;
     });
-    const { onCardUpdate } = renderContent();
-    hello();
-    await advance(0);
     ping();
     await advance(400);
-    expect(cardReads()).toBe(1);
     expect(onCardUpdate).not.toHaveBeenCalled();
-    ping();
-    await advance(400);
+    await advance(1000);
     expect(cardReads()).toBe(2);
     expect(onCardUpdate).toHaveBeenCalledWith(fresh);
   });
 
+  it("cancels a waiting retry when the card closes", async () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <CardDetailContent card={card} perms={perms} onCardUpdate={vi.fn()} showLdvSection={false} />
+      </MemoryRouter>,
+    );
+    await watching();
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === "/cards/card-1") throw new ApiError("Boom", 503);
+      return [];
+    });
+    ping();
+    await advance(400);
+    expect(cardReads()).toBe(1);
+    unmount();
+    await advance(10_000);
+    expect(cardReads()).toBe(1);
+  });
+
   it("never lets a read started before the viewer's own save land after it", async () => {
+    const own = { ...card, description: "mine" } as unknown as Card;
+    vi.mocked(api.patch).mockResolvedValue(own);
+    const { onCardUpdate } = renderContent();
+    await watching(onCardUpdate);
     let answer: (c: Card) => void = () => {};
     vi.mocked(api.get).mockImplementation((path: string) =>
       path === "/cards/card-1" ? new Promise<Card>((r) => (answer = r)) : Promise.resolve([]),
     );
-    const own = { ...card, description: "mine" } as unknown as Card;
-    vi.mocked(api.patch).mockResolvedValue(own);
-    const { onCardUpdate } = renderContent();
-    hello();
-    await advance(0);
     ping();
     await advance(400);
     expect(cardReads()).toBe(1);
@@ -443,6 +548,43 @@ describe("CardDetailContent — live card updates", () => {
     expect(onCardUpdate).toHaveBeenLastCalledWith(fresh);
   });
 
+  it("gives the host's own writes the same protection through liveUpdatesRef", async () => {
+    const liveUpdatesRef = { current: null as LiveCardUpdates | null };
+    const { onCardUpdate } = renderContent({ liveUpdatesRef });
+    await watching(onCardUpdate);
+    expect(liveUpdatesRef.current).not.toBeNull();
+    let answer: (c: Card) => void = () => {};
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      path === "/cards/card-1" ? new Promise<Card>((r) => (answer = r)) : Promise.resolve([]),
+    );
+    ping();
+    await advance(400);
+    const stale = answer;
+
+    // The host renames the card while that read is out.
+    const renamed = { ...card, name: "Renamed by me" } as unknown as Card;
+    let saved: (c: Card) => void = () => {};
+    let result: Promise<Card> = Promise.resolve(renamed);
+    act(() => {
+      result = liveUpdatesRef.current!.ownWrite(() => new Promise<Card>((r) => (saved = r)));
+    });
+    await act(async () => stale(card));
+    expect(onCardUpdate).not.toHaveBeenCalled();
+    // A ping while the host's write is out waits for it.
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? fresh : [],
+    );
+    ping();
+    await advance(5000);
+    expect(cardReads()).toBe(1);
+    await act(async () => saved(renamed));
+    await expect(result).resolves.toBe(renamed);
+    await advance(399);
+    expect(cardReads()).toBe(1);
+    await advance(1);
+    expect(cardReads()).toBe(2);
+  });
+
   it("does nothing at all without a hello (an older backend)", async () => {
     const { onCardUpdate } = renderContent();
     ping();
@@ -451,5 +593,98 @@ describe("CardDetailContent — live card updates", () => {
     expect(api.put).not.toHaveBeenCalled();
     expect(cardReads()).toBe(0);
     expect(onCardUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("CardDetailContent — live updates and the score gain", () => {
+  /** A host shaped like the card page: it stores the card and plays gains. */
+  function Host({ gains }: { gains: Array<{ delta: number; anchor: string | null }> }) {
+    const [shown, setShown] = React.useState<Card>(card);
+    const [origin, reportOrigin] = useSaveOrigin();
+    const gain = useScoreGain(shown.id, shown.data_quality, true, origin, isLiveCardUpdate(shown));
+    const seen = React.useRef<number | null>(null);
+    React.useEffect(() => {
+      if (gain && gain.nonce !== seen.current) {
+        seen.current = gain.nonce;
+        gains.push({ delta: gain.delta, anchor: gain.originAnchor });
+      }
+    }, [gain, gains]);
+    return (
+      <MemoryRouter>
+        <CardDetailContent
+          card={shown}
+          perms={perms}
+          onCardUpdate={setShown}
+          onSaveOrigin={reportOrigin}
+          showLdvSection={false}
+        />
+      </MemoryRouter>
+    );
+  }
+
+  const scored = (dq: number) => ({ ...card, data_quality: dq }) as unknown as Card;
+
+  it("plays the gain of a relation the viewer added exactly once", async () => {
+    const gains: Array<{ delta: number; anchor: string | null }> = [];
+    render(<Host gains={gains} />);
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? scored(50) : [],
+    );
+    await watching();
+
+    // The pick writes the relation; its ping's re-read wins the race against
+    // the dialog's own refresh on close.
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? scored(70) : [],
+    );
+    fireEvent.click(screen.getByRole("button", { name: "pick relation" }));
+    ping();
+    await advance(400);
+    expect(gains).toEqual([{ delta: 20, anchor: "card-section-relations" }]);
+
+    // Closing the dialog refreshes the card: same score, no second gain.
+    fireEvent.click(screen.getByRole("button", { name: "close add dialog" }));
+    await advance(0);
+    expect(gains).toHaveLength(1);
+  });
+
+  it("plays nothing when another user raised the score", async () => {
+    const gains: Array<{ delta: number; anchor: string | null }> = [];
+    render(<Host gains={gains} />);
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? scored(50) : [],
+    );
+    await watching();
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? scored(80) : [],
+    );
+    ping();
+    await advance(400);
+    expect(cardReads()).toBe(1);
+    expect(gains).toEqual([]);
+  });
+
+  it("plays someone else's change silently again once the own write was stored", async () => {
+    const gains: Array<{ delta: number; anchor: string | null }> = [];
+    render(<Host gains={gains} />);
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? scored(50) : [],
+    );
+    await watching();
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? scored(70) : [],
+    );
+    // The own write's card arrives through the section's refresh first...
+    fireEvent.click(screen.getByRole("button", { name: "pick relation" }));
+    fireEvent.click(screen.getByRole("button", { name: "close add dialog" }));
+    await advance(0);
+    expect(gains).toEqual([{ delta: 20, anchor: "card-section-relations" }]);
+    // ...so a later change by somebody else is a new baseline.
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/cards/card-1" ? scored(90) : [],
+    );
+    ping();
+    await advance(400);
+    expect(gains).toHaveLength(1);
   });
 });

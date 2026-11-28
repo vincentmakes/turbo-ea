@@ -126,7 +126,10 @@ class TestWatchRoute:
         sid = _stream_for(env["viewer"])
         resp = await _watch(client, env["viewer"], sid, [env["app"].id])
         assert resp.status_code == 200
-        assert resp.json() == {"card_ids": [str(env["app"].id)], "expires_in": card_watch.WATCH_TTL_SECONDS}
+        assert resp.json() == {
+            "card_ids": [str(env["app"].id)],
+            "expires_in": card_watch.WATCH_TTL_SECONDS,
+        }
         assert card_watch.watchers_exist(env["app"].id)
 
     async def test_replaces_the_set_and_dedupes(self, client, env):

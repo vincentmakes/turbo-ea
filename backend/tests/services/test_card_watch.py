@@ -348,9 +348,7 @@ class TestAfterCommitOwnedSession:
         await owned_session.commit()
         assert card_watch._PENDING_KEY not in owned_session.sync_session.info
 
-    async def test_a_commit_with_nobody_watching_notifies_nobody(
-        self, owned_session, monkeypatch
-    ):
+    async def test_a_commit_with_nobody_watching_notifies_nobody(self, owned_session, monkeypatch):
         calls: list = []
         monkeypatch.setattr(card_watch, "notify", lambda cid, **_kw: calls.append(cid))
         await owned_session.execute(text("select 1"))

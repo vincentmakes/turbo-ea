@@ -31,11 +31,11 @@ transaction level, so a 50,000-row import holding the same card many times
 records it once. Listeners on the ``Session`` class look the watchers up and
 deliver when the *outermost* transaction commits (one dict lookup per distinct
 id, none at all while nobody watches anything) and drop the ids when the
-transaction rolls back or the session closes without committing. A change recorded inside a SAVEPOINT
-(``begin_nested``) is delivered only when the outer transaction commits — a
-savepoint release fires ``after_commit`` too, which is why the listener checks
-``in_nested_transaction()`` — and dropped when that savepoint, or any
-transaction around it, rolls back. A ``publish`` without a session (not
+transaction rolls back or the session closes without committing. A change
+recorded inside a SAVEPOINT (``begin_nested``) is delivered only when the
+outer transaction commits — a savepoint release fires ``after_commit`` too,
+which is why the listener checks ``in_nested_transaction()`` — and dropped
+when that savepoint, or any transaction around it, rolls back. A ``publish`` without a session (not
 persisted) delivers at once.
 
 **Never through the general bus.** Pings are written straight into each
@@ -275,9 +275,7 @@ def note_change(db: Any, card_id: uuid.UUID | str | None) -> None:
         # Nothing is pending on this session: what changed is already visible.
         notify(cid)
         return
-    pending: dict[SessionTransaction, set[uuid.UUID]] = session.info.setdefault(
-        _PENDING_KEY, {}
-    )
+    pending: dict[SessionTransaction, set[uuid.UUID]] = session.info.setdefault(_PENDING_KEY, {})
     pending.setdefault(txn, set()).add(cid)
 
 
@@ -295,9 +293,7 @@ def _deliver_after_commit(session: Session) -> None:
     # makes the change visible to another connection.
     if session.in_nested_transaction():
         return
-    pending: dict[SessionTransaction, set[uuid.UUID]] | None = session.info.pop(
-        _PENDING_KEY, None
-    )
+    pending: dict[SessionTransaction, set[uuid.UUID]] | None = session.info.pop(_PENDING_KEY, None)
     # Nobody watches anything: nothing to look up.
     if not pending or not _watchers:
         return

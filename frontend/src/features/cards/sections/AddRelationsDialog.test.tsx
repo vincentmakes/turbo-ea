@@ -58,6 +58,7 @@ import { api } from "@/api/client";
 import type { Relation, RelationType } from "@/types";
 import { createTheme } from "@mui/material/styles";
 import AddRelationsDialog from "./AddRelationsDialog";
+import { OwnCardWriteContext } from "@/features/cards/ownCardWrite";
 
 /** `#rrggbb` as the `rgb(r, g, b)` a computed style reports. */
 function hexToRgb(hex: string): string {
@@ -145,6 +146,34 @@ describe("AddRelationsDialog relation attributes", () => {
       "/relations",
       expect.objectContaining({ attributes: { usageType: "user" } }),
     );
+  });
+
+  it("notes the own write before each relation it creates", async () => {
+    const order: string[] = [];
+    const note = vi.fn(() => order.push("note"));
+    vi.mocked(api.post).mockImplementation(async (_url: string, body: unknown) => {
+      order.push("post");
+      return { id: "rel-1", ...(body as object) } as never;
+    });
+    render(
+      <OwnCardWriteContext.Provider value={note}>
+        <AddRelationsDialog
+          open
+          onClose={vi.fn()}
+          fsId={FS}
+          cardTypeKey="Application"
+          relationType={rtWithAttrs}
+          isSource
+          relations={[]}
+          onAdded={vi.fn()}
+          onRemoved={vi.fn()}
+          onUpdated={vi.fn()}
+        />
+      </OwnCardWriteContext.Provider>,
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(await within(dialog).findByText("Finance"));
+    await waitFor(() => expect(order).toEqual(["note", "post"]));
   });
 
   it("keeps the attribute for every card added afterwards", async () => {

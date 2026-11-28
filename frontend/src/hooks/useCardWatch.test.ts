@@ -13,7 +13,12 @@ vi.mock("@/api/client", async () => {
 
 import { ApiError, api } from "@/api/client";
 import { stopEventStream, useEventStream } from "./useEventStream";
-import { MAX_WATCHED_CARDS, resetCardWatch, useCardWatch } from "./useCardWatch";
+import {
+  MAX_WATCHED_CARDS,
+  WATCH_RETRY_DELAYS_MS,
+  resetCardWatch,
+  useCardWatch,
+} from "./useCardWatch";
 
 // ---------------------------------------------------------------------------
 // A fake EventSource: the real `useEventStream` singleton runs on top of it.
@@ -37,7 +42,7 @@ function send(event: Record<string, unknown>) {
     sources[0].onmessage!({ data: JSON.stringify(event) });
   });
 }
-function hello(streamId: string, ttl = 1800) {
+function hello(streamId: string, ttl = 300) {
   send({ event: "event.stream.hello", stream_id: streamId, watch_ttl_seconds: ttl });
 }
 function ping(cardId: string) {
@@ -61,7 +66,7 @@ beforeEach(() => {
   resetCardWatch();
   put.mockImplementation(async (_path: string, body?: unknown) => ({
     card_ids: (body as { card_ids: string[] }).card_ids,
-    expires_in: 1800,
+    expires_in: 300,
   }));
   // The layout keeps the tab's stream open; card watches ride on it.
   renderHook(() => useEventStream(() => {}));
@@ -113,6 +118,11 @@ describe("useCardWatch", () => {
     renderHook(() => useCardWatch("c2", b));
     hello("s-1");
     await settle();
+    // The first registration's catch-up, one each.
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(1);
+    a.mockClear();
+    b.mockClear();
 
     ping("c1");
     expect(a).toHaveBeenCalledTimes(1);
@@ -131,6 +141,11 @@ describe("useCardWatch", () => {
     hello("s-1");
     await settle();
     expect(putCalls()).toEqual([["/events/stream/s-1/watch", { card_ids: ["c1"] }]]);
+    // One catch-up for the card, which reaches both of its hooks.
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(1);
+    a.mockClear();
+    b.mockClear();
 
     ping("c1");
     expect(a).toHaveBeenCalledTimes(1);
@@ -163,7 +178,9 @@ describe("useCardWatch", () => {
     renderHook(() => useCardWatch("c1", onChanged));
     hello("s-1");
     await settle();
-    expect(onChanged).not.toHaveBeenCalled();
+    // The first registration's catch-up.
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    onChanged.mockClear();
 
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     hello("s-2");
@@ -173,6 +190,7 @@ describe("useCardWatch", () => {
     await settle(749);
     expect(onChanged).not.toHaveBeenCalled();
     await settle(1);
+    // The reconnect's re-read only: the card's catch-up is long done.
     expect(onChanged).toHaveBeenCalledTimes(1);
     await settle(5000);
     expect(onChanged).toHaveBeenCalledTimes(1);
@@ -218,20 +236,121 @@ describe("useCardWatch", () => {
     expect(putCalls()[1]).toEqual(["/events/stream/s-2/watch", { card_ids: ["c1", "c2"] }]);
   });
 
-  it("swallows any other failure without logging or retrying in a loop", async () => {
+  it("retries a passing failure after 1, 2 and 5 s, then waits for the refresh", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     put.mockRejectedValue(new ApiError("Boom", 500, null));
-    renderHook(() => useCardWatch("c1", vi.fn()));
+    const onChanged = vi.fn();
+    renderHook(() => useCardWatch("c1", onChanged));
     hello("s-1", 100);
     await settle();
-    await settle(1000);
     expect(put).toHaveBeenCalledTimes(1);
+    expect([...WATCH_RETRY_DELAYS_MS]).toEqual([1000, 2000, 5000]);
+
+    await settle(999);
+    expect(put).toHaveBeenCalledTimes(1);
+    await settle(1);
+    expect(put).toHaveBeenCalledTimes(2);
+    await settle(1999);
+    expect(put).toHaveBeenCalledTimes(2);
+    await settle(1);
+    expect(put).toHaveBeenCalledTimes(3);
+    await settle(4999);
+    expect(put).toHaveBeenCalledTimes(3);
+    await settle(1);
+    expect(put).toHaveBeenCalledTimes(4);
+    // Given up: no loop, nothing logged, and no catch-up for a card that
+    // was never registered.
+    await settle(60_000);
+    expect(put).toHaveBeenCalledTimes(4);
     expect(errorSpy).not.toHaveBeenCalled();
-    // The refresh still tries again later, and that works once the server does.
+    expect(onChanged).not.toHaveBeenCalled();
+
+    // The refresh tries again later, and that works once the server does.
     put.mockResolvedValue({ card_ids: ["c1"], expires_in: 100 });
+    await settle(80_000 - 60_000);
+    expect(put).toHaveBeenCalledTimes(5);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
+  });
+
+  it("recovers from one failed registration within a second", async () => {
+    put.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const onChanged = vi.fn();
+    renderHook(() => useCardWatch("c1", onChanged));
+    hello("s-1");
+    await settle();
+    expect(onChanged).not.toHaveBeenCalled();
+    await settle(1000);
+    expect(putCalls()[1]).toEqual(["/events/stream/s-1/watch", { card_ids: ["c1"] }]);
+    // Registered at last: the card catches up once.
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    ping("c1");
+    expect(onChanged).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops a waiting retry once nothing is watched", async () => {
+    put.mockRejectedValueOnce(new ApiError("Boom", 503, null));
+    const { unmount } = renderHook(() => useCardWatch("c1", vi.fn()));
+    hello("s-1");
+    await settle();
+    unmount();
+    // Nothing was ever registered, so there is nothing to unregister either;
+    // and the retry for "c1" never goes out.
+    await settle(10_000);
+    expect(put).toHaveBeenCalledTimes(1);
+  });
+
+  it("catches up once when the server first accepts a card, and only then", async () => {
+    let release: (v: unknown) => void = () => {};
+    put.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const onChanged = vi.fn();
+    renderHook(() => useCardWatch("c1", onChanged));
+    hello("s-1", 100);
+    await settle();
+    // The PUT is out: a change committed before it landed pings nobody, so
+    // the page re-reads once the watch exists — not before.
+    expect(onChanged).not.toHaveBeenCalled();
+    await act(async () => {
+      release({ card_ids: ["c1"], expires_in: 100 });
+    });
+    expect(onChanged).toHaveBeenCalledTimes(1);
+
+    // A second hook on the card, the refresh re-send and a re-sent set
+    // bring no further catch-up.
+    const other = vi.fn();
+    renderHook(() => useCardWatch("c1", other));
     await settle(80_000);
     expect(put).toHaveBeenCalledTimes(2);
-    errorSpy.mockRestore();
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(other).not.toHaveBeenCalled();
+  });
+
+  it("gives no catch-up for a card the server did not accept", async () => {
+    put.mockResolvedValue({ card_ids: [], expires_in: 300 });
+    const onChanged = vi.fn();
+    renderHook(() => useCardWatch("c-hidden", onChanged));
+    hello("s-1");
+    await settle();
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("renews once per tab, at 80 % of the lifetime the hello announced", async () => {
+    renderHook(() => useCardWatch("c1", vi.fn()));
+    renderHook(() => useCardWatch("c2", vi.fn()));
+    renderHook(() => useCardWatch("c3", vi.fn()));
+    hello("s-1", 300);
+    await settle();
+    expect(put).toHaveBeenCalledTimes(1);
+    await settle(240_000 - 1);
+    expect(put).toHaveBeenCalledTimes(1);
+    await settle(1);
+    expect(putCalls()[1]).toEqual(["/events/stream/s-1/watch", { card_ids: ["c1", "c2", "c3"] }]);
   });
 
   it(`watches the ${MAX_WATCHED_CARDS} most recently opened cards`, async () => {
@@ -254,6 +373,9 @@ describe("useCardWatch", () => {
     rerender({ id: "c2" });
     await settle();
     expect(putCalls()[1]).toEqual(["/events/stream/s-1/watch", { card_ids: ["c2"] }]);
+    // Each card's own catch-up on its first registration.
+    expect(onChanged).toHaveBeenCalledTimes(2);
+    onChanged.mockClear();
     ping("c1");
     expect(onChanged).not.toHaveBeenCalled();
     ping("c2");
@@ -270,8 +392,10 @@ describe("useCardWatch", () => {
     renderHook(() => useCardWatch("c1", onChanged), { wrapper: StrictMode });
     await settle();
     expect(putCalls()).toEqual([["/events/stream/s-1/watch", { card_ids: ["c1"] }]]);
-    ping("c1");
+    // One catch-up, not one per mount.
     expect(onChanged).toHaveBeenCalledTimes(1);
+    ping("c1");
+    expect(onChanged).toHaveBeenCalledTimes(2);
   });
 
   it("holds one stream listener, however often cards open and close", async () => {

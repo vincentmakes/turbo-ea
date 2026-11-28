@@ -208,11 +208,15 @@ function HierarchySection({
   onUpdate,
   canEdit = true,
   initialExpanded = true,
+  refreshKey = 0,
 }: {
   card: Card;
   onUpdate: () => void;
   canEdit?: boolean;
   initialExpanded?: boolean;
+  /** Bumped by the card page when the card changed elsewhere (live updates):
+   *  reloads the tree. An open picker or create form stays as it is. */
+  refreshKey?: number;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
   const noteOwnWrite = useNoteOwnCardWrite();
@@ -289,7 +293,10 @@ function HierarchySection({
     });
   }, [hierarchyRequest, card.id, t]);
 
-  useEffect(loadHierarchy, [loadHierarchy]);
+  // Also on `refreshKey`: a live update of the card reloads it.
+  useEffect(() => {
+    loadHierarchy();
+  }, [loadHierarchy, refreshKey]);
 
   // Parent picker excludes self + existing children; child picker excludes self + ancestors.
   const parentExcludeIds = useMemo(

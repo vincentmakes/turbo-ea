@@ -36,10 +36,14 @@ function SuccessorsSection({
   card,
   canEdit = true,
   initialExpanded = true,
+  refreshKey = 0,
 }: {
   card: Card;
   canEdit?: boolean;
   initialExpanded?: boolean;
+  /** Bumped by the card page when the card changed elsewhere (live updates):
+   *  reloads the lineage. An open add dialog stays as it is. */
+  refreshKey?: number;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const noteOwnWrite = useNoteOwnCardWrite();
@@ -95,7 +99,10 @@ function SuccessorsSection({
     });
   }, [listRequest, card.id, successorRT, t]);
 
-  useEffect(loadRelations, [loadRelations]);
+  // Also on `refreshKey`: a live update of the card reloads it.
+  useEffect(() => {
+    loadRelations();
+  }, [loadRelations, refreshKey]);
 
   // Exclude self and already-related cards from the picker.
   const excludeIds = useMemo(() => {

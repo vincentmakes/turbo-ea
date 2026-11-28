@@ -27,6 +27,7 @@ import { useCardSearch } from "@/hooks/useCardSearch";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { VENDOR_ACCENT } from "@/theme/tokens";
 import type { Relation } from "@/types";
+import { useNoteOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 interface ProviderOption {
   id: string;
@@ -72,6 +73,7 @@ export default function VendorField({
   onProviderSelected,
 }: VendorFieldProps) {
   const { t } = useTranslation(["cards", "common"]);
+  const noteOwnWrite = useNoteOwnCardWrite();
   const resolvedLabel = label ?? t("vendor.label");
   const { relationTypes } = useMetamodel();
   const [inputValue, setInputValue] = useState(value || "");
@@ -253,6 +255,7 @@ export default function VendorField({
       // failed link leaves the card with the Provider it had. POST /relations
       // checks no cardinality and is idempotent on the pair, so re-picking
       // the linked Provider keeps its row.
+      noteOwnWrite();
       await api.post("/relations", {
         type: relType,
         source_id: providerIsSource ? providerId : fsId,
@@ -271,6 +274,7 @@ export default function VendorField({
       );
       for (const r of existing) {
         const providerEnd = r.target_id === fsId ? r.source_id : r.target_id;
+        noteOwnWrite();
         if (providerEnd !== providerId) await api.delete(`/relations/${r.id}`);
       }
 
