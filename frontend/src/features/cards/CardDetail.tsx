@@ -46,7 +46,11 @@ import {
   StickyScoreBar,
 } from "@/features/cards/gamification/StickyScoreBar";
 import { useHeaderOffscreen } from "@/features/cards/gamification/useHeaderOffscreen";
-import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
+import {
+  isLiveCardUpdate,
+  useSaveOrigin,
+  useScoreGain,
+} from "@/features/cards/gamification/useScoreGain";
 import { DataQualityBreakdownHost } from "@/features/cards/sections/DataQualityBreakdownHost";
 import { DATA_QUALITY_PANEL_WIDTH } from "@/features/cards/sections/DataQualityBreakdownPanel";
 import { useDataQualityPanelOpen } from "@/lib/dataQualityPanel";
@@ -63,6 +67,7 @@ import type {
   Card,
   CardEffectivePermissions,
   AiSuggestResponse,
+  LiveCardUpdates,
 } from "@/types";
 import { brand, FAVORITE_COLOR, SEVERITY_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
 
@@ -108,6 +113,12 @@ export default function CardDetail() {
   const relLabel = useRelationLabel();
   const resolveSubtypeLabel = useCardSubtypeLabel();
   const [card, setCard] = useState<Card | null>(null);
+  // The card content's live-update handle: every write of the card this page
+  // makes and stores goes through `ownWrite`, so a live re-read in flight can
+  // never land after it with the card as it was before.
+  const liveRef = useRef<LiveCardUpdates | null>(null);
+  const ownWrite = <T,>(write: () => Promise<T>): Promise<T> =>
+    liveRef.current ? liveRef.current.ownWrite(write) : write();
   // Browser tab title; falls back to the route's «Card» label while loading,
   // and follows an inline rename without a reload.
   usePageSubject(card?.name);
@@ -212,7 +223,14 @@ export default function CardDetail() {
   // score bar shown while the header row is scrolled away.
   const gamification = useGamificationEnabled();
   const [saveOrigin, reportSaveOrigin] = useSaveOrigin();
-  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification, saveOrigin);
+  // A live re-read (somebody else changed the card) moves the baseline silently.
+  const scoreGain = useScoreGain(
+    card?.id,
+    card?.data_quality,
+    gamification,
+    saveOrigin,
+    isLiveCardUpdate(card),
+  );
   const [headerEl, setHeaderEl] = useState<HTMLElement | null>(null);
   const headerOffscreen = useHeaderOffscreen(gamification ? headerEl : null);
   const barOpen = headerOffscreen;
@@ -384,14 +402,15 @@ export default function CardDetail() {
 
   const handleApprovalAction = async (action: "approve" | "reject" | "reset") => {
     try {
-      await api.post(`/cards/${card.id}/approval-status?action=${action}`);
+      await ownWrite(() => api.post(`/cards/${card.id}/approval-status?action=${action}`));
       const newStatus =
         action === "approve"
           ? "APPROVED"
           : action === "reject"
             ? "REJECTED"
             : "DRAFT";
-      setCard({ ...card, approval_status: newStatus });
+      // Functional: a live re-read may have replaced the card meanwhile.
+      setCard((prev) => (prev ? { ...prev, approval_status: newStatus } : prev));
       setApprovalBlock(null);
       setApprovalError("");
     } catch (err) {
@@ -458,10 +477,12 @@ export default function CardDetail() {
     setNameSaving(true);
     setNameError(null);
     try {
-      const updated = await api.patch<Card>(`/cards/${card.id}`, {
-        name: trimmed,
-        alias,
-      });
+      const updated = await ownWrite(() =>
+        api.patch<Card>(`/cards/${card.id}`, {
+          name: trimmed,
+          alias,
+        }),
+      );
       setCard(updated);
       setEditingName(false);
     } catch (err) {
@@ -481,9 +502,11 @@ export default function CardDetail() {
     setSubtypeSaving(true);
     setSubtypeError("");
     try {
-      const updated = await api.patch<Card>(`/cards/${card.id}`, {
-        subtype: next,
-      });
+      const updated = await ownWrite(() =>
+        api.patch<Card>(`/cards/${card.id}`, {
+          subtype: next,
+        }),
+      );
       setCard(updated);
     } catch (err) {
       setSubtypeError(err instanceof Error ? err.message : t("common:errors.generic"));
@@ -498,7 +521,7 @@ export default function CardDetail() {
     // The dialog already issued the API call; just refresh the card.
     setArchiveDialogOpen(false);
     try {
-      const refreshed = await api.get<Card>(`/cards/${card.id}`);
+      const refreshed = await ownWrite(() => api.get<Card>(`/cards/${card.id}`));
       setCard(refreshed);
     } catch {
       navigate("/inventory");
@@ -507,6 +530,8 @@ export default function CardDetail() {
 
   const handleRestoreConfirmed = (primary: Card) => {
     setRestoreDialogOpen(false);
+    // The dialog wrote it: a live re-read in flight read the card before.
+    liveRef.current?.supersede();
     setCard(primary);
   };
 
@@ -542,7 +567,7 @@ export default function CardDetail() {
   // A rejection propagates to the panel, which shows it and stays open.
   const handleAiApply = async (payload: AiApplyPayload) => {
     const epoch = aiEpochRef.current;
-    const result = await applyAiSuggestion(card, payload);
+    const result = await ownWrite(() => applyAiSuggestion(card, payload));
     if (aiEpochRef.current !== epoch) return;
     setCard(result.card);
     setAiResponse(null);
@@ -983,6 +1008,7 @@ export default function CardDetail() {
           onClose={() => setLogoMenuAnchor(null)}
           onChanged={(_id, logoUpdatedAt) => {
             setLogoError("");
+            liveRef.current?.supersede();
             setCard((prev) => (prev ? { ...prev, logo_updated_at: logoUpdatedAt } : prev));
           }}
           onNotify={setSnack}
@@ -1001,6 +1027,8 @@ export default function CardDetail() {
           key={card.id}
           card={card}
           perms={perms}
+          pauseLiveUpdates={editingName}
+          liveUpdatesRef={liveRef}
           onCardUpdate={setCard}
           onSaveOrigin={reportSaveOrigin}
           onDirtyChange={setSectionsDirty}

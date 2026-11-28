@@ -29,6 +29,7 @@ import {
 } from "@/test/fixtures/metamodel";
 import type { Relation, RelationType } from "@/types";
 import VendorField from "./VendorField";
+import { OwnCardWriteContext, type TrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 const FS_ID = CARD_IDS.postgres;
 const RELATIONS_URL = `/relations?card_id=${FS_ID}&type=${REL_PROVIDER_TO_ITC.key}`;
@@ -779,5 +780,71 @@ describe("VendorField — error alerts", () => {
 
     await act(async () => release({ id: "prov-new", name: "Initech" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+});
+
+describe("VendorField — own writes on a card page", () => {
+  /** A tracker that logs the requests it wraps, in order. */
+  function tracker() {
+    const tracked: string[] = [];
+    const track: TrackOwnCardWrite = async (run) => {
+      const before = mockApi.calls.length;
+      const result = await run();
+      for (const c of mockApi.calls.slice(before)) tracked.push(`${c.method} ${c.path}`);
+      return result;
+    };
+    return { tracked, track };
+  }
+
+  it("tracks the new link and the removal of the old one", async () => {
+    mockApi.on("get", RELATIONS_URL, () => {
+      if (!mockApi.callsOf("post", "/relations").length) return [EXISTING];
+      if (!mockApi.callsOf("delete", "/relations/rel-old").length) return [EXISTING, ...linkedTo(ACME)];
+      return linkedTo(ACME);
+    });
+    const { tracked, track } = tracker();
+    const onRelationChange = vi.fn();
+    const { user } = renderWithProviders(
+      <OwnCardWriteContext.Provider value={track}>
+        <VendorField
+          value=""
+          onChange={vi.fn()}
+          cardTypeKey="ITComponent"
+          fsId={FS_ID}
+          onRelationChange={onRelationChange}
+        />
+      </OwnCardWriteContext.Provider>,
+    );
+    await screen.findByText("Globex");
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+    await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
+    expect(tracked).toEqual(["post /relations", "delete /relations/rel-old"]);
+  });
+
+  it("tracks nothing when the already-linked Provider is picked again", async () => {
+    mockApi.on("get", RELATIONS_URL, [EXISTING]);
+    const { tracked, track } = tracker();
+    const onRelationChange = vi.fn();
+    const { user } = renderWithProviders(
+      <OwnCardWriteContext.Provider value={track}>
+        <VendorField
+          value="Globex"
+          onChange={vi.fn()}
+          cardTypeKey="ITComponent"
+          fsId={FS_ID}
+          onRelationChange={onRelationChange}
+        />
+      </OwnCardWriteContext.Provider>,
+    );
+    await screen.findByText("Globex");
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Globex/ }));
+    await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
+    // The idempotent re-link still goes out, but it writes nothing and is
+    // not tracked; the linked Provider itself is never deleted.
+    expect(mockApi.callsOf("post", "/relations")).toHaveLength(1);
+    expect(mockApi.callsOf("delete", "/relations/*")).toHaveLength(0);
+    expect(tracked).toEqual([]);
   });
 });

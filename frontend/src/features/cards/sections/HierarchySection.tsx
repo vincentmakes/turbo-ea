@@ -40,6 +40,7 @@ import type { Card, FieldOption, HierarchyData, HierarchyNode, SubtypeDef } from
 import { bucketBySubtype, shouldGroupBySubtype } from "./cardDetailUtils";
 import { SubtypeBucket, useCollapsedBuckets, useSubtypeGrouping } from "./SubtypeBucket";
 import { HEATMAP_RAMP } from "@/theme/tokens";
+import { useTrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 // ── Section: Hierarchy ───────────────────────────────────────────
 const LEVEL_COLORS = [
@@ -207,13 +208,18 @@ function HierarchySection({
   onUpdate,
   canEdit = true,
   initialExpanded = true,
+  refreshKey = 0,
 }: {
   card: Card;
   onUpdate: () => void;
   canEdit?: boolean;
   initialExpanded?: boolean;
+  /** Bumped by the card page when the card changed elsewhere (live updates):
+   *  reloads the tree. An open picker or create form stays as it is. */
+  refreshKey?: number;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
+  const trackOwnWrite = useTrackOwnCardWrite();
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
   const subtypeLabel = useSubtypeLabel();
@@ -287,7 +293,10 @@ function HierarchySection({
     });
   }, [hierarchyRequest, card.id, t]);
 
-  useEffect(loadHierarchy, [loadHierarchy]);
+  // Also on `refreshKey`: a live update of the card reloads it.
+  useEffect(() => {
+    loadHierarchy();
+  }, [loadHierarchy, refreshKey]);
 
   // Parent picker excludes self + existing children; child picker excludes self + ancestors.
   const parentExcludeIds = useMemo(
@@ -303,7 +312,9 @@ function HierarchySection({
     if (!selectedParent) return;
     try {
       setHierarchyError("");
-      await api.patch(`/cards/${card.id}`, { parent_id: selectedParent.id });
+      await trackOwnWrite(() =>
+        api.patch(`/cards/${card.id}`, { parent_id: selectedParent.id }),
+      );
       setPickingParent(false);
       setSelectedParent(null);
       setParentSearch("");
@@ -317,7 +328,7 @@ function HierarchySection({
   const handleRemoveParent = async () => {
     try {
       setHierarchyError("");
-      await api.patch(`/cards/${card.id}`, { parent_id: null });
+      await trackOwnWrite(() => api.patch(`/cards/${card.id}`, { parent_id: null }));
       loadHierarchy();
       onUpdate();
     } catch (err: unknown) {
@@ -357,7 +368,9 @@ function HierarchySection({
   const setLinkLabel = async (cardId: string, next: string | null) => {
     // Errors propagate to the popover, which shows them next to the control
     // the user is holding open — the section-level alert would be off-screen.
-    await api.patch(`/cards/${cardId}`, { parent_label: next });
+    const write = () => api.patch(`/cards/${cardId}`, { parent_label: next });
+    // Only a label of this card is a write of this card.
+    await (cardId === card.id ? trackOwnWrite(write) : write());
     loadHierarchy();
     if (cardId === card.id) onUpdate();
   };
@@ -374,7 +387,7 @@ function HierarchySection({
       });
       if (createMode === "parent") {
         // Set the newly created card as parent
-        await api.patch(`/cards/${card.id}`, { parent_id: created.id });
+        await trackOwnWrite(() => api.patch(`/cards/${card.id}`, { parent_id: created.id }));
         onUpdate();
       }
       setCreateMode(null);

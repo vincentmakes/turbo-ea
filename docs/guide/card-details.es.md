@@ -78,6 +78,8 @@ Cuando una ficha aprobada es editada, su estado cambia automáticamente a **Roto
 
 La pestaña de detalle está organizada en **secciones** que pueden ser reordenadas y configuradas por un administrador para cada tipo de ficha (consulte [Editor de Disposición de Fichas](../admin/metamodel.es.md#editor-de-disposicion-de-fichas)).
 
+Una ficha abierta se mantiene actualizada por sí sola: cuando otro usuario, una integración o una automatización la modifica, la página muestra los nuevos valores en un momento, sin recargar. Esto abarca los campos propios de la ficha (incluidas las fechas derivadas de sus relaciones) y sus secciones **Relaciones**, **Jerarquía** y **Linaje**. Una sección que está editando no se toca hasta que guarde o cancele, y entonces se pone al día. Las pestañas —Historial, Partes interesadas, Comentarios y las demás— muestran lo que había cuando las abrió; vuelva a la pestaña o recargue la página para ver los cambios posteriores.
+
 ### Sección de Descripción
 
 - **Descripción** — Descripción en texto enriquecido del componente. Soporta la función de sugerencia con IA para generación automática

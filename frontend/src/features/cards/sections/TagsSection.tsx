@@ -25,6 +25,7 @@ import {
 import { api } from "@/api/client";
 import type { Card, TagGroup, TagRef } from "@/types";
 import { readableTextColor } from "@/lib/color";
+import { useTrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 interface Props {
   card: Card;
@@ -35,6 +36,13 @@ interface Props {
   expandOn?: number;
   /** A data-quality jump: open the tag editor once the tag groups are in. */
   editOn?: SectionEditRequest;
+  /**
+   * Notified when the tag editor opens (`true`) and closes (`false`). Card
+   * detail holds a live re-read meanwhile: the save diffs the picked tags
+   * against `card.tags`, so a card replaced under an open editor would remove
+   * a tag someone else added after it opened.
+   */
+  onEditingChange?: (editing: boolean) => void;
 }
 
 export default function TagsSection({
@@ -42,10 +50,12 @@ export default function TagsSection({
   onUpdate,
   canEdit = true,
   initialExpanded = true,
+  onEditingChange,
   expandOn,
   editOn,
 }: Props) {
   const { t } = useTranslation(["cards", "common"]);
+  const trackOwnWrite = useTrackOwnCardWrite();
   const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [groups, setGroups] = useState<TagGroup[]>([]);
   const [editOpen, setEditOpen] = useState(false);
@@ -87,6 +97,12 @@ export default function TagsSection({
   const canOpenEditor = canEdit && applicableGroups.length > 0;
   useEditRequest(editOn, canOpenEditor, openEdit);
 
+  // Report edit mode (not dirtiness) so card detail can hold a live re-read.
+  useEffect(() => {
+    onEditingChange?.(editOpen);
+    return () => onEditingChange?.(false);
+  }, [editOpen, onEditingChange]);
+
   const save = async () => {
     setSaving(true);
     try {
@@ -95,10 +111,10 @@ export default function TagsSection({
       const toAdd = [...newIds].filter((id) => !oldIds.has(id));
       const toRemove = [...oldIds].filter((id) => !newIds.has(id));
       if (toAdd.length > 0) {
-        await api.post(`/cards/${card.id}/tags`, toAdd);
+        await trackOwnWrite(() => api.post(`/cards/${card.id}/tags`, toAdd));
       }
       for (const id of toRemove) {
-        await api.delete(`/cards/${card.id}/tags/${id}`);
+        await trackOwnWrite(() => api.delete(`/cards/${card.id}/tags/${id}`));
       }
       setEditOpen(false);
       onUpdate();

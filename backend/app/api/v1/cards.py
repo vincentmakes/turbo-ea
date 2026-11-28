@@ -94,6 +94,7 @@ from app.services.card_query import (
 from app.services.card_query_matches import card_query_matches, match_nodes
 from app.services.card_read_scope import (
     CardReadScope,
+    card_detail_verdict,
     require_card_readable,
     require_inventory_browse,
     scrub_event_payloads,
@@ -240,30 +241,17 @@ async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Car
 async def _require_card_read(db: AsyncSession, user: User, card_id: uuid.UUID) -> str:
     """Read gate for card-scoped GETs; returns the card's type key.
 
-    Readable = `inventory.view` (per-type aware) OR stakeholder `card.view`
-    OR — when the card is an Initiative — the PPM module's `ppm.view`. The PPM
-    detail page (/ppm/:id, route-gated on ppm.view) fronts the Initiative card
-    itself, so ppm.view must be able to read it (#1043). An explicit View deny
-    on the card's type wins over that fallback (`has_app_permission` answers
-    False for every permission on a View-denied type).
-
+    The rule itself is ``card_detail_verdict`` (``services/card_read_scope.py``),
+    shared with the live-update watch gate so both answer the same question.
     404 when the card does not exist *or* is hidden from the caller by a type
     deny — a hidden card does not exist for them. 403 otherwise.
     """
-    type_key = await PermissionService._card_type_key(db, card_id)
-    if type_key is None:
+    type_key, verdict = await card_detail_verdict(db, user, card_id)
+    if verdict == "missing" or type_key is None:
         raise HTTPException(404, "Card not found")
-    if await PermissionService.check_permission(
-        db, user, "inventory.view", card_id, "card.view", card_type_key=type_key
-    ):
-        return type_key
-    if type_key == "Initiative" and await PermissionService.has_app_permission(
-        db, user, "ppm.view", card_type_key=type_key
-    ):
-        return type_key
-    if await PermissionService.is_type_denied(db, user, "inventory.view", type_key):
-        raise HTTPException(404, "Card not found")
-    raise HTTPException(403, "Insufficient permissions")
+    if verdict == "forbidden":
+        raise HTTPException(403, "Insufficient permissions")
+    return type_key
 
 
 _ALLOWED_SORT_COLUMNS = {

@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useEventStream, stopEventStream } from "./useEventStream";
+import {
+  getLastStreamHello,
+  stopEventStream,
+  subscribeEventStream,
+  useEventStream,
+} from "./useEventStream";
 import { setAuthenticated } from "@/api/client";
 
 // ---------------------------------------------------------------------------
@@ -204,5 +209,62 @@ describe("useEventStream", () => {
     esInstances[1].onopen!();
 
     expect(onReconnect).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // The connection's hello, kept for consumers that mount later
+  // -------------------------------------------------------------------------
+
+  describe("stream hello", () => {
+    const helloMsg = (id: string, ttl?: number) => ({
+      data: JSON.stringify({ event: "event.stream.hello", stream_id: id, watch_ttl_seconds: ttl }),
+    });
+
+    it("is null until a hello arrives (an older backend sends none)", () => {
+      setAuthenticated(true);
+      renderHook(() => useEventStream(vi.fn()));
+      esInstances[0].onmessage!({ data: JSON.stringify({ event: "card.updated" }) });
+      expect(getLastStreamHello()).toBeNull();
+    });
+
+    it("records the newest hello, marks later ones as reconnects, and forgets on stop", () => {
+      setAuthenticated(true);
+      const cb = vi.fn();
+      renderHook(() => useEventStream(cb));
+      esInstances[0].onmessage!(helloMsg("s-1", 600));
+      const first = getLastStreamHello();
+      expect(first).toMatchObject({ streamId: "s-1", watchTtlSeconds: 600, reconnect: false });
+      // Still delivered to consumers as an ordinary event.
+      expect(cb).toHaveBeenCalledWith(expect.objectContaining({ stream_id: "s-1" }));
+
+      esInstances[0].onmessage!(helloMsg("s-2"));
+      const second = getLastStreamHello();
+      // No lifetime named: the server's own default, five minutes.
+      expect(second).toMatchObject({ streamId: "s-2", watchTtlSeconds: 300, reconnect: true });
+      expect(second!.seq).toBe(first!.seq + 1);
+
+      stopEventStream();
+      expect(getLastStreamHello()).toBeNull();
+    });
+
+    it("ignores a hello without a stream id", () => {
+      setAuthenticated(true);
+      renderHook(() => useEventStream(vi.fn()));
+      esInstances[0].onmessage!({ data: JSON.stringify({ event: "event.stream.hello" }) });
+      expect(getLastStreamHello()).toBeNull();
+    });
+  });
+
+  it("subscribeEventStream hears the shared stream until it unsubscribes", () => {
+    setAuthenticated(true);
+    renderHook(() => useEventStream(vi.fn()));
+    const listener = vi.fn();
+    const off = subscribeEventStream(listener);
+    esInstances[0].onmessage!({ data: JSON.stringify({ event: "x" }) });
+    expect(listener).toHaveBeenCalledWith({ event: "x" });
+    off();
+    esInstances[0].onmessage!({ data: JSON.stringify({ event: "y" }) });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(MockEventSource).toHaveBeenCalledTimes(1);
   });
 });

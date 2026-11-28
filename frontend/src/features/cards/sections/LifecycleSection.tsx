@@ -44,6 +44,7 @@ function LifecycleSection({
   canEdit = true,
   initialExpanded = true,
   onDirtyChange,
+  onEditingChange,
   phaseAnnotation,
   expandOn,
   editOn,
@@ -55,6 +56,13 @@ function LifecycleSection({
   canEdit?: boolean;
   initialExpanded?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * Notified when edit mode opens (`true`) and closes (`false`), whether or
+   * not anything was typed. Card detail holds a live re-read while any
+   * section is editing: replacing the card under an untouched form would make
+   * its draft differ from the card and arm the leave guard.
+   */
+  onEditingChange?: (editing: boolean) => void;
   /**
    * Optional per-phase annotation. A caller that knows something this
    * component cannot — that a date differs from a stored baseline, say —
@@ -134,6 +142,12 @@ function LifecycleSection({
     onDirtyChange?.(dirty);
     return () => onDirtyChange?.(false);
   }, [dirty, onDirtyChange]);
+
+  // Report edit mode (not dirtiness) so card detail can hold a live re-read.
+  useEffect(() => {
+    onEditingChange?.(editing);
+    return () => onEditingChange?.(false);
+  }, [editing, onEditingChange]);
 
   // Advisory only: a phase dated after one that should follow it is flagged,
   // never refused — real lifecycles do slip, and the save stays the user's call.

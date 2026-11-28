@@ -1,4 +1,12 @@
-import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import MuiCard from "@mui/material/Card";
@@ -21,6 +29,8 @@ import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
 import { useCardTabActivity } from "@/hooks/useCardTabActivity";
 import { api } from "@/api/client";
+import { useLiveCardUpdates } from "@/features/cards/useLiveCardUpdates";
+import { OwnCardWriteContext, type TrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 import {
   DescriptionSection,
   LifecycleSection,
@@ -81,6 +91,7 @@ import type {
   CardEffectivePermissions,
   Risk,
   TurboLensComplianceFinding,
+  LiveCardUpdates,
 } from "@/types";
 
 interface Props {
@@ -117,6 +128,14 @@ interface Props {
    *  same tick, so gamified data quality can fly the gain from there. The End
    *  of Life section reports nothing. */
   onSaveOrigin?: (anchor: string) => void;
+  /** Hold live updates while the host edits something of the card itself
+   *  (the card page's title editor); the held re-read runs when it clears. */
+  pauseLiveUpdates?: boolean;
+  /** Filled with this page's live-update handle, so the host's own writes of
+   *  the card (its title, subtype, approval, AI apply, archive) run through
+   *  `ownWrite` like the sections' saves: a live re-read in flight can then
+   *  never land after them with the card as it was before. */
+  liveUpdatesRef?: MutableRefObject<LiveCardUpdates | null>;
 }
 
 /** Long enough for the Card tab to mount and the section to start expanding. */
@@ -138,6 +157,8 @@ export default function CardDetailContent({
   onDirtyChange,
   focusTarget,
   onSaveOrigin,
+  pauseLiveUpdates = false,
+  liveUpdatesRef,
 }: Props) {
   const { t } = useTranslation("cards");
   const navigate = useNavigate();
@@ -230,6 +251,9 @@ export default function CardDetailContent({
   // The Lifecycle section's relation lifecycles reload on this one; a relation
   // added, removed or re-dated in the Relations section moves it.
   const [relLifecycleRefresh, setRelLifecycleRefresh] = useState(0);
+  // Hierarchy and Lineage reload on these when the card changed elsewhere.
+  const [hierarchyRefresh, setHierarchyRefresh] = useState(0);
+  const [successorsRefresh, setSuccessorsRefresh] = useState(0);
 
   // Reset tab when card changes
   useEffect(() => {
@@ -353,21 +377,65 @@ export default function CardDetailContent({
   useEffect(() => {
     onSaveOriginRef.current = onSaveOrigin;
   }, [onSaveOrigin]);
+  // Live updates: another user, an integration or an automation changed this
+  // card — re-read it, and the sections that list what hangs off it
+  // (Relations, the relation lifecycles, Hierarchy, Lineage). Held while a
+  // section is in edit mode (see `useLiveCardUpdates`). Every write of the
+  // card's own that this page stores — the sections' saves below and the
+  // host's through `liveUpdatesRef` — runs through `ownWrite`, so a re-read in
+  // flight can never land after it with the card as it was before; a section
+  // that writes something of the card and stores it later (or never) wraps
+  // the write in `OwnCardWriteContext`'s tracker, so the re-read bringing it
+  // back plays its score gain.
+  const live = useLiveCardUpdates(
+    card.id,
+    onCardUpdate,
+    pauseLiveUpdates,
+    () => {
+      setRelRefresh((n) => n + 1);
+      setRelLifecycleRefresh((n) => n + 1);
+      setHierarchyRefresh((n) => n + 1);
+      setSuccessorsRefresh((n) => n + 1);
+    },
+    (anchor) => onSaveOriginRef.current?.(anchor),
+  );
+  const { ownWrite, trackOwnWrite } = live;
+  useEffect(() => {
+    if (!liveUpdatesRef) return;
+    liveUpdatesRef.current = live;
+    return () => {
+      if (liveUpdatesRef.current === live) liveUpdatesRef.current = null;
+    };
+  }, [live, liveUpdatesRef]);
+  // One stable tracker per section, so the context value never changes identity.
+  const ownWriteFrom = useMemo(() => {
+    const trackers = new Map<string, TrackOwnCardWrite>();
+    /** `null`: a section with no anchor of its own (the gain plays at the pill). */
+    return (anchor: string | null) => {
+      const key = anchor ?? "";
+      let cb = trackers.get(key);
+      if (!cb) {
+        cb = (run) => trackOwnWrite(run, anchor);
+        trackers.set(key, cb);
+      }
+      return cb;
+    };
+  }, [trackOwnWrite]);
   const patchCard = useCallback(
     async (updates: Record<string, unknown>, anchor: string | null) => {
-      const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
+      const updated = await ownWrite(() => api.patch<Card>(`/cards/${card.id}`, updates));
       if (anchor) onSaveOriginRef.current?.(anchor);
       onCardUpdate(updated);
     },
-    [card.id, onCardUpdate],
+    [card.id, onCardUpdate, ownWrite],
   );
   const refreshCard = useCallback(
     async (anchor: string) => {
-      const updated = await api.get<Card>(`/cards/${card.id}`);
+      const updated = await ownWrite(() => api.get<Card>(`/cards/${card.id}`));
       onSaveOriginRef.current?.(anchor);
       onCardUpdate(updated);
     },
-    [card.id, onCardUpdate],
+    [card.id, onCardUpdate, ownWrite],
   );
   // The End of Life section: no origin, the gain plays at the pill.
   const handleUpdate = useCallback(
@@ -468,6 +536,7 @@ export default function CardDetailContent({
             onAiSuggest={onAiSuggest}
             aiBusy={aiBusy}
             onDirtyChange={dirtyCb("description")}
+            onEditingChange={live.editingCb("description")}
             calculatedFieldKeys={calcFieldKeys}
             expandOn={expandOn(sectionAnchor("description"))}
             editOn={editOn(sectionAnchor("description"))}
@@ -498,18 +567,21 @@ export default function CardDetailContent({
             canEdit={perms.can_edit}
             initialExpanded={exp}
             onDirtyChange={dirtyCb("lifecycle")}
+            onEditingChange={live.editingCb("lifecycle")}
             expandOn={expandOn(sectionAnchor("lifecycle"))}
             editOn={editOn(sectionAnchor("lifecycle"))}
             maintained={card.lifecycle_maintained ?? null}
             footer={
-              <RelationLifecyclesPanel
-                cardId={card.id}
-                cardTypeKey={card.type}
-                cardLifecycle={card.lifecycle}
-                canManageRelations={perms.can_manage_relations}
-                refreshKey={relLifecycleRefresh}
-                onChanged={onRelationLifecyclesChange}
-              />
+              <OwnCardWriteContext.Provider value={ownWriteFrom(sectionAnchor("lifecycle"))}>
+                <RelationLifecyclesPanel
+                  cardId={card.id}
+                  cardTypeKey={card.type}
+                  cardLifecycle={card.lifecycle}
+                  canManageRelations={perms.can_manage_relations}
+                  refreshKey={relLifecycleRefresh}
+                  onChanged={onRelationLifecyclesChange}
+                />
+              </OwnCardWriteContext.Provider>
             }
           />
         </ErrorBoundary>
@@ -518,54 +590,65 @@ export default function CardDetailContent({
     if (key === "hierarchy") {
       return (
         <ErrorBoundary key={key} label="Hierarchy" inline>
-          <HierarchySection
-            card={card}
-            onUpdate={refreshFrom(sectionAnchor("hierarchy"))}
-            canEdit={perms.can_edit}
-            initialExpanded={exp}
-          />
+          <OwnCardWriteContext.Provider value={ownWriteFrom(sectionAnchor("hierarchy"))}>
+            <HierarchySection
+              card={card}
+              onUpdate={refreshFrom(sectionAnchor("hierarchy"))}
+              canEdit={perms.can_edit}
+              initialExpanded={exp}
+              refreshKey={hierarchyRefresh}
+            />
+          </OwnCardWriteContext.Provider>
         </ErrorBoundary>
       );
     }
     if (key === "successors") {
       return (
         <ErrorBoundary key={key} label="Successors" inline>
-          <SuccessorsSection
-            card={card}
-            canEdit={perms.can_manage_relations}
-            initialExpanded={exp}
-          />
+          <OwnCardWriteContext.Provider value={ownWriteFrom(null)}>
+            <SuccessorsSection
+              card={card}
+              canEdit={perms.can_manage_relations}
+              initialExpanded={exp}
+              refreshKey={successorsRefresh}
+            />
+          </OwnCardWriteContext.Provider>
         </ErrorBoundary>
       );
     }
     if (key === "tags") {
       return (
         <ErrorBoundary key={key} label="Tags" inline>
-          <TagsSection
-            card={card}
-            onUpdate={refreshFrom(sectionAnchor("tags"))}
-            canEdit={perms.can_edit}
-            initialExpanded={exp}
-            expandOn={expandOn(sectionAnchor("tags"))}
-            editOn={editOn(sectionAnchor("tags"))}
-          />
+          <OwnCardWriteContext.Provider value={ownWriteFrom(sectionAnchor("tags"))}>
+            <TagsSection
+              card={card}
+              onUpdate={refreshFrom(sectionAnchor("tags"))}
+              canEdit={perms.can_edit}
+              initialExpanded={exp}
+              expandOn={expandOn(sectionAnchor("tags"))}
+              editOn={editOn(sectionAnchor("tags"))}
+              onEditingChange={live.editingCb("tags")}
+            />
+          </OwnCardWriteContext.Provider>
         </ErrorBoundary>
       );
     }
     if (key === "relations") {
       return (
         <ErrorBoundary key={key} label="Relations" inline>
-          <RelationsSection
-            fsId={card.id}
-            cardTypeKey={card.type}
-            cardSubtype={card.subtype}
-            refreshKey={relRefresh}
-            canManageRelations={perms.can_manage_relations}
-            initialExpanded={exp}
-            onCardUpdate={onRelationsSectionChange}
-            expandOn={expandOn(sectionAnchor("relations"))}
-            editOn={editOn(sectionAnchor("relations"))}
-          />
+          <OwnCardWriteContext.Provider value={ownWriteFrom(sectionAnchor("relations"))}>
+            <RelationsSection
+              fsId={card.id}
+              cardTypeKey={card.type}
+              cardSubtype={card.subtype}
+              refreshKey={relRefresh}
+              canManageRelations={perms.can_manage_relations}
+              initialExpanded={exp}
+              onCardUpdate={onRelationsSectionChange}
+              expandOn={expandOn(sectionAnchor("relations"))}
+              editOn={editOn(sectionAnchor("relations"))}
+            />
+          </OwnCardWriteContext.Provider>
         </ErrorBoundary>
       );
     }
@@ -577,23 +660,28 @@ export default function CardDetailContent({
       if (allFieldsHidden(section, hiddenFieldKeys)) return null;
       return (
         <ErrorBoundary key={key} label={section.section}>
-          <AttributeSection
-            section={section}
-            card={card}
-            onSave={saveFrom(customSectionAnchor(section.section))}
-            onRelationChange={() => {
-              setRelRefresh((n) => n + 1);
-              setRelLifecycleRefresh((n) => n + 1);
-            }}
-            canEdit={perms.can_edit}
-            calculatedFieldKeys={calcFieldKeys}
-            initialExpanded={exp}
-            hiddenFieldKeys={hiddenFieldKeys}
-            canViewCosts={perms.can_view_costs}
-            onDirtyChange={dirtyCb(key)}
-            expandOn={expandOn(customSectionAnchor(section.section))}
-            editOn={editOn(customSectionAnchor(section.section))}
-          />
+          <OwnCardWriteContext.Provider
+            value={ownWriteFrom(customSectionAnchor(section.section))}
+          >
+            <AttributeSection
+              section={section}
+              card={card}
+              onSave={saveFrom(customSectionAnchor(section.section))}
+              onRelationChange={() => {
+                setRelRefresh((n) => n + 1);
+                setRelLifecycleRefresh((n) => n + 1);
+              }}
+              canEdit={perms.can_edit}
+              calculatedFieldKeys={calcFieldKeys}
+              initialExpanded={exp}
+              hiddenFieldKeys={hiddenFieldKeys}
+              canViewCosts={perms.can_view_costs}
+              onDirtyChange={dirtyCb(key)}
+              onEditingChange={live.editingCb(key)}
+              expandOn={expandOn(customSectionAnchor(section.section))}
+              editOn={editOn(customSectionAnchor(section.section))}
+            />
+          </OwnCardWriteContext.Provider>
         </ErrorBoundary>
       );
     }

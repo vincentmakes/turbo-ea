@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useSaveOrigin, useScoreGain, type SaveOrigin } from "./useScoreGain";
+import {
+  isLiveCardUpdate,
+  markLiveCardUpdate,
+  useSaveOrigin,
+  useScoreGain,
+  type SaveOrigin,
+} from "./useScoreGain";
 
 type Props = {
   id: string | undefined;
   score: number | undefined;
   enabled: boolean;
   origin?: SaveOrigin | null;
+  silent?: boolean;
 };
 
 function setup(initial: Props) {
-  return renderHook((p: Props) => useScoreGain(p.id, p.score, p.enabled, p.origin), {
+  return renderHook((p: Props) => useScoreGain(p.id, p.score, p.enabled, p.origin, p.silent), {
     initialProps: initial,
   });
 }
@@ -207,6 +214,33 @@ describe("useScoreGain", () => {
       rerender({ id: "c1", score: 30, enabled: true, origin: { anchor: DESC, nonce: 1 } });
       expect(result.current).toBeNull();
     });
+  });
+});
+
+describe("useScoreGain — a live re-read", () => {
+  it("takes a silent score change as the new baseline and plays nothing", () => {
+    const { result, rerender } = setup({ id: "c1", score: 40, enabled: true });
+    rerender({ id: "c1", score: 80, enabled: true, silent: true });
+    expect(result.current).toBeNull();
+    // The next own save is measured from the silent score, not from 40.
+    rerender({ id: "c1", score: 90, enabled: true });
+    expect(result.current).toMatchObject({ from: 80, to: 90, delta: 10, direction: "gain" });
+  });
+
+  it("clears a gain still showing when a silent change moves the score", () => {
+    const { result, rerender } = setup({ id: "c1", score: 40, enabled: true });
+    rerender({ id: "c1", score: 60, enabled: true });
+    expect(result.current).toMatchObject({ delta: 20 });
+    rerender({ id: "c1", score: 30, enabled: true, silent: true });
+    expect(result.current).toBeNull();
+  });
+
+  it("marks only the object it was given", () => {
+    const live = markLiveCardUpdate({ id: "c1" });
+    expect(isLiveCardUpdate(live)).toBe(true);
+    expect(isLiveCardUpdate({ ...live })).toBe(false);
+    expect(isLiveCardUpdate(null)).toBe(false);
+    expect(isLiveCardUpdate(undefined)).toBe(false);
   });
 });
 

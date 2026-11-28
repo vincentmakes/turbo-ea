@@ -26,7 +26,11 @@ import { applyAiSuggestion } from "@/features/cards/applyAiSuggestion";
 import { hiddenFieldKeys } from "@/features/cards/sectionConfig";
 import { DataQualityPill } from "@/features/cards/sections";
 import { GainFlight } from "@/features/cards/gamification/GainFlight";
-import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
+import {
+  isLiveCardUpdate,
+  useSaveOrigin,
+  useScoreGain,
+} from "@/features/cards/gamification/useScoreGain";
 import { useGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import { cardFocusKey, resolveCardFocus } from "@/features/cards/cardFocus";
@@ -36,6 +40,7 @@ import type {
   CardEffectivePermissions,
   CardPanelFocus,
   AiSuggestResponse,
+  LiveCardUpdates,
 } from "@/types";
 
 const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
@@ -114,6 +119,8 @@ export default function CardDetailSidePanel({
   const resolveSubtypeLabel = useCardSubtypeLabel();
 
   const [card, setCard] = useState<Card | null>(null);
+  // The content's live-update handle, for this panel's own write (AI apply).
+  const liveRef = useRef<LiveCardUpdates | null>(null);
   const [error, setError] = useState("");
   const [perms, setPerms] =
     useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
@@ -122,7 +129,14 @@ export default function CardDetailSidePanel({
   // separate score bar is needed.
   const gamification = useGamificationEnabled();
   const [saveOrigin, reportSaveOrigin] = useSaveOrigin();
-  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification, saveOrigin);
+  // A live re-read (somebody else changed the card) moves the baseline silently.
+  const scoreGain = useScoreGain(
+    card?.id,
+    card?.data_quality,
+    gamification,
+    saveOrigin,
+    isLiveCardUpdate(card),
+  );
   const [pillEl, setPillEl] = useState<HTMLElement | null>(null);
   const [impactNonce, setImpactNonce] = useState<number | null>(null);
 
@@ -317,7 +331,10 @@ export default function CardDetailSidePanel({
   // A rejection propagates to the panel, which shows it and stays open.
   const handleAiApply = async (payload: AiApplyPayload) => {
     if (!card) return;
-    const result = await applyAiSuggestion(card, payload);
+    // Through the content's live-update handle, so a live re-read in flight
+    // cannot land after this save with the card as it was before.
+    const apply = () => applyAiSuggestion(card, payload);
+    const result = await (liveRef.current ? liveRef.current.ownWrite(apply) : apply());
     if (shownIdRef.current !== card.id) return;
     setCard(result.card);
     setAiResponse(null);
@@ -447,6 +464,7 @@ export default function CardDetailSidePanel({
             card={card}
             perms={perms}
             onCardUpdate={setCard}
+            liveUpdatesRef={liveRef}
             onDirtyChange={setDirty}
             onSaveOrigin={reportSaveOrigin}
             focusTarget={focusJump?.cardId === card.id ? focusJump : null}

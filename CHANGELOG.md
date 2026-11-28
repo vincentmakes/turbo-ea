@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.224.0] - 2026-11-28
+
+### Added
+- An open card now updates by itself when someone else, an integration or an automation changes it — its fields and its Relations, Hierarchy and Lineage sections, with no refresh needed; a section you are editing is left alone until you finish.
+
 ## [2.223.0] - 2026-11-28
 
 ### Added

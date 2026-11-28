@@ -20,6 +20,7 @@ import {
 import { LIFECYCLE_PHASE_COLORS, type LifecyclePhaseColorKey } from "@/theme/tokens";
 import type { Relation } from "@/types";
 import LifecycleDateFields from "./LifecycleDateFields";
+import { useTrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 /**
  * The phase a relation's note is drawn in: the card lifecycle's own icon and
@@ -108,6 +109,7 @@ export function RelationLifecyclePopover({
   disableRestoreFocus?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
+  const trackOwnWrite = useTrackOwnCardWrite();
   const [draft, setDraft] = useState<Record<string, string>>(relation.lifecycle ?? {});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -123,9 +125,9 @@ export function RelationLifecyclePopover({
     setSaving(true);
     setError("");
     try {
-      const updated = await api.patch<Relation>(`/relations/${relation.id}`, {
+      const updated = await trackOwnWrite(() => api.patch<Relation>(`/relations/${relation.id}`, {
         lifecycle: cleanRelationLifecycle(draft),
-      });
+      }));
       onSaved(updated);
       onClose();
     } catch (e) {

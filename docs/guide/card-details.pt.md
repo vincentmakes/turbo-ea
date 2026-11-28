@@ -75,6 +75,8 @@ Quando um card aprovado é editado, seu status muda automaticamente para **Quebr
 
 A aba de detalhe é organizada em **seções** que podem ser reordenadas e configuradas por um administrador por tipo de card (veja [Editor de Layout de Card](../admin/metamodel.md#card-layout-editor)).
 
+Um card aberto mantém-se atualizado sozinho: quando outro utilizador, uma integração ou uma automatização o altera, a página mostra os novos valores num instante, sem atualizar. Isto abrange os campos do próprio card (incluindo as datas derivadas das suas relações) e as secções **Relações**, **Hierarquia** e **Linhagem**. Uma secção que está a editar fica intocada até gravar ou cancelar, e depois atualiza-se. Os separadores — Histórico, Partes interessadas, Comentários e os restantes — mostram o que lá estava quando os abriu; volte ao separador ou atualize a página para ver as alterações posteriores.
+
 ### Seção de Descrição
 
 - **Descrição** — Descrição em texto rico do componente. Suporta o recurso de sugestão de IA para geração automática

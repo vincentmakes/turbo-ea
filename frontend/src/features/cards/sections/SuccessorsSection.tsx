@@ -30,17 +30,23 @@ import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type { Card, Relation } from "@/types";
 import { findSuccessorRelationType } from "@/lib/successorRelation";
 import { STATUS_COLORS } from "@/theme/tokens";
+import { useTrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 function SuccessorsSection({
   card,
   canEdit = true,
   initialExpanded = true,
+  refreshKey = 0,
 }: {
   card: Card;
   canEdit?: boolean;
   initialExpanded?: boolean;
+  /** Bumped by the card page when the card changed elsewhere (live updates):
+   *  reloads the lineage. An open add dialog stays as it is. */
+  refreshKey?: number;
 }) {
   const { t } = useTranslation(["cards", "common"]);
+  const trackOwnWrite = useTrackOwnCardWrite();
   const { getType, relationTypes } = useMetamodel();
   const resolveTypeLabel = useTypeLabel();
   const typeConfig = getType(card.type);
@@ -93,7 +99,10 @@ function SuccessorsSection({
     });
   }, [listRequest, card.id, successorRT, t]);
 
-  useEffect(loadRelations, [loadRelations]);
+  // Also on `refreshKey`: a live update of the card reloads it.
+  useEffect(() => {
+    loadRelations();
+  }, [loadRelations, refreshKey]);
 
   // Exclude self and already-related cards from the picker.
   const excludeIds = useMemo(() => {
@@ -115,18 +124,18 @@ function SuccessorsSection({
       setError("");
       if (addMode === "successor") {
         // "selected" succeeds this card → source=selected, target=this card
-        await api.post("/relations", {
+        await trackOwnWrite(() => api.post("/relations", {
           type: successorRT.key,
           source_id: selected.id,
           target_id: card.id,
-        });
+        }));
       } else {
         // this card succeeds "selected" → source=this card, target=selected
-        await api.post("/relations", {
+        await trackOwnWrite(() => api.post("/relations", {
           type: successorRT.key,
           source_id: card.id,
           target_id: selected.id,
-        });
+        }));
       }
       closeDialog();
       loadRelations();
@@ -145,17 +154,17 @@ function SuccessorsSection({
         name: createName.trim(),
       });
       if (addMode === "successor") {
-        await api.post("/relations", {
+        await trackOwnWrite(() => api.post("/relations", {
           type: successorRT.key,
           source_id: created.id,
           target_id: card.id,
-        });
+        }));
       } else {
-        await api.post("/relations", {
+        await trackOwnWrite(() => api.post("/relations", {
           type: successorRT.key,
           source_id: card.id,
           target_id: created.id,
-        });
+        }));
       }
       closeDialog();
       loadRelations();
@@ -169,7 +178,7 @@ function SuccessorsSection({
   const handleRemove = async (relId: string) => {
     try {
       setError("");
-      await api.delete(`/relations/${relId}`);
+      await trackOwnWrite(() => api.delete(`/relations/${relId}`));
       loadRelations();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t("common:errors.generic"));

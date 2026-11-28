@@ -3906,3 +3906,46 @@ export interface McpConnection {
   /** Present on `?everyone=true` (admin.mcp): who signed in, never more. */
   user?: { id: string; display_name: string };
 }
+
+// ---------------------------------------------------------------------------
+// Live card updates (`useEventStream`, `useCardWatch`, `useLiveCardUpdates`)
+// ---------------------------------------------------------------------------
+
+/** What the server said when this tab's event stream (re)connected. */
+export interface StreamHello {
+  /** Opaque id of THIS connection; a reconnect gets a new one. */
+  streamId: string;
+  /** How long a registered watch lives unless it is refreshed. */
+  watchTtlSeconds: number;
+  /** Increases by one per hello this tab ever received — never reset. */
+  seq: number;
+  /** True for every hello after the first one of the current stream. */
+  reconnect: boolean;
+}
+
+/** What `useLiveCardUpdates` hands its card page. */
+export interface LiveCardUpdates {
+  /**
+   * The viewer is about to write the card (or just did): a live re-read in
+   * flight may have read the card before that write landed, so it is dropped
+   * and asked again — the next one reads after the write.
+   */
+  supersede: () => void;
+  /**
+   * Run a write of something of this card from the page (a relation, a tag,
+   * the hierarchy) whose result the card itself does not carry. A live
+   * re-read applied while it is out, or a few seconds after it succeeded,
+   * plays its score change like a save — from `anchor`, when given — instead
+   * of moving the baseline silently. A failed write records nothing.
+   */
+  trackOwnWrite: <T>(run: () => Promise<T>, anchor?: string | null) => Promise<T>;
+  /**
+   * Run a write of the host's own whose result the caller then stores
+   * (a PATCH, or a refetch after one): holds live re-reads while it is out and
+   * supersedes one in flight before and after it. It leaves what
+   * `trackOwnWrite` recorded alone.
+   */
+  ownWrite: <T>(write: () => Promise<T>) => Promise<T>;
+  /** A stable per-key callback for a section's `onEditingChange`. */
+  editingCb: (key: string) => (editing: boolean) => void;
+}

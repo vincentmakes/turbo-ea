@@ -49,7 +49,13 @@ export const hookState = {
   auth: { user: null as User | null, loading: false },
   calculatedFields: {} as Record<string, string[]>,
   /** Handlers `useEventStream` consumers registered; `emitEvent` fans out. */
-  eventStream: { handlers: [] as Array<(event: Record<string, unknown>) => void>, reconnect: [] as Array<() => void> },
+  eventStream: {
+    handlers: [] as Array<(event: Record<string, unknown>) => void>,
+    reconnect: [] as Array<() => void>,
+    /** What `getLastStreamHello()` returns; `emitEvent` records each hello. */
+    hello: null as import("@/types").StreamHello | null,
+    hellos: 0,
+  },
 
   reset(): void {
     this.metamodel = { types: [], relationTypes: [], loading: false };
@@ -71,7 +77,7 @@ export const hookState = {
     this.permissions = { "*": true };
     this.auth = { user: null, loading: false };
     this.calculatedFields = {};
-    this.eventStream = { handlers: [], reconnect: [] };
+    this.eventStream = { handlers: [], reconnect: [], hello: null, hellos: 0 };
   },
 };
 
@@ -82,7 +88,18 @@ export function withMetamodel(types: CardType[], relationTypes: RelationType[] =
 
 /** Deliver one SSE event to every mounted `useEventStream` consumer. Wrap in `act()`. */
 export function emitEvent(event: Record<string, unknown>): void {
-  for (const h of hookState.eventStream.handlers) h(event);
+  // Like the real stream: a hello is recorded before it is fanned out.
+  if (event.event === "event.stream.hello" && typeof event.stream_id === "string") {
+    const s = hookState.eventStream;
+    s.hellos += 1;
+    s.hello = {
+      streamId: event.stream_id,
+      watchTtlSeconds: Number(event.watch_ttl_seconds ?? 300),
+      seq: (s.hello?.seq ?? 0) + 1,
+      reconnect: s.hellos > 1,
+    };
+  }
+  for (const h of [...hookState.eventStream.handlers]) h(event);
 }
 
 export async function useMetamodelModule() {
@@ -311,6 +328,14 @@ export async function useCalculatedFieldsModule() {
 export function useEventStreamModule() {
   return {
     stopEventStream: vi.fn(),
+    getLastStreamHello: () => hookState.eventStream.hello,
+    subscribeEventStream: (listener: (event: Record<string, unknown>) => void) => {
+      hookState.eventStream.handlers.push(listener);
+      return () => {
+        const i = hookState.eventStream.handlers.indexOf(listener);
+        if (i >= 0) hookState.eventStream.handlers.splice(i, 1);
+      };
+    },
     useEventStream: (onEvent: (event: Record<string, unknown>) => void, onReconnect?: () => void) => {
       hookState.eventStream.handlers.push(onEvent);
       if (onReconnect) hookState.eventStream.reconnect.push(onReconnect);

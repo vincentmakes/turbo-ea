@@ -76,6 +76,7 @@ import {
   todayLifecycleMs,
 } from "@/lib/relationLifecycle";
 import { RelationLifecyclePopover, RelationPhaseChip } from "./RelationLifecycleControls";
+import { useTrackOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 /* ── helpers ────────────────────────────────────────────────── */
 
@@ -114,6 +115,7 @@ function RelationAttrsPopover({
   onSaved: (updated: Relation) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
+  const trackOwnWrite = useTrackOwnCardWrite();
   const [draft, setDraft] = useState<RelationAttributes>(
     (relation.attributes as RelationAttributes) ?? {},
   );
@@ -131,9 +133,9 @@ function RelationAttrsPopover({
     setSaving(true);
     setError("");
     try {
-      const updated = await api.patch<Relation>(`/relations/${relation.id}`, {
+      const updated = await trackOwnWrite(() => api.patch<Relation>(`/relations/${relation.id}`, {
         attributes: draft,
-      });
+      }));
       onSaved(updated);
       onClose();
     } catch (e) {
@@ -214,6 +216,7 @@ function RelationGroup({
   todayMs: number;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
+  const trackOwnWrite = useTrackOwnCardWrite();
   const rl = useResolveLabel();
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
@@ -282,7 +285,7 @@ function RelationGroup({
   const handleDelete = async (relId: string) => {
     try {
       setDeleteError("");
-      await api.delete(`/relations/${relId}`);
+      await trackOwnWrite(() => api.delete(`/relations/${relId}`));
       onReload();
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : t("common:errors.generic"));

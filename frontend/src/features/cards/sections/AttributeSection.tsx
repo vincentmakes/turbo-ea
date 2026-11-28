@@ -81,6 +81,7 @@ function AttributeSection({
   hiddenFieldKeys,
   canViewCosts = true,
   onDirtyChange,
+  onEditingChange,
   expandOn,
   editOn,
 }: {
@@ -94,6 +95,13 @@ function AttributeSection({
   hiddenFieldKeys?: Set<string>;
   canViewCosts?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * Notified when edit mode opens (`true`) and closes (`false`), whether or
+   * not anything was typed. Card detail holds a live re-read while any
+   * section is editing: replacing the card under an untouched form would make
+   * its draft differ from the card and arm the leave guard.
+   */
+  onEditingChange?: (editing: boolean) => void;
   /** A new value expands the section (a data-quality jump). */
   expandOn?: number;
   /** A data-quality jump: open in edit mode, focused on its field. */
@@ -126,6 +134,12 @@ function AttributeSection({
     onDirtyChange?.(dirty);
     return () => onDirtyChange?.(false);
   }, [dirty, onDirtyChange]);
+
+  // Report edit mode (not dirtiness) so card detail can hold a live re-read.
+  useEffect(() => {
+    onEditingChange?.(editing);
+    return () => onEditingChange?.(false);
+  }, [editing, onEditingChange]);
 
   // Filter out hidden fields for the active subtype
   const visibleFields = hiddenFieldKeys?.size

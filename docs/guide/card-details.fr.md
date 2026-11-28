@@ -76,6 +76,8 @@ Lorsqu'une fiche approuvée est modifiée, son statut passe automatiquement à *
 
 L'onglet détail est organisé en **sections** qui peuvent être réorganisées et configurées par un administrateur par type de fiche (voir [Éditeur de mise en page des fiches](../admin/metamodel.md#card-layout-editor)).
 
+Une fiche ouverte se tient à jour toute seule : lorsqu'un autre utilisateur, une intégration ou une automatisation la modifie, la page affiche les nouvelles valeurs en un instant, sans actualisation. Cela couvre les champs propres de la fiche (y compris les dates dérivées de ses relations) et ses sections **Relations**, **Hiérarchie** et **Filiation**. Une section que vous modifiez n'est pas touchée tant que vous n'avez pas enregistré ou annulé, puis elle se met à jour. Les onglets — Historique, Parties prenantes, Commentaires et les autres — affichent ce qui s'y trouvait à leur ouverture ; revenez sur l'onglet ou actualisez la page pour voir les changements ultérieurs.
+
 ### Section Description
 
 - **Description** -- Description en texte riche du composant. Prend en charge la fonctionnalité de suggestion IA pour la génération automatique
