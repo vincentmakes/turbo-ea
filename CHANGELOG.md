@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - An installed extension can keep chosen lifecycle dates of a card up to date automatically. Those dates show as set automatically and cannot be edited by hand — in the card, bulk edit, imports or through an AI assistant — while the extension is active; disabling or uninstalling it, or a lapsed licence, makes them editable again, and the dates are kept.
 - Survey apply, ServiceNow sync and platform-migration imports skip a lifecycle date an installed extension maintains, keep the stored date and report the skip; rolling back a change restores the other dates and reports the ones it kept.
+- The survey results page warns when an applied answer was skipped because its lifecycle date is maintained by an installed extension.
+- A card's History shows a "Dates set automatically" entry when an installed extension starts or stops maintaining its lifecycle dates.
+- The Excel import warns, row by row, that the sheet's values for lifecycle dates an installed extension maintains are ignored.
 
 ## [2.222.1] - 2026-11-27
 
