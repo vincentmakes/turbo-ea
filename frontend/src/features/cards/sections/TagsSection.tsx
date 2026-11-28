@@ -35,6 +35,13 @@ interface Props {
   expandOn?: number;
   /** A data-quality jump: open the tag editor once the tag groups are in. */
   editOn?: SectionEditRequest;
+  /**
+   * Notified when the tag editor opens (`true`) and closes (`false`). Card
+   * detail holds a live re-read meanwhile: the save diffs the picked tags
+   * against `card.tags`, so a card replaced under an open editor would remove
+   * a tag someone else added after it opened.
+   */
+  onEditingChange?: (editing: boolean) => void;
 }
 
 export default function TagsSection({
@@ -42,6 +49,7 @@ export default function TagsSection({
   onUpdate,
   canEdit = true,
   initialExpanded = true,
+  onEditingChange,
   expandOn,
   editOn,
 }: Props) {
@@ -86,6 +94,12 @@ export default function TagsSection({
   // not narrowed to the one the jump came from.
   const canOpenEditor = canEdit && applicableGroups.length > 0;
   useEditRequest(editOn, canOpenEditor, openEdit);
+
+  // Report edit mode (not dirtiness) so card detail can hold a live re-read.
+  useEffect(() => {
+    onEditingChange?.(editOpen);
+    return () => onEditingChange?.(false);
+  }, [editOpen, onEditingChange]);
 
   const save = async () => {
     setSaving(true);

@@ -434,6 +434,68 @@ async def is_card_readable(
     )
 
 
+CardDetailVerdict = Literal["readable", "missing", "forbidden"]
+
+
+async def _card_detail_verdict_for_type(
+    db: AsyncSession, user: User, card_id: uuid.UUID, type_key: str | None
+) -> CardDetailVerdict:
+    if type_key is None:
+        return "missing"
+    if await PermissionService.check_permission(
+        db, user, VIEW_PERMISSION, card_id, "card.view", card_type_key=type_key
+    ):
+        return "readable"
+    if type_key == "Initiative" and await PermissionService.has_app_permission(
+        db, user, "ppm.view", card_type_key=type_key
+    ):
+        return "readable"
+    if await PermissionService.is_type_denied(db, user, VIEW_PERMISSION, type_key):
+        return "missing"
+    return "forbidden"
+
+
+async def card_detail_verdict(
+    db: AsyncSession, user: User, card_id: uuid.UUID
+) -> tuple[str | None, CardDetailVerdict]:
+    """May this user open this card's detail (``GET /cards/{id}``)?
+
+    The non-raising core of that route's read gate; returns the card's type key
+    beside the verdict. Readable = ``inventory.view`` (per-type aware) OR
+    stakeholder ``card.view`` OR — when the card is an Initiative — the PPM
+    module's ``ppm.view``: the PPM detail page (/ppm/:id, route-gated on
+    ppm.view) fronts the Initiative card itself, so ppm.view must be able to
+    read it (#1043). An explicit View deny on the card's type wins over that
+    fallback (``has_app_permission`` answers False for every permission on a
+    View-denied type).
+
+    ``"missing"`` when the card does not exist *or* is hidden from the caller
+    by a type deny — a hidden card does not exist for them (the route answers
+    404). ``"forbidden"`` otherwise (403). Archived cards are not special: the
+    detail route opens them like any other.
+    """
+    type_key = await PermissionService._card_type_key(db, card_id)
+    return type_key, await _card_detail_verdict_for_type(db, user, card_id, type_key)
+
+
+async def card_detail_readable_ids(
+    db: AsyncSession, user: User, card_ids: Iterable[uuid.UUID]
+) -> list[uuid.UUID]:
+    """The ids, in the order given and without duplicates, for which
+    ``card_detail_verdict`` answers ``"readable"`` — one query for the types,
+    then the same per-card check. An unknown id is left out."""
+    ids = list(dict.fromkeys(card_ids))
+    if not ids:
+        return []
+    rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(ids)))
+    type_by_id = dict(rows.tuples().all())
+    return [
+        cid
+        for cid in ids
+        if await _card_detail_verdict_for_type(db, user, cid, type_by_id.get(cid)) == "readable"
+    ]
+
+
 async def require_card_readable(
     db: AsyncSession,
     user: User,

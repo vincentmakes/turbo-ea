@@ -17,6 +17,25 @@ interface Tracked {
 }
 
 /**
+ * Cards that arrived by a live re-read (another user, an integration or an
+ * automation changed the card) rather than by the viewer's own save. Keyed on
+ * the object the host stores, so it needs no bookkeeping of its own: the next
+ * save brings a new object, which is not in the set.
+ */
+const liveCardUpdates = new WeakSet<object>();
+
+/** Mark `card` as a live re-read: its score change is a new baseline, not a gain. */
+export function markLiveCardUpdate<T extends object>(card: T): T {
+  liveCardUpdates.add(card);
+  return card;
+}
+
+/** Whether `card` came from a live re-read (`markLiveCardUpdate`). */
+export function isLiveCardUpdate(card: object | null | undefined): boolean {
+  return !!card && liveCardUpdates.has(card);
+}
+
+/**
  * The last save's change to this card's score, or `null`.
  *
  * Remembers the previous score per card: the first score a card shows (and the
@@ -34,6 +53,10 @@ interface Tracked {
  * change is stamped with that anchor. A new origin whose save left the score
  * where it was is dropped, so it never travels to a later header save.
  *
+ * `silent` (a live re-read, `isLiveCardUpdate(card)`) takes a new score as the
+ * starting point and plays nothing: the viewer did not earn a change somebody
+ * else made.
+ *
  * Tracked in state adjusted during render (not a ref read in an effect), so the
  * change is there on the very render that shows the new score.
  */
@@ -42,6 +65,7 @@ export function useScoreGain(
   score: number | null | undefined,
   enabled: boolean,
   origin: SaveOrigin | null = null,
+  silent = false,
 ): ScoreGain | null {
   const value = score ?? 0;
   const originNonce = origin?.nonce ?? null;
@@ -56,6 +80,8 @@ export function useScoreGain(
 
   if (tracked.cardId !== cardId) {
     setTracked({ cardId, score: value, gain: null, nonce: tracked.nonce, originNonce });
+  } else if (tracked.score !== value && silent) {
+    setTracked({ ...tracked, score: value, gain: null, originNonce });
   } else if (tracked.score !== value) {
     const rise = enabled ? scoreDelta(tracked.score, value) : null;
     const drop = enabled && rise === null ? scoreDrop(tracked.score, value) : null;

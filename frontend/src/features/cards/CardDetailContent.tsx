@@ -21,6 +21,7 @@ import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
 import { useCardTabActivity } from "@/hooks/useCardTabActivity";
 import { api } from "@/api/client";
+import { useLiveCardUpdates } from "@/features/cards/useLiveCardUpdates";
 import {
   DescriptionSection,
   LifecycleSection,
@@ -117,6 +118,9 @@ interface Props {
    *  same tick, so gamified data quality can fly the gain from there. The End
    *  of Life section reports nothing. */
   onSaveOrigin?: (anchor: string) => void;
+  /** Hold live updates while the host edits something of the card itself
+   *  (the card page's title editor); the held re-read runs when it clears. */
+  pauseLiveUpdates?: boolean;
 }
 
 /** Long enough for the Card tab to mount and the section to start expanding. */
@@ -138,6 +142,7 @@ export default function CardDetailContent({
   onDirtyChange,
   focusTarget,
   onSaveOrigin,
+  pauseLiveUpdates = false,
 }: Props) {
   const { t } = useTranslation("cards");
   const navigate = useNavigate();
@@ -353,21 +358,35 @@ export default function CardDetailContent({
   useEffect(() => {
     onSaveOriginRef.current = onSaveOrigin;
   }, [onSaveOrigin]);
+  // Live updates: another user, an integration or an automation changed this
+  // card — re-read it, and the relation lists hanging off it. Held while a
+  // section is in edit mode (see `useLiveCardUpdates`). Our own writes below
+  // supersede a re-read in flight, so it can never land after them with the
+  // card as it was before.
+  const live = useLiveCardUpdates(card.id, onCardUpdate, pauseLiveUpdates, () => {
+    setRelRefresh((n) => n + 1);
+    setRelLifecycleRefresh((n) => n + 1);
+  });
+  const { supersede } = live;
   const patchCard = useCallback(
     async (updates: Record<string, unknown>, anchor: string | null) => {
+      supersede();
       const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
+      supersede();
       if (anchor) onSaveOriginRef.current?.(anchor);
       onCardUpdate(updated);
     },
-    [card.id, onCardUpdate],
+    [card.id, onCardUpdate, supersede],
   );
   const refreshCard = useCallback(
     async (anchor: string) => {
+      supersede();
       const updated = await api.get<Card>(`/cards/${card.id}`);
+      supersede();
       onSaveOriginRef.current?.(anchor);
       onCardUpdate(updated);
     },
-    [card.id, onCardUpdate],
+    [card.id, onCardUpdate, supersede],
   );
   // The End of Life section: no origin, the gain plays at the pill.
   const handleUpdate = useCallback(
@@ -468,6 +487,7 @@ export default function CardDetailContent({
             onAiSuggest={onAiSuggest}
             aiBusy={aiBusy}
             onDirtyChange={dirtyCb("description")}
+            onEditingChange={live.editingCb("description")}
             calculatedFieldKeys={calcFieldKeys}
             expandOn={expandOn(sectionAnchor("description"))}
             editOn={editOn(sectionAnchor("description"))}
@@ -498,6 +518,7 @@ export default function CardDetailContent({
             canEdit={perms.can_edit}
             initialExpanded={exp}
             onDirtyChange={dirtyCb("lifecycle")}
+            onEditingChange={live.editingCb("lifecycle")}
             expandOn={expandOn(sectionAnchor("lifecycle"))}
             editOn={editOn(sectionAnchor("lifecycle"))}
             maintained={card.lifecycle_maintained ?? null}
@@ -548,6 +569,7 @@ export default function CardDetailContent({
             initialExpanded={exp}
             expandOn={expandOn(sectionAnchor("tags"))}
             editOn={editOn(sectionAnchor("tags"))}
+            onEditingChange={live.editingCb("tags")}
           />
         </ErrorBoundary>
       );
@@ -591,6 +613,7 @@ export default function CardDetailContent({
             hiddenFieldKeys={hiddenFieldKeys}
             canViewCosts={perms.can_view_costs}
             onDirtyChange={dirtyCb(key)}
+            onEditingChange={live.editingCb(key)}
             expandOn={expandOn(customSectionAnchor(section.section))}
             editOn={editOn(customSectionAnchor(section.section))}
           />

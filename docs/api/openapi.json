@@ -18043,6 +18043,42 @@
         "title": "StoreRefreshOut",
         "type": "object"
       },
+      "StreamWatchRequest": {
+        "properties": {
+          "card_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Card Ids",
+            "type": "array"
+          }
+        },
+        "title": "StreamWatchRequest",
+        "type": "object"
+      },
+      "StreamWatchResponse": {
+        "properties": {
+          "card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Card Ids",
+            "type": "array"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "card_ids",
+          "expires_in"
+        ],
+        "title": "StreamWatchResponse",
+        "type": "object"
+      },
       "StringsWrite": {
         "properties": {
           "fill_identical": {
@@ -33905,6 +33941,59 @@
           }
         },
         "summary": "Event Stream",
+        "tags": [
+          "events"
+        ]
+      }
+    },
+    "/api/v1/events/stream/{stream_id}/watch": {
+      "put": {
+        "description": "Choose the cards whose changes this stream is told about (live updates).\n\nReplaces the stream's watch set; calling it again refreshes the expiry\n(``expires_in`` seconds). A card is accepted only when the caller may open\nit through ``GET /cards/{id}`` (``card_detail_readable_ids`` \u2014 the same\nread gate); any other id, an unknown one included, is simply left out of\nthe answer. The stream then receives only\n``{\"event\": \"event.stream.card_changed\", \"card_id\", \"timestamp\"}`` \u2014 see\n``app/services/card_watch.py``. 404 for a stream that is not the caller's.",
+        "operationId": "watch_stream_cards_api_v1_events_stream__stream_id__watch_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "stream_id",
+            "required": true,
+            "schema": {
+              "title": "Stream Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StreamWatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamWatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Watch Stream Cards",
         "tags": [
           "events"
         ]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
@@ -7,6 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,9 +21,10 @@ from app.models.event import Event
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
-from app.services import mcp_session_service
+from app.services import card_watch, mcp_session_service
 from app.services.card_read_scope import (
     CardReadScope,
+    card_detail_readable_ids,
     event_read_filters,
     scrub_event_payloads,
 )
@@ -103,11 +106,28 @@ async def event_stream(request: Request, token: str = Query("")):
     # Session closed: its connection is back in the pool before the stream opens.
 
     async def generate():
-        async for message in event_bus.subscribe():
-            if await request.is_disconnected():
-                break
-            if _event_visible_to(is_events_admin, message, user_id):
-                yield f"data: {json.dumps(message, default=str)}\n\n"
+        # One queue per connection: the bus fans out into it, and the
+        # live-update registry writes this stream's hello and card pings into
+        # it. The hello goes in first, so the bus subscription is in place
+        # before the browser learns its stream id and registers any watch.
+        inbox: asyncio.Queue = asyncio.Queue(maxsize=256)
+        stream_id = card_watch.open_stream(user_id, inbox)
+        inbox.put_nowait(card_watch.hello(stream_id))
+        try:
+            async for message in event_bus.subscribe(inbox=inbox):
+                if await request.is_disconnected():
+                    break
+                if isinstance(message, card_watch.StreamMessage):
+                    # The hello, or a ping already reduced to {event, card_id,
+                    # timestamp} and queued only for a card this user could
+                    # read when watching it.
+                    if isinstance(message, card_watch.CardChangedPing):
+                        card_watch.mark_forwarded(stream_id, message["card_id"])
+                    yield f"data: {json.dumps(message)}\n\n"
+                elif _event_visible_to(is_events_admin, message, user_id):
+                    yield f"data: {json.dumps(message, default=str)}\n\n"
+        finally:
+            card_watch.close_stream(stream_id)
 
     return StreamingResponse(
         generate(),
@@ -117,6 +137,45 @@ async def event_stream(request: Request, token: str = Query("")):
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+class StreamWatchRequest(BaseModel):
+    card_ids: list[uuid.UUID] = Field(default_factory=list, max_length=card_watch.MAX_WATCHED_CARDS)
+
+
+class StreamWatchResponse(BaseModel):
+    card_ids: list[str]
+    expires_in: int
+
+
+@router.put("/stream/{stream_id}/watch", response_model=StreamWatchResponse)
+async def watch_stream_cards(
+    stream_id: str,
+    body: StreamWatchRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StreamWatchResponse:
+    """Choose the cards whose changes this stream is told about (live updates).
+
+    Replaces the stream's watch set; calling it again refreshes the expiry
+    (``expires_in`` seconds). A card is accepted only when the caller may open
+    it through ``GET /cards/{id}`` (``card_detail_readable_ids`` — the same
+    read gate); any other id, an unknown one included, is simply left out of
+    the answer. The stream then receives only
+    ``{"event": "event.stream.card_changed", "card_id", "timestamp"}`` — see
+    ``app/services/card_watch.py``. 404 for a stream that is not the caller's.
+    """
+    if not card_watch.owns_stream(stream_id, user.id):
+        raise HTTPException(404, "Stream not found")
+    readable = await card_detail_readable_ids(db, user, body.card_ids)
+    accepted = card_watch.set_watch(stream_id, user.id, readable)
+    if accepted is None:
+        # The stream closed while the read checks ran.
+        raise HTTPException(404, "Stream not found")
+    return StreamWatchResponse(
+        card_ids=[str(cid) for cid in accepted],
+        expires_in=card_watch.WATCH_TTL_SECONDS,
     )
 
 

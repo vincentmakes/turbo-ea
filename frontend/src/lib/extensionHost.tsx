@@ -171,6 +171,10 @@ import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSide
 // (`{phases, name}`): phases an installed extension maintains show a chip and
 // are not editable, and its save keeps them at their stored values. Omitted,
 // the section is unchanged; `phaseAnnotation` keeps its meaning.
+// SDK 1.42 — `LifecycleSection` takes an optional `onEditingChange(editing)`,
+// called when its edit mode opens and closes (dirty or not), so a host that
+// re-reads the card while it is open can hold off until editing ends.
+// Omitted, nothing changes.
 import LifecycleSection from "@/features/cards/sections/LifecycleSection";
 import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
@@ -187,7 +191,8 @@ import type {
 // also true on a closed decision (rejected or withdrawn): it stays a draft
 // but is locked until it is reopened. `status` keeps its three values.
 // SDK 1.41 — `LifecycleSection` accepts `maintained` (see its import above).
-export const UI_SDK_VERSION = "1.41";
+// SDK 1.42 — `LifecycleSection` accepts `onEditingChange` (see its import above).
+export const UI_SDK_VERSION = "1.42";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the

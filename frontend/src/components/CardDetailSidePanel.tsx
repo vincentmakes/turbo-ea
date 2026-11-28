@@ -26,7 +26,11 @@ import { applyAiSuggestion } from "@/features/cards/applyAiSuggestion";
 import { hiddenFieldKeys } from "@/features/cards/sectionConfig";
 import { DataQualityPill } from "@/features/cards/sections";
 import { GainFlight } from "@/features/cards/gamification/GainFlight";
-import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
+import {
+  isLiveCardUpdate,
+  useSaveOrigin,
+  useScoreGain,
+} from "@/features/cards/gamification/useScoreGain";
 import { useGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import { cardFocusKey, resolveCardFocus } from "@/features/cards/cardFocus";
@@ -122,7 +126,14 @@ export default function CardDetailSidePanel({
   // separate score bar is needed.
   const gamification = useGamificationEnabled();
   const [saveOrigin, reportSaveOrigin] = useSaveOrigin();
-  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification, saveOrigin);
+  // A live re-read (somebody else changed the card) moves the baseline silently.
+  const scoreGain = useScoreGain(
+    card?.id,
+    card?.data_quality,
+    gamification,
+    saveOrigin,
+    isLiveCardUpdate(card),
+  );
   const [pillEl, setPillEl] = useState<HTMLElement | null>(null);
   const [impactNonce, setImpactNonce] = useState<number | null>(null);
 

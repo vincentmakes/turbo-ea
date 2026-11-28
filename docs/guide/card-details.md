@@ -76,6 +76,8 @@ When an approved card is edited, its status automatically changes to **Broken** 
 
 The detail tab is organized into **sections** that can be reordered and configured by an administrator per card type (see [Card Layout Editor](../admin/metamodel.md#card-layout-editor)).
 
+An open card keeps itself up to date: when another user, an integration or an automation changes it, the page shows the new values within a moment, with no refresh — including relations and dates derived from them. A section you are editing is left alone until you save or cancel, and then catches up.
+
 ### Description Section
 
 - **Description** — Rich text description of the component. Supports the AI suggestion feature for automatic generation

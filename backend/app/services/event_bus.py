@@ -9,6 +9,7 @@ from typing import Any, AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import Event
+from app.services import card_watch
 
 # Set by `OriginMiddleware` in `app.main` from the `X-Turbo-EA-Origin`
 # request header. ``publish()`` reads this and stamps the event payload so
@@ -132,6 +133,13 @@ class EventBus:
             "batch_id": str(effective_batch_id) if effective_batch_id else None,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        # Live card updates: a browser watching this card gets a reduced ping
+        # straight into its own queue — after the commit when the event is
+        # persisted, at once when it is not — never through the fan-out below.
+        # One dict lookup when nobody watches the card (``card_watch``).
+        if card_id is not None:
+            card_watch.note_change(db, card_id)
+
         dead: list[asyncio.Queue] = []
         for q in self._subscribers:
             try:
@@ -185,8 +193,15 @@ class EventBus:
         request_batch_id.set(auto.id)
         return auto.id
 
-    async def subscribe(self) -> AsyncGenerator[dict[str, Any], None]:
+    async def subscribe(
+        self, inbox: asyncio.Queue | None = None
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Yield each published event as a raw dict.
+
+        ``inbox`` lets the caller own the queue the bus writes to — the event
+        stream hands its queue to ``card_watch`` too, so the stream's
+        live-update pings arrive through the same loop. Without one the bus
+        creates a 256-deep queue, as it always has.
 
         The SSE endpoint (`events.py`) is responsible for filtering events per
         subscriber (so non-admins don't receive audit / ops-sensitive events)
@@ -194,7 +209,7 @@ class EventBus:
         message rather than a pre-formatted ``data: …`` string — is what lets
         the route apply per-user authorization before anything is sent.
         """
-        q: asyncio.Queue = asyncio.Queue(maxsize=256)
+        q: asyncio.Queue = inbox if inbox is not None else asyncio.Queue(maxsize=256)
         self._subscribers.append(q)
         try:
             while True:

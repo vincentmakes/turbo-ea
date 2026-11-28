@@ -26,6 +26,46 @@ let es: EventSource | null = null;
 //: initial connection; every later one means it dropped and came back.
 let hasConnected = false;
 
+/** What the server said when this tab's stream (re)connected. */
+export interface StreamHello {
+  /** Opaque id of THIS connection; a reconnect gets a new one. */
+  streamId: string;
+  /** How long a registered watch lives unless it is refreshed. */
+  watchTtlSeconds: number;
+  /** Increases by one per hello this tab ever received — never reset. */
+  seq: number;
+  /** True for every hello after the first one of the current stream. */
+  reconnect: boolean;
+}
+
+//: The newest `event.stream.hello`, kept here because it is the first message
+//: of a connection: a consumer that mounts later (a card page opened after the
+//: layout started the stream) would otherwise never learn the stream's id. An
+//: older backend sends no hello, and this stays `null`.
+let lastHello: StreamHello | null = null;
+let helloSeq = 0;
+let hellosThisStream = 0;
+
+function noteHello(event: Record<string, unknown>): void {
+  if (event.event !== "event.stream.hello") return;
+  const streamId = event.stream_id;
+  if (typeof streamId !== "string" || streamId === "") return;
+  const ttl = Number(event.watch_ttl_seconds);
+  hellosThisStream += 1;
+  helloSeq += 1;
+  lastHello = {
+    streamId,
+    watchTtlSeconds: Number.isFinite(ttl) && ttl > 0 ? ttl : 1800,
+    seq: helloSeq,
+    reconnect: hellosThisStream > 1,
+  };
+}
+
+/** The current connection's hello, or `null` (none yet, or an older backend). */
+export function getLastStreamHello(): StreamHello | null {
+  return lastHello;
+}
+
 function dispatch(event: Record<string, unknown>): void {
   for (const listener of listeners) {
     try {
@@ -42,7 +82,11 @@ function startStream(): void {
   es = new EventSource(STREAM_URL);
   es.onmessage = (e) => {
     try {
-      dispatch(JSON.parse(e.data) as Record<string, unknown>);
+      const event = JSON.parse(e.data) as Record<string, unknown>;
+      // Recorded before the fan-out, so a listener reacting to the hello reads
+      // it through `getLastStreamHello()` already.
+      noteHello(event);
+      dispatch(event);
     } catch {
       // ignore parse errors
     }
@@ -72,6 +116,19 @@ function startStream(): void {
 }
 
 /**
+ * Listen to the shared stream from outside React (a module that keeps its own
+ * state across components). Returns the unsubscribe. It does not open the
+ * stream: the always-mounted layout consumers own that, and a listener added
+ * before the stream opens simply hears it from the first message.
+ */
+export function subscribeEventStream(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/**
  * Close the shared connection (e.g. on logout). A later login re-arms it on
  * the next mounted consumer. Listeners are owned by mounted hooks and are not
  * touched here.
@@ -84,6 +141,8 @@ export function stopEventStream(): void {
   // A later login opens a fresh stream, and that open is an initial
   // connection, not a reconnect — nothing was missed in between.
   hasConnected = false;
+  lastHello = null;
+  hellosThisStream = 0;
 }
 
 /**

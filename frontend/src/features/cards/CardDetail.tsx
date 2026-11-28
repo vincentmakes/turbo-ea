@@ -46,7 +46,11 @@ import {
   StickyScoreBar,
 } from "@/features/cards/gamification/StickyScoreBar";
 import { useHeaderOffscreen } from "@/features/cards/gamification/useHeaderOffscreen";
-import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
+import {
+  isLiveCardUpdate,
+  useSaveOrigin,
+  useScoreGain,
+} from "@/features/cards/gamification/useScoreGain";
 import { DataQualityBreakdownHost } from "@/features/cards/sections/DataQualityBreakdownHost";
 import { DATA_QUALITY_PANEL_WIDTH } from "@/features/cards/sections/DataQualityBreakdownPanel";
 import { useDataQualityPanelOpen } from "@/lib/dataQualityPanel";
@@ -212,7 +216,14 @@ export default function CardDetail() {
   // score bar shown while the header row is scrolled away.
   const gamification = useGamificationEnabled();
   const [saveOrigin, reportSaveOrigin] = useSaveOrigin();
-  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification, saveOrigin);
+  // A live re-read (somebody else changed the card) moves the baseline silently.
+  const scoreGain = useScoreGain(
+    card?.id,
+    card?.data_quality,
+    gamification,
+    saveOrigin,
+    isLiveCardUpdate(card),
+  );
   const [headerEl, setHeaderEl] = useState<HTMLElement | null>(null);
   const headerOffscreen = useHeaderOffscreen(gamification ? headerEl : null);
   const barOpen = headerOffscreen;
@@ -1001,6 +1012,7 @@ export default function CardDetail() {
           key={card.id}
           card={card}
           perms={perms}
+          pauseLiveUpdates={editingName}
           onCardUpdate={setCard}
           onSaveOrigin={reportSaveOrigin}
           onDirtyChange={setSectionsDirty}
