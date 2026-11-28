@@ -35,7 +35,7 @@ from __future__ import annotations
 from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, cast
+from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -309,20 +309,23 @@ def _labels(phases: Collection[str]) -> str:
     return ", ".join(PHASE_LABELS[p] for p in phases)
 
 
-def maintained_error(refused: list[str], lock: LifecycleLock) -> HTTPException:
-    """The 403 a user-driven write answers with when it changed a maintained phase."""
-    return HTTPException(
-        status_code=403,
-        detail={
-            "error": MAINTAINED_ERROR,
-            "message": (
-                f"These lifecycle dates are set automatically by the installed extension "
-                f"{lock.name} and cannot be edited by hand: {_labels(refused)}."
-            ),
-            "phases": list(refused),
-            "extension": lock.name,
-        },
-    )
+def maintained_error(
+    refused: list[str], lock: LifecycleLock, *, cards: list[str] | None = None
+) -> HTTPException:
+    """The 403 a user-driven write answers with when it changed a maintained
+    phase; a bulk write names the refused card ids under ``cards``."""
+    detail: dict[str, Any] = {
+        "error": MAINTAINED_ERROR,
+        "message": (
+            f"These lifecycle dates are set automatically by the installed extension "
+            f"{lock.name} and cannot be edited by hand: {_labels(refused)}."
+        ),
+        "phases": list(refused),
+        "extension": lock.name,
+    }
+    if cards is not None:
+        detail["cards"] = cards
+    return HTTPException(status_code=403, detail=detail)
 
 
 def checked_lifecycle(
@@ -371,16 +374,17 @@ def checked_bulk_lifecycle(
         lock = effective_lock(marker, registry)
         if lock is None:
             continue
-        try:
-            out[card_id] = checked_lifecycle(stored, incoming, lock)
-        except HTTPException as exc:
+        _, refused = apply_lifecycle_lock(stored, incoming, lock.phases)
+        if refused:
             refused_cards.append(card_id)
-            refused_phases.update(cast(dict[str, Any], exc.detail)["phases"])
+            refused_phases.update(refused)
             first_lock = first_lock or lock
+            continue
+        out[card_id] = checked_lifecycle(stored, incoming, lock)
     if first_lock is not None:
-        err = maintained_error(list(ordered_phases(refused_phases)), first_lock)
-        cast(dict[str, Any], err.detail)["cards"] = refused_cards
-        raise err
+        raise maintained_error(
+            list(ordered_phases(refused_phases)), first_lock, cards=refused_cards
+        )
     return out
 
 
