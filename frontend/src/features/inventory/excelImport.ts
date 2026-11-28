@@ -414,7 +414,7 @@ function topoSortCreates(rows: ParsedRow[]): ParsedRow[] {
 
 /** The lifecycle phases an installed extension maintains on `card`. */
 function maintainedPhases(card: Card): Set<string> {
-  return new Set(card.lifecycle_maintained?.phases ?? []);
+  return new Set(card.lifecycle_maintained?.phases);
 }
 
 /**

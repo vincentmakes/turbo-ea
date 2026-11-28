@@ -1262,6 +1262,19 @@ describe("validateImport — lifecycle phases an extension maintains", () => {
     expect(r.updates).toEqual([]);
   });
 
+  it("warns without a name when the claim carries none", () => {
+    const unnamed = {
+      ...ERP,
+      lifecycle_maintained: { ext: "acme-sync", phases: ["active"] },
+    } as unknown as Card;
+    const r = run([erp({ lifecycle_active: "2021-01-01" })], {
+      existing: CARDS.map((c) => (c.id === ERP.id ? unnamed : c)),
+    });
+    expect(r.warnings).toEqual([
+      { row: 2, message: warn("lifecycleMaintainedIgnored", { row: 2, count: 1, name: "" }) },
+    ]);
+  });
+
   it("changes nothing for a card without a maintained phase", () => {
     const r = run([erp({ lifecycle_active: "2021-01-01" })]);
     expect(r.warnings).toEqual([]);
@@ -1280,7 +1293,9 @@ describe("keepMaintainedPhases", () => {
     } as Card;
     const lc: Record<string, string> = { plan: "2019-01-01", active: "2021-01-01", endOfLife: "2030-01-01" };
     expect(keepMaintainedPhases(lc, card)).toBe(2);
-    expect(lc).toEqual({ plan: "2019-01-01", active: "2020-06-01" });
+    // Strict: a maintained phase without a stored date is removed, not set to undefined.
+    expect(lc).toStrictEqual({ plan: "2019-01-01", active: "2020-06-01" });
+    expect(Object.keys(lc)).toEqual(["plan", "active"]);
     expect(keepMaintainedPhases({ active: "2020-06-01" }, card)).toBe(0);
     expect(keepMaintainedPhases({ active: "x" }, ERP)).toBe(0);
   });

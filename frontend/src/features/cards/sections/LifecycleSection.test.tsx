@@ -427,6 +427,93 @@ describe("LifecycleSection — phases an extension maintains", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("names the extension on the edit row's chip too", async () => {
+    const { container } = render(
+      <LifecycleSection card={cardWith(stored)} onSave={async () => {}} maintained={maintained} />,
+    );
+    fireEvent.click(editButton());
+    const activeBox = container.querySelector('[data-phase="active"]') as HTMLElement;
+    fireEvent.mouseOver(within(activeBox).getByTestId("lifecycle-maintained-chip"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(tooltip());
+  });
+
+  it("locks the phases of a claim that arrives after the first render", () => {
+    const { rerender } = render(
+      <LifecycleSection card={cardWith(stored)} onSave={async () => {}} />,
+    );
+    const summary = () => document.querySelector(".MuiAccordionSummary-root")!;
+    expect(summary().querySelectorAll("button")).toHaveLength(1);
+    rerender(
+      <LifecycleSection
+        card={cardWith(stored)}
+        onSave={async () => {}}
+        maintained={{
+          phases: ["plan", "phaseIn", "active", "phaseOut", "endOfLife"],
+          name: "Acme Sync",
+        }}
+      />,
+    );
+    expect(summary().querySelectorAll("button")).toHaveLength(0);
+    expect(screen.getByTestId("lifecycle-all-maintained")).toBeInTheDocument();
+  });
+
+  it("closes the edit row after a successful save", async () => {
+    const onSave = vi.fn(async () => {});
+    render(<LifecycleSection card={cardWith(stored)} onSave={onSave} maintained={maintained} />);
+    fireEvent.click(editButton());
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("common:actions.save") }));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: i18n.t("common:actions.save") })).toBeNull(),
+    );
+    expect(onSave).toHaveBeenCalledWith({
+      lifecycle: { plan: "2020-01-01", phaseOut: "2029-01-01" },
+    });
+  });
+
+  it("clears a refusal when the next save starts", async () => {
+    let attempt = 0;
+    let release: () => void = () => {};
+    const onSave = vi.fn(() => {
+      attempt += 1;
+      if (attempt === 1) return Promise.reject(new Error("Refused once."));
+      return new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    });
+    render(<LifecycleSection card={cardWith(stored)} onSave={onSave} maintained={maintained} />);
+    const save = () => screen.getByRole("button", { name: i18n.t("common:actions.save") });
+    fireEvent.click(editButton());
+    fireEvent.click(save());
+    expect(await screen.findByRole("alert")).toHaveTextContent("Refused once.");
+
+    // A second save is in flight: the earlier refusal no longer stands.
+    fireEvent.click(save());
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    release();
+    await waitFor(() => expect(screen.queryByRole("button", { name: i18n.t("common:actions.save") })).toBeNull());
+  });
+
+  it("dismisses a refusal from its close button, and Cancel leaves none for the next edit", async () => {
+    const onSave = vi.fn(async () => {
+      throw new Error("Refused.");
+    });
+    render(<LifecycleSection card={cardWith(stored)} onSave={onSave} maintained={maintained} />);
+    const save = () => screen.getByRole("button", { name: i18n.t("common:actions.save") });
+    fireEvent.click(editButton());
+    fireEvent.click(save());
+    const alert = await screen.findByRole("alert");
+    fireEvent.click(within(alert).getByRole("button"));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+
+    fireEvent.click(save());
+    expect(await screen.findByRole("alert")).toHaveTextContent("Refused.");
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("common:actions.cancel") }));
+    fireEvent.click(editButton());
+    expect(screen.getByRole("button", { name: i18n.t("common:actions.save") })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("words a lifecycle_maintained refusal in the UI language, not the server's English", async () => {
     const onSave = vi.fn(async () => {
       throw Object.assign(new Error("English server sentence"), {
