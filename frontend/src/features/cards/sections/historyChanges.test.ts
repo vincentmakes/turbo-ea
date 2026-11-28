@@ -10,6 +10,7 @@ import {
   eventSurvey,
   fieldLabelsFor,
   fmtVal,
+  maintainedPhasesText,
   parseChanges,
   resolveFieldLabel,
   type ChangeLabels,
@@ -163,6 +164,18 @@ describe("parseChanges", () => {
         labels(),
       ),
     ).toEqual([{ field: "lifecycle_maintained", oldVal: "—", newVal: "—" }]);
+  });
+
+  it("reads a lifecycle claim's phases from an object marker only, skipping a non-string phase", () => {
+    const phases = { plan: "Plan", active: "Active" };
+    expect(maintainedPhasesText({ ext: "acme-sync", phases: ["active", 3, null, "plan"] }, phases)).toBe(
+      "Active, Plan",
+    );
+    expect(maintainedPhasesText({ ext: "acme-sync", phases: [7, { x: 1 }] }, phases)).toBe(NO_VALUE);
+    // A value that is not an object is no marker, even one carrying `phases`.
+    const notAnObject = Object.assign(() => undefined, { phases: ["active"] });
+    expect(maintainedPhasesText(notAnObject, phases)).toBe(NO_VALUE);
+    expect(maintainedPhasesText("active", phases)).toBe(NO_VALUE);
   });
 
   it("treats a null whole-dict side as empty", () => {

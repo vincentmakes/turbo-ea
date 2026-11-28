@@ -395,9 +395,8 @@ function LifecycleSection({
               lifecycle={lifecycle}
               onChange={setLifecycle}
               phaseAnnotation={phaseAnnotation}
-              {...(lockedPhases.size > 0
-                ? { lockedPhases: [...lockedPhases], lockedBy: maintained?.name ?? "" }
-                : {})}
+              lockedPhases={[...lockedPhases]}
+              lockedBy={maintained?.name ?? ""}
             />
             {saveError && (
               <Alert severity="error" sx={{ mb: 1 }} onClose={() => setSaveError(null)}>

@@ -55,4 +55,30 @@ describe("maintainedRefusal", () => {
     expect(maintainedRefusal(new Error("x"))).toBeNull();
     expect(maintainedRefusal(null)).toBeNull();
   });
+
+  it("needs both the lifecycle_maintained code and a phase list", () => {
+    const withDetail = (detail: unknown) => Object.assign(new Error("x"), { detail });
+    expect(maintainedRefusal(withDetail({ error: "other", phases: ["active"] }))).toBeNull();
+    expect(maintainedRefusal(withDetail({ error: "lifecycle_maintained", phases: "active" }))).toBeNull();
+    expect(maintainedRefusal(withDetail({ error: "lifecycle_maintained" }))).toBeNull();
+  });
+
+  it("reads no refusal from a null or non-object detail", () => {
+    expect(maintainedRefusal({ detail: null })).toBeNull();
+    const fnDetail = Object.assign(() => undefined, {
+      error: "lifecycle_maintained",
+      phases: ["active"],
+      extension: "Acme Sync",
+    });
+    expect(maintainedRefusal({ detail: fnDetail })).toBeNull();
+  });
+
+  it("names no extension when the detail carries none, or not as text", () => {
+    expect(
+      maintainedRefusal({ detail: { error: "lifecycle_maintained", phases: ["plan"] } }),
+    ).toEqual({ extension: "", phases: ["plan"] });
+    expect(
+      maintainedRefusal({ detail: { error: "lifecycle_maintained", phases: [], extension: 42 } }),
+    ).toEqual({ extension: "", phases: [] });
+  });
 });

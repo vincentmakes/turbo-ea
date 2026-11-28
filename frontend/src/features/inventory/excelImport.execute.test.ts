@@ -319,6 +319,33 @@ describe("executeImport — updates", () => {
     ]);
   });
 
+  it("sends no PATCH when a row's only remaining difference is a moved maintained phase", async () => {
+    mockApi.on("patch", /^\/cards\/[^/]+$/, {});
+    const maintained = {
+      ...ERP,
+      lifecycle_maintained: { ext: "acme-sync", name: "Acme Sync", phases: ["active"] },
+    } as typeof ERP;
+    const rep = validateImport(
+      [erp({ lifecycle_plan: "2018-01-01" })],
+      CARDS.map((c) => (c.id === ERP.id ? maintained : c)),
+      CARD_TYPES,
+      undefined,
+      TAG_GROUPS,
+      {},
+      USERS,
+      STAKEHOLDER_ROLES_BY_TYPE,
+    );
+    expect(rep.updates).toHaveLength(1);
+    // A report built before the lock took effect: the manual phases equal the
+    // stored ones and only the maintained phase differs. That difference is
+    // not the import's to send, so nothing is left to patch.
+    rep.updates[0].data.lifecycle = { ...ERP.lifecycle, active: "1999-01-01" };
+
+    await executeImport(rep);
+
+    expect(mockApi.callsOf("patch")).toEqual([]);
+  });
+
   it("skips a row whose only lifecycle difference is a maintained phase", async () => {
     mockApi.on("patch", /^\/cards\/[^/]+$/, {});
     const maintained = {
