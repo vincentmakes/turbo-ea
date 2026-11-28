@@ -306,6 +306,8 @@
   "import.warnings.idNotFoundCreating": "Riga {{row}}: l’id «{{id}}» non esiste in questa istanza — verrà creata come nuova scheda",
   "import.warnings.ambiguousParentPath": "Riga {{row}}: il percorso del genitore «{{path}}» corrisponde a più schede — viene usato il primo risultato",
   "import.warnings.readOnlyFieldIgnored": "Riga {{row}}: «{{field}}» è un campo di sola lettura — il valore verrà ignorato",
+  "import.warnings.lifecycleMaintainedIgnored_one": "Riga {{row}}: {{count}} data del ciclo di vita è impostata automaticamente dall'estensione {{name}}; il valore del foglio verrà ignorato",
+  "import.warnings.lifecycleMaintainedIgnored_other": "Riga {{row}}: {{count}} date del ciclo di vita sono impostate automaticamente dall'estensione {{name}}; i valori del foglio verranno ignorati",
   "import.warnings.extLockedFieldIgnored": "Riga {{row}}: «{{field}}» è di sola lettura perché l'estensione che lo fornisce non è attiva o non è licenziata – il valore verrà ignorato",
   "import.relationsToAdd_one": "{{count}} relazione da aggiungere",
   "import.relationsToAdd_other": "{{count}} relazioni da aggiungere",

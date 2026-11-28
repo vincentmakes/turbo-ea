@@ -209,6 +209,25 @@ class TestApplyLifecycleLock:
         assert stored == self.STORED and incoming == {"active": "2021-01-01"}
 
 
+class TestChangedPhases:
+    STORED = {"plan": "2019-01-01", "active": "2020-01-01", "endOfLife": "2030-01-01"}
+
+    def test_a_moved_or_cleared_locked_answer_is_named_in_order(self):
+        answers = {"endOfLife": "", "active": "2021-01-01", "plan": "2018-01-01"}
+        assert lg.changed_phases(self.STORED, answers, ("endOfLife", "active")) == [
+            "active",
+            "endOfLife",
+        ]
+
+    def test_unchanged_unanswered_and_unlocked_phases_are_not_named(self):
+        answers = {"active": "2020-01-01", "plan": "2018-01-01"}
+        assert lg.changed_phases(self.STORED, answers, ("active", "endOfLife")) == []
+        # Clearing a phase that holds no date changes nothing.
+        assert lg.changed_phases({}, {"active": ""}, ("active",)) == []
+        assert lg.changed_phases({}, {"active": None}, ("active",)) == []
+        assert lg.changed_phases(None, {"active": "2020-01-01"}, ("active",)) == ["active"]
+
+
 class TestSnapshotLock:
     def test_restores_unlocked_keeps_locked_and_reports(self):
         current = {"plan": "2019-06-01", "active": "2021-01-01"}

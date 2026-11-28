@@ -687,8 +687,11 @@ async def list_my_created_cards(
     result = await db.execute(q)
     cards = list(result.scalars().all())
     redact = await _cost_redaction_map(db, user, cards)
+    lock_cache: dict[str, str | None] = {}
     items = [
-        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset()), lock_cache={})
+        _card_to_response(
+            card, strip_cost_keys=redact.get(card.id, frozenset()), lock_cache=lock_cache
+        )
         for card in cards
     ]
     return {
@@ -2111,8 +2114,11 @@ async def bulk_update(
     )
     sheets = list(result.scalars().all())
     redact = await _cost_redaction_map(db, user, sheets)
+    lock_cache: dict[str, str | None] = {}
     return [
-        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset()), lock_cache={})
+        _card_to_response(
+            card, strip_cost_keys=redact.get(card.id, frozenset()), lock_cache=lock_cache
+        )
         for card in sheets
     ]
 

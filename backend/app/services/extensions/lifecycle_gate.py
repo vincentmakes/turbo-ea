@@ -175,6 +175,29 @@ def apply_lifecycle_lock(
     return out, refused
 
 
+def changed_phases(
+    stored: Mapping[str, Any] | None,
+    answers: Mapping[str, Any],
+    phases: Collection[str],
+) -> list[str]:
+    """The phases of ``phases`` that ``answers`` sets to something other than ``stored``.
+
+    ``answers`` names only the phases a writer was asked to set, each with its
+    new value — an empty one (``""`` / ``None``) meaning "clear it", which
+    equals an absent stored phase. In chronological order. Unlike
+    :func:`apply_lifecycle_lock` this works from the answers, not from a
+    merged dict, so a CLEAR of a locked phase is reported as well (in a
+    merged dict the cleared phase is simply absent, and absent reads as
+    "carried over").
+    """
+    current = stored or {}
+    return [
+        phase
+        for phase in ordered_phases(phases)
+        if phase in answers and not _same(current.get(phase), answers[phase])
+    ]
+
+
 def apply_lifecycle_snapshot_lock(
     current: Mapping[str, Any] | None,
     snapshot: Mapping[str, Any] | None,

@@ -147,6 +147,24 @@ describe("parseChanges", () => {
     ]);
   });
 
+  it("shows a lifecycle claim as its localized phases, never the raw marker", () => {
+    const changes = {
+      lifecycle_maintained: {
+        old: null,
+        new: { ext: "acme-sync", phases: ["plan", "active", "phaseOut"] },
+      },
+    };
+    expect(
+      parseChanges(changes, labels({ fields: { lifecycle_maintained: "Automatic dates" } })),
+    ).toEqual([{ field: "Automatic dates", oldVal: "—", newVal: "Plan, Active, phaseOut" }]);
+    expect(
+      parseChanges(
+        { lifecycle_maintained: { old: { ext: "acme-sync", phases: [] }, new: "junk" } },
+        labels(),
+      ),
+    ).toEqual([{ field: "lifecycle_maintained", oldVal: "—", newVal: "—" }]);
+  });
+
   it("treats a null whole-dict side as empty", () => {
     expect(parseChanges({ attributes: { old: null, new: { costTotal: 5 } } }, labels())).toEqual([
       { field: "Total cost", oldVal: "—", newVal: "5" },

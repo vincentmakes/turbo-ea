@@ -111,6 +111,23 @@ class TestSinglePatch:
         assert resp.status_code == 200, resp.text
         assert resp.json()["lifecycle"] == {**LIFECYCLE, "plan": "2017-01-01"}
 
+    async def test_omitted_maintained_phases_keep_their_current_value_after_a_move(
+        self, client, db, env
+    ):
+        # The client read the card, then the extension moved its dates. A save
+        # that leaves the maintained phases out (what the card editor, the
+        # Excel import and the MCP tool send) changes the manual phase and
+        # keeps the maintained ones at their CURRENT stored values.
+        load()
+        moved = {**LIFECYCLE, "active": "2021-06-01", "endOfLife": "2032-01-01"}
+        env["card"].lifecycle = dict(moved)
+        await db.commit()
+        resp = await _patch(client, env, env["card"], {"lifecycle": {"plan": "2017-01-01"}})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["lifecycle"] == {**moved, "plan": "2017-01-01"}
+        await db.refresh(env["card"])
+        assert env["card"].lifecycle == {**moved, "plan": "2017-01-01"}
+
     async def test_a_manual_date_breaking_the_order_is_clamped(self, client, db, env):
         load()
         resp = await _patch(
@@ -232,6 +249,43 @@ class TestPayload:
         claimed = [r for r in resp.json()["items"] if r["lifecycle_maintained"]]
         assert len(claimed) == 4
         assert calls.count(KEY) == 1
+
+    @pytest.mark.parametrize("route", ["my-created", "bulk"])
+    async def test_every_row_of_a_response_shares_one_lock_cache(
+        self, client, db, env, monkeypatch, route
+    ):
+        from app.api.v1 import cards as cards_api
+
+        for i in range(3):
+            await create_card(
+                db,
+                name=f"Mine {i}",
+                lifecycle_maintained=dict(MARKER),
+                user_id=env["admin"].id,
+            )
+        await db.commit()
+        load()
+        caches: list[int] = []
+        original = cards_api._card_to_response
+
+        def recording(card, **kwargs):
+            caches.append(id(kwargs.get("lock_cache")))
+            return original(card, **kwargs)
+
+        monkeypatch.setattr(cards_api, "_card_to_response", recording)
+        headers = auth_headers(env["admin"])
+        if route == "my-created":
+            resp = await client.get("/api/v1/cards/my-created", headers=headers)
+        else:
+            ids = [str(c.id) for c in (env["card"], env["free"])]
+            resp = await client.patch(
+                "/api/v1/cards/bulk",
+                headers=headers,
+                json={"ids": ids, "updates": {"description": "bulk"}},
+            )
+        assert resp.status_code == 200, resp.text
+        assert len(caches) >= 2
+        assert len(set(caches)) == 1
 
 
 class TestBulkPatch:

@@ -378,6 +378,8 @@
   "import.warnings.idNotFoundCreating": "الصف {{row}}: المعرّف «{{id}}» غير موجود في هذا المثيل — جارٍ الإنشاء كبطاقة جديدة",
   "import.warnings.ambiguousParentPath": "الصف {{row}}: مسار الأصل «{{path}}» يطابق عدّة بطاقات — يتم استخدام أول تطابق",
   "import.warnings.readOnlyFieldIgnored": "الصف {{row}}: «{{field}}» حقل للقراءة فقط — سيتم تجاهل القيمة",
+  "import.warnings.lifecycleMaintainedIgnored_one": "الصف {{row}}: يُضبط {{count}} تاريخ لدورة الحياة تلقائيًا بواسطة الإضافة {{name}} — ستُتجاهل القيمة الواردة في الورقة",
+  "import.warnings.lifecycleMaintainedIgnored_other": "الصف {{row}}: تُضبط {{count}} تواريخ لدورة الحياة تلقائيًا بواسطة الإضافة {{name}} — ستُتجاهل القيم الواردة في الورقة",
   "import.warnings.extLockedFieldIgnored": "الصف {{row}}: «{{field}}» للقراءة فقط لأن الإضافة التي توفره غير نشطة أو غير مرخّصة – ستُتجاهل القيمة",
   "import.relationsToAdd_zero": "{{count}} علاقات لإضافتها",
   "import.relationsToAdd_one": "علاقة واحدة ({{count}}) لإضافتها",

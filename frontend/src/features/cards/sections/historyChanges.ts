@@ -239,6 +239,16 @@ function isDict(value: unknown): boolean {
  * One row per changed field. `attributes` and `lifecycle` expand into one row
  * per key whose value differs; an entry that is not `{old, new}` is skipped.
  */
+/** The localized phases of a stored `lifecycle_maintained` marker, or the
+ *  empty mark for none (or a marker this build cannot read). */
+export function maintainedPhasesText(marker: unknown, phaseLabels: Record<string, string>): string {
+  const phases =
+    marker && typeof marker === "object" ? (marker as Record<string, unknown>).phases : undefined;
+  if (!Array.isArray(phases)) return NO_VALUE;
+  const names = phases.filter((p): p is string => typeof p === "string").map((p) => phaseLabels[p] || p);
+  return names.length > 0 ? names.join(", ") : NO_VALUE;
+}
+
 export function parseChanges(changes: Record<string, unknown>, labels: ChangeLabels): ChangeRow[] {
   const rows: ChangeRow[] = [];
   const label = (key: string) =>
@@ -266,6 +276,15 @@ export function parseChanges(changes: Record<string, unknown>, labels: ChangeLab
           });
         }
       }
+    } else if (field === "lifecycle_maintained") {
+      // The claim an extension holds on lifecycle phases: shown as the
+      // phases it covers, never as the raw `{ext, phases}` marker (the event
+      // carries the extension's key, not a name a person would know).
+      rows.push({
+        field: label(field),
+        oldVal: maintainedPhasesText(c.old, labels.phases),
+        newVal: maintainedPhasesText(c.new, labels.phases),
+      });
     } else if (field === "approval_status") {
       // A status this build has not heard of still renders as its raw value.
       rows.push({

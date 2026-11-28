@@ -1264,6 +1264,8 @@
   "surveyResults.detail.noInput": "No input",
   "surveyResults.detail.applyChanges": "Apply Changes",
   "surveyResults.applyPartial": "Applied {{applied}}, but {{errorCount}} error(s): {{errors}}",
+  "surveyResults.lifecycleSkipped_one": "{{count}} answer was not applied because that lifecycle date is set automatically by an installed extension: {{items}}",
+  "surveyResults.lifecycleSkipped_other": "{{count}} answers were not applied because those lifecycle dates are set automatically by an installed extension: {{items}}",
   "surveyResults.boolTrue": "Yes",
   "surveyResults.boolFalse": "No",
   "cardLayout.title": "Card Layout",

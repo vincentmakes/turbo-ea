@@ -335,14 +335,14 @@ Der Server stellt 37 Schreib-Werkzeuge bereit, jedes annotiert als **additiv** (
 | Werkzeug | Beschreibung |
 |----------|--------------|
 | `create_cards_bulk` | Erstellt mehrere Karten in einem Aufruf (z. B. Tabellenzeilen). Unterstützt Eltern-Referenzen per Name innerhalb desselben Batches mit serverseitiger topologischer Sortierung. |
-| `transition_card_lifecycle` | Bewegt eine Karte durch Genehmigungs- oder Lebenszyklus-Phasen. |
+| `transition_card_lifecycle` | Bewegt eine Karte durch Genehmigungs- oder Lebenszyklus-Phasen. Eine Phase, die eine installierte Erweiterung automatisch setzt (siehe [Von einer Erweiterung gesetzte Lebenszyklus-Daten](extensions.md#lifecycle-dates-set-by-an-extension)), wird mit `lifecycle_maintained` abgelehnt, auch in der Vorschau, unter Nennung von Phase und Erweiterung. |
 | `create_risks` | Erstellt Einträge im EA-Risikoregister. |
 | `update_risks` | Aktualisiert Risikoregister-Einträge (Felder, verknüpfte Karten). |
 | `add_card_comment` | Hinterlässt einen Kommentar an einer Karte — eine nicht-destruktive, überprüfbare Notiz statt einer Feldänderung. |
 | `add_document_comment` | Hinterlässt einen Kommentar an einer Entscheidung oder einem SoAW: einen neuen Diskussionsstrang, optional einem Abschnitt zugeordnet, oder eine Antwort auf einen Diskussionsstrang. Der Kommentar ist reiner Text; Erwähnungen sind nur in der Weboberfläche möglich. Erfordert die Berechtigung `adr.comment` / `soaw.comment` oder die Rolle als Unterzeichner des Dokuments. Ein geposteter Kommentar lässt sich nicht mit `rollback_batch` rückgängig machen; löschen Sie ihn in der Weboberfläche aus der Diskussion. |
 | `create_soaw` | Erstellt ein Statement of Architecture Work für eine Initiative. |
 | `assign_stakeholders` | Weist Stakeholder-Rollen an Karten zu oder entfernt sie. |
-| `update_cards_bulk` | Feldweise Patches an vielen Karten in einem Aufruf. |
+| `update_cards_bulk` | Feldweise Patches an vielen Karten in einem Aufruf. Eine `lifecycle`-Änderung an einer Phase, die eine installierte Erweiterung automatisch setzt, wird mit `lifecycle_maintained` abgelehnt, unter Nennung der Phasen und Karten; bei einem Commit werden die Karten, die ein früherer Teil des Aufrufs bereits aktualisiert hat, als `applied_card_ids` aufgeführt (mit `rollback_batch` rückgängig machen). |
 | `create_adr` | Erstellt ein Architecture Decision Record, mit typisierten Verknüpfungen zu anderen Entscheidungen (`replaces`, `amends`, `revokes`, `relates`), Entscheidungsträgern, Beteiligten und Daten. Eine Entscheidung wird auf diese Weise ersetzt oder widerrufen: durch eine neue Entscheidung mit einer Verknüpfung `replaces` / `revokes`, die wirksam wird, sobald sie unterzeichnet ist. |
 | `update_adr` | Aktualisiert ein ADR im Entwurf (Titel, Abschnitte, verknüpfte Karten, typisierte Verknüpfungen, Personen, Daten, Änderungszusammenfassung). Eine Entscheidung in Prüfung akzeptiert nur Änderungen an verknüpften Karten, und eine unterzeichnete wird nie bearbeitet. |
 | `sign_adr` | Unterschreibt ein ADR (erfordert die Berechtigung `adr.sign`; andernfalls wird ein UI-Deep-Link zum Unterschreiben im Browser zurückgegeben). |

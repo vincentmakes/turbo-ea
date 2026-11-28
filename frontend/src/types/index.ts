@@ -1929,6 +1929,15 @@ export interface Survey {
   applied_responses?: number;
 }
 
+/** What `POST /surveys/{id}/apply` reports. `skipped` lists, per applied
+ *  response, the lifecycle answers left out because an installed extension
+ *  sets those dates automatically (the rest of the response was applied). */
+export interface SurveyApplyResult {
+  applied: number;
+  errors: { response_id: string; error: string }[];
+  skipped?: { response_id: string; card_id: string; phases: string[] }[];
+}
+
 export interface SurveyResponseDetail {
   id: string;
   survey_id: string;

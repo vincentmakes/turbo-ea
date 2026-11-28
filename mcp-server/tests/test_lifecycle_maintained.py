@@ -172,9 +172,103 @@ class TestTransitionCardLifecycle:
                 )
             )
         assert "error" not in out
-        assert patch_mock.call_args[1]["json"] == {
-            "lifecycle": {"endOfLife": "2030-01-01", "active": "2026-01-01"}
+        # The maintained End of Life is left out of the write: the backend
+        # carries it over at its CURRENT value, which the extension may have
+        # moved since the card was read.
+        assert patch_mock.call_args[1]["json"] == {"lifecycle": {"active": "2026-01-01"}}
+
+    @pytest.mark.asyncio
+    async def test_preview_shows_the_stored_maintained_dates(self, fake_token):
+        card = {
+            "id": "c1",
+            "lifecycle": {"plan": "2020-01-01", "endOfLife": "2030-01-01"},
+            "lifecycle_maintained": {
+                "ext": "acme-sync",
+                "name": "Acme Sync",
+                "phases": ["endOfLife"],
+            },
         }
+        post, _calls = _batch_post()
+        with (
+            patch.object(server.TurboEAClient, "get", AsyncMock(return_value=card)),
+            patch.object(server.TurboEAClient, "patch", AsyncMock()),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+        ):
+            out = json.loads(
+                await server.transition_card_lifecycle(
+                    card_id="c1", target="active", effective_date="2026-01-01"
+                )
+            )
+        assert out["would_transition"]["lifecycle_after"] == {
+            "plan": "2020-01-01",
+            "active": "2026-01-01",
+            "endOfLife": "2030-01-01",
+        }
+        assert "lifecycle_note" not in out["would_transition"]
+
+    @pytest.mark.asyncio
+    async def test_preview_shows_the_date_the_backend_will_clamp_to(self, fake_token):
+        card = {
+            "id": "c1",
+            "lifecycle": {"active": "2022-01-01", "endOfLife": "2030-01-01"},
+            "lifecycle_maintained": {
+                "ext": "acme-sync",
+                "name": "Acme Sync",
+                "phases": ["active", "endOfLife"],
+            },
+        }
+        post, _calls = _batch_post()
+        with (
+            patch.object(server.TurboEAClient, "get", AsyncMock(return_value=card)),
+            patch.object(server.TurboEAClient, "patch", AsyncMock()),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+        ):
+            out = json.loads(
+                await server.transition_card_lifecycle(
+                    card_id="c1", target="phaseOut", effective_date="2035-01-01"
+                )
+            )
+        assert out["would_transition"]["lifecycle_after"]["phaseOut"] == "2030-01-01"
+        assert out["would_transition"]["lifecycle_note"] == (
+            "The Phase Out date was adjusted from 2035-01-01 to 2030-01-01 to stay in "
+            "order with the dates an installed extension sets automatically on this card."
+        )
+
+
+class TestClampToMaintained:
+    def test_mirrors_the_backend_rule(self):
+        clamp = server._clamp_to_maintained
+        # Lower bound: the latest maintained date of an earlier phase.
+        assert clamp({"active": "2022-01-01", "phaseOut": "2020-01-01"}, ["active"]) == {
+            "active": "2022-01-01",
+            "phaseOut": "2022-01-01",
+        }
+        # Upper bound: the earliest maintained date of a later phase.
+        assert (
+            clamp(
+                {"plan": "2031-01-01", "active": "2025-01-01", "endOfLife": "2030-01-01"},
+                ["active", "endOfLife"],
+            )["plan"]
+            == "2025-01-01"
+        )
+        # Lower first, then upper: contradicting maintained dates, the later wins.
+        assert (
+            clamp(
+                {"plan": "2030-01-01", "phaseIn": "2020-01-01", "active": "2025-01-01"},
+                ["plan", "active"],
+            )["phaseIn"]
+            == "2025-01-01"
+        )
+        # In order, unreadable or no lock: untouched.
+        lc = {"active": "2022-01-01", "phaseOut": "2025-01-01", "endOfLife": "x"}
+        assert clamp(lc, ["endOfLife"]) == lc
+        assert clamp({"phaseOut": "2000-01-01"}, []) == {"phaseOut": "2000-01-01"}
+        assert (
+            clamp({"active": "2022-01-01T00:00:00", "phaseOut": "2020-01-01"}, ["active"])[
+                "phaseOut"
+            ]
+            == "2022-01-01T00:00:00"
+        )
 
     @pytest.mark.asyncio
     async def test_a_backend_refusal_is_not_reported_as_pending(self, fake_token):

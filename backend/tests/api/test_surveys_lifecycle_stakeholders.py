@@ -309,9 +309,14 @@ async def _survey_events(db, card_id) -> list[Event]:
 
 
 class TestApply:
-    async def test_a_maintained_phase_answer_is_skipped_and_reported(self, client, db, env):
+    @pytest.mark.parametrize("eol_answer", ["2030-12-31", ""], ids=["moved", "cleared"])
+    async def test_a_maintained_phase_answer_is_skipped_and_reported(
+        self, client, db, env, eol_answer
+    ):
         # An installed, licensed extension maintains End of Life on the card:
         # the answer for it is skipped (stored date kept), the rest applies.
+        # A CLEAR of the maintained date is skipped and reported too — it used
+        # to vanish unreported, an absent phase reading as "carried over".
         from datetime import datetime, timedelta, timezone
 
         from app.services.extensions.license import Entitlement, LicenseDocument
@@ -351,7 +356,7 @@ class TestApply:
                 sid,
                 card.id,
                 {
-                    "lifecycle:endOfLife": {"new_value": "2030-12-31"},
+                    "lifecycle:endOfLife": {"new_value": eol_answer},
                     "lifecycle:plan": {"new_value": "2023-01-01"},
                 },
             )

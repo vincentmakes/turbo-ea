@@ -33,7 +33,8 @@ import DeleteSurveyDialog from "@/features/admin/DeleteSurveyDialog";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import { usePageSubject } from "@/hooks/usePageTitle";
-import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
+import type { Survey, SurveyApplyResult, SurveyResponseDetail, SurveyField } from "@/types";
+import { getPhaseLabels } from "@/lib/lifecyclePhases";
 import { brand, RAG_COLORS } from "@/theme/tokens";
 
 /** True when a value is a list of related-card references ({id, name}). */
@@ -127,6 +128,7 @@ export default function SurveyResults() {
   const [responses, setResponses] = useState<SurveyResponseDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [tab, setTab] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
@@ -186,15 +188,34 @@ export default function SurveyResults() {
     }
   };
 
+  // Lifecycle answers the apply left out because an installed extension sets
+  // those dates automatically: the rest of each response was applied, so this
+  // is a warning beside a success, never an error.
+  const skippedWarning = (result: SurveyApplyResult): string => {
+    const skipped = (result.skipped ?? []).filter((s) => s.phases.length > 0);
+    if (skipped.length === 0) return "";
+    const phaseLabels = getPhaseLabels(t);
+    const count = skipped.reduce((n, s) => n + s.phases.length, 0);
+    const items = skipped
+      .map((s) => {
+        const name = responses.find((r) => r.id === s.response_id)?.card_name ?? s.card_id;
+        return `${name}: ${s.phases.map((p) => phaseLabels[p] ?? p).join(", ")}`;
+      })
+      .join("; ");
+    return t("surveyResults.lifecycleSkipped", { count, items });
+  };
+
   const handleApply = async () => {
     if (selected.size === 0 || !id) return;
     setApplying(true);
     setError("");
+    setWarning("");
     try {
-      const result = await api.post<{ applied: number; errors: { response_id: string; error: string }[] }>(
+      const result = await api.post<SurveyApplyResult>(
         `/surveys/${id}/apply`,
         { response_ids: Array.from(selected) },
       );
+      setWarning(skippedWarning(result));
       if (result.errors.length > 0) {
         setError(t("surveyResults.applyPartial", { applied: result.applied, errorCount: result.errors.length, errors: result.errors.map((e) => e.error).join(", ") }));
       }
@@ -297,6 +318,17 @@ export default function SurveyResults() {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
+        </Alert>
+      )}
+
+      {warning && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          onClose={() => setWarning("")}
+          data-testid="survey-apply-skipped"
+        >
+          {warning}
         </Alert>
       )}
 
@@ -513,14 +545,16 @@ export default function SurveyResults() {
                   onClick={async () => {
                     setApplying(true);
                     setError("");
+                    setWarning("");
                     try {
                       // A refused answer comes back as a 200 with an `errors`
                       // row, not as a failed request: keep the dialog open and
                       // say why, or the admin reads a silent no-op as applied.
-                      const result = await api.post<{
-                        applied: number;
-                        errors: { response_id: string; error: string }[];
-                      }>(`/surveys/${id}/apply`, { response_ids: [detailResp.id] });
+                      const result = await api.post<SurveyApplyResult>(
+                        `/surveys/${id}/apply`,
+                        { response_ids: [detailResp.id] },
+                      );
+                      setWarning(skippedWarning(result));
                       if (result.errors.length > 0) {
                         setError(result.errors.map((e) => e.error).join(", "));
                         return;

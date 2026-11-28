@@ -335,14 +335,14 @@ Serveren eksponerer 37 skriveværktøjer, hver annoteret som **additiv** (oprett
 | Værktøj | Beskrivelse |
 |------|-------------|
 | `create_cards_bulk` | Opret mange kort i ét kald (f.eks. regnearksrækker). Understøtter samme-batch-forældrereferencer efter navn med server-side topologisk sortering. |
-| `transition_card_lifecycle` | Flyt et kort gennem godkendelses- eller livscyklusfaser. |
+| `transition_card_lifecycle` | Flyt et kort gennem godkendelses- eller livscyklusfaser. En fase, som en installeret udvidelse angiver automatisk (se [Livscyklusdatoer angivet af en udvidelse](extensions.md#lifecycle-dates-set-by-an-extension)), afvises med `lifecycle_maintained`, også i forhåndsvisningen, med angivelse af fase og udvidelse. |
 | `create_risks` | Opret poster i EA-risikoregisteret. |
 | `update_risks` | Opdater risikoregister-poster (felter, tilknyttede kort). |
 | `add_card_comment` | Skriv en kommentar på et kort — en ikke-destruktiv, gennemgåelig note i stedet for at mutere felter. |
 | `add_document_comment` | Skriv en kommentar på en beslutning eller en SoAW: en ny tråd, eventuelt knyttet til et afsnit, eller et svar på en tråd. Kommentaren er ren tekst; omtaler laves kun i webbrugerfladen. Kræver tilladelsen `adr.comment` / `soaw.comment` eller at være underskriver af dokumentet. En sendt kommentar kan ikke fortrydes med `rollback_batch`; slet den fra diskussionen i webbrugerfladen. |
 | `create_soaw` | Opret et Statement of Architecture Work for et initiativ. |
 | `assign_stakeholders` | Tildel eller fjern interessentroller på kort. |
-| `update_cards_bulk` | Patches på feltniveau på mange kort i ét kald. |
+| `update_cards_bulk` | Patches på feltniveau på mange kort i ét kald. En `lifecycle`-ændring af en fase, som en installeret udvidelse angiver automatisk, afvises med `lifecycle_maintained` med angivelse af faser og kort; ved en commit angives de kort, der allerede er opdateret af en tidligere del af kaldet, som `applied_card_ids` (fortryd dem med `rollback_batch`). |
 | `create_adr` | Opret en Architecture Decision Record med typede tilknytninger til andre beslutninger (`replaces`, `amends`, `revokes`, `relates`), beslutningstagere, deltagere og datoer. Det er sådan, en beslutning erstattes eller ophæves: en ny beslutning med en `replaces`- / `revokes`-tilknytning, som træder i kraft, når den er underskrevet. |
 | `update_adr` | Opdater en ADR i kladde (titel, sektioner, tilknyttede kort, typede tilknytninger, personer, datoer, ændringsoversigt). En beslutning under gennemgang accepterer kun ændringer af tilknyttede kort, og en underskrevet beslutning redigeres aldrig. |
 | `sign_adr` | Signér en ADR (kræver tilladelsen `adr.sign`; ellers returneres et UI-dybdelink til at signere i browseren). |

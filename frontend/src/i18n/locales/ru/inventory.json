@@ -342,6 +342,8 @@
   "import.warnings.idNotFoundCreating": "Строка {{row}}: id «{{id}}» отсутствует в этом экземпляре — будет создана новая карточка",
   "import.warnings.ambiguousParentPath": "Строка {{row}}: путь к родителю «{{path}}» соответствует нескольким карточкам — используется первое совпадение",
   "import.warnings.readOnlyFieldIgnored": "Строка {{row}}: «{{field}}» — поле только для чтения, значение будет проигнорировано",
+  "import.warnings.lifecycleMaintainedIgnored_one": "Строка {{row}}: {{count}} дата жизненного цикла устанавливается автоматически расширением {{name}} — значение из таблицы будет проигнорировано",
+  "import.warnings.lifecycleMaintainedIgnored_other": "Строка {{row}}: даты жизненного цикла ({{count}}) устанавливаются автоматически расширением {{name}} — значения из таблицы будут проигнорированы",
   "import.warnings.extLockedFieldIgnored": "Строка {{row}}: «{{field}}» доступно только для чтения, так как предоставляющее его расширение не активно или не лицензировано – значение будет проигнорировано",
   "import.relationsToAdd_one": "{{count}} связь будет добавлена",
   "import.relationsToAdd_few": "{{count}} связи будут добавлены",

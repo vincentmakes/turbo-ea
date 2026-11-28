@@ -328,6 +328,7 @@
   "history.processFlowRevision": "Revision {{revision}}",
   "history.withdrawalReason": "Reason",
   "history.fields.lifecycle": "Lifecycle",
+  "history.fields.lifecycleMaintained": "Dates set automatically",
   "history.relationPhase": "{{phase}} (relation)",
   "detail.aliasPlaceholder": "e.g. CRM-v2",
   "history.fields.alias": "Alias",

@@ -335,14 +335,14 @@ Le serveur expose 37 outils d'écriture, chacun annoté comme **additif** (crée
 | Outil | Description |
 |-------|-------------|
 | `create_cards_bulk` | Crée plusieurs fiches en un seul appel (par exemple lignes de tableur). Prend en charge les références au parent par nom au sein du même lot, avec tri topologique côté serveur. |
-| `transition_card_lifecycle` | Fait passer une fiche par les phases d'approbation ou de cycle de vie. |
+| `transition_card_lifecycle` | Fait passer une fiche par les phases d'approbation ou de cycle de vie. Une phase qu'une extension installée définit automatiquement (voir [Dates de cycle de vie définies par une extension](extensions.md#lifecycle-dates-set-by-an-extension)) est refusée avec `lifecycle_maintained`, y compris dans l'aperçu, en nommant la phase et l'extension. |
 | `create_risks` | Crée des entrées dans le registre des risques EA. |
 | `update_risks` | Met à jour des entrées du registre des risques (champs, fiches liées). |
 | `add_card_comment` | Publie un commentaire sur une fiche — une note non destructive et vérifiable au lieu de modifier des champs. |
 | `add_document_comment` | Publie un commentaire sur une décision ou un SoAW : un nouveau fil, éventuellement rattaché à une section, ou une réponse à un fil. Le commentaire est du texte brut ; les mentions ne se font que dans l'interface web. Requiert la permission `adr.comment` / `soaw.comment`, ou d'être signataire du document. Un commentaire publié ne peut pas être annulé avec `rollback_batch` ; supprimez-le de la discussion dans l'interface web. |
 | `create_soaw` | Crée un Statement of Architecture Work pour une initiative. |
 | `assign_stakeholders` | Affecte ou retire des rôles de parties prenantes sur des fiches. |
-| `update_cards_bulk` | Correctifs au niveau des champs sur plusieurs fiches en un seul appel. |
+| `update_cards_bulk` | Correctifs au niveau des champs sur plusieurs fiches en un seul appel. Une modification de `lifecycle` portant sur une phase qu'une extension installée définit automatiquement est refusée avec `lifecycle_maintained`, en nommant les phases et les fiches ; lors d'une validation, les fiches déjà mises à jour par une partie antérieure de l'appel sont listées dans `applied_card_ids` (annulez-les avec `rollback_batch`). |
 | `create_adr` | Crée un Architecture Decision Record, avec des liens typés vers d'autres décisions (`replaces`, `amends`, `revokes`, `relates`), des décideurs, des participants et des dates. C'est ainsi qu'on remplace ou révoque une décision : par une nouvelle décision portant un lien `replaces` / `revokes`, qui prend effet une fois signée. |
 | `update_adr` | Met à jour un ADR en brouillon (titre, sections, fiches liées, liens typés, personnes, dates, résumé des modifications). Une décision en revue n'accepte que les modifications des fiches liées, et une décision signée n'est jamais modifiée. |
 | `sign_adr` | Signe un ADR (nécessite la permission `adr.sign` ; sinon renvoie un lien profond vers l'interface pour signer dans le navigateur). |

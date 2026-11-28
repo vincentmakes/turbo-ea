@@ -1091,7 +1091,18 @@ async def update_card(
             "card.updated",
             _stamp_ext(
                 actor,
-                {**(event_extra or {}), "id": str(card.id), "changes": serialised_changes},
+                {
+                    **(event_extra or {}),
+                    # A maintain / release write names its extension, so a
+                    # rollback can tell it from that extension's other writes.
+                    **(
+                        {"lifecycle_maintainer": lifecycle_maintainer}
+                        if lifecycle_maintainer
+                        else {}
+                    ),
+                    "id": str(card.id),
+                    "changes": serialised_changes,
+                },
             ),
             db=db,
             card_id=card.id,

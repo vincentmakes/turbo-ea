@@ -307,7 +307,9 @@ describe("executeImport — updates", () => {
 
     await executeImport(rep);
 
-    const { active: _active, ...manual } = ERP.lifecycle as Record<string, string>;
+    const manual = Object.fromEntries(
+      Object.entries(ERP.lifecycle as Record<string, string>).filter(([p]) => p !== "active"),
+    );
     expect(mockApi.callsOf("patch")).toEqual([
       {
         method: "patch",

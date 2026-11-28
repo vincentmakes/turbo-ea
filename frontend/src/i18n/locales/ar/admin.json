@@ -1456,6 +1456,8 @@
   "surveyResults.detail.noInput": "لا يوجد إدخال",
   "surveyResults.detail.applyChanges": "تطبيق التغييرات",
   "surveyResults.applyPartial": "تم تطبيق {{applied}}، لكن {{errorCount}} خطأ: {{errors}}",
+  "surveyResults.lifecycleSkipped_one": "لم يُطبَّق {{count}} إجابة لأن تاريخ دورة الحياة هذا يُضبط تلقائيًا بواسطة إضافة مثبّتة: {{items}}",
+  "surveyResults.lifecycleSkipped_other": "لم تُطبَّق {{count}} إجابات لأن تواريخ دورة الحياة هذه تُضبط تلقائيًا بواسطة إضافة مثبّتة: {{items}}",
   "surveyResults.boolTrue": "نعم",
   "surveyResults.boolFalse": "لا",
   "cardLayout.title": "تخطيط البطاقة",

@@ -1264,6 +1264,8 @@
   "surveyResults.detail.noInput": "Keine Eingabe",
   "surveyResults.detail.applyChanges": "Änderungen anwenden",
   "surveyResults.applyPartial": "{{applied}} angewendet, aber {{errorCount}} Fehler: {{errors}}",
+  "surveyResults.lifecycleSkipped_one": "{{count}} Antwort wurde nicht übernommen, weil dieses Lebenszyklus-Datum automatisch von einer installierten Erweiterung gesetzt wird: {{items}}",
+  "surveyResults.lifecycleSkipped_other": "{{count}} Antworten wurden nicht übernommen, weil diese Lebenszyklus-Daten automatisch von einer installierten Erweiterung gesetzt werden: {{items}}",
   "surveyResults.boolTrue": "Ja",
   "surveyResults.boolFalse": "Nein",
   "cardLayout.title": "Kartenlayout",

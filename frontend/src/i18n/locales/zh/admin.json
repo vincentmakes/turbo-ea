@@ -1264,6 +1264,8 @@
   "surveyResults.detail.noInput": "无输入",
   "surveyResults.detail.applyChanges": "应用更改",
   "surveyResults.applyPartial": "已应用 {{applied}} 个，但有 {{errorCount}} 个错误：{{errors}}",
+  "surveyResults.lifecycleSkipped_one": "有 {{count}} 条答复未被应用，因为该生命周期日期由已安装的扩展自动设置：{{items}}",
+  "surveyResults.lifecycleSkipped_other": "有 {{count}} 条答复未被应用，因为这些生命周期日期由已安装的扩展自动设置：{{items}}",
   "surveyResults.boolTrue": "是",
   "surveyResults.boolFalse": "否",
   "cardLayout.title": "卡片布局",

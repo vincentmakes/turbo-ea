@@ -1264,6 +1264,8 @@
   "surveyResults.detail.noInput": "Intet input",
   "surveyResults.detail.applyChanges": "Anvend ændringer",
   "surveyResults.applyPartial": "Anvendt {{applied}}, men {{errorCount}} fejl: {{errors}}",
+  "surveyResults.lifecycleSkipped_one": "{{count}} svar blev ikke anvendt, fordi den livscyklusdato angives automatisk af en installeret udvidelse: {{items}}",
+  "surveyResults.lifecycleSkipped_other": "{{count}} svar blev ikke anvendt, fordi de livscyklusdatoer angives automatisk af en installeret udvidelse: {{items}}",
   "surveyResults.boolTrue": "Ja",
   "surveyResults.boolFalse": "Nej",
   "cardLayout.title": "Kortlayout",

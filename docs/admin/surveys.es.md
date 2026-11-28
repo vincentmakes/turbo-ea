@@ -99,6 +99,8 @@ Navegue a **Administrador > Encuestas > [Nombre de la Encuesta] > Resultados** p
 
 Aplicar una respuesta pasa por las mismas comprobaciones que una edición hecha en la propia ficha. Un valor que la ficha rechaza — por ejemplo, una opción que ya no existe — se notifica para esa respuesta y no se aplica nada de ella, mientras que las demás respuestas se aplican igualmente. Cada cambio aparece en la pestaña **Historial** de la ficha bajo el administrador que lo aplicó, con una marca **mediante la encuesta** que nombra la encuesta; al pasar el ratón por encima se muestra quién respondió. Toda la aplicación es una sola entrada en **Admin → Registro de auditoría**, por lo que puede revertirse desde allí.
 
+Una respuesta para una fecha del ciclo de vida que una extensión instalada establece automáticamente (véase [Fechas del ciclo de vida establecidas por una extensión](extensions.md#lifecycle-dates-set-by-an-extension)) no se aplica — tampoco una fecha borrada — y se conserva la fecha almacenada; el resto de esa respuesta sí se aplica. Una advertencia sobre los resultados indica cuántas respuestas se omitieron, nombrando cada ficha y sus fases del ciclo de vida.
+
 ## Eliminación de una Encuesta
 
 Se puede eliminar una encuesta en cualquier estado: abra el menú **⋮** de su fila en **Admin > Encuestas**, o use **Eliminar** en el generador de encuestas o en la página de resultados. La confirmación indica lo que se elimina con ella: las solicitudes que aún esperan respuesta se retiran, junto con sus notificaciones, y las respuestas aún no aplicadas se pierden. Los cambios ya aplicados permanecen en las fichas, y el historial de la ficha sigue nombrando la encuesta.

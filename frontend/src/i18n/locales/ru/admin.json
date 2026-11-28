@@ -1360,6 +1360,8 @@
   "surveyResults.detail.noInput": "Нет ввода",
   "surveyResults.detail.applyChanges": "Применить изменения",
   "surveyResults.applyPartial": "Применено {{applied}}, но {{errorCount}} ошибок: {{errors}}",
+  "surveyResults.lifecycleSkipped_one": "{{count}} ответ не применён, так как эта дата жизненного цикла устанавливается автоматически установленным расширением: {{items}}",
+  "surveyResults.lifecycleSkipped_other": "{{count}} ответа не применены, так как эти даты жизненного цикла устанавливаются автоматически установленным расширением: {{items}}",
   "surveyResults.boolTrue": "Да",
   "surveyResults.boolFalse": "Нет",
   "cardLayout.title": "Макет карточки",

@@ -153,10 +153,18 @@ def _plan_card_updated(event: Event, data: dict) -> dict[str, Any]:
         "card_id": _card_id_of(event, data),
         "fields": {k: v.get("old") for k, v in changes.items()},
     }
-    # The extension that wrote the change, when one did: rolling back its own
-    # write of the lifecycle phases it maintains is not blocked by its claim.
-    if data.get("ext"):
-        op["ext"] = data["ext"]
+    # A maintain / release write of the data bridge (SDK 1.22) names the
+    # extension that made it: rolling such a write back restores the dates AND
+    # the claim, unblocked by that extension's own claim. Any other write —
+    # the owner's plain ``update_card`` or an ``on_behalf_of`` edit included —
+    # carries no maintainer and is restored like a foreign one, so its
+    # whole-dict lifecycle snapshot cannot revert the maintained phases.
+    maintainer = data.get("lifecycle_maintainer")
+    if not maintainer and "lifecycle_maintained" in changes and data.get("ext"):
+        # Only the two bridge calls ever write the claim column.
+        maintainer = data["ext"]
+    if maintainer:
+        op["maintainer"] = maintainer
     return op
 
 
@@ -543,13 +551,24 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
     legacy_attrs: dict[str, Any] = {}
     restored_attrs: dict[str, Any] | None = None
     # Lifecycle phases an installed, licensed extension maintains keep their
-    # current dates and are reported — unless the change being undone is that
-    # extension's own write (its batch restores both the dates and the claim).
-    lifecycle_lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
-    if lifecycle_lock is not None and lifecycle_lock.ext == op.get("ext"):
-        lifecycle_lock = None
+    # current dates and are reported — unless the change being undone is a
+    # maintain / release write of the extension whose claim is in force (or
+    # no claim is in force at all): then both the dates and the claim go back.
+    # The claim itself is restored only then; another extension's live claim
+    # is never replaced or wiped by rolling back an older batch.
+    current_lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
+    maintainer = op.get("maintainer")
+    own_claim = current_lock is None or current_lock.ext == maintainer
+    lifecycle_lock = None if maintainer and own_claim else current_lock
     locked_phases: list[str] = []
+    claim_kept: str | None = None
     for k, v in (op.get("fields") or {}).items():
+        if k == "lifecycle_maintained":
+            if not own_claim:
+                claim_kept = current_lock.name
+                continue
+            setattr(card, k, v)
+            continue
         if k.startswith(_LEGACY_ATTR_PREFIX):
             legacy_attrs[k[len(_LEGACY_ATTR_PREFIX) :]] = v
             continue
@@ -575,7 +594,12 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
                 restored_attrs.pop(key, None)
             else:
                 restored_attrs[key] = old
-    result = {**_ok(op), "locked_phases": locked_phases} if locked_phases else _ok(op)
+    result = _ok(op)
+    if locked_phases:
+        result["locked_phases"] = locked_phases
+    if claim_kept is not None:
+        # The display name of the extension whose claim stayed in place.
+        result["lifecycle_claim_kept"] = claim_kept
     if restored_attrs is None:
         return result
     # A field an inactive or unlicensed extension contributed is read-only:

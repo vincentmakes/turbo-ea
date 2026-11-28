@@ -289,6 +289,23 @@ describe("HistoryTab — event detail lines", () => {
     expect(screen.queryByText("Lifecycle changed")).toBeNull();
   });
 
+  it("labels an extension's lifecycle claim and lists its phases, not the raw marker", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e1", "card.updated", {
+        changes: {
+          lifecycle_maintained: { old: null, new: { ext: "acme-sync", phases: ["active", "endOfLife"] } },
+        },
+      }),
+    ]);
+    renderTab();
+    expect(await screen.findByText(i18n.t("cards:history.fields.lifecycleMaintained"))).toBeInTheDocument();
+    expect(
+      screen.getByText(`${i18n.t("common:lifecycle.active")}, ${i18n.t("common:lifecycle.endOfLife")}`),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("lifecycle_maintained")).toBeNull();
+    expect(screen.queryByText(/acme-sync/)).toBeNull();
+  });
+
   it("links a risk by its reference and shows its level", async () => {
     vi.mocked(api.get).mockResolvedValue([
       event("e2", "risk.added", {

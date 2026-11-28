@@ -809,11 +809,189 @@ class TestMaintainedLifecycleRollback:
         await db.refresh(card)
         assert card.lifecycle == {"plan": "2019-01-01", "active": "2020-01-01"}
 
-    def test_the_plan_carries_the_writing_extension(self):
+
+class TestMaintainedLifecycleRollbackOwnership:
+    """Which rollbacks may touch a maintained lifecycle and its claim.
+
+    Only a maintain / release write of the data bridge bypasses the claim, and
+    only while no OTHER extension's claim is in force; every other write —
+    the owner's own plain ``update_card`` included — is restored like a
+    foreign one, and a live claim of another extension is never replaced.
+    """
+
+    A = "acme-sync"
+    B = "beta-sync"
+
+    @pytest.fixture(autouse=True)
+    def _registry(self):
+        from app.services.extensions.registry import extension_registry
+
+        yield
+        extension_registry.clear()
+
+    def _load(self, *, a_enabled: bool = True) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        from app.services.extensions.license import Entitlement, LicenseDocument
+        from app.services.extensions.registry import ExtensionInfo, extension_registry
+        from tests.lifecycle_lock_helpers import MAINTAIN_GRANTS
+
+        def info(key: str, name: str, enabled: bool) -> ExtensionInfo:
+            return ExtensionInfo(
+                key=key,
+                name=name,
+                version="1.0.0",
+                status="installed",
+                enabled=enabled,
+                manifest={"grants": MAINTAIN_GRANTS},
+            )
+
+        extension_registry.clear()
+        extension_registry.load_installed(
+            [info(self.A, "Acme Sync", a_enabled), info(self.B, "Beta Sync", True)]
+        )
+        extension_registry.set_license(
+            LicenseDocument(
+                licensee="ACME",
+                customer_id="cus_1",
+                issued_at=datetime.now(timezone.utc) - timedelta(days=1),
+                grace_days=30,
+                entitlements=[
+                    Entitlement(extension_key=self.A, expires_at=None),
+                    Entitlement(extension_key=self.B, expires_at=None),
+                ],
+            )
+        )
+
+    @staticmethod
+    def _ext(key: str):
+        from app.services.card_write_service import WriteActor
+
+        return WriteActor(user_id=None, display_name=key, ext_key=key)
+
+    async def _maintain(self, db, actor, card, key: str, lifecycle: dict, phases: list[str]):
+        """A maintain write as the bridge makes it, in a batch of its own."""
+        from app.services.card_write_service import update_card
+
+        batch = await _open_batch(db, actor)
+        with _InBatch(batch):
+            await update_card(
+                db,
+                self._ext(key),
+                card,
+                {"lifecycle": lifecycle, "lifecycle_maintained": {"ext": key, "phases": phases}},
+                lifecycle_maintainer=key,
+            )
+        await db.flush()
+        return batch
+
+    async def test_rolling_back_a_maintain_write_restores_dates_and_claim(self, db, actor):
+        self._load()
+        card = await create_card(db, name="Owned", lifecycle={"plan": "2019-01-01"})
+        batch = await self._maintain(
+            db, actor, card, self.A, {"plan": "2019-01-01", "active": "2020-01-01"}, ["active"]
+        )
+        result = await execute_rollback(db, batch, actor.id)
+        (restore,) = _ops(result, "restore_card_fields")
+        assert restore["status"] == "ok"
+        assert restore["maintainer"] == self.A
+        assert "locked_phases" not in restore and "lifecycle_claim_kept" not in restore
+        await db.refresh(card)
+        assert card.lifecycle == {"plan": "2019-01-01"}
+        assert card.lifecycle_maintained is None
+
+    async def test_rolling_back_a_date_move_of_an_existing_claim_restores_the_date(self, db, actor):
+        # The claim was already in place: the event carries only `lifecycle`,
+        # and the stamped maintainer is what lets the rollback through.
+        self._load()
+        card = await create_card(
+            db,
+            name="Moved",
+            lifecycle={"active": "2020-01-01"},
+            lifecycle_maintained={"ext": self.A, "phases": ["active"]},
+        )
+        batch = await self._maintain(db, actor, card, self.A, {"active": "2021-01-01"}, ["active"])
+        (event,) = await _events(db, batch, "card.updated")
+        assert "lifecycle_maintained" not in event.data["changes"]
+        assert event.data["lifecycle_maintainer"] == self.A
+        result = await execute_rollback(db, batch, actor.id)
+        (restore,) = _ops(result, "restore_card_fields")
+        assert "locked_phases" not in restore
+        await db.refresh(card)
+        assert card.lifecycle == {"active": "2020-01-01"}
+        assert card.lifecycle_maintained == {"ext": self.A, "phases": ["active"]}
+
+    async def test_rolling_back_the_owners_plain_update_keeps_the_maintained_phases(
+        self, db, actor
+    ):
+        from app.services.card_write_service import update_card
+
+        self._load()
+        card = await create_card(
+            db,
+            name="Plain",
+            lifecycle={"plan": "2019-01-01", "active": "2020-01-01"},
+            lifecycle_maintained={"ext": self.A, "phases": ["active"]},
+        )
+        # The owner's plain update_card (an on_behalf_of edit, say): it may
+        # move a manual phase; its event snapshots the whole lifecycle dict.
+        plain = await _open_batch(db, actor)
+        with _InBatch(plain):
+            await update_card(
+                db,
+                self._ext(self.A),
+                card,
+                {"lifecycle": {"plan": "2018-01-01", "active": "2020-01-01"}},
+            )
+        await db.flush()
+        # Later the extension re-derives Active.
+        await self._maintain(
+            db, actor, card, self.A, {"plan": "2018-01-01", "active": "2021-01-01"}, ["active"]
+        )
+        result = await execute_rollback(db, plain, actor.id)
+        (restore,) = _ops(result, "restore_card_fields")
+        assert "maintainer" not in restore
+        assert restore["locked_phases"] == ["active"]
+        await db.refresh(card)
+        assert card.lifecycle == {"plan": "2019-01-01", "active": "2021-01-01"}
+        assert card.lifecycle_maintained == {"ext": self.A, "phases": ["active"]}
+
+    async def test_rolling_back_an_old_claim_never_touches_another_extensions_live_claim(
+        self, db, actor
+    ):
+        self._load()
+        card = await create_card(db, name="Taken over", lifecycle={"plan": "2019-01-01"})
+        # A claims Active (marker None -> A).
+        a_batch = await self._maintain(
+            db, actor, card, self.A, {"plan": "2019-01-01", "active": "2020-01-01"}, ["active"]
+        )
+        # A is disabled; B takes the claim over and moves the date.
+        self._load(a_enabled=False)
+        await self._maintain(
+            db, actor, card, self.B, {"plan": "2019-01-01", "active": "2022-01-01"}, ["active"]
+        )
+        result = await execute_rollback(db, a_batch, actor.id, force=True)
+        (restore,) = _ops(result, "restore_card_fields")
+        assert restore["status"] == "ok"
+        assert restore["lifecycle_claim_kept"] == "Beta Sync"
+        assert restore["locked_phases"] == ["active"]
+        await db.refresh(card)
+        assert card.lifecycle_maintained == {"ext": self.B, "phases": ["active"]}
+        assert card.lifecycle == {"plan": "2019-01-01", "active": "2022-01-01"}
+
+    def test_the_plan_names_the_maintainer_of_a_maintain_write_only(self):
         from app.services.rollback_service import _plan_card_updated
 
         event = Event(event_type="card.updated", card_id=uuid.uuid4(), data={})
-        data = {"id": "c", "ext": "acme-sync", "changes": {"lifecycle": {"old": {}, "new": {}}}}
-        assert _plan_card_updated(event, data)["ext"] == "acme-sync"
-        del data["ext"]
-        assert "ext" not in _plan_card_updated(event, data)
+        lc = {"lifecycle": {"old": {}, "new": {}}}
+        stamped = {"id": "c", "ext": self.A, "lifecycle_maintainer": self.A, "changes": lc}
+        assert _plan_card_updated(event, stamped)["maintainer"] == self.A
+        # A plain bridge write carries `ext` but is no maintain write.
+        assert "maintainer" not in _plan_card_updated(
+            event, {"id": "c", "ext": self.A, "changes": lc}
+        )
+        # The claim column in the changes means a maintain / release write.
+        claim = {**lc, "lifecycle_maintained": {"old": None, "new": {"ext": self.A}}}
+        planned = _plan_card_updated(event, {"id": "c", "ext": self.A, "changes": claim})
+        assert planned["maintainer"] == self.A
+        assert "maintainer" not in _plan_card_updated(event, {"id": "c", "changes": claim})

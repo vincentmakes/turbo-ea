@@ -99,6 +99,8 @@ Navigate to **Admin > Surveys > [Survey Name] > Results** to see:
 
 Applying a response goes through the same checks as an edit made on the card itself. A value the card refuses — an option that no longer exists, say — is reported for that response and none of it is applied, while the other responses still go through. Each change appears in the card's **History** tab under the administrator who applied it, with a **via survey** marker naming the survey; hovering the marker shows who answered. The whole apply is one entry in **Admin → Audit log**, so it can be rolled back from there.
 
+An answer for a lifecycle date that an installed extension sets automatically (see [Lifecycle dates set by an extension](extensions.md#lifecycle-dates-set-by-an-extension)) is not applied — a cleared date included — and the stored date stays; the rest of that response still goes through. A warning above the results says how many answers were skipped, naming each card and its lifecycle phases.
+
 ## Deleting a Survey
 
 A survey of any status can be deleted: open the **⋮** menu on its row in **Admin > Surveys**, or use **Delete** in the survey builder or on the results page. The confirmation says what goes with it: requests still waiting for an answer are withdrawn, together with their notifications, and answers not yet applied are lost. Changes already applied stay on the cards, and the card history keeps naming the survey.

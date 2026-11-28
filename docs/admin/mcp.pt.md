@@ -335,14 +335,14 @@ O servidor expõe 37 ferramentas de escrita, cada uma anotada como **aditiva** (
 | Ferramenta | Descrição |
 |------------|-----------|
 | `create_cards_bulk` | Cria vários cards em uma única chamada (por exemplo, linhas de planilha). Suporta referências ao pai por nome dentro do mesmo lote, com ordenação topológica no servidor. |
-| `transition_card_lifecycle` | Move um card pelas fases de aprovação ou do ciclo de vida. |
+| `transition_card_lifecycle` | Move um card pelas fases de aprovação ou do ciclo de vida. Uma fase que uma extensão instalada define automaticamente (ver [Datas do ciclo de vida definidas por uma extensão](extensions.md#lifecycle-dates-set-by-an-extension)) é recusada com `lifecycle_maintained`, também na pré-visualização, indicando a fase e a extensão. |
 | `create_risks` | Cria entradas no Registro de riscos EA. |
 | `update_risks` | Atualiza entradas do Registro de riscos (campos, cards vinculados). |
 | `add_card_comment` | Publica um comentário em um card — uma nota não destrutiva e revisável em vez de alterar campos. |
 | `add_document_comment` | Publica um comentário numa decisão ou num SoAW: um novo tópico, opcionalmente associado a uma seção, ou uma resposta a um tópico. O comentário é texto simples; as menções só se fazem na interface web. Requer a permissão `adr.comment` / `soaw.comment`, ou ser signatário do documento. Um comentário publicado não pode ser desfeito com `rollback_batch`; elimine-o da discussão na interface web. |
 | `create_soaw` | Cria um Statement of Architecture Work para uma iniciativa. |
 | `assign_stakeholders` | Atribui ou remove papéis de stakeholder em cards. |
-| `update_cards_bulk` | Aplica patches no nível de campo em vários cards em uma única chamada. |
+| `update_cards_bulk` | Aplica patches no nível de campo em vários cards em uma única chamada. Uma alteração de `lifecycle` a uma fase que uma extensão instalada define automaticamente é recusada com `lifecycle_maintained`, indicando as fases e os cards; numa confirmação, os cards já atualizados por uma parte anterior da chamada são listados como `applied_card_ids` (desfaça-os com `rollback_batch`). |
 | `create_adr` | Cria um Architecture Decision Record, com ligações tipificadas a outras decisões (`replaces`, `amends`, `revokes`, `relates`), decisores, participantes e datas. Substituir ou revogar uma decisão faz-se assim: uma nova decisão com uma ligação `replaces` / `revokes`, que produz efeito depois de assinada. |
 | `update_adr` | Atualiza um ADR em rascunho (título, seções, cards vinculados, ligações tipificadas, pessoas, datas, resumo das alterações). Uma decisão em revisão só aceita alterações aos cards vinculados, e uma decisão assinada nunca é editada. |
 | `sign_adr` | Assina um ADR (requer a permissão `adr.sign`; caso contrário, retorna um deep-link da interface para assinar no navegador). |

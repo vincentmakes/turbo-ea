@@ -99,6 +99,8 @@ Navigieren Sie zu **Admin > Umfragen > [Umfragename] > Ergebnisse**, um zu sehen
 
 Das Übernehmen einer Antwort durchläuft dieselben Prüfungen wie eine Bearbeitung direkt auf der Karte. Ein Wert, den die Karte ablehnt – etwa eine Option, die es nicht mehr gibt –, wird für diese Antwort gemeldet und nichts davon übernommen, während die übrigen Antworten trotzdem übernommen werden. Jede Änderung erscheint im Tab **Verlauf** der Karte unter der Administratorin bzw. dem Administrator, die sie übernommen hat, mit einer Markierung **über Umfrage**, die die Umfrage nennt; beim Darüberfahren wird angezeigt, wer geantwortet hat. Das gesamte Übernehmen ist ein Eintrag unter **Admin → Audit-Log** und kann dort zurückgerollt werden.
 
+Eine Antwort für ein Lebenszyklus-Datum, das eine installierte Erweiterung automatisch setzt (siehe [Von einer Erweiterung gesetzte Lebenszyklus-Daten](extensions.md#lifecycle-dates-set-by-an-extension)), wird nicht übernommen — auch kein geleertes Datum — und das gespeicherte Datum bleibt; der Rest dieser Antwort wird trotzdem übernommen. Eine Warnung über den Ergebnissen nennt, wie viele Antworten übersprungen wurden, mit jeder Karte und ihren Lebenszyklus-Phasen.
+
 ## Eine Umfrage löschen
 
 Umfragen jedes Status können gelöscht werden: Öffnen Sie das Menü **⋮** in ihrer Zeile unter **Admin > Umfragen** oder verwenden Sie **Löschen** im Umfrage-Builder oder auf der Ergebnisseite. Die Bestätigung nennt, was mit entfernt wird: Anfragen, die noch auf eine Antwort warten, werden samt ihren Benachrichtigungen zurückgezogen, und noch nicht übernommene Antworten gehen verloren. Bereits übernommene Änderungen bleiben auf den Karten, und der Kartenverlauf nennt die Umfrage weiterhin.

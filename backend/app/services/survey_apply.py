@@ -558,11 +558,16 @@ async def apply_response(
                 lifecycle.pop(phase, None)
         lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
         if lock is not None:
-            lifecycle, refused = lifecycle_gate.apply_lifecycle_lock(
+            # Skipped answers are read off the answers themselves: an answer
+            # CLEARING a maintained date leaves no key in the merged dict, and
+            # an absent key reads as "carried over" there, never as refused.
+            if skipped_phases is not None:
+                skipped_phases.extend(
+                    lifecycle_gate.changed_phases(card.lifecycle, lifecycle_updates, lock.phases)
+                )
+            lifecycle, _ = lifecycle_gate.apply_lifecycle_lock(
                 card.lifecycle, lifecycle, lock.phases
             )
-            if skipped_phases is not None:
-                skipped_phases.extend(refused)
         updates["lifecycle"] = lifecycle
 
     if updates:
