@@ -40,6 +40,7 @@ import type { Card, FieldOption, HierarchyData, HierarchyNode, SubtypeDef } from
 import { bucketBySubtype, shouldGroupBySubtype } from "./cardDetailUtils";
 import { SubtypeBucket, useCollapsedBuckets, useSubtypeGrouping } from "./SubtypeBucket";
 import { HEATMAP_RAMP } from "@/theme/tokens";
+import { useNoteOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 // ── Section: Hierarchy ───────────────────────────────────────────
 const LEVEL_COLORS = [
@@ -214,6 +215,7 @@ function HierarchySection({
   initialExpanded?: boolean;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
+  const noteOwnWrite = useNoteOwnCardWrite();
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
   const subtypeLabel = useSubtypeLabel();
@@ -303,6 +305,7 @@ function HierarchySection({
     if (!selectedParent) return;
     try {
       setHierarchyError("");
+      noteOwnWrite();
       await api.patch(`/cards/${card.id}`, { parent_id: selectedParent.id });
       setPickingParent(false);
       setSelectedParent(null);
@@ -317,6 +320,7 @@ function HierarchySection({
   const handleRemoveParent = async () => {
     try {
       setHierarchyError("");
+      noteOwnWrite();
       await api.patch(`/cards/${card.id}`, { parent_id: null });
       loadHierarchy();
       onUpdate();
@@ -357,6 +361,7 @@ function HierarchySection({
   const setLinkLabel = async (cardId: string, next: string | null) => {
     // Errors propagate to the popover, which shows them next to the control
     // the user is holding open — the section-level alert would be off-screen.
+    if (cardId === card.id) noteOwnWrite();
     await api.patch(`/cards/${cardId}`, { parent_label: next });
     loadHierarchy();
     if (cardId === card.id) onUpdate();
@@ -374,6 +379,7 @@ function HierarchySection({
       });
       if (createMode === "parent") {
         // Set the newly created card as parent
+        noteOwnWrite();
         await api.patch(`/cards/${card.id}`, { parent_id: created.id });
         onUpdate();
       }

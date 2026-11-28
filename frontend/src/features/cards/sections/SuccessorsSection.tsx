@@ -30,6 +30,7 @@ import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type { Card, Relation } from "@/types";
 import { findSuccessorRelationType } from "@/lib/successorRelation";
 import { STATUS_COLORS } from "@/theme/tokens";
+import { useNoteOwnCardWrite } from "@/features/cards/ownCardWrite";
 
 function SuccessorsSection({
   card,
@@ -41,6 +42,7 @@ function SuccessorsSection({
   initialExpanded?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
+  const noteOwnWrite = useNoteOwnCardWrite();
   const { getType, relationTypes } = useMetamodel();
   const resolveTypeLabel = useTypeLabel();
   const typeConfig = getType(card.type);
@@ -115,6 +117,7 @@ function SuccessorsSection({
       setError("");
       if (addMode === "successor") {
         // "selected" succeeds this card → source=selected, target=this card
+        noteOwnWrite();
         await api.post("/relations", {
           type: successorRT.key,
           source_id: selected.id,
@@ -122,6 +125,7 @@ function SuccessorsSection({
         });
       } else {
         // this card succeeds "selected" → source=this card, target=selected
+        noteOwnWrite();
         await api.post("/relations", {
           type: successorRT.key,
           source_id: card.id,
@@ -145,12 +149,14 @@ function SuccessorsSection({
         name: createName.trim(),
       });
       if (addMode === "successor") {
+        noteOwnWrite();
         await api.post("/relations", {
           type: successorRT.key,
           source_id: created.id,
           target_id: card.id,
         });
       } else {
+        noteOwnWrite();
         await api.post("/relations", {
           type: successorRT.key,
           source_id: card.id,
@@ -169,6 +175,7 @@ function SuccessorsSection({
   const handleRemove = async (relId: string) => {
     try {
       setError("");
+      noteOwnWrite();
       await api.delete(`/relations/${relId}`);
       loadRelations();
     } catch (err: unknown) {
