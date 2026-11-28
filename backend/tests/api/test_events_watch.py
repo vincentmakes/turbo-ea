@@ -222,6 +222,19 @@ class TestWatchRoute:
                 compared += 1
         assert compared == 12
 
+    async def test_the_card_detail_answers_403_and_404_with_their_messages(self, client, env):
+        """The detail route's two refusals, as the shared verdict maps them."""
+        forbidden = await client.get(
+            f"/api/v1/cards/{env['app'].id}", headers=auth_headers(env["ppm_user"])
+        )
+        assert forbidden.status_code == 403
+        assert forbidden.json()["detail"] == "Insufficient permissions"
+        hidden = await client.get(
+            f"/api/v1/cards/{env['vault'].id}", headers=auth_headers(env["viewer"])
+        )
+        assert hidden.status_code == 404
+        assert hidden.json()["detail"] == "Card not found"
+
     async def test_a_view_deny_set_after_registering_is_honoured_on_refresh(self, client, db, env):
         sid = _stream_for(env["member"])
         first = await _watch(client, env["member"], sid, [env["app"].id])

@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.services import card_watch
 from app.services.event_bus import EventBus
@@ -181,6 +183,110 @@ class TestRegistry:
         assert card_watch.owns_stream(sid, str(uid))
         assert card_watch.set_watch(sid, str(uid), []) == []
 
+    def test_a_stream_id_is_32_random_bytes(self):
+        # token_urlsafe(32): 32 bytes, base64url without padding = 43 chars.
+        sid = card_watch.open_stream("u1", asyncio.Queue())
+        assert len(sid) == 43
+
+    def test_hello_and_ping_are_stamped_now_in_utc(self):
+        before = datetime.now(timezone.utc)
+        cid = uuid.uuid4()
+        _sid, inbox = _watching(cid)
+        card_watch.notify(cid)
+        (ping,) = _drain(inbox)
+        for stamp in (card_watch.hello("abc")["timestamp"], ping["timestamp"]):
+            moment = datetime.fromisoformat(stamp)
+            assert moment.utcoffset() == timedelta(0)
+            assert before <= moment <= datetime.now(timezone.utc)
+
+    def test_a_malformed_card_id_pings_nobody(self):
+        _watching(uuid.uuid4())
+        assert card_watch.notify("not-a-card-id") == 0
+
+    def test_forwarding_on_an_unknown_stream_is_ignored(self):
+        card_watch.mark_forwarded("no-such-stream", uuid.uuid4())
+        assert card_watch._streams == {}
+
+    def test_a_stream_gone_from_the_registry_is_unindexed(self):
+        cid = uuid.uuid4()
+        sid, _inbox = _watching(cid)
+        del card_watch._streams[sid]
+        assert card_watch.notify(cid) == 0
+        assert card_watch._watchers == {}
+
+    def test_an_index_entry_without_a_watch_is_unindexed(self):
+        cid = uuid.uuid4()
+        sid = card_watch.open_stream("u1", asyncio.Queue())
+        card_watch._watchers[cid] = {sid}
+        assert card_watch.notify(cid) == 0
+        assert card_watch._watchers == {}
+        assert card_watch.owns_stream(sid, "u1")
+
+    def test_an_expired_watch_forgets_the_card_entirely(self):
+        cid = uuid.uuid4()
+        sid, _inbox = _watching(cid, now=0.0)
+        assert card_watch.notify(cid, now=1.0) == 1
+        entry = card_watch._streams[sid]
+        assert entry.queued == {cid}
+        assert card_watch.notify(cid, now=card_watch.WATCH_TTL_SECONDS + 1.0) == 0
+        assert entry.watched == {}
+        assert entry.queued == set()
+        assert card_watch._watchers == {}
+
+    # Each skip below sits among ten live streams; the streams are walked in
+    # set order, so a skip that ended the walk would leave some unpinged.
+
+    def _live(self, cid, *, now=None):
+        return [_watching(cid, user=f"live{i}", now=now)[1] for i in range(10)]
+
+    def _assert_each_pinged_once(self, inboxes):
+        assert [len(_drain(q)) for q in inboxes] == [1] * 10
+
+    def test_streams_gone_from_the_registry_do_not_stop_the_others(self):
+        cid = uuid.uuid4()
+        for i in range(10):
+            sid, _ = _watching(cid, user=f"gone{i}")
+            del card_watch._streams[sid]
+        live = self._live(cid)
+        assert card_watch.notify(cid) == 10
+        self._assert_each_pinged_once(live)
+
+    def test_expired_watches_do_not_stop_the_others(self):
+        cid = uuid.uuid4()
+        for i in range(10):
+            _watching(cid, user=f"old{i}", now=0.0)
+        live = self._live(cid, now=1000.0)
+        assert card_watch.notify(cid, now=1000.0) == 10
+        self._assert_each_pinged_once(live)
+
+    def test_already_queued_streams_do_not_stop_the_others(self):
+        cid = uuid.uuid4()
+        for i in range(10):
+            _watching(cid, user=f"queued{i}")
+        assert card_watch.notify(cid) == 10
+        live = self._live(cid)
+        assert card_watch.notify(cid) == 10
+        self._assert_each_pinged_once(live)
+
+    def test_full_inboxes_do_not_stop_the_others(self):
+        cid = uuid.uuid4()
+        for i in range(10):
+            _sid, inbox = _watching(cid, user=f"full{i}", maxsize=1)
+            inbox.put_nowait({"event": "something.else"})
+        live = self._live(cid)
+        assert card_watch.notify(cid) == 10
+        self._assert_each_pinged_once(live)
+
+    def test_note_change_on_a_plain_session_with_nothing_pending_delivers(self):
+        cid = uuid.uuid4()
+        _sid, inbox = _watching(cid)
+        session = Session()
+        try:
+            card_watch.note_change(session, cid)
+        finally:
+            session.close()
+        assert [p["card_id"] for p in _drain(inbox)] == [str(cid)]
+
 
 # ── Bus wiring ────────────────────────────────────────────────────────────
 
@@ -211,6 +317,18 @@ class TestBusWiring:
         _sid, inbox = _watching(cid)
         await EventBus().publish("notification.created", {"card_id": str(cid)})
         assert _drain(inbox) == []
+
+    async def test_subscribe_without_an_inbox_makes_a_256_deep_queue(self):
+        bus = EventBus()
+        gen = bus.subscribe()
+        task = asyncio.ensure_future(gen.__anext__())
+        await asyncio.sleep(0)
+        (queue,) = bus._subscribers
+        assert queue.maxsize == 256
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        await gen.aclose()
 
     async def test_subscribe_uses_a_caller_owned_queue(self):
         bus = EventBus()
