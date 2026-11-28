@@ -206,6 +206,7 @@ async def uninstall(
         remove_field_contributions,
         remove_subtype_contributions,
     )
+    from app.services.extensions.lifecycle_gate import release_extension_claims
 
     extensions_dir = extensions_dir if extensions_dir is not None else EXTENSIONS_DIR
     row = (await db.execute(select(Extension).where(Extension.key == key))).scalar_one_or_none()
@@ -217,6 +218,8 @@ async def uninstall(
     hidden = await set_content_visibility(db, extensions_dir / key, row.manifest or {}, True)
     hidden += await remove_field_contributions(db, key)
     hidden += await remove_subtype_contributions(db, key)
+    # Lifecycle phases it maintained become editable again; the dates stay.
+    await release_extension_claims(db, key)
     # The DB row lookup above already guarantees a legitimate key, but never
     # hand a deletion sink a path that could have escaped the extensions root.
     # Realpath + os.sep-terminated prefix guard is the canonical containment

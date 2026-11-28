@@ -25,7 +25,7 @@ from app.models.servicenow import (
 )
 from app.services.card_lifecycle import archive_cards_in_place
 from app.services.event_bus import event_bus
-from app.services.extensions import field_gate
+from app.services.extensions import field_gate, lifecycle_gate
 
 logger = logging.getLogger(__name__)
 
@@ -378,6 +378,32 @@ def skip_locked_attribute_changes(diff: dict, locked: dict, sys_id: str) -> dict
         return diff
     logger.warning(
         "ServiceNow sync: read-only extension fields not updated for %s: %s",
+        sys_id,
+        ", ".join(path.split(".", 1)[1] for path in skipped),
+    )
+    return {path: change for path, change in diff.items() if path not in skipped}
+
+
+def skip_maintained_lifecycle_changes(diff: dict, marker: object, sys_id: str) -> dict:
+    """``diff`` without the ``lifecycle.<phase>`` changes to maintained phases.
+
+    A phase an installed, licensed extension maintains on the card
+    (``extensions.lifecycle_gate``) keeps its stored value: the sync skips that
+    change, logs it and applies the rest of the record rather than failing it.
+    """
+    lock = lifecycle_gate.effective_lock(marker)
+    if lock is None:
+        return diff
+    skipped = [
+        path
+        for path in diff
+        if path.startswith("lifecycle.") and path.split(".", 1)[1] in lock.phases
+    ]
+    if not skipped:
+        return diff
+    logger.warning(
+        "ServiceNow sync: lifecycle phases maintained by %s not updated for %s: %s",
+        lock.name,
         sys_id,
         ", ".join(path.split(".", 1)[1] for path in skipped),
     )
@@ -874,6 +900,9 @@ class SyncEngine:
             staged.diff or {},
             await self._locked_fields(card.type),
             staged.snow_sys_id,
+        )
+        diff = skip_maintained_lifecycle_changes(
+            diff, card.lifecycle_maintained, staged.snow_sys_id
         )
         if not diff:
             await self._touch_identity(staged)

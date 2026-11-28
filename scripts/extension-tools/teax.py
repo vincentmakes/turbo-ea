@@ -90,6 +90,7 @@ VALID_GRANTS = {
     "core.surveys.read",
     "core.surveys.write",
     "core.agent.tools",
+    "core.cards.maintain_lifecycle",
 }
 # Artwork an extension may ship as its own logo (manifest `logo`), shown on the
 # Store and Installed tabs. Deliberately duplicated from
@@ -217,6 +218,8 @@ SDK_1_8_GRANTS = {"core.adr.read", "core.adr.write"}
 # Grants that require the SDK 1.18 agent-tools hook (operations offered to AI
 # assistants through the MCP server).
 SDK_1_18_GRANTS = {"core.agent.tools"}
+# Grants that require the SDK 1.22 maintained-lifecycle bridge calls.
+SDK_1_22_GRANTS = {"core.cards.maintain_lifecycle"}
 # Manifest keys that require the SDK 1.11 surface (extension-declared
 # notification types + the `detail` flag on the notify bridge).
 SDK_1_11_MANIFEST_KEYS = {"notifications"}
@@ -532,12 +535,28 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
             needs_1_6 = bool(set(grants) & SDK_1_6_GRANTS)
             needs_1_8 = bool(set(grants) & SDK_1_8_GRANTS)
             needs_1_18 = bool(set(grants) & SDK_1_18_GRANTS)
+            needs_1_22 = bool(set(grants) & SDK_1_22_GRANTS)
+            if needs_1_22 and "core.cards.write" not in grants:
+                warnings.append(
+                    "core.cards.maintain_lifecycle is only usable together with core.cards.write"
+                )
             if (
-                needs_1_2 or needs_1_3 or needs_1_5 or needs_1_6 or needs_1_8 or needs_1_18
+                needs_1_2
+                or needs_1_3
+                or needs_1_5
+                or needs_1_6
+                or needs_1_8
+                or needs_1_18
+                or needs_1_22
             ) and declared_sdk:
                 try:
                     major, minor = (int(x) for x in declared_sdk.split(".")[:2])
-                    if needs_1_18 and (major, minor) < (1, 18):
+                    if needs_1_22 and (major, minor) < (1, 22):
+                        warnings.append(
+                            "core.cards.maintain_lifecycle requires SDK 1.22+ "
+                            f"but sdk_version is {declared_sdk}"
+                        )
+                    elif needs_1_18 and (major, minor) < (1, 18):
                         warnings.append(
                             f"core.agent.tools requires SDK 1.18+ but sdk_version is {declared_sdk}"
                         )

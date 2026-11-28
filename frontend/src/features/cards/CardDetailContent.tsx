@@ -500,6 +500,7 @@ export default function CardDetailContent({
             onDirtyChange={dirtyCb("lifecycle")}
             expandOn={expandOn(sectionAnchor("lifecycle"))}
             editOn={editOn(sectionAnchor("lifecycle"))}
+            maintained={card.lifecycle_maintained ?? null}
             footer={
               <RelationLifecyclesPanel
                 cardId={card.id}

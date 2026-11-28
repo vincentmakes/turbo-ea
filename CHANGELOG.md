@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.223.0] - 2026-11-28
+
+### Added
+- An installed extension can keep chosen lifecycle dates of a card up to date automatically. Those dates show as set automatically and cannot be edited by hand — in the card, bulk edit, imports or through an AI assistant — while the extension is active; disabling or uninstalling it, or a lapsed licence, makes them editable again, and the dates are kept.
+- Survey apply, ServiceNow sync and platform-migration imports skip a lifecycle date an installed extension maintains, keep the stored date and report the skip; rolling back a change restores the other dates and reports the ones it kept.
+
 ## [2.222.1] - 2026-11-27
 
 ### Fixed

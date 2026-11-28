@@ -283,6 +283,62 @@ describe("executeImport — updates", () => {
     expect(mockApi.callsOf("post")).toEqual([]);
   });
 
+  it("never sends a change to a lifecycle phase an extension maintains", async () => {
+    mockApi.on("patch", /^\/cards\/[^/]+$/, {});
+    const maintained = {
+      ...ERP,
+      lifecycle_maintained: { ext: "acme-sync", name: "Acme Sync", phases: ["active"] },
+    } as typeof ERP;
+    const rep = validateImport(
+      [erp({ lifecycle_plan: "2018-01-01", lifecycle_active: "" })],
+      CARDS.map((c) => (c.id === ERP.id ? maintained : c)),
+      CARD_TYPES,
+      undefined,
+      TAG_GROUPS,
+      {},
+      USERS,
+      STAKEHOLDER_ROLES_BY_TYPE,
+    );
+    // Even a row whose data still carries a moved maintained phase (a report
+    // built before the lock took effect) is patched WITHOUT that phase: the
+    // backend carries it over at its current stored value, so a date the
+    // extension moved after validation is never echoed back as a change.
+    rep.updates[0].data.lifecycle = { ...ERP.lifecycle, plan: "2018-01-01", active: "1999-01-01" };
+
+    await executeImport(rep);
+
+    const { active: _active, ...manual } = ERP.lifecycle as Record<string, string>;
+    expect(mockApi.callsOf("patch")).toEqual([
+      {
+        method: "patch",
+        path: `/cards/${CARD_IDS.erp}`,
+        body: { lifecycle: { ...manual, plan: "2018-01-01" } },
+      },
+    ]);
+  });
+
+  it("skips a row whose only lifecycle difference is a maintained phase", async () => {
+    mockApi.on("patch", /^\/cards\/[^/]+$/, {});
+    const maintained = {
+      ...ERP,
+      lifecycle_maintained: { ext: "acme-sync", name: "Acme Sync", phases: ["active"] },
+    } as typeof ERP;
+    const rep = validateImport(
+      [erp({ lifecycle_active: "1999-01-01" })],
+      CARDS.map((c) => (c.id === ERP.id ? maintained : c)),
+      CARD_TYPES,
+      undefined,
+      TAG_GROUPS,
+      {},
+      USERS,
+      STAKEHOLDER_ROLES_BY_TYPE,
+    );
+
+    await executeImport(rep);
+
+    expect(mockApi.callsOf("patch")).toEqual([]);
+  });
+
   it("syncs tags as adds and removes, without a PATCH when only tags changed", async () => {
     mockApi.on("post", /^\/cards\/[^/]+\/tags$/, {});
     mockApi.on("delete", /^\/cards\/[^/]+\/tags\/[^/]+$/, {});

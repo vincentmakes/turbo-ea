@@ -4219,6 +4219,16 @@
             ],
             "title": "Lifecycle"
           },
+          "lifecycle_maintained": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LifecycleMaintainedRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "logo_updated_at": {
             "anyOf": [
               {
@@ -8834,6 +8844,33 @@
           "entitlements"
         ],
         "title": "LicenseOut",
+        "type": "object"
+      },
+      "LifecycleMaintainedRef": {
+        "description": "Lifecycle phases a licensed extension keeps up to date on a card (SDK\n1.22). Sent only while the claim is in force; those phases cannot be\nedited by hand.",
+        "properties": {
+          "ext": {
+            "title": "Ext",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "phases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Phases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ext",
+          "name",
+          "phases"
+        ],
+        "title": "LifecycleMaintainedRef",
         "type": "object"
       },
       "LifecyclePhaseHelpPayload": {

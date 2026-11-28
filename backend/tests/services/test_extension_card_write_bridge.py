@@ -602,3 +602,330 @@ class TestRefusalText:
 )
 def test_http_detail_text(detail, text):
     assert bridge_mod.http_detail_text(detail) == text
+
+
+MAINTAIN = ["core.cards.write", "core.cards.maintain_lifecycle"]
+
+
+def load_two(*, other_grants: list[str] | None = None, other_enabled: bool = True) -> None:
+    """``KEY`` with the maintain grants, plus a second extension ``other-ext``."""
+    load_registry(grants=MAINTAIN)
+    extension_registry.load_installed(
+        [
+            *extension_registry.all(),
+            ExtensionInfo(
+                key="other-ext",
+                name="Other Ext",
+                version="1.0.0",
+                status="installed",
+                enabled=other_enabled,
+                manifest={"grants": MAINTAIN if other_grants is None else other_grants},
+            ),
+        ]
+    )
+    extension_registry.set_license(
+        LicenseDocument(
+            licensee="ACME",
+            customer_id="cus_1",
+            issued_at=NOW - timedelta(days=1),
+            grace_days=30,
+            entitlements=[
+                Entitlement(extension_key=KEY, expires_at=None),
+                Entitlement(extension_key="other-ext", expires_at=None),
+            ],
+        )
+    )
+
+
+async def _card_events(db, card_id) -> list[Event]:
+    rows = await db.execute(
+        select(Event).where(Event.card_id == card_id, Event.event_type == "card.updated")
+    )
+    return list(rows.scalars().all())
+
+
+class TestMaintainLifecycle:
+    async def test_sets_phases_claims_them_and_clamps_manual_dates(self, db, env):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(
+            db,
+            card_type="Application",
+            name="Inherit",
+            lifecycle={"plan": "2018-01-01", "phaseOut": "2040-01-01"},
+        )
+        out = await ExtensionData(KEY).maintain_lifecycle(
+            str(card.id), {"endOfLife": "2030-01-01", "active": "2020-01-01"}
+        )
+        assert out.lifecycle == {
+            "plan": "2018-01-01",
+            "active": "2020-01-01",
+            "phaseOut": "2030-01-01",
+            "endOfLife": "2030-01-01",
+        }
+        assert out.lifecycle_maintained == {"ext": KEY, "phases": ["active", "endOfLife"]}
+        await db.refresh(card)
+        assert card.lifecycle_maintained == {"ext": KEY, "phases": ["active", "endOfLife"]}
+        assert card.lifecycle == out.lifecycle
+
+    async def test_emits_exactly_one_event_in_the_changes_shape(self, db, env):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(
+            db, card_type="Application", name="Evented", lifecycle={"plan": "2019-01-01"}
+        )
+        await ExtensionData(KEY).maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        events = await _card_events(db, card.id)
+        assert len(events) == 1
+        data = events[0].data
+        assert data["ext"] == KEY
+        assert data["changes"]["lifecycle"] == {
+            "old": {"plan": "2019-01-01"},
+            "new": {"plan": "2019-01-01", "active": "2020-01-01"},
+        }
+        assert data["changes"]["lifecycle_maintained"] == {
+            "old": None,
+            "new": {"ext": KEY, "phases": ["active"]},
+        }
+        batch = await _ext_batch(db)
+        assert events[0].batch_id == batch.id
+
+    async def test_marker_only_change_records_only_the_marker(self, db, env):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(
+            db, card_type="Application", name="Same dates", lifecycle={"active": "2020-01-01"}
+        )
+        await ExtensionData(KEY).maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        (event,) = await _card_events(db, card.id)
+        assert set(event.data["changes"]) == {"lifecycle_maintained"}
+
+    async def test_a_call_that_changes_nothing_writes_nothing(self, db, env):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(db, card_type="Application", name="Stable")
+        bridge = ExtensionData(KEY)
+        await bridge.maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        events_before = len(await _card_events(db, card.id))
+        batches_before = len(await _batches(db))
+        out = await bridge.maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        assert out.lifecycle == {"active": "2020-01-01"}
+        assert len(await _card_events(db, card.id)) == events_before == 1
+        assert len(await _batches(db)) == batches_before
+
+    async def test_dry_run_previews_without_writing(self, db, env):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(db, card_type="Application", name="Preview")
+        card_id = card.id
+        out = await ExtensionData(KEY).maintain_lifecycle(
+            str(card_id), {"active": "2020-01-01"}, dry_run=True
+        )
+        assert out.lifecycle == {"active": "2020-01-01"}
+        assert out.lifecycle_maintained == {"ext": KEY, "phases": ["active"]}
+        fresh = (await db.execute(select(Card).where(Card.id == card_id))).scalar_one()
+        assert fresh.lifecycle_maintained is None
+        assert not (fresh.lifecycle or {}).get("active")
+        assert await _card_events(db, card_id) == []
+        assert await _batches(db) == []
+
+    @pytest.mark.parametrize(
+        "grants", [["core.cards.write"], ["core.cards.maintain_lifecycle"], ["core.cards.read"]]
+    )
+    async def test_both_grants_are_required(self, db, env, grants):
+        load_registry(grants=grants)
+        card = await create_card(db, card_type="Application", name="Gated")
+        with pytest.raises(ExtensionPermissionError):
+            await ExtensionData(KEY).maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        with pytest.raises(ExtensionPermissionError):
+            await ExtensionData(KEY).release_lifecycle(str(card.id))
+
+    @pytest.mark.parametrize(
+        ("values", "message"),
+        [
+            ({}, "non-empty"),
+            ("2020-01-01", "non-empty"),
+            ({"bogus": "2020-01-01"}, "unknown phase 'bogus'"),
+            ({"active": "soon"}, "'active' is not a date"),
+            ({"active": 20200101}, "'active' is not a date"),
+        ],
+    )
+    async def test_bad_values_are_refused(self, db, env, values, message):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(db, card_type="Application", name="Bad")
+        with pytest.raises(ExtensionDataError, match=message):
+            await ExtensionData(KEY).maintain_lifecycle(str(card.id), values)
+        assert await _batches(db) == []
+
+    async def test_dates_are_normalised_and_none_removes(self, db, env):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(
+            db, card_type="Application", name="Norm", lifecycle={"endOfLife": "2030-01-01"}
+        )
+        out = await ExtensionData(KEY).maintain_lifecycle(
+            str(card.id), {"active": "2020-01-01T10:00:00", "endOfLife": None}
+        )
+        assert out.lifecycle == {"active": "2020-01-01"}
+        assert out.lifecycle_maintained == {"ext": KEY, "phases": ["active", "endOfLife"]}
+
+    async def test_unknown_card_is_refused(self, db, env):
+        load_registry(grants=MAINTAIN)
+        with pytest.raises(ExtensionDataError, match="not found"):
+            await ExtensionData(KEY).maintain_lifecycle(str(uuid.uuid4()), {"active": "2020-01-01"})
+
+    async def test_a_foreign_effective_claim_is_refused(self, db, env):
+        load_two()
+        card = await create_card(
+            db,
+            card_type="Application",
+            name="Taken",
+            lifecycle={"active": "2019-01-01"},
+            lifecycle_maintained={"ext": "other-ext", "phases": ["active"]},
+        )
+        with pytest.raises(ExtensionDataError, match="maintained by the extension Other Ext"):
+            await ExtensionData(KEY).maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        await db.refresh(card)
+        assert card.lifecycle == {"active": "2019-01-01"}
+        assert card.lifecycle_maintained == {"ext": "other-ext", "phases": ["active"]}
+
+    async def test_an_ineffective_claim_is_taken_over(self, db, env):
+        load_two(other_enabled=False)
+        card = await create_card(
+            db,
+            card_type="Application",
+            name="Orphaned",
+            lifecycle={"active": "2019-01-01"},
+            lifecycle_maintained={"ext": "other-ext", "phases": ["active"]},
+        )
+        out = await ExtensionData(KEY).maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        assert out.lifecycle_maintained == {"ext": KEY, "phases": ["active"]}
+        assert out.lifecycle == {"active": "2020-01-01"}
+
+    async def test_plain_update_card_cannot_move_its_own_maintained_phase(self, db, env):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(db, card_type="Application", name="Own plain")
+        bridge = ExtensionData(KEY)
+        await bridge.maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        with pytest.raises(ExtensionDataError, match="set automatically"):
+            await bridge.update_card(str(card.id), {"lifecycle": {"active": "2021-01-01"}})
+        # …nor plant a claim through the plain write.
+        with pytest.raises(ExtensionDataError, match="not writable"):
+            await bridge.update_card(str(card.id), {"lifecycle_maintained": None})
+        # A manual phase still moves, and the maintained one is carried over.
+        out = await bridge.update_card(str(card.id), {"lifecycle": {"plan": "2019-01-01"}})
+        assert out.lifecycle == {"plan": "2019-01-01", "active": "2020-01-01"}
+
+    async def test_release_clears_only_its_own_claim(self, db, env):
+        load_two()
+        mine = await create_card(db, card_type="Application", name="Mine")
+        bridge = ExtensionData(KEY)
+        await bridge.maintain_lifecycle(str(mine.id), {"active": "2020-01-01"})
+        out = await bridge.release_lifecycle(str(mine.id))
+        assert out.lifecycle_maintained is None
+        assert out.lifecycle == {"active": "2020-01-01"}
+        events = await _card_events(db, mine.id)
+        assert len(events) == 2
+        assert events[-1].data["changes"] == {
+            "lifecycle_maintained": {"old": {"ext": KEY, "phases": ["active"]}, "new": None}
+        }
+
+        theirs = await create_card(
+            db,
+            card_type="Application",
+            name="Theirs",
+            lifecycle_maintained={"ext": "other-ext", "phases": ["active"]},
+        )
+        batches = len(await _batches(db))
+        out = await bridge.release_lifecycle(str(theirs.id))
+        assert out.lifecycle_maintained == {"ext": "other-ext", "phases": ["active"]}
+        assert await _card_events(db, theirs.id) == []
+        assert len(await _batches(db)) == batches
+
+    async def test_release_dry_run_writes_nothing(self, db, env):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(
+            db,
+            card_type="Application",
+            name="Release preview",
+            lifecycle_maintained={"ext": KEY, "phases": ["active"]},
+        )
+        card_id = card.id
+        out = await ExtensionData(KEY).release_lifecycle(str(card_id), dry_run=True)
+        assert out.lifecycle_maintained is None
+        fresh = (await db.execute(select(Card).where(Card.id == card_id))).scalar_one()
+        assert fresh.lifecycle_maintained == {"ext": KEY, "phases": ["active"]}
+        assert await _batches(db) == []
+
+    async def test_approval_breaks_only_when_dates_move(self, db, env):
+        load_registry(grants=MAINTAIN)
+        card = await create_card(
+            db,
+            card_type="Application",
+            name="Approved",
+            lifecycle={"active": "2020-01-01"},
+            approval_status="APPROVED",
+        )
+        bridge = ExtensionData(KEY)
+        out = await bridge.maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+        assert out.approval_status == "APPROVED"
+        out = await bridge.release_lifecycle(str(card.id))
+        assert out.approval_status == "APPROVED"
+        out = await bridge.maintain_lifecycle(str(card.id), {"active": "2021-01-01"})
+        assert out.approval_status == "BROKEN"
+        (event,) = [e for e in await _card_events(db, card.id) if "lifecycle" in e.data["changes"]]
+        assert event.data["changes"]["approval_status"] == {"old": "APPROVED", "new": "BROKEN"}
+
+    async def test_joins_an_open_batch_and_rolls_back_both_fields(self, db, env):
+        from app.services.rollback_service import execute_rollback
+        from tests.conftest import create_user
+
+        load_registry(grants=MAINTAIN)
+        actor = await create_user(db, role="admin")
+        card = await create_card(
+            db, card_type="Application", name="Rolled", lifecycle={"plan": "2019-01-01"}
+        )
+        bridge = ExtensionData(KEY)
+        async with bridge.batch("inherit") as handle:
+            await bridge.maintain_lifecycle(str(card.id), {"active": "2020-01-01"})
+            await bridge.update_card(str(card.id), {"description": "touched"})
+        batches = await _batches(db)
+        assert [b.id for b in batches] == [uuid.UUID(str(handle.id))]
+        assert batches[0].summary["writes"] == 2
+
+        result = await execute_rollback(db, batches[0], actor.id, force=True)
+        restore = [r for r in result["results"] if r["op"] == "restore_card_fields"]
+        assert restore and all(r["status"] == "ok" for r in restore)
+        assert all("locked_phases" not in r for r in restore)
+        await db.refresh(card)
+        assert card.lifecycle == {"plan": "2019-01-01"}
+        assert card.lifecycle_maintained is None
+
+    async def test_update_card_refuses_a_maintainer_that_does_not_own_the_claim(self, db, env):
+        from fastapi import HTTPException
+
+        from app.services import card_write_service
+
+        load_two()
+        card = await create_card(
+            db,
+            card_type="Application",
+            name="Guarded",
+            lifecycle={"active": "2019-01-01"},
+            lifecycle_maintained={"ext": "other-ext", "phases": ["active"]},
+        )
+        actor = card_write_service.WriteActor(user_id=None, display_name="x", ext_key=KEY)
+        with pytest.raises(HTTPException) as exc:
+            await card_write_service.update_card(
+                db, actor, card, {"lifecycle": {"active": "2020-01-01"}}, lifecycle_maintainer=KEY
+            )
+        assert exc.value.status_code == 409
+        assert exc.value.detail == (
+            "The lifecycle of this card is maintained by the extension Other Ext"
+        )
+        assert card.lifecycle == {"active": "2019-01-01"}
+        # The owner itself passes, and may move the claim.
+        owner = card_write_service.WriteActor(user_id=None, display_name="o", ext_key="other-ext")
+        assert await card_write_service.update_card(
+            db,
+            owner,
+            card,
+            {"lifecycle": {"active": "2020-01-01"}, "lifecycle_maintained": None},
+            lifecycle_maintainer="other-ext",
+        )
+        assert card.lifecycle == {"active": "2020-01-01"}
+        assert card.lifecycle_maintained is None

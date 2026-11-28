@@ -253,6 +253,47 @@ class TestTeaxGrantsLint:
         assert problems == []
         assert [w for w in warnings if "logo" not in w] == []
 
+    def test_maintain_lifecycle_grant_is_valid_in_both_copies(self, teax):
+        assert "core.cards.maintain_lifecycle" in BACKEND_VALID_GRANTS
+        assert "core.cards.maintain_lifecycle" in teax.VALID_GRANTS
+
+    def test_maintain_lifecycle_grant_with_pre_1_22_sdk_warns(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {
+                **BASE_MANIFEST,
+                "grants": ["core.cards.write", "core.cards.maintain_lifecycle"],
+                "sdk_version": "1.21",
+            },
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert any("core.cards.maintain_lifecycle requires SDK 1.22" in w for w in warnings)
+
+    def test_maintain_lifecycle_grant_without_write_grant_warns(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {**BASE_MANIFEST, "grants": ["core.cards.maintain_lifecycle"], "sdk_version": "1.22"},
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert [w for w in warnings if "logo" not in w] == [
+            "core.cards.maintain_lifecycle is only usable together with core.cards.write"
+        ]
+
+    def test_maintain_lifecycle_grant_with_1_22_sdk_is_clean(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {
+                **BASE_MANIFEST,
+                "grants": ["core.cards.write", "core.cards.maintain_lifecycle"],
+                "sdk_version": "1.22",
+            },
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert [w for w in warnings if "logo" not in w] == []
+
     def test_non_list_grants_is_a_problem(self, teax, tmp_path):
         src = write_source(tmp_path, {**BASE_MANIFEST, "grants": "core.todos.write"})
         _, _, problems, _ = teax._lint_source(src)

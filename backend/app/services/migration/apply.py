@@ -58,7 +58,7 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services import card_type_categories
 from app.services.event_bus import event_bus
-from app.services.extensions import field_gate
+from app.services.extensions import field_gate, lifecycle_gate
 from app.services.lifecycle import normalize_relation_lifecycle
 from app.services.relation_orientation import orient_endpoints
 from app.services.stakeholder_service import DEFAULT_STAKEHOLDER_ROLES, ensure_role_definitions
@@ -271,6 +271,16 @@ def _note_skipped_fields(staged: StagedRecord, skipped: list[str]) -> None:
     staged.error_message = note[:1000]
 
 
+def _note_skipped_phases(staged: StagedRecord, skipped: list[str]) -> None:
+    """Record the maintained lifecycle phases an import did not write, after
+    any note :func:`_note_skipped_fields` already left."""
+    if not skipped:
+        return
+    note = "Lifecycle phases maintained by an extension not imported: " + ", ".join(skipped)
+    logger.warning("migration apply: card %s — %s", staged.source_id, note)
+    staged.error_message = "; ".join(m for m in (staged.error_message, note) if m)[:1000]
+
+
 async def _locked_fields(
     db: AsyncSession, type_key: str, cache: dict[str, dict[str, str]] | None
 ) -> dict[str, str]:
@@ -388,12 +398,22 @@ async def _apply_single_card(
             card.description = payload["description"]
         if payload.get("subtype"):
             card.subtype = payload["subtype"]
+        skipped_phases: list[str] = []
         if payload.get("lifecycle"):
-            card.lifecycle = {**(card.lifecycle or {}), **payload["lifecycle"]}
+            merged_lifecycle = {**(card.lifecycle or {}), **payload["lifecycle"]}
+            # A phase an installed, licensed extension maintains keeps its
+            # stored date; the skip is noted on the staged row below.
+            lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
+            if lock is not None:
+                merged_lifecycle, skipped_phases = lifecycle_gate.apply_lifecycle_lock(
+                    card.lifecycle, merged_lifecycle, lock.phases
+                )
+            card.lifecycle = merged_lifecycle
         merged_attrs = {**(card.attributes or {}), **(payload.get("attributes") or {})}
         locked = await _locked_fields(db, card.type, locked_by_type)
         merged_attrs, skipped = field_gate.apply_field_lock(card.attributes, merged_attrs, locked)
         _note_skipped_fields(staged, skipped)
+        _note_skipped_phases(staged, skipped_phases)
         card.attributes = merged_attrs
         if payload.get("external_id"):
             card.external_id = payload["external_id"]

@@ -412,6 +412,30 @@ function topoSortCreates(rows: ParsedRow[]): ParsedRow[] {
 
 // ---- Core: build update patch --------------------------------------------
 
+/** The lifecycle phases an installed extension maintains on `card`. */
+function maintainedPhases(card: Card): Set<string> {
+  return new Set(card.lifecycle_maintained?.phases ?? []);
+}
+
+/**
+ * Put every phase an extension maintains on `existing` back to its stored
+ * value in `lifecycle` (in place), and return how many the sheet had changed.
+ * A card with no maintained phase is left as it is.
+ */
+export function keepMaintainedPhases(
+  lifecycle: Record<string, string>,
+  existing: Card,
+): number {
+  const stored = (existing.lifecycle || {}) as Record<string, string>;
+  let changed = 0;
+  for (const phase of maintainedPhases(existing)) {
+    if ((lifecycle[phase] ?? "") !== (stored[phase] ?? "")) changed += 1;
+    if (stored[phase]) lifecycle[phase] = stored[phase];
+    else delete lifecycle[phase];
+  }
+  return changed;
+}
+
 interface PatchResult {
   patch: Record<string, unknown>;
   /** Human-readable field-level changes: key → { old, new } */
@@ -455,13 +479,20 @@ function buildPatch(
     }
   }
 
-  // Lifecycle: compare phase-by-phase
+  // Lifecycle: compare phase-by-phase. A phase an extension maintains is
+  // compared at its stored value (so it never counts as a change) and left out
+  // of the patch: the backend carries it over at its CURRENT value, which the
+  // extension may have moved since this row was validated.
   if (d.lifecycle) {
-    const newLc = d.lifecycle as Record<string, string>;
+    const newLc = { ...(d.lifecycle as Record<string, string>) };
+    keepMaintainedPhases(newLc, ex);
     const exLc = (ex.lifecycle || {}) as Record<string, string>;
+    const locked = maintainedPhases(ex);
     for (const phase of LIFECYCLE_PHASES) {
       if ((newLc[phase] ?? "") !== (exLc[phase] ?? "")) {
-        patch.lifecycle = d.lifecycle;
+        patch.lifecycle = Object.fromEntries(
+          Object.entries(newLc).filter(([p]) => !locked.has(p)),
+        );
         changes[`lifecycle_${phase}`] = {
           old: exLc[phase] ?? null,
           new: newLc[phase] ?? null,
@@ -979,6 +1010,23 @@ export function validateImport(
     // An errored row is not a card to create — the preview's counts say what
     // the import would do, and it will not run while an error stands.
     if (rowHasLifecycleError) continue;
+
+    // Phases an installed extension maintains on this card are not the sheet's
+    // to set: the backend refuses a change to them. Put each back to its
+    // stored value and report the ones the sheet tried to move.
+    if (matchedExisting) {
+      const skippedPhases = keepMaintainedPhases(lifecycle, matchedExisting);
+      if (skippedPhases > 0) {
+        warnings.push({
+          row: rowNum,
+          message: t("import.warnings.lifecycleMaintainedIgnored", {
+            row: rowNum,
+            count: skippedPhases,
+            name: matchedExisting.lifecycle_maintained?.name ?? "",
+          }),
+        });
+      }
+    }
 
     // Build attributes object, validating against field defs
     const fieldDefs = fieldDefsForType(type, allTypes);

@@ -454,6 +454,13 @@ export interface StakeholderRef {
   role_label?: string;
 }
 
+/** Who maintains which lifecycle phases of a card (see `Card.lifecycle_maintained`). */
+export interface LifecycleMaintained {
+  ext: string;
+  name: string;
+  phases: string[];
+}
+
 export interface Card {
   id: string;
   type: string;
@@ -466,6 +473,11 @@ export interface Card {
    *  loses its parent. */
   parent_label?: string | null;
   lifecycle?: Record<string, string>;
+  /** Lifecycle phases an installed, licensed extension maintains on this card
+   *  (`ext` its key, `name` its display name). Sent only while the lock is in
+   *  effect; null or absent means every phase is editable by hand. A write that
+   *  changes a listed phase is refused with 403 `lifecycle_maintained`. */
+  lifecycle_maintained?: LifecycleMaintained | null;
   attributes?: Record<string, unknown>;
   status: string;
   approval_status: string;

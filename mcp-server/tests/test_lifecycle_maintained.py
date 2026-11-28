@@ -1,0 +1,295 @@
+"""Lifecycle phases an installed extension maintains on a card.
+
+While the lock holds, the backend refuses a write that changes one of those
+phases with 403 ``detail.error == "lifecycle_maintained"``. The lifecycle
+tools answer that with a plain refusal (never the ``pending`` /
+missing-permission deep link, which no human could complete either), and
+``transition_card_lifecycle`` refuses up front when the fetched card already
+says the phase is maintained, so its preview is truthful.
+"""
+
+from __future__ import annotations
+
+import json
+from unittest.mock import AsyncMock, patch
+
+import httpx
+import pytest
+
+from turbo_ea_mcp import server
+
+
+@pytest.fixture
+def fake_token(monkeypatch):
+    monkeypatch.setattr(server, "_stdio_token", "test-token")
+    yield "test-token"
+
+
+def _http_error(status: int, detail: object) -> httpx.HTTPStatusError:
+    request = httpx.Request("PATCH", "http://backend/api/v1/cards/c1")
+    response = httpx.Response(status, json={"detail": detail}, request=request)
+    return httpx.HTTPStatusError(f"{status} error", request=request, response=response)
+
+
+def _maintained_detail(**extra) -> dict:
+    return {
+        "error": "lifecycle_maintained",
+        "message": "The End of Life date is maintained by Acme Sync.",
+        "phases": ["endOfLife"],
+        "extension": "Acme Sync",
+        **extra,
+    }
+
+
+def _batch_post():
+    calls: list[tuple[str, dict | None]] = []
+
+    async def post(path, json=None):
+        calls.append((path, json))
+        if path.endswith("/commit"):
+            return {"id": "B-1"}
+        if path.startswith("/mutation-batches"):
+            return {"id": "B-1", "dry_run": (json or {}).get("dry_run", False)}
+        return {}
+
+    return post, calls
+
+
+class TestRefusalMessage:
+    def test_names_the_phase_and_the_extension(self):
+        out = server._lifecycle_maintained_refusal(["endOfLife"], "Acme Sync")
+        assert out["error"] == "lifecycle_maintained"
+        assert out["message"].startswith(
+            "The End of Life date of this card is set automatically by an installed "
+            "extension (Acme Sync) and cannot be set by hand while it is active."
+        )
+        assert out["phases"] == ["endOfLife"]
+        assert out["extension"] == "Acme Sync"
+        assert "cards" not in out
+
+    def test_several_phases_and_cards(self):
+        out = server._lifecycle_maintained_refusal(["active", "endOfLife"], "", cards=["c1", "c2"])
+        assert out["message"].startswith(
+            "The Active, End of Life dates of these cards are set automatically by an "
+            "installed extension and cannot"
+        )
+        assert out["extension"] is None
+        assert out["cards"] == ["c1", "c2"]
+
+    def test_detail_is_recognised_only_on_a_lifecycle_403(self):
+        assert server._lifecycle_maintained_detail(_http_error(403, _maintained_detail()))
+        assert (
+            server._lifecycle_maintained_detail(_http_error(403, "Not enough permissions")) is None
+        )
+        assert (
+            server._lifecycle_maintained_detail(
+                _http_error(403, {"error": "other", "message": "x"})
+            )
+            is None
+        )
+        assert server._lifecycle_maintained_detail(_http_error(409, _maintained_detail())) is None
+        assert server._lifecycle_maintained_detail(ValueError("403")) is None
+
+
+class TestTransitionCardLifecycle:
+    @pytest.mark.asyncio
+    async def test_preview_refuses_a_maintained_phase(self, fake_token):
+        card = {
+            "id": "c1",
+            "lifecycle": {"endOfLife": "2030-01-01"},
+            "lifecycle_maintained": {
+                "ext": "acme-sync",
+                "name": "Acme Sync",
+                "phases": ["endOfLife"],
+            },
+        }
+        post, calls = _batch_post()
+        patch_mock = AsyncMock()
+        with (
+            patch.object(server.TurboEAClient, "get", AsyncMock(return_value=card)),
+            patch.object(server.TurboEAClient, "patch", patch_mock),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+        ):
+            out = json.loads(
+                await server.transition_card_lifecycle(
+                    card_id="c1", target="endOfLife", effective_date="2031-01-01"
+                )
+            )
+        patch_mock.assert_not_called()
+        assert out["error"] == "lifecycle_maintained"
+        assert "(Acme Sync)" in out["message"]
+        assert out["phases"] == ["endOfLife"]
+        assert out["card_id"] == "c1"
+        assert out["batch_id"] == "B-1"
+        assert "would_transition" not in out
+        assert calls[-1] == (
+            "/mutation-batches/B-1/commit",
+            {"summary": {"card_id": "c1", "target": "endOfLife", "status": "refused"}},
+        )
+
+    @pytest.mark.asyncio
+    async def test_commit_refuses_up_front_without_writing(self, fake_token):
+        card = {
+            "id": "c1",
+            "lifecycle": {},
+            "lifecycle_maintained": {"ext": "acme-sync", "name": "Acme Sync", "phases": ["active"]},
+        }
+        post, _calls = _batch_post()
+        patch_mock = AsyncMock()
+        with (
+            patch.object(server.TurboEAClient, "get", AsyncMock(return_value=card)),
+            patch.object(server.TurboEAClient, "patch", patch_mock),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+        ):
+            out = json.loads(
+                await server.transition_card_lifecycle(card_id="c1", target="active", dry_run=False)
+            )
+        patch_mock.assert_not_called()
+        assert out["error"] == "lifecycle_maintained"
+        assert out["phases"] == ["active"]
+
+    @pytest.mark.asyncio
+    async def test_an_unmaintained_phase_is_still_written(self, fake_token):
+        card = {
+            "id": "c1",
+            "lifecycle": {"endOfLife": "2030-01-01"},
+            "lifecycle_maintained": {
+                "ext": "acme-sync",
+                "name": "Acme Sync",
+                "phases": ["endOfLife"],
+            },
+        }
+        post, _calls = _batch_post()
+        patch_mock = AsyncMock(return_value={"id": "c1"})
+        with (
+            patch.object(server.TurboEAClient, "get", AsyncMock(return_value=card)),
+            patch.object(server.TurboEAClient, "patch", patch_mock),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+        ):
+            out = json.loads(
+                await server.transition_card_lifecycle(
+                    card_id="c1", target="active", effective_date="2026-01-01", dry_run=False
+                )
+            )
+        assert "error" not in out
+        assert patch_mock.call_args[1]["json"] == {
+            "lifecycle": {"endOfLife": "2030-01-01", "active": "2026-01-01"}
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_backend_refusal_is_not_reported_as_pending(self, fake_token):
+        # The card read did not show the lock (it took effect since); the
+        # backend's 403 must read as the lifecycle refusal, not as a missing
+        # permission with a deep link.
+        post, _calls = _batch_post()
+        with (
+            patch.object(
+                server.TurboEAClient, "get", AsyncMock(return_value={"id": "c1", "lifecycle": {}})
+            ),
+            patch.object(
+                server.TurboEAClient,
+                "patch",
+                AsyncMock(side_effect=_http_error(403, _maintained_detail())),
+            ),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+        ):
+            out = json.loads(
+                await server.transition_card_lifecycle(
+                    card_id="c1", target="endOfLife", dry_run=False
+                )
+            )
+        assert out["error"] == "lifecycle_maintained"
+        assert "status" not in out
+        assert "deep_link" not in out
+        assert out["extension"] == "Acme Sync"
+        assert out["batch_id"] == "B-1"
+
+    @pytest.mark.asyncio
+    async def test_another_403_stays_pending(self, fake_token):
+        post, _calls = _batch_post()
+        with (
+            patch.object(
+                server.TurboEAClient, "get", AsyncMock(return_value={"id": "c1", "lifecycle": {}})
+            ),
+            patch.object(
+                server.TurboEAClient,
+                "patch",
+                AsyncMock(side_effect=_http_error(403, "Not enough permissions")),
+            ),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+        ):
+            out = json.loads(
+                await server.transition_card_lifecycle(card_id="c1", target="active", dry_run=False)
+            )
+        assert out["status"] == "pending"
+        assert out["reason"] == "missing_permission"
+
+
+class TestUpdateCardsBulk:
+    @pytest.mark.asyncio
+    async def test_preview_refusal_names_phases_and_cards(self, fake_token):
+        post, calls = _batch_post()
+        err = _http_error(403, _maintained_detail(cards=["c2"]))
+        with (
+            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=err)),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+        ):
+            out = json.loads(
+                await server.update_cards_bulk(
+                    updates=[
+                        {"card_id": "c1", "lifecycle": {"endOfLife": "2031-01-01"}},
+                        {"card_id": "c2", "lifecycle": {"endOfLife": "2031-01-01"}},
+                    ]
+                )
+            )
+        assert out["error"] == "lifecycle_maintained"
+        assert out["cards"] == ["c2"]
+        assert out["phases"] == ["endOfLife"]
+        assert "these cards" in out["message"]
+        assert out["dry_run"] is True
+        assert "applied_card_ids" not in out
+        assert calls[-1] == (
+            "/mutation-batches/B-1/commit",
+            {"summary": {"rows": 2, "status": "refused"}},
+        )
+
+    @pytest.mark.asyncio
+    async def test_commit_reports_rows_already_applied(self, fake_token):
+        post, _calls = _batch_post()
+        responses = [{"updated": 1}, _http_error(403, _maintained_detail())]
+
+        async def patch_router(path, json=None):
+            item = responses.pop(0)
+            if isinstance(item, Exception):
+                raise item
+            return item
+
+        with (
+            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=patch_router)),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+        ):
+            out = json.loads(
+                await server.update_cards_bulk(
+                    updates=[
+                        {"card_id": "c1", "name": "Renamed"},
+                        {"card_id": "c2", "lifecycle": {"endOfLife": "2031-01-01"}},
+                    ],
+                    dry_run=False,
+                )
+            )
+        assert out["error"] == "lifecycle_maintained"
+        # No `cards` in the detail: the refused group's own ids stand in.
+        assert out["cards"] == ["c2"]
+        assert out["applied_card_ids"] == ["c1"]
+        assert out["dry_run"] is False
+
+    @pytest.mark.asyncio
+    async def test_another_error_still_raises(self, fake_token):
+        post, _calls = _batch_post()
+        err = _http_error(403, "Not enough permissions")
+        with (
+            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=err)),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+            pytest.raises(httpx.HTTPStatusError),
+        ):
+            await server.update_cards_bulk(updates=[{"card_id": "c1", "name": "x"}])

@@ -752,3 +752,68 @@ class TestSurveyRollback:
         (op,) = _ops(result, "close_survey")
         assert op["status"] == "skipped" and op["reason"] == "already_closed"
         assert len(await self._responses(db, survey.id)) == 2
+
+
+class TestMaintainedLifecycleRollback:
+    """A phase an installed, licensed extension maintains keeps its current
+    date when someone else's change is rolled back; the rest is restored."""
+
+    @pytest.fixture(autouse=True)
+    def _maintainer(self):
+        from app.services.extensions.registry import extension_registry
+        from tests.lifecycle_lock_helpers import load_maintainer
+
+        load_maintainer()
+        yield
+        extension_registry.clear()
+
+    async def _edited(self, db, actor):
+        from app.services.card_write_service import WriteActor, update_card
+
+        card = await create_card(
+            db, name="Dated", lifecycle={"plan": "2019-01-01", "active": "2020-01-01"}
+        )
+        batch = await _open_batch(db, actor)
+        with _InBatch(batch):
+            await update_card(
+                db,
+                WriteActor.from_user(actor),
+                card,
+                {"lifecycle": {"plan": "2018-01-01", "active": "2021-01-01"}},
+            )
+        return card, batch
+
+    async def test_a_maintained_phase_is_kept_and_reported(self, db, actor):
+        card, batch = await self._edited(db, actor)
+        # The extension claimed Active after the edit.
+        card.lifecycle_maintained = {"ext": "acme-sync", "phases": ["active"]}
+        await db.flush()
+        result = await execute_rollback(db, batch, actor.id)
+        (restore,) = _ops(result, "restore_card_fields")
+        assert restore["status"] == "ok"
+        assert restore["locked_phases"] == ["active"]
+        await db.refresh(card)
+        assert card.lifecycle == {"plan": "2019-01-01", "active": "2021-01-01"}
+        assert card.lifecycle_maintained == {"ext": "acme-sync", "phases": ["active"]}
+
+    async def test_an_ineffective_claim_restores_everything(self, db, actor):
+        from app.services.extensions.registry import extension_registry
+
+        card, batch = await self._edited(db, actor)
+        card.lifecycle_maintained = {"ext": "acme-sync", "phases": ["active"]}
+        await db.flush()
+        extension_registry.clear()
+        result = await execute_rollback(db, batch, actor.id)
+        (restore,) = _ops(result, "restore_card_fields")
+        assert "locked_phases" not in restore
+        await db.refresh(card)
+        assert card.lifecycle == {"plan": "2019-01-01", "active": "2020-01-01"}
+
+    def test_the_plan_carries_the_writing_extension(self):
+        from app.services.rollback_service import _plan_card_updated
+
+        event = Event(event_type="card.updated", card_id=uuid.uuid4(), data={})
+        data = {"id": "c", "ext": "acme-sync", "changes": {"lifecycle": {"old": {}, "new": {}}}}
+        assert _plan_card_updated(event, data)["ext"] == "acme-sync"
+        del data["ext"]
+        assert "ext" not in _plan_card_updated(event, data)

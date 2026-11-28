@@ -48,8 +48,19 @@ vi.mock("@/features/cards/sections", async () => {
     ),
     DescriptionSection: stub,
     // The footer is what the Lifecycle section is handed; render it as given.
-    LifecycleSection: ({ footer }: { footer?: React.ReactNode }) => (
-      <div data-testid="lifecycle-section">{footer}</div>
+    LifecycleSection: ({
+      footer,
+      maintained,
+    }: {
+      footer?: React.ReactNode;
+      maintained?: unknown;
+    }) => (
+      <div
+        data-testid="lifecycle-section"
+        data-maintained={maintained === undefined ? "undefined" : JSON.stringify(maintained)}
+      >
+        {footer}
+      </div>
     ),
     HierarchySection: stub,
     SuccessorsSection: stub,
@@ -140,12 +151,12 @@ const perms = {
 
 const refreshed = { ...card, data_quality: 80 } as unknown as Card;
 
-function renderContent(onSaveOrigin?: (anchor: string) => void) {
+function renderContent(onSaveOrigin?: (anchor: string) => void, shown: Card = card) {
   const onCardUpdate = vi.fn();
   render(
     <MemoryRouter>
       <CardDetailContent
-        card={card}
+        card={shown}
         perms={perms}
         onCardUpdate={onCardUpdate}
         onSaveOrigin={onSaveOrigin}
@@ -231,5 +242,20 @@ describe("CardDetailContent — relation lifecycles", () => {
     fireEvent.click(screen.getByRole("button", { name: "attribute relation changed" }));
     await waitFor(() => expect(refreshOf("relations-section")).toBe("2"));
     expect(refreshOf("relation-lifecycles-panel")).toBe("2");
+  });
+});
+
+describe("CardDetailContent — lifecycle phases an extension maintains", () => {
+  it("hands the card's lifecycle_maintained to the Lifecycle section", async () => {
+    const maintained = { ext: "acme-sync", name: "Acme Sync", phases: ["endOfLife"] };
+    renderContent(undefined, { ...card, lifecycle_maintained: maintained } as Card);
+    const section = await screen.findByTestId("lifecycle-section");
+    expect(JSON.parse(section.getAttribute("data-maintained")!)).toEqual(maintained);
+  });
+
+  it("passes null when the card carries none", async () => {
+    renderContent();
+    const section = await screen.findByTestId("lifecycle-section");
+    expect(section.getAttribute("data-maintained")).toBe("null");
   });
 });

@@ -18,7 +18,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_current():
-    assert sdk.SDK_VERSION == "1.21"
+    assert sdk.SDK_VERSION == "1.22"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -220,8 +220,9 @@ def test_sdk_compatibility_is_major_only():
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.22")
+    assert sdk.sdk_minor_newer("1.23")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.22")
     assert not sdk.sdk_minor_newer("1.21")
     assert not sdk.sdk_minor_newer("1.20")
     assert not sdk.sdk_minor_newer("1.19")
@@ -611,7 +612,9 @@ def test_sdk_1_20_surface_exists():
 
     from app.services.extensions import bundle
 
-    assert not any("lifecycle" in grant for grant in bundle.VALID_GRANTS)
+    # Relation lifecycle came with no grant; the only lifecycle grant is the
+    # SDK 1.22 one for maintained CARD lifecycle phases.
+    assert {g for g in bundle.VALID_GRANTS if "lifecycle" in g} == {"core.cards.maintain_lifecycle"}
 
 
 def test_sdk_1_21_surface_exists():
@@ -630,3 +633,40 @@ def test_sdk_1_21_surface_exists():
     from app.services.extensions import bundle
 
     assert not any("outcome" in grant for grant in bundle.VALID_GRANTS)
+
+
+def test_sdk_1_22_surface_exists():
+    # SDK 1.22 — maintained lifecycle phases. ``ExtCard.lifecycle_maintained``
+    # is trailing and defaulted, so the sixteen-argument construction older
+    # extensions use still works; the two bridge calls take ``dry_run`` as a
+    # keyword-only flag, and the grant is valid in manifests.
+    import dataclasses
+    import inspect
+
+    card = sdk.ExtCard(
+        "c", "Application", None, "N", None, None, None, "ACTIVE", "DRAFT", None, None,
+        {}, {}, 0.0, None, None,
+    )  # fmt: skip
+    assert card.lifecycle_maintained is None
+    names = [f.name for f in dataclasses.fields(sdk.ExtCard)]
+    assert names[-1] == "lifecycle_maintained"
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        card.lifecycle_maintained = {"ext": "x", "phases": ["active"]}  # type: ignore[misc]
+
+    from app.services.extensions.data_service import ExtensionData
+
+    for impl in (sdk.DataBridge.maintain_lifecycle, ExtensionData.maintain_lifecycle):
+        params = inspect.signature(impl).parameters
+        assert list(params)[:3] == ["self", "card_id", "values"]
+        assert params["dry_run"].kind is inspect.Parameter.KEYWORD_ONLY
+        assert params["dry_run"].default is False
+    for impl in (sdk.DataBridge.release_lifecycle, ExtensionData.release_lifecycle):
+        params = inspect.signature(impl).parameters
+        assert list(params)[:2] == ["self", "card_id"]
+        assert params["dry_run"].kind is inspect.Parameter.KEYWORD_ONLY
+        assert params["dry_run"].default is False
+
+    from app.services.extensions import bundle, lifecycle_gate
+
+    assert lifecycle_gate.MAINTAIN_GRANT == "core.cards.maintain_lifecycle"
+    assert lifecycle_gate.MAINTAIN_GRANT in bundle.VALID_GRANTS

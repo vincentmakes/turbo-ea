@@ -28,6 +28,12 @@ class Card(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     parent_label: Mapped[str | None] = mapped_column(String(100))
     lifecycle: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     attributes: Mapped[dict | None] = mapped_column(JSONB, default=dict)
+    #: A licensed extension's claim on some lifecycle phases:
+    #: ``{"ext": "<extension key>", "phases": ["active", "endOfLife"]}``; NULL =
+    #: nothing maintained. Instance-local: never exported or imported. Only the
+    #: data bridge's ``maintain_lifecycle`` / ``release_lifecycle`` and the
+    #: uninstall clean-up write it (``services/extensions/lifecycle_gate.py``).
+    lifecycle_maintained: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=None)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
     approval_status: Mapped[str] = mapped_column(String(20), default="DRAFT")
     data_quality: Mapped[float] = mapped_column(Float, default=0.0)

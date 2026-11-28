@@ -1847,3 +1847,97 @@ async def test_a_create_gates_its_attributes_against_an_empty_stored_dict(
     await ap._apply_single_card(db, staged, env.admin)
     # A new card has nothing stored: the gate compares against an empty dict.
     assert calls == [({}, {"score": 3, "k": 1}, {"score": "Score"})]
+
+
+# ── maintained lifecycle phases ─────────────────────────────────────────────
+
+
+@pytest.fixture
+def maintainer():
+    from app.services.extensions.registry import extension_registry
+    from tests.lifecycle_lock_helpers import load_maintainer
+
+    load_maintainer()
+    yield
+    extension_registry.clear()
+
+
+async def test_an_update_keeps_a_maintained_lifecycle_phase_and_notes_it(
+    db, env, published, maintainer
+):
+    card = await create_card(
+        db,
+        name="M",
+        lifecycle={"active": "2020-01-01", "endOfLife": "2030-01-01"},
+        lifecycle_maintained={"ext": "acme-sync", "phases": ["endOfLife"]},
+    )
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"lifecycle": {"plan": "2019-01-01", "endOfLife": "2031-01-01"}}},
+    )
+    await ap._apply_single_card(db, staged, env.admin)
+    assert card.lifecycle == {
+        "plan": "2019-01-01",
+        "active": "2020-01-01",
+        "endOfLife": "2030-01-01",
+    }
+    assert staged.error_message == (
+        "Lifecycle phases maintained by an extension not imported: endOfLife"
+    )
+
+
+async def test_a_maintained_phase_note_follows_a_field_note(db, env, published, no_extensions):
+    from tests.lifecycle_lock_helpers import load_maintainer
+
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    # The stamped field's extension stays unlicensed; only the maintainer loads.
+    load_maintainer()
+    card = await create_card(
+        db,
+        card_type="Gadget",
+        name="G",
+        attributes={"score": 1},
+        lifecycle={"active": "2020-01-01"},
+        lifecycle_maintained={"ext": "acme-sync", "phases": ["active"]},
+    )
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"attributes": {"score": 5}, "lifecycle": {"active": "2021-01-01"}}},
+    )
+    await ap._apply_single_card(db, staged, env.admin)
+    assert card.lifecycle == {"active": "2020-01-01"}
+    assert staged.error_message == (
+        "Read-only extension fields not imported: score; "
+        "Lifecycle phases maintained by an extension not imported: active"
+    )
+
+
+async def test_an_ineffective_claim_lets_the_import_write(db, env, published, no_extensions):
+    card = await create_card(
+        db,
+        name="Free",
+        lifecycle={"active": "2020-01-01"},
+        lifecycle_maintained={"ext": "acme-sync", "phases": ["active"]},
+    )
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"lifecycle": {"active": "2021-01-01"}}},
+    )
+    await ap._apply_single_card(db, staged, env.admin)
+    assert card.lifecycle == {"active": "2021-01-01"}
+    assert staged.error_message is None

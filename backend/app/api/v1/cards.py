@@ -132,7 +132,7 @@ from app.services.data_quality import calc_data_quality, calc_data_quality_break
 from app.services.document_event_scope import document_event_read_filters
 from app.services.event_bus import event_bus
 from app.services.event_cost_scrub import scrub_event_costs
-from app.services.extensions import field_gate
+from app.services.extensions import field_gate, lifecycle_gate
 from app.services.lifecycle import lifecycle_in_effect_sql, lifecycle_rank
 from app.services.permission_service import PermissionService
 
@@ -144,7 +144,10 @@ def _card_to_response(
     *,
     strip_cost_keys: frozenset[str] = frozenset(),
     logo_updated_at: datetime | None = None,
+    lock_cache: dict[str, str | None] | None = None,
 ) -> CardResponse:
+    """``lock_cache``: one dict shared by every row of a list response, so each
+    lifecycle claim's owner is resolved once per request (``lifecycle_gate``)."""
     tags = []
     for t in card.tags or []:
         tags.append(
@@ -196,6 +199,9 @@ def _card_to_response(
         logo_updated_at=logo_updated_at,
         tags=tags,
         stakeholders=stakeholder_refs,
+        lifecycle_maintained=lifecycle_gate.lock_payload(
+            card.lifecycle_maintained, cache=lock_cache
+        ),
     )
 
 
@@ -485,11 +491,13 @@ async def list_cards(
     cards = list(result.scalars().all())
     redact = await _cost_redaction_map(db, user, cards)
     logos = await logo_updated_map(db, cards)
+    lock_cache: dict[str, str | None] = {}
     items = [
         _card_to_response(
             card,
             strip_cost_keys=redact.get(card.id, frozenset()),
             logo_updated_at=logos.get(card.id),
+            lock_cache=lock_cache,
         )
         for card in cards
     ]
@@ -601,9 +609,14 @@ async def list_my_stakeholder_cards(
     redact = await _cost_redaction_map(db, user, [card for card, _ in rows])
 
     items = []
+    lock_cache: dict[str, str | None] = {}
     roles_by_card_id: dict[str, list[dict]] = {}
     for card, roles in rows:
-        items.append(_card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())))
+        items.append(
+            _card_to_response(
+                card, strip_cost_keys=redact.get(card.id, frozenset()), lock_cache=lock_cache
+            )
+        )
         descriptors: list[dict] = []
         seen: set[str] = set()
         for role_key in roles or []:
@@ -675,7 +688,8 @@ async def list_my_created_cards(
     cards = list(result.scalars().all())
     redact = await _cost_redaction_map(db, user, cards)
     items = [
-        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())) for card in cards
+        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset()), lock_cache={})
+        for card in cards
     ]
     return {
         "items": items,
@@ -1850,6 +1864,17 @@ async def bulk_update(
         for key in locked_types
     }
 
+    # Lifecycle phases a licensed extension maintains: a shared lifecycle that
+    # would change one on any selected card refuses the whole call (403
+    # ``lifecycle_maintained`` naming the cards) — on a dry run too. Cards
+    # under a claim get the maintained phases carried over.
+    lifecycle_by_card: dict[str, dict] = {}
+    if "lifecycle" in updates:
+        lifecycle_by_card = lifecycle_gate.checked_bulk_lifecycle(
+            [(str(c.id), c.lifecycle, c.lifecycle_maintained) for c in sheets],
+            updates["lifecycle"],
+        )
+
     # Same prefetch for the hierarchy-label vocabulary — the check is per card
     # (each compares against its own stored label and its own final parent), so
     # only the type lookup can be deduplicated.
@@ -1927,6 +1952,8 @@ async def bulk_update(
         for field, value in updates.items():
             if field == "parent_id" and value is not None:
                 value = uuid.UUID(value)
+            elif field == "lifecycle" and str(card.id) in lifecycle_by_card:
+                value = lifecycle_by_card[str(card.id)]
             elif field == "attributes":
                 if value is not None:
                     strip = incoming_attr_redact.get(card.id)
@@ -2085,7 +2112,8 @@ async def bulk_update(
     sheets = list(result.scalars().all())
     redact = await _cost_redaction_map(db, user, sheets)
     return [
-        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())) for card in sheets
+        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset()), lock_cache={})
+        for card in sheets
     ]
 
 

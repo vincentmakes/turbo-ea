@@ -73,6 +73,7 @@ from app.services.card_write_service import WriteActor
 from app.services.eol_custom_service import load_custom_cycles
 from app.services.eol_service import resolve_eol_statuses
 from app.services.event_bus import request_batch_id, request_origin
+from app.services.extensions import lifecycle_gate
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.sdk import (
     ExtBatch,
@@ -84,7 +85,11 @@ from app.services.extensions.sdk import (
     ExtRelation,
     ExtStakeholder,
 )
-from app.services.lifecycle import lifecycle_in_effect_sql, normalize_relation_lifecycle
+from app.services.lifecycle import (
+    lifecycle_in_effect_sql,
+    normalize_relation_lifecycle,
+    parse_lifecycle_date,
+)
 
 READ_GRANTS = frozenset({"core.cards.read", "core.cards.write"})
 WRITE_GRANT = "core.cards.write"
@@ -312,7 +317,69 @@ def _to_ext_card(card: Card) -> ExtCard:
         data_quality=card.data_quality,
         created_at=card.created_at.isoformat() if card.created_at else None,
         updated_at=card.updated_at.isoformat() if card.updated_at else None,
+        lifecycle_maintained=(
+            dict(card.lifecycle_maintained) if card.lifecycle_maintained else None
+        ),
     )
+
+
+def normalise_maintained_values(values: object) -> dict[str, str | None]:
+    """Validate ``maintain_lifecycle``'s ``values`` (SDK 1.22).
+
+    A non-empty dict whose keys are lifecycle phases; each value ``None`` or
+    ``""`` (remove the phase) or a string ``parse_lifecycle_date`` reads,
+    returned as zero-padded ``YYYY-MM-DD`` — the relation-lifecycle date rule.
+    Raises ``ExtensionDataError`` naming the offending key.
+    """
+    if not isinstance(values, dict) or not values:
+        raise ExtensionDataError(
+            "values must be a non-empty object of phase → date (or None to remove it)"
+        )
+    out: dict[str, str | None] = {}
+    for phase, raw in values.items():
+        if phase not in lifecycle_gate.PHASES:
+            raise ExtensionDataError(
+                f"lifecycle: unknown phase {phase!r} "
+                f"(expected one of {', '.join(lifecycle_gate.PHASES)})"
+            )
+        if raw is None or raw == "":
+            out[phase] = None
+            continue
+        parsed = parse_lifecycle_date(raw) if isinstance(raw, str) else None
+        if parsed is None:
+            raise ExtensionDataError(f"lifecycle: {phase!r} is not a date (expected YYYY-MM-DD)")
+        out[phase] = parsed.isoformat()
+    return out
+
+
+def maintain_updates(card: Card, key: str, values: dict[str, str | None]) -> dict[str, Any]:
+    """The ``update_card`` payload ``maintain_lifecycle`` writes: the merged
+    lifecycle and the claim, each only when it changes. Refuses when another
+    extension holds an EFFECTIVE claim; an ineffective one is taken over."""
+    lock = lifecycle_gate.effective_lock(card.lifecycle_maintained)
+    if lock is not None and lock.ext != key:
+        raise ExtensionDataError(
+            f"The lifecycle of card {card.id} is maintained by the extension {lock.name}"
+        )
+    phases = lifecycle_gate.ordered_phases(values)
+    stored = dict(card.lifecycle or {})
+    merged = lifecycle_gate.merge_maintained(stored, values, phases)
+    marker = {"ext": key, "phases": list(phases)}
+    updates: dict[str, Any] = {}
+    if merged != stored:
+        updates["lifecycle"] = merged
+    if card.lifecycle_maintained != marker:
+        updates["lifecycle_maintained"] = marker
+    return updates
+
+
+def release_updates(card: Card, key: str) -> dict[str, Any]:
+    """The ``update_card`` payload ``release_lifecycle`` writes: the claim
+    cleared when it is ``key``'s own, else nothing."""
+    marker = card.lifecycle_maintained
+    if isinstance(marker, dict) and marker.get("ext") == key:
+        return {"lifecycle_maintained": None}
+    return {}
 
 
 def _to_ext_relation(rel: Relation) -> ExtRelation:
@@ -1176,6 +1243,82 @@ class ExtensionData:
             return _to_ext_relation(rel)
 
         return await self._write(op, dry_run=dry_run)
+
+    # -- maintained lifecycle phases (SDK 1.22) -----------------------------
+
+    async def _lifecycle_claim_write(
+        self,
+        card_id: str,
+        plan: Callable[[Card], dict[str, Any]],
+        *,
+        dry_run: bool,
+    ) -> ExtCard:
+        """Shared body of ``maintain_lifecycle`` / ``release_lifecycle``.
+
+        ``plan(card)`` returns the ``update_card`` payload. A call whose plan is
+        empty is answered from one read session and writes nothing — no
+        audit batch, no event. Otherwise the write runs through ``_write``
+        (batch, caps, kill switch, dry run) and ``update_card`` with
+        ``lifecycle_maintainer`` set — the only write allowed to move the claim.
+        """
+        cid = _parse_uuid(card_id, "card id")
+        self._require(write=True)
+        self._require_grant(lifecycle_gate.MAINTAIN_GRANT)
+        self._require_writes_enabled()
+
+        async with async_session() as db:
+            card = (await db.execute(select(Card).where(Card.id == cid))).scalar_one_or_none()
+            if card is None:
+                raise ExtensionDataError(f"Card {card_id} not found")
+            if not plan(card):
+                return _to_ext_card(card)
+
+        async def op(db: AsyncSession) -> ExtCard:
+            card = (await db.execute(select(Card).where(Card.id == cid))).scalar_one_or_none()
+            if card is None:
+                raise ExtensionDataError(f"Card {card_id} not found")
+            updates = plan(card)
+            if updates:
+                await card_write_service.update_card(
+                    db,
+                    self._actor(),
+                    card,
+                    updates,
+                    dry_run=dry_run,
+                    lifecycle_maintainer=self._key,
+                )
+                await db.flush()
+                await db.refresh(card)
+            return _to_ext_card(card)
+
+        return await self._write(op, dry_run=dry_run, grant=lifecycle_gate.MAINTAIN_GRANT)
+
+    async def maintain_lifecycle(
+        self,
+        card_id: str,
+        values: dict[str, str | None],
+        *,
+        dry_run: bool = False,
+    ) -> ExtCard:
+        """Set and claim lifecycle phases of a card (SDK 1.22).
+
+        Needs ``core.cards.maintain_lifecycle`` and ``core.cards.write``.
+        ``values`` maps phases to a date or ``None`` (remove); those phases
+        become the claim ``{"ext": key, "phases": [...]}`` (chronological
+        order) and are written with ``lifecycle_gate.merge_maintained`` — the
+        other phases stay, a hand-typed one breaking the order is clamped.
+        Refused when another extension's claim on the card is in force."""
+        checked = normalise_maintained_values(values)
+        return await self._lifecycle_claim_write(
+            card_id, lambda card: maintain_updates(card, self._key, checked), dry_run=dry_run
+        )
+
+    async def release_lifecycle(self, card_id: str, *, dry_run: bool = False) -> ExtCard:
+        """Drop this extension's own lifecycle claim on a card (SDK 1.22). The
+        dates stay; a card without a claim of its own is left untouched."""
+        return await self._lifecycle_claim_write(
+            card_id, lambda card: release_updates(card, self._key), dry_run=dry_run
+        )
 
     # -- tags + stakeholders (SDK 1.9) --------------------------------------
 
