@@ -17,6 +17,17 @@ import { getLastStreamHello, subscribeEventStream } from "@/hooks/useEventStream
 // tab keeps ONE EventSource — this listens on `useEventStream`'s shared
 // connection (one listener while anything is watched) and never opens its
 // own. Against a backend that sends no hello, nothing here ever calls out.
+//
+// Two moments where a change could otherwise go unseen:
+// - The page reads the card BEFORE it registers the watch, so a change
+//   committed in between pings nobody. The first successful registration of a
+//   newly watched id therefore calls its subscribers once (a catch-up read) —
+//   once per id while it stays watched, never again on a refresh, a re-send
+//   or a second hook on the same card.
+// - A registration that fails for a passing reason (a network blip, a 5xx) is
+//   retried after 1 s, 2 s and 5 s, then left until the next hello, refresh
+//   or change of the watched set. A 404 means the connection is gone: the next
+//   hello brings a new one.
 
 /** The server accepts at most this many ids per watch set. */
 export const MAX_WATCHED_CARDS = 10;
@@ -24,6 +35,10 @@ export const MAX_WATCHED_CARDS = 10;
 const REFRESH_AT = 0.8;
 /** A reconnect re-reads every watched card, spread over this window. */
 const RECONNECT_JITTER_MS = 1500;
+/** Waits before re-sending a registration that failed for a passing reason. */
+export const WATCH_RETRY_DELAYS_MS = [1000, 2000, 5000] as const;
+/** Until a hello names one: the server's own watch lifetime (five minutes). */
+const DEFAULT_TTL_SECONDS = 300;
 
 const CARD_CHANGED = "event.stream.card_changed";
 const HELLO = "event.stream.hello";
@@ -33,7 +48,7 @@ type Subscriber = () => void;
 /** Watched id → subscribers. Map order is registration order: last = newest. */
 const watched = new Map<string, Set<Subscriber>>();
 let streamId: string | null = null;
-let ttlSeconds = 1800;
+let ttlSeconds = DEFAULT_TTL_SECONDS;
 /** The hello last adopted, so a cached one is never adopted twice. */
 let adoptedSeq = 0;
 /** `${streamId}|${ids}` last registered, so an unchanged set is not re-sent. */
@@ -42,6 +57,12 @@ let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let inflight = false;
 let syncAgain = false;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+/** Failed attempts at registering `retryKey`. */
+let retryAttempt = 0;
+let retryKey: string | null = null;
+/** Watched ids the server has accepted at least once (their catch-up is done). */
+const confirmed = new Set<string>();
 const jitterTimers = new Set<ReturnType<typeof setTimeout>>();
 /** The stream listener, held while anything is watched. */
 let unsubscribe: (() => void) | null = null;
@@ -55,6 +76,40 @@ function currentIds(): string[] {
 function clearRefresh(): void {
   if (refreshTimer !== null) clearTimeout(refreshTimer);
   refreshTimer = null;
+}
+
+function clearRetry(): void {
+  if (retryTimer !== null) clearTimeout(retryTimer);
+  retryTimer = null;
+}
+
+function resetRetry(): void {
+  clearRetry();
+  retryAttempt = 0;
+  retryKey = null;
+}
+
+/** Call every subscriber of `id` now; one throwing must not stop the others. */
+function callSubscribers(id: string): void {
+  const subs = watched.get(id);
+  if (!subs) return;
+  for (const sub of [...subs]) {
+    try {
+      sub();
+    } catch {
+      // one subscriber must not break the others
+    }
+  }
+}
+
+/** The server accepted `accepted`: the ids registered for the first time
+ *  catch up on what changed between the page's own read and now. */
+function confirm(accepted: string[]): void {
+  for (const id of accepted) {
+    if (!watched.has(id) || confirmed.has(id)) continue;
+    confirmed.add(id);
+    callSubscribers(id);
+  }
 }
 
 function armRefresh(): void {
@@ -89,11 +144,25 @@ async function sync(force: boolean): Promise<void> {
   if (!force && key === lastSent) return;
   // Nothing registered on this connection yet and nothing to register.
   if (ids.length === 0 && (lastSent === null || !lastSent.startsWith(`${sid}|`))) return;
+  // This send replaces any retry still waiting.
+  clearRetry();
+  if (key !== retryKey) {
+    retryKey = key;
+    retryAttempt = 0;
+  }
   inflight = true;
   try {
-    await api.put(`/events/stream/${encodeURIComponent(sid)}/watch`, { card_ids: ids });
+    const res = await api.put<{ card_ids?: unknown } | undefined>(
+      `/events/stream/${encodeURIComponent(sid)}/watch`,
+      { card_ids: ids },
+    );
     lastSent = key;
+    resetRetry();
     armRefresh();
+    const accepted = Array.isArray(res?.card_ids)
+      ? res.card_ids.filter((id): id is string => typeof id === "string")
+      : ids;
+    if (streamId === sid) confirm(accepted);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
       // The connection is gone or was never ours (it reconnected): wait for
@@ -102,12 +171,22 @@ async function sync(force: boolean): Promise<void> {
         streamId = null;
         lastSent = null;
         clearRefresh();
+        resetRetry();
       }
+    } else if (retryAttempt < WATCH_RETRY_DELAYS_MS.length && streamId === sid) {
+      // A passing failure: try again shortly, a bounded number of times.
+      const delay = WATCH_RETRY_DELAYS_MS[retryAttempt];
+      retryAttempt += 1;
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        void sync(true);
+      }, delay);
     } else {
-      // Anything else is swallowed: the page just behaves as it did before
-      // live updates. Remember the attempt so it is not retried in a loop;
-      // the refresh timer tries again later.
+      // Still failing: the page behaves as it did before live updates.
+      // Remember the attempt so it is not retried in a loop; the refresh
+      // timer, the next hello or a change of the watched set tries again.
       lastSent = key;
+      resetRetry();
       armRefresh();
     }
   } finally {
@@ -141,6 +220,7 @@ function adoptHello(fromStream: boolean): void {
   ttlSeconds = hello.watchTtlSeconds;
   lastSent = null;
   clearRefresh();
+  resetRetry();
   if (watched.size > 0) scheduleSync();
   // A reconnect means pings may have been missed while the stream was down.
   // A hello merely read from the cache on mount is not news.
@@ -157,15 +237,7 @@ function handleStreamMessage(event: Record<string, unknown>): void {
   if (event.event !== CARD_CHANGED || streamId === null) return;
   const id = event.card_id;
   if (typeof id !== "string") return;
-  const subs = watched.get(id);
-  if (!subs) return;
-  for (const sub of [...subs]) {
-    try {
-      sub();
-    } catch {
-      // one subscriber must not break the others
-    }
-  }
+  callSubscribers(id);
 }
 
 function addWatcher(id: string, sub: Subscriber): void {
@@ -186,10 +258,12 @@ function removeWatcher(id: string, sub: Subscriber): void {
   subs.delete(sub);
   if (subs.size > 0) return;
   watched.delete(id);
+  confirmed.delete(id);
   if (watched.size === 0) {
     unsubscribe?.();
     unsubscribe = null;
     clearRefresh();
+    resetRetry();
     for (const timer of jitterTimers) clearTimeout(timer);
     jitterTimers.clear();
   }
@@ -199,12 +273,14 @@ function removeWatcher(id: string, sub: Subscriber): void {
 /** Test seam: forget every watcher, timer and stream id. */
 export function resetCardWatch(): void {
   watched.clear();
+  confirmed.clear();
   streamId = null;
-  ttlSeconds = 1800;
+  ttlSeconds = DEFAULT_TTL_SECONDS;
   adoptedSeq = 0;
   lastSent = null;
   inflight = false;
   syncAgain = false;
+  resetRetry();
   if (syncTimer !== null) clearTimeout(syncTimer);
   syncTimer = null;
   clearRefresh();
@@ -217,8 +293,10 @@ export function resetCardWatch(): void {
 /**
  * Call `onChanged` whenever the server says card `cardId` changed — after
  * another user, an integration or an automation wrote it, and also after the
- * viewer's own saves (the server does not tell them apart). A reconnect of the
- * stream calls it once too, jittered, because pings may have been missed.
+ * viewer's own saves (the server does not tell them apart). The first time the
+ * server accepts the watch it is called once too (the page read the card
+ * before the watch existed), and a reconnect of the stream calls it once,
+ * jittered, because pings may have been missed.
  *
  * `undefined` watches nothing. The watch is shared: several hooks on the same
  * card are one registration with the server, dropped when the last unmounts.
