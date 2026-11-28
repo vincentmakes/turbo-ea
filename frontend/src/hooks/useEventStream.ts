@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { isAuthenticated } from "@/api/client";
+import type { StreamHello } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Per-tab SSE singleton
@@ -26,23 +27,13 @@ let es: EventSource | null = null;
 //: initial connection; every later one means it dropped and came back.
 let hasConnected = false;
 
-/** What the server said when this tab's stream (re)connected. */
-export interface StreamHello {
-  /** Opaque id of THIS connection; a reconnect gets a new one. */
-  streamId: string;
-  /** How long a registered watch lives unless it is refreshed. */
-  watchTtlSeconds: number;
-  /** Increases by one per hello this tab ever received — never reset. */
-  seq: number;
-  /** True for every hello after the first one of the current stream. */
-  reconnect: boolean;
-}
-
 //: The newest `event.stream.hello`, kept here because it is the first message
 //: of a connection: a consumer that mounts later (a card page opened after the
 //: layout started the stream) would otherwise never learn the stream's id. An
 //: older backend sends no hello, and this stays `null`.
 let lastHello: StreamHello | null = null;
+/** Used only when a hello names no lifetime: the server's own default. */
+const DEFAULT_WATCH_TTL_SECONDS = 300;
 let helloSeq = 0;
 let hellosThisStream = 0;
 
@@ -55,7 +46,7 @@ function noteHello(event: Record<string, unknown>): void {
   helloSeq += 1;
   lastHello = {
     streamId,
-    watchTtlSeconds: Number.isFinite(ttl) && ttl > 0 ? ttl : 1800,
+    watchTtlSeconds: Number.isFinite(ttl) && ttl > 0 ? ttl : DEFAULT_WATCH_TTL_SECONDS,
     seq: helloSeq,
     reconnect: hellosThisStream > 1,
   };

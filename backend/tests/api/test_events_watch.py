@@ -126,7 +126,7 @@ class TestWatchRoute:
         sid = _stream_for(env["viewer"])
         resp = await _watch(client, env["viewer"], sid, [env["app"].id])
         assert resp.status_code == 200
-        assert resp.json() == {"card_ids": [str(env["app"].id)], "expires_in": 1800}
+        assert resp.json() == {"card_ids": [str(env["app"].id)], "expires_in": card_watch.WATCH_TTL_SECONDS}
         assert card_watch.watchers_exist(env["app"].id)
 
     async def test_replaces_the_set_and_dedupes(self, client, env):
@@ -139,7 +139,7 @@ class TestWatchRoute:
         assert not card_watch.watchers_exist(env["app"].id)
         empty = await _watch(client, env["member"], sid, [])
         assert empty.status_code == 200
-        assert empty.json() == {"card_ids": [], "expires_in": 1800}
+        assert empty.json() == {"card_ids": [], "expires_in": card_watch.WATCH_TTL_SECONDS}
         assert not card_watch.watchers_exist(env["initiative"].id)
 
     async def test_unreadable_hidden_and_unknown_cards_are_left_out(self, client, env):
@@ -241,7 +241,7 @@ class TestStream:
         try:
             assert set(hello) == {"event", "stream_id", "watch_ttl_seconds", "timestamp"}
             assert hello["event"] == "event.stream.hello"
-            assert hello["watch_ttl_seconds"] == 1800
+            assert hello["watch_ttl_seconds"] == card_watch.WATCH_TTL_SECONDS == 300
             assert card_watch.owns_stream(hello["stream_id"], env["viewer"].id)
             assert not card_watch.owns_stream(hello["stream_id"], env["admin"].id)
         finally:

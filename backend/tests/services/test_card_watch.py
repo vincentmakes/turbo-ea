@@ -56,7 +56,7 @@ class TestRegistry:
         assert set(msg) == {"event", "stream_id", "watch_ttl_seconds", "timestamp"}
         assert msg["event"] == "event.stream.hello"
         assert msg["stream_id"] == "abc"
-        assert msg["watch_ttl_seconds"] == 1800
+        assert msg["watch_ttl_seconds"] == 300 == card_watch.WATCH_TTL_SECONDS
 
     def test_notify_puts_exactly_the_reduced_ping(self):
         cid = uuid.uuid4()
@@ -73,13 +73,19 @@ class TestRegistry:
         assert card_watch.watchers_exist(None) is False
         assert card_watch.notify(uuid.uuid4()) == 0
 
-    def test_note_change_without_watchers_touches_no_session(self):
-        class Exploding:
-            @property
-            def sync_session(self):
-                raise AssertionError("looked at the session for an unwatched card")
+    def test_watch_ttl_is_five_minutes(self):
+        # A user who loses read access stops hearing about the card within
+        # this long; the browser re-registers at 80 % of what the hello says.
+        assert card_watch.WATCH_TTL_SECONDS == 300
 
-        card_watch.note_change(Exploding(), uuid.uuid4())
+    def test_set_watch_expires_after_the_ttl(self):
+        cid = uuid.uuid4()
+        _sid, inbox = _watching(cid, now=1000.0)
+        assert card_watch.notify(cid, now=1000.0 + 299) == 1
+        _drain(inbox)
+        card_watch.mark_forwarded(_sid, cid)
+        assert card_watch.notify(cid, now=1000.0 + 300) == 0
+        assert card_watch.watchers_exist(cid) is False
 
     def test_only_watching_streams_are_pinged(self):
         watched, other = uuid.uuid4(), uuid.uuid4()
@@ -319,6 +325,38 @@ class TestAfterCommitOwnedSession:
         await owned_session.commit()
         assert len(_drain(streams[kept])) == 1
         assert _drain(streams[dropped]) == []
+
+    async def test_a_watch_registered_after_the_publish_hears_the_commit(self, owned_session):
+        """A browser opening the card during a long transaction reads the row
+        as it was, registers, and must still be told when the writer commits."""
+        cid = uuid.uuid4()
+        await owned_session.execute(text("select 1"))
+        card_watch.note_change(owned_session, cid)  # nobody watches yet
+        _sid, inbox = _watching(cid)  # the browser registers mid-transaction
+        assert _drain(inbox) == []
+        await owned_session.commit()
+        assert [p["card_id"] for p in _drain(inbox)] == [str(cid)]
+
+    async def test_the_pending_ids_are_deduplicated_per_transaction(self, owned_session):
+        cid, other = uuid.uuid4(), uuid.uuid4()
+        await owned_session.execute(text("select 1"))
+        for _ in range(1000):
+            card_watch.note_change(owned_session, cid)
+            card_watch.note_change(owned_session, str(other))
+        (ids,) = owned_session.sync_session.info[card_watch._PENDING_KEY].values()
+        assert ids == {cid, other}
+        await owned_session.commit()
+        assert card_watch._PENDING_KEY not in owned_session.sync_session.info
+
+    async def test_a_commit_with_nobody_watching_notifies_nobody(
+        self, owned_session, monkeypatch
+    ):
+        calls: list = []
+        monkeypatch.setattr(card_watch, "notify", lambda cid, **_kw: calls.append(cid))
+        await owned_session.execute(text("select 1"))
+        card_watch.note_change(owned_session, uuid.uuid4())
+        await owned_session.commit()
+        assert calls == []
 
     async def test_many_changes_to_one_card_are_one_ping(self, owned_session):
         cid = uuid.uuid4()

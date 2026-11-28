@@ -53,7 +53,7 @@ export const hookState = {
     handlers: [] as Array<(event: Record<string, unknown>) => void>,
     reconnect: [] as Array<() => void>,
     /** What `getLastStreamHello()` returns; `emitEvent` records each hello. */
-    hello: null as import("@/hooks/useEventStream").StreamHello | null,
+    hello: null as import("@/types").StreamHello | null,
     hellos: 0,
   },
 
@@ -94,7 +94,7 @@ export function emitEvent(event: Record<string, unknown>): void {
     s.hellos += 1;
     s.hello = {
       streamId: event.stream_id,
-      watchTtlSeconds: Number(event.watch_ttl_seconds ?? 1800),
+      watchTtlSeconds: Number(event.watch_ttl_seconds ?? 300),
       seq: (s.hello?.seq ?? 0) + 1,
       reconnect: s.hellos > 1,
     };

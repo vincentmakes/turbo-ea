@@ -136,7 +136,8 @@ class EventBus:
         # Live card updates: a browser watching this card gets a reduced ping
         # straight into its own queue — after the commit when the event is
         # persisted, at once when it is not — never through the fan-out below.
-        # One dict lookup when nobody watches the card (``card_watch``).
+        # The id is recorded whether or not anybody watches yet; the watchers
+        # are looked up at the commit (``card_watch``).
         if card_id is not None:
             card_watch.note_change(db, card_id)
 

@@ -13,18 +13,25 @@ much smaller signal beside the stream:
    (``PUT /events/stream/{stream_id}/watch``). The route admits only cards the
    caller may open through ``GET /cards/{id}`` — the same read gate — and the
    watch expires after ``WATCH_TTL_SECONDS`` unless the browser refreshes it.
-3. When ``event_bus.publish`` carries a ``card_id`` that somebody watches,
-   every watching stream receives ``{"event": "event.stream.card_changed",
-   "card_id", "timestamp"}`` — never the payload, the changes, the actor, the
-   batch or the original event type. The browser then re-reads the card
-   through the normal, permission-checked ``GET /cards/{id}``.
+3. When ``event_bus.publish`` carries a ``card_id``, every stream watching
+   that card when the change becomes visible receives
+   ``{"event": "event.stream.card_changed", "card_id", "timestamp"}`` — never
+   the payload, the changes, the actor, the batch or the original event type.
+   The browser then re-reads the card through the normal, permission-checked
+   ``GET /cards/{id}``.
 
-**Delivered after commit.** ``publish`` runs before the writer commits, so a
-ping sent from inside it would let the browser re-read data that is not
-committed yet (and may never be). ``note_change`` therefore only records the
-card id on the session; listeners on the ``Session`` class deliver it when the
-*outermost* transaction commits and drop it when the transaction rolls back or
-the session closes without committing. A change recorded inside a SAVEPOINT
+**Delivered after commit, to whoever watches at commit.** ``publish`` runs
+before the writer commits, so a ping sent from inside it would let the browser
+re-read data that is not committed yet (and may never be). ``note_change``
+therefore only records the card id on the session — always, whether or not
+anybody watches yet: a browser that opens the card during a long transaction
+(a bulk import, a sync, an extension's batch) reads the row as it was before,
+registers, and must still hear about the commit. The ids are a set per
+transaction level, so a 50,000-row import holding the same card many times
+records it once. Listeners on the ``Session`` class look the watchers up and
+deliver when the *outermost* transaction commits (one dict lookup per distinct
+id, none at all while nobody watches anything) and drop the ids when the
+transaction rolls back or the session closes without committing. A change recorded inside a SAVEPOINT
 (``begin_nested``) is delivered only when the outer transaction commits — a
 savepoint release fires ``after_commit`` too, which is why the listener checks
 ``in_nested_transaction()`` — and dropped when that savepoint, or any
@@ -40,8 +47,9 @@ never the subscriber.
 
 **What a watcher can learn.** Only that a card it could read when it
 registered the watch changed at some moment — at most for
-``WATCH_TTL_SECONDS`` after its last registration, after which a lost read
-right also ends the signal (re-registering re-checks it). A change to a
+``WATCH_TTL_SECONDS`` (five minutes) after its last registration, after which
+a lost read right also ends the signal (re-registering re-checks it; the
+browser re-registers at 80 % of the announced lifetime, one request per tab). A change to a
 relation whose other end the viewer may not read still pings the visible end
 (relation events are published once per end); the re-read then shows nothing
 the viewer could not already see. A stream belongs to the user who opened it:
@@ -67,7 +75,7 @@ from sqlalchemy.orm import Session, SessionTransaction
 
 HELLO_EVENT = "event.stream.hello"
 PING_EVENT = "event.stream.card_changed"
-WATCH_TTL_SECONDS = 1800
+WATCH_TTL_SECONDS = 300
 MAX_WATCHED_CARDS = 10
 
 _PENDING_KEY = "card_watch.pending"
@@ -246,12 +254,14 @@ def notify(card_id: uuid.UUID | str, *, now: float | None = None) -> int:
 def note_change(db: Any, card_id: uuid.UUID | str | None) -> None:
     """Record that ``card_id`` changed in ``db``'s transaction.
 
-    Delivered when the outermost transaction commits, dropped when the
+    Recorded whether or not anybody watches the card yet: the watchers are
+    looked up when the outermost transaction commits, so a watch registered
+    while the transaction runs still hears about it. Dropped when the
     transaction it was recorded in (or one around it) rolls back. ``db`` is an
-    ``AsyncSession`` or a ``Session``; ``None`` delivers at once. Costs one
-    dict lookup when nobody watches the card.
+    ``AsyncSession`` or a ``Session``; ``None`` delivers at once. Costs one set
+    insertion.
     """
-    if card_id is None or not watchers_exist(card_id):
+    if card_id is None:
         return
     cid = _as_uuid(card_id)
     if cid is None:
@@ -265,7 +275,10 @@ def note_change(db: Any, card_id: uuid.UUID | str | None) -> None:
         # Nothing is pending on this session: what changed is already visible.
         notify(cid)
         return
-    session.info.setdefault(_PENDING_KEY, []).append((cid, txn))
+    pending: dict[SessionTransaction, set[uuid.UUID]] = session.info.setdefault(
+        _PENDING_KEY, {}
+    )
+    pending.setdefault(txn, set()).add(cid)
 
 
 def _within(txn: SessionTransaction | None, ancestor: SessionTransaction) -> bool:
@@ -282,25 +295,32 @@ def _deliver_after_commit(session: Session) -> None:
     # makes the change visible to another connection.
     if session.in_nested_transaction():
         return
-    pending = session.info.pop(_PENDING_KEY, None)
-    if not pending:
+    pending: dict[SessionTransaction, set[uuid.UUID]] | None = session.info.pop(
+        _PENDING_KEY, None
+    )
+    # Nobody watches anything: nothing to look up.
+    if not pending or not _watchers:
         return
-    for cid in dict.fromkeys(cid for cid, _txn in pending):
-        notify(cid)
+    delivered: set[uuid.UUID] = set()
+    for ids in pending.values():
+        for cid in ids:
+            if cid in delivered:
+                continue
+            delivered.add(cid)
+            notify(cid)
 
 
 @sa_event.listens_for(Session, "after_soft_rollback")
 def _drop_rolled_back(session: Session, previous_transaction: SessionTransaction) -> None:
-    pending = session.info.get(_PENDING_KEY)
+    pending: dict[SessionTransaction, set[uuid.UUID]] | None = session.info.get(_PENDING_KEY)
     if not pending:
         return
     if previous_transaction.parent is None:
         session.info.pop(_PENDING_KEY, None)
         return
-    kept = [(cid, txn) for cid, txn in pending if not _within(txn, previous_transaction)]
-    if kept:
-        session.info[_PENDING_KEY] = kept
-    else:
+    for txn in [txn for txn in pending if _within(txn, previous_transaction)]:
+        del pending[txn]
+    if not pending:
         session.info.pop(_PENDING_KEY, None)
 
 

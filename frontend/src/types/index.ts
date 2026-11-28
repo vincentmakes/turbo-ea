@@ -3906,3 +3906,46 @@ export interface McpConnection {
   /** Present on `?everyone=true` (admin.mcp): who signed in, never more. */
   user?: { id: string; display_name: string };
 }
+
+// ---------------------------------------------------------------------------
+// Live card updates (`useEventStream`, `useCardWatch`, `useLiveCardUpdates`)
+// ---------------------------------------------------------------------------
+
+/** What the server said when this tab's event stream (re)connected. */
+export interface StreamHello {
+  /** Opaque id of THIS connection; a reconnect gets a new one. */
+  streamId: string;
+  /** How long a registered watch lives unless it is refreshed. */
+  watchTtlSeconds: number;
+  /** Increases by one per hello this tab ever received — never reset. */
+  seq: number;
+  /** True for every hello after the first one of the current stream. */
+  reconnect: boolean;
+}
+
+/** What `useLiveCardUpdates` hands its card page. */
+export interface LiveCardUpdates {
+  /**
+   * The viewer is about to write the card (or just did): a live re-read in
+   * flight may have read the card before that write landed, so it is dropped
+   * and asked again — the next one reads after the write.
+   */
+  supersede: () => void;
+  /**
+   * The viewer wrote something of this card from the page (a relation, a tag,
+   * the hierarchy) and the card itself has not been stored since: the next
+   * live re-read is that write coming back, so its score change plays like a
+   * save — from `anchor`, when given — instead of moving the baseline
+   * silently. Also supersedes a re-read in flight.
+   */
+  noteOwnWrite: (anchor?: string | null) => void;
+  /**
+   * Run a write of the host's own whose result the caller then stores
+   * (a PATCH, or a refetch after one): supersedes a live re-read in flight
+   * before and after it, and — the stored card carrying every own write so
+   * far — clears what `noteOwnWrite` recorded.
+   */
+  ownWrite: <T>(write: () => Promise<T>) => Promise<T>;
+  /** A stable per-key callback for a section's `onEditingChange`. */
+  editingCb: (key: string) => (editing: boolean) => void;
+}

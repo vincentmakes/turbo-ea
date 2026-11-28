@@ -239,7 +239,8 @@ describe("useEventStream", () => {
 
       esInstances[0].onmessage!(helloMsg("s-2"));
       const second = getLastStreamHello();
-      expect(second).toMatchObject({ streamId: "s-2", watchTtlSeconds: 1800, reconnect: true });
+      // No lifetime named: the server's own default, five minutes.
+      expect(second).toMatchObject({ streamId: "s-2", watchTtlSeconds: 300, reconnect: true });
       expect(second!.seq).toBe(first!.seq + 1);
 
       stopEventStream();
