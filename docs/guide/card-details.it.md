@@ -76,6 +76,8 @@ Quando una card approvata viene modificata, il suo stato cambia automaticamente 
 
 La scheda dettaglio è organizzata in **sezioni** che possono essere riordinate e configurate da un amministratore per ogni tipo di card (vedi [Editor layout card](../admin/metamodel.md#card-layout-editor)).
 
+Una card aperta si mantiene aggiornata da sola: quando un altro utente, un'integrazione o un'automazione la modifica, la pagina mostra i nuovi valori in un attimo, senza aggiornare. Ciò riguarda i campi propri della card (comprese le date derivate dalle sue relazioni) e le sezioni **Relazioni**, **Gerarchia** e **Lignaggio**. Una sezione che state modificando resta intatta finché non salvate o annullate, poi si allinea. Le schede — Cronologia, Stakeholder, Commenti e le altre — mostrano ciò che c'era quando le avete aperte; tornate sulla scheda o aggiornate la pagina per vedere le modifiche successive.
+
 ### Sezione Descrizione
 
 - **Descrizione** — Descrizione in testo ricco del componente. Supporta la funzionalità di suggerimento AI per la generazione automatica

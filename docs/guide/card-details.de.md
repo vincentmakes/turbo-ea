@@ -78,6 +78,8 @@ Wenn eine genehmigte Karte bearbeitet wird, ändert sich ihr Status automatisch 
 
 Der Detail-Tab ist in **Abschnitte** gegliedert, die pro Kartentyp von einem Administrator neu angeordnet und konfiguriert werden können (siehe [Karten-Layout-Editor](../admin/metamodel.md#card-layout-editor)).
 
+Eine geöffnete Karte hält sich selbst aktuell: Wenn ein anderer Benutzer, eine Integration oder eine Automatisierung sie ändert, zeigt die Seite die neuen Werte nach kurzer Zeit ohne Neuladen an. Das gilt für die eigenen Felder der Karte (einschließlich aus ihren Beziehungen abgeleiteter Datumsangaben) und für die Abschnitte **Beziehungen**, **Hierarchie** und **Herkunft**. Ein Abschnitt, den Sie gerade bearbeiten, bleibt unberührt, bis Sie speichern oder abbrechen, und zieht danach nach. Die Tabs – Verlauf, Stakeholder, Kommentare und die übrigen – zeigen den Stand zum Zeitpunkt des Öffnens; wechseln Sie zurück zum Tab oder laden Sie die Seite neu, um spätere Änderungen zu sehen.
+
 ### Beschreibungsabschnitt
 
 - **Beschreibung** — Rich-Text-Beschreibung der Komponente. Unterstützt die KI-Vorschlagsfunktion zur automatischen Generierung

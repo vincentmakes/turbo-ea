@@ -73,6 +73,8 @@ Når et godkendt kort redigeres, ændres dets status automatisk til **Broken** f
 
 Detalje-fanen er organiseret i **sektioner**, der kan omarrangeres og konfigureres af en administrator pr. korttype (se [Kortlayout-editor](../admin/metamodel.md#card-layout-editor)).
 
+Et åbent kort holder sig selv opdateret: når en anden bruger, en integration eller en automatisering ændrer det, viser siden de nye værdier på et øjeblik uden genindlæsning. Det gælder kortets egne felter (herunder datoer afledt af dets relationer) og sektionerne **Relationer**, **Hierarki** og **Aner**. En sektion, du redigerer, røres ikke, før du gemmer eller annullerer, og den opdateres derefter. Fanerne — Historik, Interessenter, Kommentarer og de øvrige — viser det, der var der, da du åbnede dem; skift tilbage til fanen eller genindlæs siden for at se senere ændringer.
+
 ### Beskrivelses-sektion
 
 - **Description** — Rich text-beskrivelse af komponenten. Understøtter AI-forslagsfunktionen til automatisk generering
